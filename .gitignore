@@ -21,3 +21,35 @@ claude_code-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Ignore .fetch files in case you like to edit your project deps locally.
+/.fetch
+
+# If NPM crashes, it generates a log, let's ignore it too.
+npm-debug.log
+
+# macOS
+.DS_Store
+
+# Editor directories and files
+.idea
+.vscode
+*.swp
+*.swo
+*~
+
+# Dialyzer
+/priv/plts/
+*.plt
+*.plt.hash
+
+# Test coverage
+/cover/
+/doc/
+
+# Environment variables
+.env
+.env.*
+
+# Mix lock file (you might want to commit this)
+# mix.lock
