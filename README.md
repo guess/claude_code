@@ -2,7 +2,7 @@
 
 An Elixir SDK for Claude Code - bringing AI-powered coding assistance to the Elixir ecosystem.
 
-> **Status**: Pre-alpha - This SDK is in early development. See our [Roadmap](ROADMAP.md) for implementation timeline.
+> **Status**: Alpha (Phase 1 Complete) - Basic functionality is working. See our [Roadmap](docs/ROADMAP.md) for implementation timeline.
 
 ## Project Overview
 
@@ -17,48 +17,109 @@ ClaudeCode is an idiomatic Elixir interface to the Claude Code CLI, designed to 
 
 ## Current Status
 
-As of now, the project structure has been initialized with:
+✅ **Phase 1 (MVP) is complete!** The SDK now provides:
+
+- Basic session management with GenServer
+- Synchronous query interface 
+- JSON message parsing from CLI stdout
+- Error handling for common cases
+- Comprehensive test suite
 
 ```
 claude_code/
-├── README.md          # This file
-├── VISION.md          # Future API documentation
-├── ROADMAP.md         # Implementation roadmap
 ├── lib/
-│   └── claude_code.ex # Main module (placeholder)
-├── mix.exs            # Project configuration
-└── test/
-    ├── claude_code_test.exs
-    └── test_helper.exs
+│   ├── claude_code.ex         # Main API module
+│   └── claude_code/
+│       ├── session.ex         # GenServer for CLI management
+│       ├── cli.ex            # CLI binary handling
+│       └── message.ex        # Message parsing
+├── test/
+│   ├── claude_code_test.exs
+│   └── claude_code/
+│       ├── session_test.exs
+│       ├── cli_test.exs
+│       ├── message_test.exs
+│       └── integration_test.exs
+└── docs/                      # Project documentation
 ```
+
+## Prerequisites
+
+Before using this SDK, you need to have the Claude Code CLI installed:
+
+1. **Install Claude Code CLI**:
+   - Visit [claude.ai/code](https://claude.ai/code)
+   - Follow the installation instructions for your platform
+   - Verify installation: `claude --version`
+
+2. **Get an API Key**:
+   - Sign up at [console.anthropic.com](https://console.anthropic.com)
+   - Create an API key
+   - Keep it secure!
 
 ## Installation
 
 > **Note**: This package is not yet published to Hex.pm
 
-For development, clone the repository:
+For now, you can use it directly from GitHub:
+
+```elixir
+# In your mix.exs
+def deps do
+  [
+    {:claude_code, github: "guess/claude_code", branch: "main"}
+  ]
+end
+```
+
+Then fetch dependencies:
 
 ```bash
-git clone https://github.com/yourusername/claude_code.git
-cd claude_code
 mix deps.get
+```
+
+## Quick Start
+
+```elixir
+# Start a Claude session
+{:ok, session} = ClaudeCode.start_link(
+  api_key: System.get_env("ANTHROPIC_API_KEY")
+)
+
+# Send a query and get a response
+{:ok, response} = ClaudeCode.query_sync(session, "Hello, Claude!")
+IO.puts(response)
+# => "Hello! How can I assist you today?"
+
+# Check if session is alive
+ClaudeCode.alive?(session)
+# => true
+
+# Stop the session when done
+ClaudeCode.stop(session)
 ```
 
 ## Development Setup
 
-1. Install the Claude Code CLI:
+1. Clone the repository:
    ```bash
-   npm install -g @anthropic-ai/claude-code
+   git clone https://github.com/guess/claude_code.git
+   cd claude_code
    ```
 
-2. Set your Anthropic API key:
+2. Install dependencies:
    ```bash
-   export ANTHROPIC_API_KEY="sk-ant-..."
+   mix deps.get
    ```
 
 3. Run tests:
    ```bash
    mix test
+   ```
+
+4. Run quality checks:
+   ```bash
+   mix quality  # Runs format check, credo, and dialyzer
    ```
 
 ## Contributing
@@ -79,15 +140,64 @@ We welcome contributions! The project is in its early stages, making it a great 
 - Update documentation as you go
 - Keep PRs focused and atomic
 
+## API Documentation
+
+### Starting a Session
+
+```elixir
+# Basic usage
+{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
+
+# With custom model
+{:ok, session} = ClaudeCode.start_link(
+  api_key: "sk-ant-...",
+  model: "claude-3-opus-20240229"
+)
+
+# Named session for easier reference
+{:ok, session} = ClaudeCode.start_link(
+  api_key: "sk-ant-...",
+  name: :my_claude
+)
+```
+
+### Making Queries
+
+```elixir
+# Synchronous query (blocks until complete)
+{:ok, response} = ClaudeCode.query_sync(session, "Explain GenServers")
+
+# With custom timeout (default is 60 seconds)
+{:ok, response} = ClaudeCode.query_sync(session, "Complex task", timeout: 120_000)
+
+# Handle errors
+case ClaudeCode.query_sync(session, prompt) do
+  {:ok, response} -> IO.puts(response)
+  {:error, :timeout} -> IO.puts("Request timed out")
+  {:error, {:cli_not_found, msg}} -> IO.puts("CLI error: #{msg}")
+  {:error, {:claude_error, msg}} -> IO.puts("Claude error: #{msg}")
+end
+```
+
+### Session Management
+
+```elixir
+# Check if a session is alive
+ClaudeCode.alive?(session)  # => true/false
+
+# Stop a session
+ClaudeCode.stop(session)
+```
+
 ## Roadmap Highlights
 
-### Phase 1: MVP (Current Focus)
-- [ ] Basic session management
-- [ ] Synchronous query interface
-- [ ] Simple text responses
-- [ ] Error handling
+### ✅ Phase 1: MVP (Complete)
+- [x] Basic session management
+- [x] Synchronous query interface
+- [x] Simple text responses
+- [x] Error handling
 
-### Phase 2: Message Types
+### Phase 2: Message Types (Next)
 - [ ] Parse all Claude message types
 - [ ] Content block handling
 - [ ] Pattern matching support
@@ -98,17 +208,69 @@ We welcome contributions! The project is in its early stages, making it a great 
 
 See the [Roadmap](docs/ROADMAP.md) for the complete implementation plan.
 
-## Example Usage (Future API)
+## Architecture
+
+The SDK uses a GenServer-based architecture where each Claude session is a separate process:
+
+```
+┌─────────────┐     ┌─────────────────┐     ┌──────────────┐
+│ Your Code   │────▶│ ClaudeCode API  │────▶│ Session      │
+└─────────────┘     └─────────────────┘     │ (GenServer)  │
+                                            └──────┬───────┘
+                                                   │
+                                            ┌──────▼───────┐
+                                            │ CLI Process  │
+                                            │ (Port)       │
+                                            └──────────────┘
+```
+
+- Each session spawns a new Claude CLI subprocess
+- Communication happens via JSON streaming over stdout
+- The CLI process exits after each query (stateless)
+- API keys are passed via environment variables for security
+
+## Testing
+
+The project includes comprehensive tests:
+
+```bash
+# Run all tests
+mix test
+
+# Run with coverage
+mix test --cover
+
+# Run only integration tests
+mix test --only integration
+```
+
+Tests use mock CLI scripts to simulate Claude behavior without requiring API access.
+
+## Troubleshooting
+
+### CLI Not Found
+
+If you get a `{:error, {:cli_not_found, _}}` error:
+
+1. Ensure Claude CLI is installed: `claude --version`
+2. Make sure `claude` is in your PATH
+3. Try running `ClaudeCode.CLI.validate_installation()` to debug
+
+### Authentication Errors
+
+If you get authentication errors:
+
+1. Check your API key is valid
+2. Ensure it's properly set: `export ANTHROPIC_API_KEY="sk-ant-..."`
+3. Try a simple test: `claude "Hello"`
+
+### Timeout Errors
+
+For long-running queries:
 
 ```elixir
-# Start a session
-{:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY")
-)
-
-# Query Claude
-{:ok, response} = ClaudeCode.query_sync(session, "Write a hello world function")
-IO.puts(response.content)
+# Increase the timeout (default is 60 seconds)
+{:ok, response} = ClaudeCode.query_sync(session, prompt, timeout: 300_000)
 ```
 
 ## Project Goals
