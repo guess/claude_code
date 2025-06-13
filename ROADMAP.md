@@ -32,7 +32,10 @@ end
 
 # lib/claude_code/cli.ex
 defmodule ClaudeCode.CLI do
-  # Handles CLI communication
+  # Handles CLI subprocess management
+  # - Finding claude binary
+  # - Building command arguments  
+  # - Port management
 end
 
 # lib/claude_code/message.ex
@@ -43,8 +46,9 @@ end
 
 ### Features
 - [x] Start a session with API key
-- [x] Send synchronous queries
-- [x] Parse text responses
+- [x] Find and validate claude CLI binary
+- [x] Send synchronous queries via subprocess
+- [x] Parse JSON responses from stdout
 - [x] Basic error handling (CLI not found, auth errors)
 - [x] Minimal options (model selection)
 
@@ -283,8 +287,8 @@ end
 ```
 
 ### Features
-- [x] Resume previous sessions
-- [x] Connection pooling for high concurrency
+- [x] Resume previous sessions (via --resume flag)
+- [x] Session pooling for high concurrency
 - [x] Pipeline composition helpers
 - [x] Conversation management
 
@@ -377,10 +381,11 @@ Each phase includes:
 4. **Concurrency** - Test high session counts
 
 ### Mitigation Strategies
-- Maintain compatibility matrix
+- Maintain compatibility matrix with CLI versions
 - Performance regression tests
 - Memory profiling in CI
 - Load testing suite
+- Mock CLI for predictable testing
 
 ## Success Metrics
 
@@ -417,7 +422,7 @@ Total: 3 months from start to 1.0 release
 
 ## Next Steps
 
-1. Set up project structure and CI
+1. Set up project structure and CI ✓
 2. Implement Phase 1 MVP
 3. Get early feedback from Elixir community
 4. Iterate based on real usage

@@ -1,0 +1,238 @@
+# ClaudeCode Elixir SDK Architecture
+
+## Overview
+
+The ClaudeCode Elixir SDK communicates with the Claude Code CLI (`claude` command) through a subprocess interface. The CLI handles all the complexity of communicating with Anthropic's API, while our SDK provides an idiomatic Elixir interface.
+
+## How It Works
+
+### 1. CLI Communication
+
+The SDK spawns the `claude` command as a subprocess with specific arguments:
+
+```bash
+claude --output-format stream-json --verbose --print "your prompt here"
+```
+
+Key CLI flags we'll use:
+- `--output-format stream-json`: Outputs JSON messages line by line
+- `--verbose`: Includes all message types in output
+- `--print`: Non-interactive mode, exits after completion
+- `--system-prompt`: Sets the system prompt
+- `--allowed-tools`: Comma-separated list of allowed tools
+- `--model`: Specifies the model to use
+- `--resume`: Resume a previous session by ID
+- `--continue`: Continue the most recent conversation
+
+### 2. Message Flow
+
+```
+Elixir SDK -> Spawns CLI subprocess -> CLI talks to Anthropic API
+     ^                                           |
+     |                                           v
+     +------ JSON messages over stdout ----------+
+```
+
+The CLI outputs newline-delimited JSON messages to stdout:
+- Each line is a complete JSON object
+- Messages represent different events (assistant messages, tool use, etc.)
+- The SDK parses these and converts them to Elixir structs
+
+### 3. Core Components
+
+#### Session GenServer (`ClaudeCode.Session`)
+```elixir
+defmodule ClaudeCode.Session do
+  use GenServer
+  
+  # State includes:
+  # - CLI process (Port)
+  # - Current options
+  # - Message buffer
+  # - Session ID
+end
+```
+
+#### CLI Module (`ClaudeCode.CLI`)
+```elixir
+defmodule ClaudeCode.CLI do
+  # Handles:
+  # - Finding the claude binary
+  # - Building command arguments
+  # - Spawning the process
+  # - Managing stdin/stdout/stderr
+end
+```
+
+#### Message Parser (`ClaudeCode.Parser`)
+```elixir
+defmodule ClaudeCode.Parser do
+  # Parses JSON lines into message structs:
+  # - AssistantMessage
+  # - ToolUseMessage
+  # - ResultMessage
+  # - etc.
+end
+```
+
+## Implementation Details
+
+### Process Management
+
+We'll use Elixir's `Port` for subprocess management:
+
+```elixir
+port = Port.open({:spawn_executable, cli_path}, [
+  :binary,
+  :exit_status,
+  :stderr_to_stdout,
+  :stream,
+  :hide,
+  args: build_args(options)
+])
+```
+
+### Streaming
+
+For streaming responses, we'll use Elixir's `Stream` module:
+
+```elixir
+def query(session, prompt) do
+  Stream.resource(
+    fn -> start_query(session, prompt) end,
+    fn state -> receive_next_message(state) end,
+    fn state -> cleanup(state) end
+  )
+end
+```
+
+### Error Handling
+
+The CLI can fail in several ways:
+1. **CLI not found**: Check common locations, provide installation instructions
+2. **Auth errors**: CLI will output error JSON
+3. **Process crashes**: Monitor subprocess, restart if needed
+4. **Rate limits**: Parse error messages, implement backoff
+
+### JSON Message Format
+
+Messages from the CLI look like:
+
+```json
+{"type": "message", "role": "assistant", "content": [{"type": "text", "text": "Hello!"}]}
+{"type": "tool_use", "id": "123", "name": "read_file", "input": {"path": "file.ex"}}
+{"type": "result", "tool_use_id": "123", "output": "file contents..."}
+```
+
+## Environment Setup
+
+### Finding the CLI
+
+The SDK will search for `claude` in:
+1. System PATH (via `System.find_executable/1`)
+2. Common npm global locations:
+   - `~/.npm-global/bin/claude`
+   - `/usr/local/bin/claude`
+   - `~/.local/bin/claude`
+3. Local node_modules:
+   - `./node_modules/.bin/claude`
+   - `~/node_modules/.bin/claude`
+
+### Environment Variables
+
+We'll pass through important environment variables:
+- `ANTHROPIC_API_KEY`: For authentication
+- `CLAUDE_CODE_ENTRYPOINT`: Set to "sdk-elixir" for telemetry
+
+## Session Management
+
+### Starting a Session
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  api_key: "sk-ant-...",
+  model: "claude-3-5-sonnet-20241022"
+)
+```
+
+This will:
+1. Start a GenServer
+2. Find the CLI binary
+3. Prepare command arguments
+4. Ready for queries (no subprocess yet)
+
+### Query Lifecycle
+
+1. **Query starts**: Spawn CLI subprocess with prompt
+2. **Stream messages**: Parse JSON lines as they arrive
+3. **Query ends**: CLI process exits, cleanup resources
+4. **Session continues**: GenServer stays alive for next query
+
+### Resuming Sessions
+
+The CLI supports resuming previous conversations:
+
+```elixir
+# Resume by session ID
+{:ok, session} = ClaudeCode.resume("session-123", api_key: key)
+
+# Continue most recent
+{:ok, session} = ClaudeCode.continue(api_key: key)
+```
+
+## Permissions
+
+The CLI has built-in permission handling, but we'll add an Elixir layer:
+
+```elixir
+defmodule MyHandler do
+  @behaviour ClaudeCode.PermissionHandler
+  
+  def handle_permission(tool, args, context) do
+    # Called when CLI would ask for permission
+    # Return :allow, {:deny, reason}, or {:confirm, prompt}
+  end
+end
+```
+
+## Testing Strategy
+
+### Unit Tests
+- Mock the Port for predictable message sequences
+- Test message parsing with fixture JSON
+- Test error handling scenarios
+
+### Integration Tests
+- Use a mock CLI script for full flow testing
+- Test real CLI if available (behind feature flag)
+
+### Example Mock CLI
+
+```bash
+#!/usr/bin/env bash
+# test/fixtures/mock_claude
+
+echo '{"type": "message", "role": "assistant", "content": [{"type": "text", "text": "Mock response"}]}'
+echo '{"type": "done"}'
+```
+
+## Performance Considerations
+
+1. **Process Pooling**: For high-concurrency apps, maintain a pool of sessions
+2. **Message Buffering**: Buffer incoming JSON lines for efficient parsing
+3. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
+4. **Subprocess Reuse**: Consider keeping CLI process alive between queries (if supported)
+
+## Security
+
+1. **API Key Handling**: Never log or expose API keys
+2. **Command Injection**: Use `Port.open` with explicit args list (no shell)
+3. **File Access**: Respect CLI's built-in file access controls
+4. **Process Isolation**: Each session runs in its own subprocess
+
+## Future Enhancements
+
+1. **Native Elixir Implementation**: Eventually bypass CLI for direct API calls
+2. **WebSocket Support**: If CLI adds WebSocket mode
+3. **Distributed Sessions**: Store session state in distributed cache
+4. **Hot Code Reloading**: Update SDK without dropping sessions
