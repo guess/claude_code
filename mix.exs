@@ -99,9 +99,12 @@ defmodule ClaudeCode.MixProject do
       source_url: @source_url,
       extras: [
         "README.md",
-        "ROADMAP.md",
-        "VISION.md",
-        "CHANGELOG.md"
+        "CHANGELOG.md",
+        "LICENSE",
+        "docs/ROADMAP.md",
+        "docs/VISION.md",
+        "docs/ARCHITECTURE.md",
+        "docs/DEV_SETUP.md"
       ],
       groups_for_modules: [
         "Core API": [

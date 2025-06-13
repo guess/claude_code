@@ -10,9 +10,10 @@ ClaudeCode is an idiomatic Elixir interface to the Claude Code CLI, designed to 
 
 ## Documentation
 
-- 📋 **[ROADMAP.md](ROADMAP.md)** - Implementation plan and timeline
-- 🔮 **[VISION.md](VISION.md)** - Complete API documentation and future features
-- 🏗️ **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical design decisions (coming soon)
+- 📋 **[Roadmap](docs/ROADMAP.md)** - Implementation plan and timeline
+- 🔮 **[Vision](docs/VISION.md)** - Complete API documentation and future features
+- 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - Technical design decisions
+- 🛠️ **[Development Setup](docs/DEV_SETUP.md)** - Developer environment guide
 
 ## Current Status
 
@@ -66,7 +67,7 @@ We welcome contributions! The project is in its early stages, making it a great 
 
 ### Getting Started
 
-1. Check the [ROADMAP.md](ROADMAP.md) for current development phase
+1. Check the [Roadmap](docs/ROADMAP.md) for current development phase
 2. Pick an unimplemented feature from the current or next phase
 3. Open an issue to discuss your approach
 4. Submit a PR with tests and documentation
@@ -95,7 +96,7 @@ We welcome contributions! The project is in its early stages, making it a great 
 - [ ] Native Elixir streams
 - [ ] Real-time response handling
 
-See [ROADMAP.md](ROADMAP.md) for the complete implementation plan.
+See the [Roadmap](docs/ROADMAP.md) for the complete implementation plan.
 
 ## Example Usage (Future API)
 
