@@ -57,7 +57,7 @@ defmodule ClaudeCode.CLI do
         # Try to run claude --version to verify it's working
         case System.cmd(path, ["--version"], stderr_to_stdout: true) do
           {output, 0} ->
-            if String.contains?(output, "claude") do
+            if String.contains?(output, "Claude Code") do
               :ok
             else
               {:error, {:invalid_binary, "Binary at #{path} does not appear to be Claude CLI"}}
