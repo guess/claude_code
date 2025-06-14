@@ -63,7 +63,7 @@ defmodule ClaudeCode.CLITest do
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          "claude-3-5-haiku-20241022",
+          "sonnet",
           []
         )
 
@@ -73,7 +73,7 @@ defmodule ClaudeCode.CLITest do
       assert "--verbose" in args
       assert "--print" in args
       assert "--model" in args
-      assert "claude-3-5-haiku-20241022" in args
+      assert "sonnet" in args
       assert "test prompt" in args
     end
 

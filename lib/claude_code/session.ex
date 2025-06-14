@@ -15,7 +15,7 @@ defmodule ClaudeCode.Session do
 
   defstruct [:port, :api_key, :model, :buffer, :pending_requests]
 
-  @default_model "claude-3-5-haiku-20241022"
+  @default_model "sonnet"
 
   # Client API
 

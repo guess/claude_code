@@ -24,7 +24,7 @@ defmodule ClaudeCode do
   ## Options
 
     * `:api_key` - Required. Your Anthropic API key
-    * `:model` - Optional. The model to use (defaults to claude-3-5-haiku-20241022)
+    * `:model` - Optional. The model to use (defaults to sonnet)
     * `:name` - Optional. A name to register the session under
 
   ## Examples
