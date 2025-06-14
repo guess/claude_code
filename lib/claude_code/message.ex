@@ -1,72 +1,105 @@
 defmodule ClaudeCode.Message do
   @moduledoc """
-  Defines message structures for Claude Code communication.
-
-  This module provides structs and functions for handling the various
-  message types that flow between the SDK and the Claude CLI.
+  Utilities for working with messages from the Claude CLI.
+  
+  Messages can be system initialization, assistant responses, user tool results,
+  or final result messages. This module provides functions to parse and work with
+  any message type.
   """
-
+  
+  alias ClaudeCode.Message.{System, Assistant, User, Result}
+  
+  @type t :: System.t() | Assistant.t() | User.t() | Result.t()
+  
   @doc """
-  Represents a message from Claude (assistant).
-
-  For Phase 1, we store the entire content as a string.
-  In Phase 2, this will be enhanced to handle content blocks.
+  Parses a message from JSON data based on its type.
+  
+  ## Examples
+  
+      iex> Message.parse(%{"type" => "system", ...})
+      {:ok, %System{...}}
+      
+      iex> Message.parse(%{"type" => "unknown"})
+      {:error, {:unknown_message_type, "unknown"}}
   """
-  defstruct [:type, :content, :metadata]
-
-  @type t :: %__MODULE__{
-          type: atom(),
-          content: String.t(),
-          metadata: map()
-        }
-
+  @spec parse(map()) :: {:ok, t()} | {:error, term()}
+  def parse(%{"type" => type} = data) do
+    case type do
+      "system" -> System.new(data)
+      "assistant" -> Assistant.new(data)
+      "user" -> User.new(data)
+      "result" -> Result.new(data)
+      other -> {:error, {:unknown_message_type, other}}
+    end
+  end
+  
+  def parse(_), do: {:error, :missing_type}
+  
   @doc """
-  Creates a new message struct from parsed JSON data.
+  Parses a list of messages.
+  
+  Returns {:ok, messages} if all messages parse successfully,
+  or {:error, {:parse_error, index, error}} for the first failure.
   """
-  @spec from_json(map()) :: t()
-  def from_json(%{"type" => "assistant", "message" => message} = json) do
-    # Extract text content from the assistant message structure
-    content =
-      case message do
-        %{"content" => [%{"text" => text} | _]} -> text
-        _ -> ""
+  @spec parse_all(list(map())) :: {:ok, [t()]} | {:error, term()}
+  def parse_all(messages) when is_list(messages) do
+    messages
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {message, index}, {:ok, acc} ->
+      case parse(message) do
+        {:ok, parsed} -> {:cont, {:ok, [parsed | acc]}}
+        {:error, error} -> {:halt, {:error, {:parse_error, index, error}}}
       end
-
-    %__MODULE__{
-      type: :assistant,
-      content: content,
-      metadata: Map.drop(json, ["type", "message"])
-    }
+    end)
+    |> case do
+      {:ok, parsed} -> {:ok, Enum.reverse(parsed)}
+      error -> error
+    end
   end
-
-  def from_json(%{"type" => "error", "message" => message} = json) do
-    %__MODULE__{
-      type: :error,
-      content: message,
-      metadata: Map.drop(json, ["type", "message"])
-    }
-  end
-
-  def from_json(%{"type" => type} = json) do
-    # Generic handler for other message types
-    %__MODULE__{
-      type: String.to_atom(type),
-      content: Map.get(json, "content", ""),
-      metadata: Map.drop(json, ["type", "content"])
-    }
-  end
-
+  
   @doc """
-  Checks if a message is an error message.
+  Parses a newline-delimited JSON stream from the CLI.
+  
+  This is the format output by the CLI with --output-format stream-json.
   """
-  @spec error?(t()) :: boolean()
-  def error?(%__MODULE__{type: :error}), do: true
-  def error?(_), do: false
-
+  @spec parse_stream(String.t()) :: {:ok, [t()]} | {:error, term()}
+  def parse_stream(stream) when is_binary(stream) do
+    stream
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {line, index}, {:ok, acc} ->
+      case Jason.decode(line) do
+        {:ok, json} ->
+          case parse(json) do
+            {:ok, message} -> {:cont, {:ok, [message | acc]}}
+            {:error, error} -> {:halt, {:error, {:parse_error, index, error}}}
+          end
+        {:error, error} ->
+          {:halt, {:error, {:json_decode_error, index, error}}}
+      end
+    end)
+    |> case do
+      {:ok, messages} -> {:ok, Enum.reverse(messages)}
+      error -> error
+    end
+  end
+  
   @doc """
-  Checks if a message is from the assistant.
+  Checks if a value is any type of message.
   """
-  @spec assistant?(t()) :: boolean()
-  def assistant?(%__MODULE__{type: :assistant}), do: true
-  def assistant?(_), do: false
+  @spec is_message?(any()) :: boolean()
+  def is_message?(%System{}), do: true
+  def is_message?(%Assistant{}), do: true
+  def is_message?(%User{}), do: true
+  def is_message?(%Result{}), do: true
+  def is_message?(_), do: false
+  
+  @doc """
+  Returns the type of a message.
+  """
+  @spec message_type(t()) :: :system | :assistant | :user | :result
+  def message_type(%System{type: type}), do: type
+  def message_type(%Assistant{type: type}), do: type
+  def message_type(%User{type: type}), do: type
+  def message_type(%Result{type: type}), do: type
 end

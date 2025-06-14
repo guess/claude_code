@@ -1,89 +1,268 @@
 defmodule ClaudeCode.MessageTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.{System, Assistant, User, Result}
 
-  describe "from_json/1" do
-    test "parses assistant message" do
-      json = %{
+  describe "parse/1" do
+    test "parses system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "init",
+        "cwd" => "/test",
+        "session_id" => "123",
+        "tools" => [],
+        "mcp_servers" => [],
+        "model" => "claude",
+        "permissionMode" => "default",
+        "apiKeySource" => "env"
+      }
+      
+      assert {:ok, %System{}} = Message.parse(data)
+    end
+
+    test "parses assistant messages" do
+      data = %{
         "type" => "assistant",
         "message" => %{
-          "content" => [%{"text" => "Hello, I'm Claude!", "type" => "text"}],
-          "id" => "msg_123"
+          "id" => "msg_123",
+          "type" => "message",
+          "role" => "assistant",
+          "model" => "claude",
+          "content" => [%{"type" => "text", "text" => "Hello"}],
+          "stop_reason" => nil,
+          "stop_sequence" => nil,
+          "usage" => %{
+            "input_tokens" => 1,
+            "cache_creation_input_tokens" => 0,
+            "cache_read_input_tokens" => 0,
+            "output_tokens" => 1,
+            "service_tier" => "standard"
+          }
         },
-        "session_id" => "test-123"
+        "parent_tool_use_id" => nil,
+        "session_id" => "123"
       }
-
-      message = Message.from_json(json)
-
-      assert message.type == :assistant
-      assert message.content == "Hello, I'm Claude!"
-      assert message.metadata == %{"session_id" => "test-123"}
+      
+      assert {:ok, %Assistant{}} = Message.parse(data)
     end
 
-    test "parses error message" do
-      json = %{
-        "type" => "error",
-        "message" => "Something went wrong",
-        "code" => "ERR_001"
+    test "parses user messages" do
+      data = %{
+        "type" => "user",
+        "message" => %{
+          "role" => "user",
+          "content" => [
+            %{
+              "type" => "tool_result",
+              "tool_use_id" => "123",
+              "content" => "OK"
+            }
+          ]
+        },
+        "parent_tool_use_id" => nil,
+        "session_id" => "123"
       }
-
-      message = Message.from_json(json)
-
-      assert message.type == :error
-      assert message.content == "Something went wrong"
-      assert message.metadata == %{"code" => "ERR_001"}
+      
+      assert {:ok, %User{}} = Message.parse(data)
     end
 
-    test "parses generic message type" do
-      json = %{
-        "type" => "tool_use",
-        "content" => "Using a tool",
-        "tool" => "calculator"
+    test "parses result messages" do
+      data = %{
+        "type" => "result",
+        "subtype" => "success",
+        "is_error" => false,
+        "duration_ms" => 100,
+        "duration_api_ms" => 90,
+        "num_turns" => 1,
+        "result" => "Done",
+        "session_id" => "123",
+        "total_cost_usd" => 0.001,
+        "usage" => %{
+          "input_tokens" => 10,
+          "cache_creation_input_tokens" => 0,
+          "cache_read_input_tokens" => 0,
+          "output_tokens" => 5,
+          "server_tool_use" => %{"web_search_requests" => 0}
+        }
       }
-
-      message = Message.from_json(json)
-
-      assert message.type == :tool_use
-      assert message.content == "Using a tool"
-      assert message.metadata == %{"tool" => "calculator"}
+      
+      assert {:ok, %Result{}} = Message.parse(data)
     end
 
-    test "handles missing content field" do
-      json = %{
-        "type" => "status",
-        "status" => "ready"
-      }
+    test "returns error for unknown message type" do
+      data = %{"type" => "unknown"}
+      assert {:error, {:unknown_message_type, "unknown"}} = Message.parse(data)
+    end
 
-      message = Message.from_json(json)
-
-      assert message.type == :status
-      assert message.content == ""
-      assert message.metadata == %{"status" => "ready"}
+    test "returns error for missing type" do
+      data = %{"subtype" => "init"}
+      assert {:error, :missing_type} = Message.parse(data)
     end
   end
 
-  describe "error?/1" do
-    test "returns true for error messages" do
-      message = %Message{type: :error, content: "Error", metadata: %{}}
-      assert Message.error?(message)
+  describe "parse_all/1" do
+    test "parses a list of messages" do
+      data = [
+        %{
+          "type" => "system",
+          "subtype" => "init",
+          "cwd" => "/test",
+          "session_id" => "123",
+          "tools" => [],
+          "mcp_servers" => [],
+          "model" => "claude",
+          "permissionMode" => "default",
+          "apiKeySource" => "env"
+        },
+        %{
+          "type" => "assistant",
+          "message" => %{
+            "id" => "msg_123",
+            "type" => "message",
+            "role" => "assistant",
+            "model" => "claude",
+            "content" => [%{"type" => "text", "text" => "Hi"}],
+            "stop_reason" => nil,
+            "stop_sequence" => nil,
+            "usage" => %{
+              "input_tokens" => 1,
+              "cache_creation_input_tokens" => 0,
+              "cache_read_input_tokens" => 0,
+              "output_tokens" => 1,
+              "service_tier" => "standard"
+            }
+          },
+          "parent_tool_use_id" => nil,
+          "session_id" => "123"
+        },
+        %{
+          "type" => "result",
+          "subtype" => "success",
+          "is_error" => false,
+          "duration_ms" => 100,
+          "duration_api_ms" => 90,
+          "num_turns" => 1,
+          "result" => "Hi",
+          "session_id" => "123",
+          "total_cost_usd" => 0.001,
+          "usage" => %{
+            "input_tokens" => 1,
+            "cache_creation_input_tokens" => 0,
+            "cache_read_input_tokens" => 0,
+            "output_tokens" => 1,
+            "server_tool_use" => %{"web_search_requests" => 0}
+          }
+        }
+      ]
+      
+      assert {:ok, [%System{}, %Assistant{}, %Result{}]} = Message.parse_all(data)
     end
 
-    test "returns false for non-error messages" do
-      message = %Message{type: :assistant, content: "Hello", metadata: %{}}
-      refute Message.error?(message)
+    test "returns error if any message fails to parse" do
+      data = [
+        %{"type" => "system", "subtype" => "init"}, # Missing required fields
+        %{"type" => "assistant"}
+      ]
+      
+      assert {:error, {:parse_error, 0, _}} = Message.parse_all(data)
+    end
+
+    test "handles empty list" do
+      assert {:ok, []} = Message.parse_all([])
     end
   end
 
-  describe "assistant?/1" do
-    test "returns true for assistant messages" do
-      message = %Message{type: :assistant, content: "Hello", metadata: %{}}
-      assert Message.assistant?(message)
+  describe "parse_stream/1" do
+    test "parses newline-delimited JSON stream" do
+      stream = """
+      {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
+      {"type":"assistant","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"service_tier":"standard"}},"parent_tool_use_id":null,"session_id":"123"}
+      {"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Hello","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
+      """
+      
+      assert {:ok, messages} = Message.parse_stream(stream)
+      assert length(messages) == 3
+      assert [%System{}, %Assistant{}, %Result{}] = messages
     end
 
-    test "returns false for non-assistant messages" do
-      message = %Message{type: :error, content: "Error", metadata: %{}}
-      refute Message.assistant?(message)
+    test "handles empty lines in stream" do
+      stream = """
+      {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
+
+      {"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Done","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
+      """
+      
+      assert {:ok, messages} = Message.parse_stream(stream)
+      assert length(messages) == 2
+    end
+
+    test "returns error for invalid JSON in stream" do
+      stream = """
+      {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
+      {invalid json}
+      """
+      
+      assert {:error, {:json_decode_error, 1, _}} = Message.parse_stream(stream)
+    end
+  end
+
+  describe "type detection" do
+    test "is_message?/1 returns true for any message type" do
+      {:ok, system} = System.new(%{
+        "type" => "system",
+        "subtype" => "init",
+        "cwd" => "/",
+        "session_id" => "1",
+        "tools" => [],
+        "mcp_servers" => [],
+        "model" => "claude",
+        "permissionMode" => "default",
+        "apiKeySource" => "env"
+      })
+      
+      assert Message.is_message?(system)
+    end
+
+    test "is_message?/1 returns false for non-messages" do
+      refute Message.is_message?(%{})
+      refute Message.is_message?("string")
+      refute Message.is_message?(nil)
+    end
+  end
+
+  describe "message type helpers" do
+    test "message_type/1 returns the type of message" do
+      {:ok, system} = System.new(%{
+        "type" => "system",
+        "subtype" => "init",
+        "cwd" => "/",
+        "session_id" => "1",
+        "tools" => [],
+        "mcp_servers" => [],
+        "model" => "claude",
+        "permissionMode" => "default",
+        "apiKeySource" => "env"
+      })
+      
+      assert Message.message_type(system) == :system
+    end
+  end
+
+  describe "from fixture" do
+    test "parses all messages from a real CLI session" do
+      fixture_path = "test/fixtures/cli_messages/simple_hello.json"
+      content = File.read!(fixture_path)
+      
+      assert {:ok, messages} = Message.parse_stream(content)
+      assert length(messages) == 3
+      
+      assert [%System{}, %Assistant{}, %Result{}] = messages
+      
+      # Verify session IDs match
+      [system, assistant, result] = messages
+      assert system.session_id == assistant.session_id
+      assert assistant.session_id == result.session_id
     end
   end
 end
