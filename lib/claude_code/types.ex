@@ -5,6 +5,8 @@ defmodule ClaudeCode.Types do
   These types match the official Claude SDK schema for messages
   returned from the CLI with --output-format stream-json.
   """
+  
+  alias ClaudeCode.Content
 
   @type model :: String.t()
 
@@ -35,37 +37,13 @@ defmodule ClaudeCode.Types do
           status: String.t()
         }
 
-  @type message_content :: String.t() | [content_block()]
-
-  @type content_block ::
-          text_block()
-          | tool_use_block()
-          | tool_result_block()
-
-  @type text_block :: %{
-          type: :text,
-          text: String.t()
-        }
-
-  @type tool_use_block :: %{
-          type: :tool_use,
-          id: String.t(),
-          name: String.t(),
-          input: term()
-        }
-
-  @type tool_result_block :: %{
-          type: :tool_result,
-          tool_use_id: String.t(),
-          content: String.t() | [text_block()],
-          is_error: boolean() | nil
-        }
+  @type message_content :: String.t() | [Content.t()]
 
   @type message :: %{
           id: String.t(),
           type: :message,
           role: role(),
-          content: [content_block()],
+          content: [Content.t()],
           model: model(),
           stop_reason: stop_reason(),
           stop_sequence: String.t() | nil,
