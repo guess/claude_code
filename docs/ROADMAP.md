@@ -12,9 +12,16 @@ This document outlines the implementation strategy for the ClaudeCode Elixir SDK
 4. **Document as We Go** - Keep documentation current with implementation
 5. **Real-World Usage** - Each phase should be usable in production
 
-## Phase 1: MVP - Basic Query Interface (Week 1)
+## Phase 1: MVP - Basic Query Interface (Week 1) ✅
 
 **Goal**: Developers can start a session and query Claude synchronously
+
+**Status**: COMPLETED
+
+**Key Findings**:
+- CLI requires shell wrapper with stdin redirect to prevent hanging
+- CLI outputs three message types: system (init), assistant (streaming), result (final)
+- Response content is in the result message's "result" field
 
 ### Core Components
 
@@ -48,7 +55,7 @@ end
 - [x] Start a session with API key
 - [x] Find and validate claude CLI binary
 - [x] Send synchronous queries via subprocess
-- [x] Parse JSON responses from stdout
+- [x] Parse JSON responses from stdout (system, assistant, result messages)
 - [x] Basic error handling (CLI not found, auth errors)
 - [x] Minimal options (model selection)
 
@@ -56,13 +63,15 @@ end
 ```elixir
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 {:ok, response} = ClaudeCode.query_sync(session, "Hello, Claude!")
-IO.puts(response.content)
+IO.puts(response)
 ```
 
 ### Tests
 - Session lifecycle (start/stop)
 - Basic query/response
 - Error cases (invalid API key, CLI missing)
+- Shell command building with special characters
+- Message parsing for all CLI output types
 
 ## Phase 2: Message Types & Content Blocks (Week 2)
 

@@ -8,11 +8,14 @@ The ClaudeCode Elixir SDK communicates with the Claude Code CLI (`claude` comman
 
 ### 1. CLI Communication
 
-The SDK spawns the `claude` command as a subprocess with specific arguments:
+The SDK spawns the `claude` command as a subprocess using a shell wrapper to prevent hanging:
 
 ```bash
-claude --output-format stream-json --verbose --print "your prompt here"
+(/bin/sh -c "(ANTHROPIC_API_KEY='...' claude --output-format stream-json --verbose --print 'your prompt here'
+) </dev/null")
 ```
+
+This approach ensures proper TTY handling and prevents the CLI from buffering output.
 
 Key CLI flags we'll use:
 - `--output-format stream-json`: Outputs JSON messages line by line
@@ -35,8 +38,11 @@ Elixir SDK -> Spawns CLI subprocess -> CLI talks to Anthropic API
 
 The CLI outputs newline-delimited JSON messages to stdout:
 - Each line is a complete JSON object
-- Messages represent different events (assistant messages, tool use, etc.)
-- The SDK parses these and converts them to Elixir structs
+- Three main message types in a typical query:
+  - `system` (type: "system") - Initialization info with tools and session ID
+  - `assistant` (type: "assistant") - Streaming response chunks
+  - `result` (type: "result") - Final complete response with metadata
+- The SDK parses these and extracts the final response from the result message
 
 ### 3. Core Components
 

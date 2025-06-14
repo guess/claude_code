@@ -33,12 +33,12 @@ mix docs             # Generate documentation
 
 ## Architecture
 
-The SDK works by spawning the Claude Code CLI (`claude` command) as a subprocess:
+The SDK works by spawning the Claude Code CLI (`claude` command) as a subprocess using a shell wrapper:
 
 1. **ClaudeCode.Session** - GenServer that manages the CLI subprocess lifecycle
 2. **ClaudeCode.CLI** - Finds the claude binary and builds command arguments
-3. **Port** - Elixir's subprocess management, communicates via stdout/stderr
-4. **JSON Streaming** - CLI outputs newline-delimited JSON messages
+3. **Port** - Uses shell wrapper (`/bin/sh -c`) to prevent CLI hanging
+4. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
 
 Key CLI flags used:
 - `--output-format stream-json` - Get structured JSON output
@@ -47,11 +47,15 @@ Key CLI flags used:
 
 ## Current Implementation Status
 
-The project is in Phase 1 (MVP) of the roadmap. Focus areas:
+Phase 1 (MVP) is COMPLETE! ✅
+
+Implemented:
 - Basic session management with GenServer
 - Synchronous query interface
-- JSON message parsing from CLI stdout
+- JSON message parsing from CLI stdout (system, assistant, result messages)
 - Error handling for CLI not found and auth errors
+- Shell wrapper to prevent CLI hanging
+- Proper message extraction from result messages
 
 ## Testing Approach
 
@@ -65,7 +69,9 @@ The project is in Phase 1 (MVP) of the roadmap. Focus areas:
 - The SDK does NOT make direct API calls - all API communication is handled by the CLI
 - Each query spawns a new CLI subprocess (the CLI exits after each query)
 - API keys are passed via environment variables, never in command arguments
-- Use `Port.open` with explicit args list to prevent command injection
+- CLI requires shell wrapper with stdin redirect to prevent hanging
+- Response content comes from the "result" message, not "assistant" messages
+- Uses `/bin/sh -c` with proper shell escaping for special characters
 
 ## File Structure
 
