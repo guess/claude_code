@@ -2,7 +2,7 @@
 
 An Elixir SDK for Claude Code - bringing AI-powered coding assistance to the Elixir ecosystem.
 
-> **Status**: Alpha (Phase 1 Complete) - Basic functionality is working. See our [Roadmap](docs/ROADMAP.md) for implementation timeline.
+> **Status**: Alpha (Phase 2 Complete) - Message types and content blocks are fully implemented with SDK-compliant schema. See our [Roadmap](docs/ROADMAP.md) for implementation timeline.
 
 ## Project Overview
 
@@ -17,12 +17,15 @@ ClaudeCode is an idiomatic Elixir interface to the Claude Code CLI, designed to 
 
 ## Current Status
 
-✅ **Phase 1 (MVP) is complete!** The SDK now provides:
+✅ **Phase 2 is complete!** The SDK now provides:
 
 - Basic session management with GenServer
 - Synchronous query interface 
-- JSON message parsing from CLI stdout
-- Error handling for common cases
+- Full message type parsing (System, Assistant, User, Result) matching official SDK schema
+- Content block handling (Text, ToolUse, ToolResult) with proper struct types
+- Nested message structure for Assistant/User messages as per SDK spec
+- Pattern matching support for all message types
+- Error handling with proper Result subtypes (error_max_turns, error_during_execution)
 - Comprehensive test suite
 
 ```
@@ -32,14 +35,27 @@ claude_code/
 │   └── claude_code/
 │       ├── session.ex         # GenServer for CLI management
 │       ├── cli.ex            # CLI binary handling
-│       └── message.ex        # Message parsing
+│       ├── message.ex        # Unified message parsing
+│       ├── content.ex        # Content block parsing
+│       ├── types.ex          # Type definitions matching SDK schema
+│       ├── message/
+│       │   ├── system.ex     # System message type
+│       │   ├── assistant.ex  # Assistant message type (nested structure)
+│       │   ├── user.ex       # User message type (nested structure)
+│       │   └── result.ex     # Result message type with proper subtypes
+│       └── content/
+│           ├── text.ex       # Text content blocks
+│           ├── tool_use.ex   # Tool use blocks
+│           └── tool_result.ex # Tool result blocks
 ├── test/
 │   ├── claude_code_test.exs
 │   └── claude_code/
 │       ├── session_test.exs
 │       ├── cli_test.exs
 │       ├── message_test.exs
-│       └── integration_test.exs
+│       ├── content_test.exs
+│       ├── integration_test.exs
+│       └── (matching test structure)
 └── docs/                      # Project documentation
 ```
 
@@ -197,12 +213,12 @@ ClaudeCode.stop(session)
 - [x] Simple text responses
 - [x] Error handling
 
-### Phase 2: Message Types (Next)
-- [ ] Parse all Claude message types
-- [ ] Content block handling
-- [ ] Pattern matching support
+### ✅ Phase 2: Message Types (Complete)
+- [x] Parse all Claude message types
+- [x] Content block handling
+- [x] Pattern matching support
 
-### Phase 3: Streaming
+### Phase 3: Streaming (Next)
 - [ ] Native Elixir streams
 - [ ] Real-time response handling
 

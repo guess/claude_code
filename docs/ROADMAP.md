@@ -1,5 +1,13 @@
 # ClaudeCode Elixir SDK Implementation Plan
 
+## Recent Updates (December 2024)
+
+- **Phase 2 Completed**: Refactored message types to match official Claude Code SDK schema
+  - Assistant/User messages now use nested structure with `message` field
+  - Result messages use proper subtypes (`:error_max_turns`, `:error_during_execution`)
+  - Content blocks use structs (`Content.Text`, `Content.ToolUse`, `Content.ToolResult`) instead of plain maps
+  - Added `ClaudeCode.Types` module for centralized type definitions
+
 ## Overview
 
 This document outlines the implementation strategy for the ClaudeCode Elixir SDK. The plan is structured to deliver value incrementally, starting with a minimal viable product (MVP) that provides core functionality, then building up to the full feature set described in the README.
@@ -41,7 +49,7 @@ end
 defmodule ClaudeCode.CLI do
   # Handles CLI subprocess management
   # - Finding claude binary
-  # - Building command arguments  
+  # - Building command arguments
   # - Port management
 end
 
@@ -73,27 +81,38 @@ IO.puts(response)
 - Shell command building with special characters
 - Message parsing for all CLI output types
 
-## Phase 2: Message Types & Content Blocks (Week 2)
+## Phase 2: Message Types & Content Blocks (Week 2) ✅
 
 **Goal**: Properly parse and handle all message types from Claude
 
+**Status**: COMPLETED
+
+**Key Updates**:
+- Refactored to match official SDK schema exactly
+- Assistant and User messages now nest data under 'message' field
+- Result subtypes standardized (error_max_turns, error_during_execution)
+- Content blocks use proper structs instead of plain maps
+- Added Types module for centralized type definitions
+
 ### New Components
 ```elixir
-# lib/claude_code/message/assistant_message.ex
-# lib/claude_code/message/user_message.ex
-# lib/claude_code/message/tool_use_message.ex
-# lib/claude_code/message/result_message.ex
+# lib/claude_code/types.ex - Type definitions matching SDK
+# lib/claude_code/message/system.ex
+# lib/claude_code/message/assistant.ex - Nested structure
+# lib/claude_code/message/user.ex - Nested structure
+# lib/claude_code/message/result.ex - Proper subtypes
 
-# lib/claude_code/content/text_block.ex
-# lib/claude_code/content/tool_use_block.ex
-# lib/claude_code/content/tool_result_block.ex
+# lib/claude_code/content/text.ex
+# lib/claude_code/content/tool_use.ex
+# lib/claude_code/content/tool_result.ex
 ```
 
 ### Features
-- [x] Parse all message types
-- [x] Handle content blocks within messages
-- [x] Pattern matching support
+- [x] Parse all message types with SDK-compliant schema
+- [x] Handle content blocks within messages using structs
+- [x] Pattern matching support for nested structures
 - [x] Tool use detection
+- [x] Type safety with proper Elixir typespecs
 
 ### Example Usage
 ```elixir
@@ -120,10 +139,10 @@ end
 ```
 
 ### Features
-- [x] Streaming query interface
-- [x] Lazy evaluation with Elixir streams
-- [x] Backpressure handling
-- [x] Stream interruption
+- [ ] Streaming query interface
+- [ ] Lazy evaluation with Elixir streams
+- [ ] Backpressure handling
+- [ ] Stream interruption
 
 ### Example Usage
 ```elixir
@@ -153,10 +172,10 @@ end
 ```
 
 ### Features
-- [x] Full options support
-- [x] Per-query option overrides
-- [x] Global configuration via Application env
-- [x] Option validation
+- [ ] Full options support
+- [ ] Per-query option overrides
+- [ ] Global configuration via Application env
+- [ ] Option validation
 
 ### Example Usage
 ```elixir
@@ -195,7 +214,7 @@ end
 ```elixir
 defmodule MyHandler do
   @behaviour ClaudeCode.PermissionHandler
-  
+
   def handle_permission(:write, %{path: path}, _) do
     if path =~ ~r/\.env/, do: {:deny, "No env files"}, else: :allow
   end
