@@ -4,7 +4,24 @@ defmodule ClaudeCode.Message.System do
 
   System messages are initialization messages that provide session setup information
   including available tools, MCP servers, model, and permission mode.
+
+  Matches the official SDK schema:
+  ```
+  {
+    type: "system",
+    subtype: "init",
+    apiKeySource: string,
+    cwd: string,
+    session_id: string,
+    tools: string[],
+    mcp_servers: { name: string, status: string }[],
+    model: string,
+    permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan"
+  }
+  ```
   """
+
+  alias ClaudeCode.Types
 
   @enforce_keys [:type, :subtype, :cwd, :session_id, :tools, :mcp_servers, :model, :permission_mode, :api_key_source]
   defstruct [
@@ -23,17 +40,12 @@ defmodule ClaudeCode.Message.System do
           type: :system,
           subtype: :init,
           cwd: String.t(),
-          session_id: String.t(),
+          session_id: Types.session_id(),
           tools: [String.t()],
-          mcp_servers: [mcp_server()],
-          model: String.t(),
-          permission_mode: :default | :bypass_permissions,
+          mcp_servers: [Types.mcp_server()],
+          model: Types.model(),
+          permission_mode: Types.permission_mode(),
           api_key_source: String.t()
-        }
-
-  @type mcp_server :: %{
-          name: String.t(),
-          status: String.t()
         }
 
   @doc """
@@ -43,7 +55,7 @@ defmodule ClaudeCode.Message.System do
 
       iex> System.new(%{"type" => "system", "subtype" => "init", ...})
       {:ok, %System{...}}
-      
+
       iex> System.new(%{"type" => "assistant"})
       {:error, :invalid_message_type}
   """
@@ -91,6 +103,8 @@ defmodule ClaudeCode.Message.System do
   end
 
   defp parse_permission_mode("default"), do: :default
+  defp parse_permission_mode("acceptEdits"), do: :accept_edits
   defp parse_permission_mode("bypassPermissions"), do: :bypass_permissions
-  defp parse_permission_mode(mode), do: mode
+  defp parse_permission_mode("plan"), do: :plan
+  defp parse_permission_mode(_), do: :default
 end

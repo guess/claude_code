@@ -33,18 +33,17 @@ defmodule ClaudeCode.Message.AssistantTest do
 
       assert {:ok, message} = Assistant.new(json)
       assert message.type == :assistant
-      assert message.message_id == "msg_123"
-      assert message.role == :assistant
-      assert message.model == "claude-opus-4"
+      assert message.message.id == "msg_123"
+      assert message.message.role == :assistant
+      assert message.message.model == "claude-opus-4"
       assert message.session_id == "session-123"
-      assert message.parent_tool_use_id == nil
-      assert message.stop_reason == nil
-      assert message.stop_sequence == nil
+      assert message.message.stop_reason == nil
+      assert message.message.stop_sequence == nil
 
-      assert [%Text{text: "Hello, I can help you!"}] = message.content
+      assert [%Text{text: "Hello, I can help you!"}] = message.message.content
 
-      assert message.usage.input_tokens == 100
-      assert message.usage.output_tokens == 25
+      assert message.message.usage.input_tokens == 100
+      assert message.message.usage.output_tokens == 25
     end
 
     test "parses assistant message with tool use content" do
@@ -79,10 +78,11 @@ defmodule ClaudeCode.Message.AssistantTest do
       }
 
       assert {:ok, message} = Assistant.new(json)
-      assert message.stop_reason == :tool_use
-      assert length(message.content) == 2
+      assert message.message.stop_reason == :tool_use
+      assert length(message.message.content) == 2
 
-      assert [%Text{text: "I'll read that file for you."}, %ToolUse{name: "Read", id: "toolu_789"}] = message.content
+      assert [%Text{text: "I'll read that file for you."}, %ToolUse{name: "Read", id: "toolu_789"}] =
+               message.message.content
     end
 
     test "handles empty content array" do
@@ -109,7 +109,7 @@ defmodule ClaudeCode.Message.AssistantTest do
       }
 
       assert {:ok, message} = Assistant.new(json)
-      assert message.content == []
+      assert message.message.content == []
     end
 
     test "parses stop_reason as atom" do
@@ -138,13 +138,13 @@ defmodule ClaudeCode.Message.AssistantTest do
       end
 
       {:ok, msg1} = Assistant.new(base_json.("tool_use"))
-      assert msg1.stop_reason == :tool_use
+      assert msg1.message.stop_reason == :tool_use
 
       {:ok, msg2} = Assistant.new(base_json.("end_turn"))
-      assert msg2.stop_reason == :end_turn
+      assert msg2.message.stop_reason == :end_turn
 
       {:ok, msg3} = Assistant.new(base_json.(nil))
-      assert msg3.stop_reason == nil
+      assert msg3.message.stop_reason == nil
     end
 
     test "returns error for invalid type" do
@@ -210,8 +210,8 @@ defmodule ClaudeCode.Message.AssistantTest do
       assert json["type"] == "assistant"
       assert {:ok, message} = Assistant.new(json)
       assert message.type == :assistant
-      assert is_binary(message.message_id)
-      assert [%Text{text: text}] = message.content
+      assert is_binary(message.message.id)
+      assert [%Text{text: text}] = message.message.content
       assert text =~ "Hello"
     end
 
@@ -233,7 +233,7 @@ defmodule ClaudeCode.Message.AssistantTest do
                {:ok, json} = Jason.decode(line)
                {:ok, message} = Assistant.new(json)
 
-               Enum.any?(message.content, fn content ->
+               Enum.any?(message.message.content, fn content ->
                  match?(%ToolUse{}, content)
                end)
              end)

@@ -4,25 +4,31 @@ defmodule ClaudeCode.Message.User do
 
   User messages typically contain tool results in response to Claude's
   tool use requests.
+
+  Matches the official SDK schema:
+  ```
+  {
+    type: "user",
+    message: MessageParam,  # from Anthropic SDK
+    session_id: string
+  }
+  ```
   """
 
   alias ClaudeCode.Content
+  alias ClaudeCode.Types
 
-  @enforce_keys [:type, :role, :content, :parent_tool_use_id, :session_id]
+  @enforce_keys [:type, :message, :session_id]
   defstruct [
     :type,
-    :role,
-    :content,
-    :parent_tool_use_id,
+    :message,
     :session_id
   ]
 
   @type t :: %__MODULE__{
           type: :user,
-          role: :user,
-          content: [Content.t()],
-          parent_tool_use_id: nil | String.t(),
-          session_id: String.t()
+          message: Types.message_param(),
+          session_id: Types.session_id()
         }
 
   @doc """
@@ -32,7 +38,7 @@ defmodule ClaudeCode.Message.User do
 
       iex> User.new(%{"type" => "user", "message" => %{...}})
       {:ok, %User{...}}
-      
+
       iex> User.new(%{"type" => "assistant"})
       {:error, :invalid_message_type}
   """
@@ -57,20 +63,25 @@ defmodule ClaudeCode.Message.User do
   def is_user_message?(_), do: false
 
   defp parse_message(message_data, parent_json) do
-    case Content.parse_all(message_data["content"] || []) do
+    case parse_content(message_data["content"]) do
       {:ok, content} ->
-        message = %__MODULE__{
+        message_struct = %__MODULE__{
           type: :user,
-          role: :user,
-          content: content,
-          parent_tool_use_id: parent_json["parent_tool_use_id"],
+          message: %{
+            content: content,
+            role: :user
+          },
           session_id: parent_json["session_id"]
         }
 
-        {:ok, message}
+        {:ok, message_struct}
 
       {:error, error} ->
         {:error, {:content_parse_error, error}}
     end
   end
+
+  defp parse_content(content) when is_binary(content), do: {:ok, content}
+  defp parse_content(content) when is_list(content), do: Content.parse_all(content)
+  defp parse_content(_), do: {:ok, []}
 end

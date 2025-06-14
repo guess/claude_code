@@ -4,7 +4,38 @@ defmodule ClaudeCode.Message.Result do
 
   Result messages are the final message in a conversation, containing
   the final response, timing information, token usage, and cost.
+
+  Matches the official SDK schema for successful results:
+  ```
+  {
+    type: "result",
+    subtype: "success",
+    duration_ms: float,
+    duration_api_ms: float,
+    is_error: boolean,
+    num_turns: int,
+    result: string,
+    session_id: string,
+    total_cost_usd: float
+  }
+  ```
+
+  And for error results:
+  ```
+  {
+    type: "result",
+    subtype: "error_max_turns" | "error_during_execution",
+    duration_ms: float,
+    duration_api_ms: float,
+    is_error: boolean,
+    num_turns: int,
+    session_id: string,
+    total_cost_usd: float
+  }
+  ```
   """
+
+  alias ClaudeCode.Types
 
   @enforce_keys [
     :type,
@@ -33,25 +64,15 @@ defmodule ClaudeCode.Message.Result do
 
   @type t :: %__MODULE__{
           type: :result,
-          subtype: :success | :error | atom(),
+          subtype: Types.result_subtype(),
           is_error: boolean(),
-          duration_ms: integer(),
-          duration_api_ms: integer(),
-          num_turns: integer(),
+          duration_ms: float(),
+          duration_api_ms: float(),
+          num_turns: non_neg_integer(),
           result: String.t(),
-          session_id: String.t(),
+          session_id: Types.session_id(),
           total_cost_usd: float(),
-          usage: usage_summary()
-        }
-
-  @type usage_summary :: %{
-          input_tokens: integer(),
-          cache_creation_input_tokens: integer(),
-          cache_read_input_tokens: integer(),
-          output_tokens: integer(),
-          server_tool_use: %{
-            web_search_requests: integer()
-          }
+          usage: Types.usage()
         }
 
   @doc """
@@ -61,7 +82,7 @@ defmodule ClaudeCode.Message.Result do
 
       iex> Result.new(%{"type" => "result", "subtype" => "success", ...})
       {:ok, %Result{...}}
-      
+
       iex> Result.new(%{"type" => "assistant"})
       {:error, :invalid_message_type}
   """
@@ -111,7 +132,8 @@ defmodule ClaudeCode.Message.Result do
   def is_result_message?(_), do: false
 
   defp parse_subtype("success"), do: :success
-  defp parse_subtype("error"), do: :error
+  defp parse_subtype("error_max_turns"), do: :error_max_turns
+  defp parse_subtype("error_during_execution"), do: :error_during_execution
   defp parse_subtype(other) when is_binary(other), do: String.to_atom(other)
 
   defp parse_float(value) when is_float(value), do: value

@@ -24,11 +24,10 @@ defmodule ClaudeCode.Message.UserTest do
 
       assert {:ok, message} = User.new(json)
       assert message.type == :user
-      assert message.role == :user
+      assert message.message.role == :user
       assert message.session_id == "session-123"
-      assert message.parent_tool_use_id == nil
 
-      assert [%ToolResult{tool_use_id: "toolu_123", content: "File created successfully"}] = message.content
+      assert [%ToolResult{tool_use_id: "toolu_123", content: "File created successfully"}] = message.message.content
     end
 
     test "parses user message with error tool result" do
@@ -50,9 +49,8 @@ defmodule ClaudeCode.Message.UserTest do
       }
 
       assert {:ok, message} = User.new(json)
-      assert message.parent_tool_use_id == "toolu_456"
 
-      assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.content
+      assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.message.content
     end
 
     test "handles multiple tool results" do
@@ -78,7 +76,7 @@ defmodule ClaudeCode.Message.UserTest do
       }
 
       assert {:ok, message} = User.new(json)
-      assert length(message.content) == 2
+      assert length(message.message.content) == 2
     end
 
     test "handles empty content array" do
@@ -93,7 +91,7 @@ defmodule ClaudeCode.Message.UserTest do
       }
 
       assert {:ok, message} = User.new(json)
-      assert message.content == []
+      assert message.message.content == []
     end
 
     test "returns error for invalid type" do
@@ -157,7 +155,7 @@ defmodule ClaudeCode.Message.UserTest do
 
       assert {:ok, message} = User.new(json)
       assert message.type == :user
-      assert [%ToolResult{content: content}] = message.content
+      assert [%ToolResult{content: content}] = message.message.content
       assert content =~ "successfully"
     end
 
@@ -178,7 +176,7 @@ defmodule ClaudeCode.Message.UserTest do
       {:ok, json} = Jason.decode(error_user_line)
 
       assert {:ok, message} = User.new(json)
-      assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.content
+      assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.message.content
     end
   end
 
