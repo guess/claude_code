@@ -24,11 +24,18 @@ defmodule ClaudeCode.Message do
   Creates a new message struct from parsed JSON data.
   """
   @spec from_json(map()) :: t()
-  def from_json(%{"type" => "assistant_message", "content" => content} = json) do
+  def from_json(%{"type" => "assistant", "message" => message} = json) do
+    # Extract text content from the assistant message structure
+    content =
+      case message do
+        %{"content" => [%{"text" => text} | _]} -> text
+        _ -> ""
+      end
+
     %__MODULE__{
       type: :assistant,
       content: content,
-      metadata: Map.drop(json, ["type", "content"])
+      metadata: Map.drop(json, ["type", "message"])
     }
   end
 

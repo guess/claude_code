@@ -6,16 +6,19 @@ defmodule ClaudeCode.MessageTest do
   describe "from_json/1" do
     test "parses assistant message" do
       json = %{
-        "type" => "assistant_message",
-        "content" => "Hello, I'm Claude!",
-        "id" => "msg_123"
+        "type" => "assistant",
+        "message" => %{
+          "content" => [%{"text" => "Hello, I'm Claude!", "type" => "text"}],
+          "id" => "msg_123"
+        },
+        "session_id" => "test-123"
       }
 
       message = Message.from_json(json)
 
       assert message.type == :assistant
       assert message.content == "Hello, I'm Claude!"
-      assert message.metadata == %{"id" => "msg_123"}
+      assert message.metadata == %{"session_id" => "test-123"}
     end
 
     test "parses error message" do

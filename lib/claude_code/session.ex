@@ -220,6 +220,9 @@ defmodule ClaudeCode.Session do
       :assistant ->
         handle_assistant_message(message, state)
 
+      :result ->
+        handle_result_message(message, state)
+
       :error ->
         handle_error_message(message, state)
 
@@ -231,19 +234,28 @@ defmodule ClaudeCode.Session do
   end
 
   defp handle_assistant_message(message, state) do
+    # For now, just log assistant messages - the actual response comes in the result message
+    Logger.debug("Received assistant message: #{inspect(message)}")
+    state
+  end
+
+  defp handle_result_message(message, state) do
+    # Extract the result directly from the JSON
+    result = message.metadata["result"] || ""
+
     # Get the first (and only for Phase 1) pending request
     case Map.keys(state.pending_requests) do
       [request_id | _] ->
         request = Map.get(state.pending_requests, request_id)
 
-        # Reply with the content
-        GenServer.reply(request.from, {:ok, message.content})
+        # Reply with the result
+        GenServer.reply(request.from, {:ok, result})
 
         # Remove the request
         %{state | pending_requests: Map.delete(state.pending_requests, request_id)}
 
       [] ->
-        Logger.warning("Received assistant message with no pending requests")
+        Logger.warning("Received result message with no pending requests")
         state
     end
   end

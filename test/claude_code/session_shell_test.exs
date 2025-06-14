@@ -11,11 +11,13 @@ defmodule ClaudeCode.SessionShellTest do
 
       mock_script = Path.join(mock_dir, "claude")
 
-      # This mock will output valid JSON
+      # This mock will output valid JSON matching real CLI format
       File.write!(mock_script, ~S"""
       #!/bin/bash
-      # Output a simple valid JSON response
-      echo '{"type": "assistant_message", "content": "Test response from mock"}'
+      # Output messages in the same format as real CLI
+      echo '{"type":"system","subtype":"init","session_id":"test-123"}'
+      echo '{"type":"assistant","message":{"content":[{"text":"Test response from mock","type":"text"}]}}'
+      echo '{"type":"result","subtype":"success","result":"Test response from mock","session_id":"test-123"}'
       exit 0
       """)
 

@@ -44,10 +44,15 @@ defmodule ClaudeCode.SessionTest do
 
       mock_script = Path.join(mock_dir, "claude")
 
-      # Write a simple mock script that echoes JSON
+      # Write a simple mock script that echoes JSON matching real CLI format
       File.write!(mock_script, """
       #!/bin/bash
-      echo '{"type": "assistant_message", "content": "Hello from mock CLI!"}'
+      # Output system init message
+      echo '{"type":"system","subtype":"init","session_id":"test-123"}'
+      # Output assistant message
+      echo '{"type":"assistant","message":{"content":[{"text":"Hello from mock CLI!","type":"text"}]}}'
+      # Output result message
+      echo '{"type":"result","subtype":"success","result":"Hello from mock CLI!","session_id":"test-123"}'
       exit 0
       """)
 
@@ -113,7 +118,7 @@ defmodule ClaudeCode.SessionTest do
       }
 
       # Send a mock message through the session
-      json_line = ~s({"type": "assistant_message", "content": "Test response"}\n)
+      json_line = ~s({"type": "assistant", "message": {"content": [{"text": "Test response", "type": "text"}]}}\n)
 
       # We need to simulate the port message
       send(session, {nil, {:data, json_line}})

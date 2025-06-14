@@ -40,8 +40,10 @@ defmodule ClaudeCode.IntegrationTest do
           sleep 10
           ;;
         *)
-          # Normal response
-          echo '{"type": "assistant_message", "content": "Mock response to: '"$prompt"'"}'
+          # Normal response matching real CLI format
+          echo '{"type":"system","subtype":"init","session_id":"test-123"}'
+          echo '{"type":"assistant","message":{"content":[{"text":"Mock response to: '"$prompt"'","type":"text"}]}}'
+          echo '{"type":"result","subtype":"success","result":"Mock response to: '"$prompt"'","session_id":"test-123"}'
           exit 0
           ;;
       esac
