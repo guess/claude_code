@@ -9,42 +9,61 @@ defmodule CLICapture do
     %{
       name: "simple_hello",
       query: "Say hello",
-      description: "Simple text response without tools"
+      description: "Simple text response without tools",
+      extra_args: "--dangerously-skip-permissions"
     },
     
     # Math calculation
     %{
       name: "math_calculation",
       query: "What is 2 + 2?",
-      description: "Basic math response"
+      description: "Basic math response",
+      extra_args: "--dangerously-skip-permissions"
     },
     
-    # Request that might use tools
+    # File listing with tools
     %{
-      name: "file_read_attempt",
+      name: "file_listing",
       query: "What files are in the current directory?",
-      description: "Query that might trigger tool use"
+      description: "Should trigger LS tool",
+      extra_args: "--dangerously-skip-permissions"
     },
     
-    # Explicit tool use request
+    # File creation with tools
     %{
       name: "create_file",
       query: "Create a file named test.txt with the content 'Hello from Claude'",
-      description: "Should trigger write tool"
+      description: "Should trigger write tool",
+      extra_args: "--dangerously-skip-permissions"
     },
     
-    # Multiple tool use
+    # File read with tools
     %{
-      name: "read_and_analyze",
+      name: "read_file",
       query: "Read the README.md file and summarize what this project does",
-      description: "Should trigger read tool then analysis"
+      description: "Should trigger read tool then analysis",
+      extra_args: "--dangerously-skip-permissions"
     },
     
-    # Error case
+    # Error case with tools
     %{
       name: "error_case",
       query: "Read a file that does not exist: /nonexistent/file.txt",
-      description: "Should show error handling"
+      description: "Should show error handling",
+      extra_args: "--dangerously-skip-permissions"
+    },
+    
+    # Permission denial cases
+    %{
+      name: "create_file_denied",
+      query: "Create a file named denied.txt with content 'This should be denied'",
+      description: "Should be denied without permissions"
+    },
+    
+    %{
+      name: "read_file_default",
+      query: "Read the README.md file",
+      description: "Test default permission mode for reads"
     },
     
     # Permission tests
@@ -73,7 +92,8 @@ defmodule CLICapture do
     %{
       name: "complex_tool_chain",
       query: "Read the mix.exs file, extract the version number, and create a VERSION.txt file with that version",
-      description: "Multiple tools in sequence"
+      description: "Multiple tools in sequence",
+      extra_args: "--dangerously-skip-permissions"
     }
   ]
   
