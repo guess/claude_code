@@ -1,8 +1,8 @@
 defmodule ClaudeCode.Message.UserTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Message.User
   alias ClaudeCode.Content.ToolResult
+  alias ClaudeCode.Message.User
 
   describe "new/1" do
     test "parses a valid user message with tool result" do
@@ -27,7 +27,7 @@ defmodule ClaudeCode.Message.UserTest do
       assert message.role == :user
       assert message.session_id == "session-123"
       assert message.parent_tool_use_id == nil
-      
+
       assert [%ToolResult{tool_use_id: "toolu_123", content: "File created successfully"}] = message.content
     end
 
@@ -51,7 +51,7 @@ defmodule ClaudeCode.Message.UserTest do
 
       assert {:ok, message} = User.new(json)
       assert message.parent_tool_use_id == "toolu_456"
-      
+
       assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.content
     end
 
@@ -141,19 +141,20 @@ defmodule ClaudeCode.Message.UserTest do
   describe "from fixture" do
     test "parses real CLI user message with tool result" do
       fixture_path = "test/fixtures/cli_messages/create_file.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # Find user message
-      user_line = Enum.find(lines, fn line ->
-        case Jason.decode(line) do
-          {:ok, %{"type" => "user"}} -> true
-          _ -> false
-        end
-      end)
-      
+      user_line =
+        Enum.find(lines, fn line ->
+          case Jason.decode(line) do
+            {:ok, %{"type" => "user"}} -> true
+            _ -> false
+          end
+        end)
+
       assert user_line
       {:ok, json} = Jason.decode(user_line)
-      
+
       assert {:ok, message} = User.new(json)
       assert message.type == :user
       assert [%ToolResult{content: content}] = message.content
@@ -162,19 +163,20 @@ defmodule ClaudeCode.Message.UserTest do
 
     test "parses real CLI user message with error" do
       fixture_path = "test/fixtures/cli_messages/error_case.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # Find user message with error
-      error_user_line = Enum.find(lines, fn line ->
-        case Jason.decode(line) do
-          {:ok, %{"type" => "user", "message" => %{"content" => [%{"is_error" => true} | _]}}} -> true
-          _ -> false
-        end
-      end)
-      
+      error_user_line =
+        Enum.find(lines, fn line ->
+          case Jason.decode(line) do
+            {:ok, %{"type" => "user", "message" => %{"content" => [%{"is_error" => true} | _]}}} -> true
+            _ -> false
+          end
+        end)
+
       assert error_user_line
       {:ok, json} = Jason.decode(error_user_line)
-      
+
       assert {:ok, message} = User.new(json)
       assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.content
     end

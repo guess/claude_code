@@ -1,21 +1,24 @@
 defmodule ClaudeCode.Message do
   @moduledoc """
   Utilities for working with messages from the Claude CLI.
-  
+
   Messages can be system initialization, assistant responses, user tool results,
   or final result messages. This module provides functions to parse and work with
   any message type.
   """
-  
-  alias ClaudeCode.Message.{System, Assistant, User, Result}
-  
+
+  alias ClaudeCode.Message.Assistant
+  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.System
+  alias ClaudeCode.Message.User
+
   @type t :: System.t() | Assistant.t() | User.t() | Result.t()
-  
+
   @doc """
   Parses a message from JSON data based on its type.
-  
+
   ## Examples
-  
+
       iex> Message.parse(%{"type" => "system", ...})
       {:ok, %System{...}}
       
@@ -32,12 +35,12 @@ defmodule ClaudeCode.Message do
       other -> {:error, {:unknown_message_type, other}}
     end
   end
-  
+
   def parse(_), do: {:error, :missing_type}
-  
+
   @doc """
   Parses a list of messages.
-  
+
   Returns {:ok, messages} if all messages parse successfully,
   or {:error, {:parse_error, index, error}} for the first failure.
   """
@@ -56,10 +59,10 @@ defmodule ClaudeCode.Message do
       error -> error
     end
   end
-  
+
   @doc """
   Parses a newline-delimited JSON stream from the CLI.
-  
+
   This is the format output by the CLI with --output-format stream-json.
   """
   @spec parse_stream(String.t()) :: {:ok, [t()]} | {:error, term()}
@@ -74,6 +77,7 @@ defmodule ClaudeCode.Message do
             {:ok, message} -> {:cont, {:ok, [message | acc]}}
             {:error, error} -> {:halt, {:error, {:parse_error, index, error}}}
           end
+
         {:error, error} ->
           {:halt, {:error, {:json_decode_error, index, error}}}
       end
@@ -83,7 +87,7 @@ defmodule ClaudeCode.Message do
       error -> error
     end
   end
-  
+
   @doc """
   Checks if a value is any type of message.
   """
@@ -93,7 +97,7 @@ defmodule ClaudeCode.Message do
   def is_message?(%User{}), do: true
   def is_message?(%Result{}), do: true
   def is_message?(_), do: false
-  
+
   @doc """
   Returns the type of a message.
   """

@@ -36,7 +36,7 @@ defmodule ClaudeCode.Message.ResultTest do
       assert message.result == "Task completed successfully!"
       assert message.session_id == "session-123"
       assert message.total_cost_usd == 0.0125
-      
+
       assert message.usage.input_tokens == 500
       assert message.usage.output_tokens == 150
       assert message.usage.server_tool_use.web_search_requests == 0
@@ -150,11 +150,11 @@ defmodule ClaudeCode.Message.ResultTest do
   describe "from fixture" do
     test "parses real CLI result message" do
       fixture_path = "test/fixtures/cli_messages/simple_hello.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # Last line should be result message
       {:ok, json} = Jason.decode(List.last(lines))
-      
+
       assert json["type"] == "result"
       assert {:ok, message} = Result.new(json)
       assert message.type == :result
@@ -167,19 +167,20 @@ defmodule ClaudeCode.Message.ResultTest do
 
     test "parses result message with high token usage" do
       fixture_path = "test/fixtures/cli_messages/read_file.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # Find result message
-      result_line = Enum.find(lines, fn line ->
-        case Jason.decode(line) do
-          {:ok, %{"type" => "result"}} -> true
-          _ -> false
-        end
-      end)
-      
+      result_line =
+        Enum.find(lines, fn line ->
+          case Jason.decode(line) do
+            {:ok, %{"type" => "result"}} -> true
+            _ -> false
+          end
+        end)
+
       assert result_line
       {:ok, json} = Jason.decode(result_line)
-      
+
       assert {:ok, message} = Result.new(json)
       assert message.usage.input_tokens > 0
       assert message.usage.output_tokens > 0

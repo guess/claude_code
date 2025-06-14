@@ -2,7 +2,10 @@ defmodule ClaudeCode.MessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.{System, Assistant, User, Result}
+  alias ClaudeCode.Message.Assistant
+  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.System
+  alias ClaudeCode.Message.User
 
   describe "parse/1" do
     test "parses system messages" do
@@ -17,7 +20,7 @@ defmodule ClaudeCode.MessageTest do
         "permissionMode" => "default",
         "apiKeySource" => "env"
       }
-      
+
       assert {:ok, %System{}} = Message.parse(data)
     end
 
@@ -43,7 +46,7 @@ defmodule ClaudeCode.MessageTest do
         "parent_tool_use_id" => nil,
         "session_id" => "123"
       }
-      
+
       assert {:ok, %Assistant{}} = Message.parse(data)
     end
 
@@ -63,7 +66,7 @@ defmodule ClaudeCode.MessageTest do
         "parent_tool_use_id" => nil,
         "session_id" => "123"
       }
-      
+
       assert {:ok, %User{}} = Message.parse(data)
     end
 
@@ -86,7 +89,7 @@ defmodule ClaudeCode.MessageTest do
           "server_tool_use" => %{"web_search_requests" => 0}
         }
       }
-      
+
       assert {:ok, %Result{}} = Message.parse(data)
     end
 
@@ -155,16 +158,17 @@ defmodule ClaudeCode.MessageTest do
           }
         }
       ]
-      
+
       assert {:ok, [%System{}, %Assistant{}, %Result{}]} = Message.parse_all(data)
     end
 
     test "returns error if any message fails to parse" do
       data = [
-        %{"type" => "system", "subtype" => "init"}, # Missing required fields
+        # Missing required fields
+        %{"type" => "system", "subtype" => "init"},
         %{"type" => "assistant"}
       ]
-      
+
       assert {:error, {:parse_error, 0, _}} = Message.parse_all(data)
     end
 
@@ -180,7 +184,7 @@ defmodule ClaudeCode.MessageTest do
       {"type":"assistant","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"service_tier":"standard"}},"parent_tool_use_id":null,"session_id":"123"}
       {"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Hello","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
-      
+
       assert {:ok, messages} = Message.parse_stream(stream)
       assert length(messages) == 3
       assert [%System{}, %Assistant{}, %Result{}] = messages
@@ -192,7 +196,7 @@ defmodule ClaudeCode.MessageTest do
 
       {"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Done","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
-      
+
       assert {:ok, messages} = Message.parse_stream(stream)
       assert length(messages) == 2
     end
@@ -202,25 +206,26 @@ defmodule ClaudeCode.MessageTest do
       {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
       {invalid json}
       """
-      
+
       assert {:error, {:json_decode_error, 1, _}} = Message.parse_stream(stream)
     end
   end
 
   describe "type detection" do
     test "is_message?/1 returns true for any message type" do
-      {:ok, system} = System.new(%{
-        "type" => "system",
-        "subtype" => "init",
-        "cwd" => "/",
-        "session_id" => "1",
-        "tools" => [],
-        "mcp_servers" => [],
-        "model" => "claude",
-        "permissionMode" => "default",
-        "apiKeySource" => "env"
-      })
-      
+      {:ok, system} =
+        System.new(%{
+          "type" => "system",
+          "subtype" => "init",
+          "cwd" => "/",
+          "session_id" => "1",
+          "tools" => [],
+          "mcp_servers" => [],
+          "model" => "claude",
+          "permissionMode" => "default",
+          "apiKeySource" => "env"
+        })
+
       assert Message.is_message?(system)
     end
 
@@ -233,18 +238,19 @@ defmodule ClaudeCode.MessageTest do
 
   describe "message type helpers" do
     test "message_type/1 returns the type of message" do
-      {:ok, system} = System.new(%{
-        "type" => "system",
-        "subtype" => "init",
-        "cwd" => "/",
-        "session_id" => "1",
-        "tools" => [],
-        "mcp_servers" => [],
-        "model" => "claude",
-        "permissionMode" => "default",
-        "apiKeySource" => "env"
-      })
-      
+      {:ok, system} =
+        System.new(%{
+          "type" => "system",
+          "subtype" => "init",
+          "cwd" => "/",
+          "session_id" => "1",
+          "tools" => [],
+          "mcp_servers" => [],
+          "model" => "claude",
+          "permissionMode" => "default",
+          "apiKeySource" => "env"
+        })
+
       assert Message.message_type(system) == :system
     end
   end
@@ -253,12 +259,12 @@ defmodule ClaudeCode.MessageTest do
     test "parses all messages from a real CLI session" do
       fixture_path = "test/fixtures/cli_messages/simple_hello.json"
       content = File.read!(fixture_path)
-      
+
       assert {:ok, messages} = Message.parse_stream(content)
       assert length(messages) == 3
-      
+
       assert [%System{}, %Assistant{}, %Result{}] = messages
-      
+
       # Verify session IDs match
       [system, assistant, result] = messages
       assert system.session_id == assistant.session_id

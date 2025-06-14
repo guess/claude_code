@@ -1,20 +1,22 @@
 defmodule ClaudeCode.Content do
   @moduledoc """
   Utilities for working with content blocks in Claude messages.
-  
+
   Content blocks can be text, tool use requests, or tool results.
   This module provides functions to parse and work with any content type.
   """
-  
-  alias ClaudeCode.Content.{Text, ToolUse, ToolResult}
-  
+
+  alias ClaudeCode.Content.Text
+  alias ClaudeCode.Content.ToolResult
+  alias ClaudeCode.Content.ToolUse
+
   @type t :: Text.t() | ToolUse.t() | ToolResult.t()
-  
+
   @doc """
   Parses a content block from JSON data based on its type.
-  
+
   ## Examples
-  
+
       iex> Content.parse(%{"type" => "text", "text" => "Hello"})
       {:ok, %Text{type: :text, text: "Hello"}}
       
@@ -30,12 +32,12 @@ defmodule ClaudeCode.Content do
       other -> {:error, {:unknown_content_type, other}}
     end
   end
-  
+
   def parse(_), do: {:error, :missing_type}
-  
+
   @doc """
   Parses a list of content blocks.
-  
+
   Returns {:ok, contents} if all blocks parse successfully,
   or {:error, {:parse_error, index, error}} for the first failure.
   """
@@ -54,7 +56,7 @@ defmodule ClaudeCode.Content do
       error -> error
     end
   end
-  
+
   @doc """
   Checks if a value is any type of content block.
   """
@@ -63,7 +65,7 @@ defmodule ClaudeCode.Content do
   def is_content?(%ToolUse{}), do: true
   def is_content?(%ToolResult{}), do: true
   def is_content?(_), do: false
-  
+
   @doc """
   Returns the type of a content block.
   """

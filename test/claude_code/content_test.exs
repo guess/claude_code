@@ -2,12 +2,14 @@ defmodule ClaudeCode.ContentTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Content
-  alias ClaudeCode.Content.{Text, ToolUse, ToolResult}
+  alias ClaudeCode.Content.Text
+  alias ClaudeCode.Content.ToolResult
+  alias ClaudeCode.Content.ToolUse
 
   describe "parse/1" do
     test "parses text content blocks" do
       data = %{"type" => "text", "text" => "Hello!"}
-      
+
       assert {:ok, %Text{text: "Hello!"}} = Content.parse(data)
     end
 
@@ -18,7 +20,7 @@ defmodule ClaudeCode.ContentTest do
         "name" => "Read",
         "input" => %{"file" => "test.txt"}
       }
-      
+
       assert {:ok, %ToolUse{id: "toolu_123", name: "Read"}} = Content.parse(data)
     end
 
@@ -28,19 +30,19 @@ defmodule ClaudeCode.ContentTest do
         "tool_use_id" => "toolu_123",
         "content" => "Success"
       }
-      
+
       assert {:ok, %ToolResult{tool_use_id: "toolu_123"}} = Content.parse(data)
     end
 
     test "returns error for unknown content type" do
       data = %{"type" => "unknown", "data" => "something"}
-      
+
       assert {:error, {:unknown_content_type, "unknown"}} = Content.parse(data)
     end
 
     test "returns error for missing type field" do
       data = %{"text" => "Hello"}
-      
+
       assert {:error, :missing_type} = Content.parse(data)
     end
   end
@@ -52,7 +54,7 @@ defmodule ClaudeCode.ContentTest do
         %{"type" => "tool_use", "id" => "123", "name" => "Read", "input" => %{}},
         %{"type" => "text", "text" => "Done!"}
       ]
-      
+
       assert {:ok, [text1, tool_use, text2]} = Content.parse_all(data)
       assert %Text{text: "I'll help you."} = text1
       assert %ToolUse{name: "Read"} = tool_use
@@ -65,7 +67,7 @@ defmodule ClaudeCode.ContentTest do
         %{"type" => "invalid"},
         %{"type" => "text", "text" => "More"}
       ]
-      
+
       assert {:error, {:parse_error, 1, _}} = Content.parse_all(data)
     end
 
@@ -79,7 +81,7 @@ defmodule ClaudeCode.ContentTest do
       {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
       {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
       {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
-      
+
       assert Content.is_content?(text)
       assert Content.is_content?(tool)
       assert Content.is_content?(result)
@@ -98,7 +100,7 @@ defmodule ClaudeCode.ContentTest do
       {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
       {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
       {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
-      
+
       assert Content.content_type(text) == :text
       assert Content.content_type(tool) == :tool_use
       assert Content.content_type(result) == :tool_result

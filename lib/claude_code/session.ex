@@ -214,23 +214,32 @@ defmodule ClaudeCode.Session do
   end
 
   defp process_message(json, state) when is_map(json) do
-    message = Message.from_json(json)
+    case Message.parse(json) do
+      {:ok, message} ->
+        case message do
+          %Message.System{} ->
+            handle_system_message(message, state)
 
-    case message.type do
-      :assistant ->
-        handle_assistant_message(message, state)
+          %Message.Assistant{} ->
+            handle_assistant_message(message, state)
 
-      :result ->
-        handle_result_message(message, state)
+          %Message.User{} ->
+            handle_user_message(message, state)
 
-      :error ->
-        handle_error_message(message, state)
+          %Message.Result{} ->
+            handle_result_message(message, state)
+        end
 
-      _other ->
-        # For Phase 1, we'll just log other message types
-        Logger.debug("Received message: #{inspect(message)}")
+      {:error, error} ->
+        Logger.error("Failed to parse message: #{inspect(error)}")
         state
     end
+  end
+
+  defp handle_system_message(message, state) do
+    # System messages provide session initialization info
+    Logger.info("Session initialized with model: #{message.model}, session_id: #{message.session_id}")
+    state
   end
 
   defp handle_assistant_message(message, state) do
@@ -239,41 +248,33 @@ defmodule ClaudeCode.Session do
     state
   end
 
-  defp handle_result_message(message, state) do
-    # Extract the result directly from the JSON
-    result = message.metadata["result"] || ""
+  defp handle_user_message(message, state) do
+    # User messages contain tool results - just log for now
+    Logger.debug("Received user message with tool results: #{inspect(message)}")
+    state
+  end
 
+  defp handle_result_message(message, state) do
     # Get the first (and only for Phase 1) pending request
     case Map.keys(state.pending_requests) do
       [request_id | _] ->
         request = Map.get(state.pending_requests, request_id)
 
-        # Reply with the result
-        GenServer.reply(request.from, {:ok, result})
+        # Reply based on whether it's an error or success
+        reply =
+          if message.is_error do
+            {:error, {:claude_error, message.result}}
+          else
+            {:ok, message.result}
+          end
+
+        GenServer.reply(request.from, reply)
 
         # Remove the request
         %{state | pending_requests: Map.delete(state.pending_requests, request_id)}
 
       [] ->
         Logger.warning("Received result message with no pending requests")
-        state
-    end
-  end
-
-  defp handle_error_message(message, state) do
-    # Handle error messages
-    case Map.keys(state.pending_requests) do
-      [request_id | _] ->
-        request = Map.get(state.pending_requests, request_id)
-
-        # Reply with the error
-        GenServer.reply(request.from, {:error, {:claude_error, message.content}})
-
-        # Remove the request
-        %{state | pending_requests: Map.delete(state.pending_requests, request_id)}
-
-      [] ->
-        Logger.warning("Received error with no pending requests: #{message.content}")
         state
     end
   end

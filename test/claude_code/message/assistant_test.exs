@@ -1,8 +1,9 @@
 defmodule ClaudeCode.Message.AssistantTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.Content.Text
+  alias ClaudeCode.Content.ToolUse
   alias ClaudeCode.Message.Assistant
-  alias ClaudeCode.Content.{Text, ToolUse}
 
   describe "new/1" do
     test "parses a valid assistant message with text content" do
@@ -39,9 +40,9 @@ defmodule ClaudeCode.Message.AssistantTest do
       assert message.parent_tool_use_id == nil
       assert message.stop_reason == nil
       assert message.stop_sequence == nil
-      
+
       assert [%Text{text: "Hello, I can help you!"}] = message.content
-      
+
       assert message.usage.input_tokens == 100
       assert message.usage.output_tokens == 25
     end
@@ -51,7 +52,7 @@ defmodule ClaudeCode.Message.AssistantTest do
         "type" => "assistant",
         "message" => %{
           "id" => "msg_456",
-          "type" => "message", 
+          "type" => "message",
           "role" => "assistant",
           "model" => "claude-opus-4",
           "content" => [
@@ -80,9 +81,8 @@ defmodule ClaudeCode.Message.AssistantTest do
       assert {:ok, message} = Assistant.new(json)
       assert message.stop_reason == :tool_use
       assert length(message.content) == 2
-      
-      assert [%Text{text: "I'll read that file for you."}, 
-              %ToolUse{name: "Read", id: "toolu_789"}] = message.content
+
+      assert [%Text{text: "I'll read that file for you."}, %ToolUse{name: "Read", id: "toolu_789"}] = message.content
     end
 
     test "handles empty content array" do
@@ -91,7 +91,7 @@ defmodule ClaudeCode.Message.AssistantTest do
         "message" => %{
           "id" => "msg_empty",
           "type" => "message",
-          "role" => "assistant", 
+          "role" => "assistant",
           "model" => "claude",
           "content" => [],
           "stop_reason" => nil,
@@ -202,11 +202,11 @@ defmodule ClaudeCode.Message.AssistantTest do
   describe "from fixture" do
     test "parses real CLI assistant message with text" do
       fixture_path = "test/fixtures/cli_messages/simple_hello.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # Second line should be assistant message
       {:ok, json} = Jason.decode(Enum.at(lines, 1))
-      
+
       assert json["type"] == "assistant"
       assert {:ok, message} = Assistant.new(json)
       assert message.type == :assistant
@@ -217,25 +217,26 @@ defmodule ClaudeCode.Message.AssistantTest do
 
     test "parses real CLI assistant message with tool use" do
       fixture_path = "test/fixtures/cli_messages/file_listing.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # Find assistant message with tool use
-      assistant_messages = Enum.filter(lines, fn line ->
-        case Jason.decode(line) do
-          {:ok, %{"type" => "assistant"}} -> true
-          _ -> false
-        end
-      end)
-      
+      assistant_messages =
+        Enum.filter(lines, fn line ->
+          case Jason.decode(line) do
+            {:ok, %{"type" => "assistant"}} -> true
+            _ -> false
+          end
+        end)
+
       # Should have at least one assistant message with tool use
       assert Enum.any?(assistant_messages, fn line ->
-        {:ok, json} = Jason.decode(line)
-        {:ok, message} = Assistant.new(json)
-        
-        Enum.any?(message.content, fn content ->
-          match?(%ToolUse{}, content)
-        end)
-      end)
+               {:ok, json} = Jason.decode(line)
+               {:ok, message} = Assistant.new(json)
+
+               Enum.any?(message.content, fn content ->
+                 match?(%ToolUse{}, content)
+               end)
+             end)
     end
   end
 

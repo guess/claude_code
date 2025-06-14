@@ -78,11 +78,11 @@ defmodule ClaudeCode.Message.SystemTest do
     test "parses real CLI system message" do
       # Load from our captured fixture
       fixture_path = "test/fixtures/cli_messages/simple_hello.json"
-      lines = File.read!(fixture_path) |> String.split("\n", trim: true)
-      
+      lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
+
       # First line should be system message
       {:ok, json} = Jason.decode(hd(lines))
-      
+
       assert json["type"] == "system"
       assert {:ok, message} = System.new(json)
       assert message.type == :system
