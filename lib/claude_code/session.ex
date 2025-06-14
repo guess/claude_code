@@ -76,23 +76,8 @@ defmodule ClaudeCode.Session do
 
   @impl true
   def handle_info({port, {:data, data}}, %{port: port} = state) do
-    # Process the data from the CLI subprocess
-    # When using {:line, N}, data comes as {:eol, line} or {:noeol, partial}
-    new_state =
-      case data do
-        {:eol, line} ->
-          # Complete line received
-          process_complete_line(line, state)
-
-        {:noeol, partial} ->
-          # Partial line, add to buffer
-          %{state | buffer: state.buffer <> partial}
-
-        binary when is_binary(binary) ->
-          # Raw binary data (shouldn't happen with :line mode)
-          process_cli_output(binary, state)
-      end
-
+    # Process the raw binary data from the CLI subprocess
+    new_state = process_cli_output(data, state)
     {:noreply, new_state}
   end
 
@@ -123,6 +108,11 @@ defmodule ClaudeCode.Session do
     {:noreply, new_state}
   end
 
+  def handle_info({port, :eof}, state) when is_port(port) do
+    # EOF received from port - this is expected when stdin is closed
+    {:noreply, state}
+  end
+
   def handle_info(msg, state) do
     Logger.debug("Unhandled message: #{inspect(msg)}")
     {:noreply, state}
@@ -147,16 +137,32 @@ defmodule ClaudeCode.Session do
           {~c"ANTHROPIC_API_KEY", String.to_charlist(state.api_key)}
         ]
 
-        port_opts = [
-          :binary,
-          :exit_status,
-          {:line, 65_536},
-          {:args, args},
-          {:env, env_vars}
-        ]
-
         try do
-          port = Port.open({:spawn_executable, executable}, port_opts)
+          # Use the exact same approach as System.shell
+          shell_path = :os.find_executable(~c"sh") || raise "sh not found"
+
+          # Build the command string with proper escaping
+          cmd_parts = [executable | args]
+          cmd_string = Enum.map_join(cmd_parts, " ", &shell_escape/1)
+
+          # Add environment variables to the command
+          env_prefix =
+            Enum.map_join(env_vars, " ", fn {key, value} ->
+              "#{key}=#{shell_escape(to_string(value))}"
+            end)
+
+          # Build the full command exactly like System.shell does
+          # Wrap in parentheses, add newline, and redirect stdin from /dev/null
+          full_command = "(#{env_prefix} #{cmd_string}\n) </dev/null"
+
+          port_opts = [
+            {:args, ["-c", full_command]},
+            :binary,
+            :exit_status,
+            :stderr_to_stdout
+          ]
+
+          port = Port.open({:spawn_executable, shell_path}, port_opts)
           {:ok, port}
         rescue
           e ->
@@ -166,11 +172,6 @@ defmodule ClaudeCode.Session do
       {:error, reason} ->
         {:error, reason}
     end
-  end
-
-  defp process_complete_line(line, state) when is_binary(line) do
-    # Process a complete line of JSON
-    process_json_line(line, state)
   end
 
   defp process_cli_output(data, state) do
@@ -264,4 +265,15 @@ defmodule ClaudeCode.Session do
         state
     end
   end
+
+  defp shell_escape(str) when is_binary(str) do
+    if String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n"]) do
+      # Use single quotes and escape any single quotes
+      "'" <> String.replace(str, "'", "'\\''") <> "'"
+    else
+      str
+    end
+  end
+
+  defp shell_escape(str), do: shell_escape(to_string(str))
 end

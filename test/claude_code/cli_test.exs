@@ -102,7 +102,7 @@ defmodule ClaudeCode.CLITest do
       File.write!(mock_binary, """
       #!/bin/bash
       if [[ "$1" == "--version" ]]; then
-        echo "claude version 1.0.0"
+        echo "1.0.24 (Claude Code)"
         exit 0
       fi
       """)
