@@ -89,3 +89,7 @@ Implemented:
 3. Implement features
 4. Run `mix quality` before committing
 5. Update documentation as needed
+
+## Development Memories
+
+- When creating mock data for tests, run the real commands and print the outputs so that we can mimic the actual response and make sure we are handling them appropriately.
