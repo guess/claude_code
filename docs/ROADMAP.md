@@ -234,7 +234,7 @@ end
   api_key: [type: :string, required: true, doc: "Anthropic API key"],
   model: [type: :string, default: "sonnet", doc: "Model to use"],
   system_prompt: [type: :string, doc: "System prompt for Claude"],
-  allowed_tools: [type: {:list, :atom}, doc: "List of allowed tools"],
+  allowed_tools: [type: {:list, :string}, doc: "List of allowed tools (e.g. [\"View\", \"Bash(git:*)\"])"],
   max_conversation_turns: [type: :integer, default: 50, doc: "Max conversation turns"],
   working_directory: [type: :string, doc: "Working directory for file operations"],
   permission_mode: [
@@ -250,7 +250,7 @@ end
 @query_opts_schema [
   system_prompt: [type: :string, doc: "Override system prompt for this query"],
   timeout: [type: :timeout, doc: "Override timeout for this query"],
-  allowed_tools: [type: {:list, :atom}, doc: "Override allowed tools for this query"]
+  allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"]
 ]
 ```
 
@@ -260,7 +260,7 @@ end
 {:ok, session} = ClaudeCode.start_link(
   api_key: "sk-ant-...",
   system_prompt: "You are an Elixir expert",
-  allowed_tools: [:read, :write, :bash],
+  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
   max_conversation_turns: 20,
   permission_mode: :auto_accept_reads,
   timeout: 60_000

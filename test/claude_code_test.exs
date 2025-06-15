@@ -28,6 +28,128 @@ defmodule ClaudeCodeTest do
       Process.flag(:trap_exit, true)
       {:error, _} = ClaudeCode.start_link([])
     end
+
+    test "accepts flattened options directly" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        model: "opus",
+        system_prompt: "You are an Elixir expert",
+        allowed_tools: ["Bash(git:*)", "View", "GlobTool"],
+        max_conversation_turns: 20,
+        timeout: 60_000
+      )
+
+      assert is_pid(session)
+      assert ClaudeCode.alive?(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "accepts system_prompt option" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        system_prompt: "You are a helpful assistant"
+      )
+
+      assert is_pid(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "accepts allowed_tools option" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        allowed_tools: ["View", "GlobTool", "Bash(git:*)"]
+      )
+
+      assert is_pid(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "accepts max_conversation_turns option" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        max_conversation_turns: 10
+      )
+
+      assert is_pid(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "accepts working_directory option" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        working_directory: "/tmp"
+      )
+
+      assert is_pid(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "accepts permission_mode option" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        permission_mode: :auto_accept_reads
+      )
+
+      assert is_pid(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "accepts timeout option" do
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "test-key",
+        timeout: 120_000
+      )
+
+      assert is_pid(session)
+      ClaudeCode.stop(session)
+    end
+
+    test "rejects unknown options" do
+      Process.flag(:trap_exit, true)
+      
+      assert_raise ArgumentError, fn ->
+        ClaudeCode.start_link(
+          api_key: "test-key",
+          invalid_option: "value"
+        )
+      end
+    end
+
+    test "validates option types" do
+      Process.flag(:trap_exit, true)
+
+      # Invalid timeout type
+      assert_raise ArgumentError, fn ->
+        ClaudeCode.start_link(
+          api_key: "test-key",
+          timeout: "not_a_number"
+        )
+      end
+
+      # Invalid permission_mode
+      assert_raise ArgumentError, fn ->
+        ClaudeCode.start_link(
+          api_key: "test-key",
+          permission_mode: :invalid_mode
+        )
+      end
+
+      # Invalid allowed_tools type
+      assert_raise ArgumentError, fn ->
+        ClaudeCode.start_link(
+          api_key: "test-key",
+          allowed_tools: "not_a_list"
+        )
+      end
+
+      # Invalid allowed_tools content (should be strings, not atoms)
+      assert_raise ArgumentError, fn ->
+        ClaudeCode.start_link(
+          api_key: "test-key",
+          allowed_tools: [:read, :write]
+        )
+      end
+    end
   end
 
   describe "alive?/1" do
