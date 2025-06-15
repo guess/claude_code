@@ -47,15 +47,24 @@ Key CLI flags used:
 
 ## Current Implementation Status
 
-Phase 1 (MVP) is COMPLETE! ✅
+Phase 4 (Options & Configuration) is COMPLETE! ✅
 
 Implemented:
-- Basic session management with GenServer
-- Synchronous query interface
-- JSON message parsing from CLI stdout (system, assistant, result messages)
-- Error handling for CLI not found and auth errors
-- Shell wrapper to prevent CLI hanging
-- Proper message extraction from result messages
+- Phase 1: Basic session management with GenServer
+- Phase 1: Synchronous query interface
+- Phase 1: JSON message parsing from CLI stdout (system, assistant, result messages)
+- Phase 1: Error handling for CLI not found and auth errors
+- Phase 1: Shell wrapper to prevent CLI hanging
+- Phase 2: Complete message type parsing matching official SDK schema
+- Phase 2: Content block handling (Text, ToolUse, ToolResult) with proper struct types
+- Phase 2: Nested message structure for Assistant/User messages
+- Phase 3: Streaming support with native Elixir Streams
+- Phase 3: Real-time message processing with stream utilities
+- Phase 3: Async query support with message delivery
+- Phase 4: Flattened options API with NimbleOptions validation
+- Phase 4: Option precedence system (Query > Session > App Config > Defaults)
+- Phase 4: Application configuration support
+- Phase 4: Query-level option overrides
 
 ## Testing Approach
 
@@ -76,11 +85,18 @@ Implemented:
 ## File Structure
 
 - `lib/claude_code/` - Main implementation
-  - `session.ex` - GenServer for session management
-  - `cli.ex` - CLI binary detection and command building
-  - `message.ex` - Message type definitions
+  - `session.ex` - GenServer for session management with options validation
+  - `cli.ex` - CLI binary detection and command building with options support
+  - `options.ex` - Options validation & CLI conversion (NimbleOptions)
+  - `stream.ex` - Stream utilities for real-time processing
+  - `message.ex` - Unified message parsing
+  - `content.ex` - Content block parsing
+  - `types.ex` - Type definitions matching SDK schema
+  - `message/` - Message type modules (system, assistant, user, result)
+  - `content/` - Content block modules (text, tool_use, tool_result)
 - `test/` - Test files mirror lib structure
 - `docs/` - All documentation (ROADMAP, VISION, ARCHITECTURE)
+- `examples/` - Working examples
 
 ## Development Workflow
 
@@ -90,6 +106,126 @@ Implemented:
 4. Run `mix quality` before committing
 5. Update documentation as needed
 
+## API Details for Development
+
+### Complete Options List
+
+Session options (all optional except `api_key`):
+- `api_key: String.t()` - Anthropic API key (required)
+- `model: String.t()` - Claude model ("sonnet", "opus", "haiku")
+- `system_prompt: String.t()` - System prompt for the session
+- `allowed_tools: [String.t()]` - Tool restrictions (e.g. ["View", "Bash(git:*)"])
+- `max_turns: integer()` - Maximum conversation turns
+- `cwd: String.t()` - Working directory for CLI
+- `permission_mode: atom()` - Permission handling (:ask_always, :auto_accept_reads, etc.)
+- `timeout: timeout()` - Query timeout in milliseconds
+- `name: atom()` - GenServer name for named sessions
+
+### Message Type Structure
+
+All message types follow the official Claude SDK schema:
+
+```elixir
+# System messages
+%ClaudeCode.Message.System{message: text}
+
+# Assistant messages (nested structure)
+%ClaudeCode.Message.Assistant{
+  message: %{
+    content: [%ClaudeCode.Content.Text{text: "..."} | %ClaudeCode.Content.ToolUse{...}]
+  }
+}
+
+# User messages (nested structure)
+%ClaudeCode.Message.User{
+  message: %{
+    content: [%ClaudeCode.Content.Text{text: "..."} | %ClaudeCode.Content.ToolResult{...}]
+  }
+}
+
+# Result messages (final response)
+%ClaudeCode.Message.Result{
+  result: "final response text",
+  is_error: false,
+  subtype: nil  # or :error_max_turns, :error_during_execution
+}
+```
+
+### Content Block Types
+
+```elixir
+# Text content
+%ClaudeCode.Content.Text{text: "response text"}
+
+# Tool usage
+%ClaudeCode.Content.ToolUse{
+  id: "tool_id",
+  name: "tool_name",
+  input: %{...}
+}
+
+# Tool results
+%ClaudeCode.Content.ToolResult{
+  tool_use_id: "tool_id",
+  content: "tool output",
+  is_error: false
+}
+```
+
+### Stream Utilities
+
+```elixir
+# Extract only text content from assistant messages
+ClaudeCode.Stream.text_content(stream)
+
+# Extract only tool usage blocks
+ClaudeCode.Stream.tool_uses(stream)
+
+# Filter by message type
+ClaudeCode.Stream.filter_type(stream, :assistant)
+
+# Buffer text until sentence boundaries
+ClaudeCode.Stream.buffered_text(stream)
+
+# Take messages until result is received
+ClaudeCode.Stream.until_result(stream)
+```
+
+### Error Types
+
+```elixir
+# CLI errors
+{:error, {:cli_not_found, message}}
+{:error, {:cli_exit, exit_code}}
+{:error, {:port_closed, reason}}
+
+# Claude API errors (via Result message)
+%ClaudeCode.Message.Result{
+  is_error: true,
+  subtype: :error_max_turns,  # or :error_during_execution
+  result: "Error details..."
+}
+
+# Stream errors
+{:stream_init_error, reason}
+{:stream_error, error}
+{:stream_timeout, request_ref}
+```
+
+### Options Validation & Precedence
+
+Options are validated using NimbleOptions and follow this precedence:
+1. Query-level options (highest priority)
+2. Session-level options
+3. Application configuration
+4. Default values (lowest priority)
+
+The `ClaudeCode.Options` module handles validation and conversion to CLI flags.
+
 ## Development Memories
 
 - When creating mock data for tests, run the real commands and print the outputs so that we can mimic the actual response and make sure we are handling them appropriately.
+- CLI messages have evolved through phases - ensure tests cover all message types
+- Assistant/User messages use nested structure with `message.content`, not direct `.content`
+- Response content comes from "result" message, not "assistant" messages for final answers
+- Option validation happens at session start and query time - use NimbleOptions for consistent validation
