@@ -57,8 +57,8 @@ ClaudeCode sessions are GenServers that maintain conversation state and handle a
   system_prompt: "You are an expert Elixir developer",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
   permission_mode: :auto_accept_reads,
-  working_directory: "/path/to/project",
-  max_conversation_turns: 20,
+  cwd: "/path/to/project",
+  max_turns: 20,
   timeout: 120_000
 )
 

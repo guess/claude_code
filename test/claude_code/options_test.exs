@@ -12,8 +12,8 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :model)
       assert Keyword.has_key?(schema, :system_prompt)
       assert Keyword.has_key?(schema, :allowed_tools)
-      assert Keyword.has_key?(schema, :max_conversation_turns)
-      assert Keyword.has_key?(schema, :working_directory)
+      assert Keyword.has_key?(schema, :max_turns)
+      assert Keyword.has_key?(schema, :cwd)
       assert Keyword.has_key?(schema, :permission_mode)
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :permission_handler)
@@ -80,7 +80,7 @@ defmodule ClaudeCode.OptionsTest do
         model: "opus",
         system_prompt: "You are helpful",
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-        max_conversation_turns: 20,
+        max_turns: 20,
         permission_mode: :auto_accept_reads,
         timeout: 60_000
       ]
@@ -168,19 +168,19 @@ defmodule ClaudeCode.OptionsTest do
       assert "View,GlobTool,Bash(git:*)" in args
     end
 
-    test "converts max_conversation_turns to --max-conversation-turns" do
-      opts = [max_conversation_turns: 20]
+    test "converts max_turns to --max-turns" do
+      opts = [max_turns: 20]
 
       args = Options.to_cli_args(opts)
-      assert "--max-conversation-turns" in args
+      assert "--max-turns" in args
       assert "20" in args
     end
 
-    test "converts working_directory to --working-directory" do
-      opts = [working_directory: "/tmp"]
+    test "converts cwd to --cwd" do
+      opts = [cwd: "/tmp"]
 
       args = Options.to_cli_args(opts)
-      assert "--working-directory" in args
+      assert "--cwd" in args
       assert "/tmp" in args
     end
 

@@ -37,7 +37,7 @@ defmodule ClaudeCodeTest do
           model: "opus",
           system_prompt: "You are an Elixir expert",
           allowed_tools: ["Bash(git:*)", "View", "GlobTool"],
-          max_conversation_turns: 20,
+          max_turns: 20,
           timeout: 60_000
         )
 
@@ -68,22 +68,22 @@ defmodule ClaudeCodeTest do
       ClaudeCode.stop(session)
     end
 
-    test "accepts max_conversation_turns option" do
+    test "accepts max_turns option" do
       {:ok, session} =
         ClaudeCode.start_link(
           api_key: "test-key",
-          max_conversation_turns: 10
+          max_turns: 10
         )
 
       assert is_pid(session)
       ClaudeCode.stop(session)
     end
 
-    test "accepts working_directory option" do
+    test "accepts cwd option" do
       {:ok, session} =
         ClaudeCode.start_link(
           api_key: "test-key",
-          working_directory: "/tmp"
+          cwd: "/tmp"
         )
 
       assert is_pid(session)

@@ -13,7 +13,7 @@ defmodule ClaudeCode.Options do
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
     permission_handler: [type: :atom, doc: "Custom permission handler module"],
-    
+
     # CLI options (aligned with TypeScript SDK)
     model: [type: :string, doc: "Model to use"],
     cwd: [type: :string, doc: "Current working directory"],
@@ -24,27 +24,26 @@ defmodule ClaudeCode.Options do
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
-    permission_mode: [type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}, default: :ask_always, doc: "Permission handling mode"],
-    
-    # Legacy aliases for backward compatibility
-    working_directory: [type: :string, doc: "Alias for cwd (deprecated, use cwd)"],
-    max_conversation_turns: [type: :integer, doc: "Alias for max_turns (deprecated, use max_turns)"]
+    permission_mode: [
+      type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
+      default: :ask_always,
+      doc: "Permission handling mode"
+    ]
   ]
 
   @query_opts_schema [
     # Query-level overrides for CLI options
     system_prompt: [type: :string, doc: "Override system prompt for this query"],
-    append_system_prompt: [type: :string, doc: "Append to system prompt for this query"], 
+    append_system_prompt: [type: :string, doc: "Append to system prompt for this query"],
     max_turns: [type: :integer, doc: "Override max turns for this query"],
     allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
-    permission_mode: [type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}, doc: "Override permission mode for this query"],
-    
-    # Legacy aliases
-    working_directory: [type: :string, doc: "Alias for cwd (deprecated, use cwd)"],
-    max_conversation_turns: [type: :integer, doc: "Alias for max_turns (deprecated, use max_turns)"]
+    permission_mode: [
+      type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
+      doc: "Override permission mode for this query"
+    ]
   ]
 
   # App config uses same option names directly - no mapping needed
@@ -142,7 +141,7 @@ defmodule ClaudeCode.Options do
   """
   def get_app_config do
     valid_keys = @session_opts_schema |> Keyword.keys() |> MapSet.new()
-    
+
     :claude_code
     |> Application.get_all_env()
     |> Enum.filter(fn {key, _value} -> MapSet.member?(valid_keys, key) end)
@@ -237,15 +236,6 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:timeout, value) do
     {"--timeout", to_string(value)}
-  end
-
-  # Legacy aliases (handle for backward compatibility)
-  defp convert_option_to_cli_flag(:working_directory, value) do
-    {"--working-directory", to_string(value)}
-  end
-
-  defp convert_option_to_cli_flag(:max_conversation_turns, value) do
-    {"--max-conversation-turns", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(key, value) do

@@ -24,8 +24,8 @@ Key CLI flags we use:
 - `--system-prompt`: Sets the system prompt
 - `--allowed-tools`: Comma-separated list of allowed tools (e.g. "View,Bash(git:*)")
 - `--model`: Specifies the model to use
-- `--max-conversation-turns`: Limits conversation length
-- `--working-directory`: Sets working directory for file operations
+- `--max-turns`: Limits conversation length
+- `--cwd`: Sets working directory for file operations
 - `--permission-mode`: Controls permission handling (auto-accept-all, auto-accept-reads, ask-always)
 - `--timeout`: Query timeout in milliseconds
 - `--resume`: Resume a previous session by ID
@@ -193,7 +193,7 @@ The Options module converts Elixir-style options to CLI flags:
   system_prompt: "You are helpful",
   allowed_tools: ["View", "Bash(git:*)"],
   permission_mode: :auto_accept_reads,
-  max_conversation_turns: 20
+  max_turns: 20
 ]
 
 # Converted to CLI flags
@@ -201,7 +201,7 @@ The Options module converts Elixir-style options to CLI flags:
   "--system-prompt", "You are helpful",
   "--allowed-tools", "View,Bash(git:*)",
   "--permission-mode", "auto-accept-reads", 
-  "--max-conversation-turns", "20"
+  "--max-turns", "20"
 ]
 ```
 

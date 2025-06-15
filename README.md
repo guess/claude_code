@@ -122,7 +122,7 @@ mix deps.get
   model: "opus",
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-  max_conversation_turns: 20,
+  max_turns: 20,
   permission_mode: :auto_accept_reads,
   timeout: 120_000
 )
@@ -266,8 +266,8 @@ We welcome contributions! The project is in its early stages, making it a great 
   model: "opus",
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-  max_conversation_turns: 50,
-  working_directory: "/my/project",
+  max_turns: 50,
+  cwd: "/my/project",
   permission_mode: :auto_accept_reads,
   timeout: 120_000
 )
@@ -477,8 +477,8 @@ ClaudeCode.start_link(opts)
 #   - model: String.t() (optional, default: "sonnet")  
 #   - system_prompt: String.t() (optional)
 #   - allowed_tools: [String.t()] (optional, e.g. ["View", "Bash(git:*)"])
-#   - max_conversation_turns: integer() (optional, default: 50)
-#   - working_directory: String.t() (optional)
+#   - max_turns: integer() (optional)
+#   - cwd: String.t() (optional)
 #   - permission_mode: atom() (optional, default: :ask_always)
 #   - timeout: timeout() (optional, default: 300_000)
 #   - permission_handler: atom() (optional)

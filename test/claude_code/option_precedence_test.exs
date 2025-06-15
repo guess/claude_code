@@ -105,7 +105,7 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       Application.put_env(:claude_code, :model, "opus")
       Application.put_env(:claude_code, :timeout, 180_000)
       Application.put_env(:claude_code, :permission_mode, :auto_accept_all)
-      Application.put_env(:claude_code, :max_conversation_turns, 100)
+      Application.put_env(:claude_code, :max_turns, 100)
 
       # Session options (level 2) - override some app config
       session_opts = [
@@ -136,7 +136,7 @@ defmodule ClaudeCode.OptionPrecedenceTest do
 
       # App config (override defaults)
       assert final_opts[:permission_mode] == :auto_accept_all
-      assert final_opts[:max_conversation_turns] == 100
+      assert final_opts[:max_turns] == 100
     end
   end
 
