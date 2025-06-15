@@ -55,7 +55,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
   end
 
   describe "type guards" do
-    test "is_tool_use_content?/1 returns true for tool use content" do
+    test "tool_use_content?/1 returns true for tool use content" do
       {:ok, content} =
         ToolUse.new(%{
           "type" => "tool_use",
@@ -64,13 +64,13 @@ defmodule ClaudeCode.Content.ToolUseTest do
           "input" => %{}
         })
 
-      assert ToolUse.is_tool_use_content?(content)
+      assert ToolUse.tool_use_content?(content)
     end
 
-    test "is_tool_use_content?/1 returns false for non-tool-use content" do
-      refute ToolUse.is_tool_use_content?(%{type: :text})
-      refute ToolUse.is_tool_use_content?(nil)
-      refute ToolUse.is_tool_use_content?("not content")
+    test "tool_use_content?/1 returns false for non-tool-use content" do
+      refute ToolUse.tool_use_content?(%{type: :text})
+      refute ToolUse.tool_use_content?(nil)
+      refute ToolUse.tool_use_content?("not content")
     end
   end
 

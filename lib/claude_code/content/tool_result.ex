@@ -23,7 +23,7 @@ defmodule ClaudeCode.Content.ToolResult do
 
       iex> ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "123", "content" => "OK"})
       {:ok, %ToolResult{type: :tool_result, tool_use_id: "123", content: "OK", is_error: false}}
-      
+
       iex> ToolResult.new(%{"type" => "text"})
       {:error, :invalid_content_type}
   """
@@ -51,7 +51,7 @@ defmodule ClaudeCode.Content.ToolResult do
   @doc """
   Type guard to check if a value is a ToolResult content block.
   """
-  @spec is_tool_result_content?(any()) :: boolean()
-  def is_tool_result_content?(%__MODULE__{type: :tool_result}), do: true
-  def is_tool_result_content?(_), do: false
+  @spec tool_result_content?(any()) :: boolean()
+  def tool_result_content?(%__MODULE__{type: :tool_result}), do: true
+  def tool_result_content?(_), do: false
 end

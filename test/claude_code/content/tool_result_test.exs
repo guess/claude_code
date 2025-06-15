@@ -61,7 +61,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
   end
 
   describe "type guards" do
-    test "is_tool_result_content?/1 returns true for tool result content" do
+    test "tool_result_content?/1 returns true for tool result content" do
       {:ok, result} =
         ToolResult.new(%{
           "type" => "tool_result",
@@ -69,13 +69,13 @@ defmodule ClaudeCode.Content.ToolResultTest do
           "content" => "OK"
         })
 
-      assert ToolResult.is_tool_result_content?(result)
+      assert ToolResult.tool_result_content?(result)
     end
 
-    test "is_tool_result_content?/1 returns false for non-tool-result content" do
-      refute ToolResult.is_tool_result_content?(%{type: :text})
-      refute ToolResult.is_tool_result_content?(nil)
-      refute ToolResult.is_tool_result_content?("not content")
+    test "tool_result_content?/1 returns false for non-tool-result content" do
+      refute ToolResult.tool_result_content?(%{type: :text})
+      refute ToolResult.tool_result_content?(nil)
+      refute ToolResult.tool_result_content?("not content")
     end
   end
 

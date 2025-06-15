@@ -124,15 +124,15 @@ defmodule ClaudeCode.Message.UserTest do
   end
 
   describe "type guards" do
-    test "is_user_message?/1 returns true for user messages" do
+    test "user_message?/1 returns true for user messages" do
       {:ok, message} = User.new(valid_user_json())
-      assert User.is_user_message?(message)
+      assert User.user_message?(message)
     end
 
-    test "is_user_message?/1 returns false for non-user messages" do
-      refute User.is_user_message?(%{type: :assistant})
-      refute User.is_user_message?(nil)
-      refute User.is_user_message?("not a message")
+    test "user_message?/1 returns false for non-user messages" do
+      refute User.user_message?(%{type: :assistant})
+      refute User.user_message?(nil)
+      refute User.user_message?("not a message")
     end
   end
 

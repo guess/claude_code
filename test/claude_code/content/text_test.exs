@@ -39,15 +39,15 @@ defmodule ClaudeCode.Content.TextTest do
   end
 
   describe "type guards" do
-    test "is_text_content?/1 returns true for text content" do
+    test "text_content?/1 returns true for text content" do
       {:ok, content} = Text.new(%{"type" => "text", "text" => "Hi"})
-      assert Text.is_text_content?(content)
+      assert Text.text_content?(content)
     end
 
-    test "is_text_content?/1 returns false for non-text content" do
-      refute Text.is_text_content?(%{type: :tool_use})
-      refute Text.is_text_content?(nil)
-      refute Text.is_text_content?("not content")
+    test "text_content?/1 returns false for non-text content" do
+      refute Text.text_content?(%{type: :tool_use})
+      refute Text.text_content?(nil)
+      refute Text.text_content?("not content")
     end
   end
 

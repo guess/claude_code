@@ -135,15 +135,15 @@ defmodule ClaudeCode.Message.ResultTest do
   end
 
   describe "type guards" do
-    test "is_result_message?/1 returns true for result messages" do
+    test "result_message?/1 returns true for result messages" do
       {:ok, message} = Result.new(valid_result_json())
-      assert Result.is_result_message?(message)
+      assert Result.result_message?(message)
     end
 
-    test "is_result_message?/1 returns false for non-result messages" do
-      refute Result.is_result_message?(%{type: :assistant})
-      refute Result.is_result_message?(nil)
-      refute Result.is_result_message?("not a message")
+    test "result_message?/1 returns false for non-result messages" do
+      refute Result.result_message?(%{type: :assistant})
+      refute Result.result_message?(nil)
+      refute Result.result_message?("not a message")
     end
   end
 

@@ -19,7 +19,7 @@ defmodule ClaudeCode.Content do
 
       iex> Content.parse(%{"type" => "text", "text" => "Hello"})
       {:ok, %Text{type: :text, text: "Hello"}}
-      
+
       iex> Content.parse(%{"type" => "unknown"})
       {:error, {:unknown_content_type, "unknown"}}
   """
@@ -60,11 +60,11 @@ defmodule ClaudeCode.Content do
   @doc """
   Checks if a value is any type of content block.
   """
-  @spec is_content?(any()) :: boolean()
-  def is_content?(%Text{}), do: true
-  def is_content?(%ToolUse{}), do: true
-  def is_content?(%ToolResult{}), do: true
-  def is_content?(_), do: false
+  @spec content?(any()) :: boolean()
+  def content?(%Text{}), do: true
+  def content?(%ToolUse{}), do: true
+  def content?(%ToolResult{}), do: true
+  def content?(_), do: false
 
   @doc """
   Returns the type of a content block.

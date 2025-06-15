@@ -21,7 +21,7 @@ defmodule ClaudeCode.Content.Text do
 
       iex> Text.new(%{"type" => "text", "text" => "Hello!"})
       {:ok, %Text{type: :text, text: "Hello!"}}
-      
+
       iex> Text.new(%{"type" => "tool_use", "text" => "Hi"})
       {:error, :invalid_content_type}
   """
@@ -44,7 +44,7 @@ defmodule ClaudeCode.Content.Text do
   @doc """
   Type guard to check if a value is a Text content block.
   """
-  @spec is_text_content?(any()) :: boolean()
-  def is_text_content?(%__MODULE__{type: :text}), do: true
-  def is_text_content?(_), do: false
+  @spec text_content?(any()) :: boolean()
+  def text_content?(%__MODULE__{type: :text}), do: true
+  def text_content?(_), do: false
 end

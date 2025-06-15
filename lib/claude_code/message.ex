@@ -21,7 +21,7 @@ defmodule ClaudeCode.Message do
 
       iex> Message.parse(%{"type" => "system", ...})
       {:ok, %System{...}}
-      
+
       iex> Message.parse(%{"type" => "unknown"})
       {:error, {:unknown_message_type, "unknown"}}
   """
@@ -91,12 +91,12 @@ defmodule ClaudeCode.Message do
   @doc """
   Checks if a value is any type of message.
   """
-  @spec is_message?(any()) :: boolean()
-  def is_message?(%System{}), do: true
-  def is_message?(%Assistant{}), do: true
-  def is_message?(%User{}), do: true
-  def is_message?(%Result{}), do: true
-  def is_message?(_), do: false
+  @spec message?(any()) :: boolean()
+  def message?(%System{}), do: true
+  def message?(%Assistant{}), do: true
+  def message?(%User{}), do: true
+  def message?(%Result{}), do: true
+  def message?(_), do: false
 
   @doc """
   Returns the type of a message.

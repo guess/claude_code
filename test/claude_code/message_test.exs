@@ -212,7 +212,7 @@ defmodule ClaudeCode.MessageTest do
   end
 
   describe "type detection" do
-    test "is_message?/1 returns true for any message type" do
+    test "message?/1 returns true for any message type" do
       {:ok, system} =
         System.new(%{
           "type" => "system",
@@ -226,13 +226,13 @@ defmodule ClaudeCode.MessageTest do
           "apiKeySource" => "env"
         })
 
-      assert Message.is_message?(system)
+      assert Message.message?(system)
     end
 
-    test "is_message?/1 returns false for non-messages" do
-      refute Message.is_message?(%{})
-      refute Message.is_message?("string")
-      refute Message.is_message?(nil)
+    test "message?/1 returns false for non-messages" do
+      refute Message.message?(%{})
+      refute Message.message?("string")
+      refute Message.message?(nil)
     end
   end
 

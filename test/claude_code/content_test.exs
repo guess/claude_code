@@ -77,21 +77,21 @@ defmodule ClaudeCode.ContentTest do
   end
 
   describe "type detection" do
-    test "is_content?/1 returns true for any content type" do
+    test "content?/1 returns true for any content type" do
       {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
       {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
       {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
 
-      assert Content.is_content?(text)
-      assert Content.is_content?(tool)
-      assert Content.is_content?(result)
+      assert Content.content?(text)
+      assert Content.content?(tool)
+      assert Content.content?(result)
     end
 
-    test "is_content?/1 returns false for non-content" do
-      refute Content.is_content?(%{})
-      refute Content.is_content?("string")
-      refute Content.is_content?(nil)
-      refute Content.is_content?([])
+    test "content?/1 returns false for non-content" do
+      refute Content.content?(%{})
+      refute Content.content?("string")
+      refute Content.content?(nil)
+      refute Content.content?([])
     end
   end
 

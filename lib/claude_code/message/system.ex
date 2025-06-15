@@ -89,9 +89,9 @@ defmodule ClaudeCode.Message.System do
   @doc """
   Type guard to check if a value is a System message.
   """
-  @spec is_system_message?(any()) :: boolean()
-  def is_system_message?(%__MODULE__{type: :system}), do: true
-  def is_system_message?(_), do: false
+  @spec system_message?(any()) :: boolean()
+  def system_message?(%__MODULE__{type: :system}), do: true
+  def system_message?(_), do: false
 
   defp parse_mcp_servers(servers) when is_list(servers) do
     Enum.map(servers, fn server ->

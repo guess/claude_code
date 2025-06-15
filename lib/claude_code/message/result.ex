@@ -127,9 +127,9 @@ defmodule ClaudeCode.Message.Result do
   @doc """
   Type guard to check if a value is a Result message.
   """
-  @spec is_result_message?(any()) :: boolean()
-  def is_result_message?(%__MODULE__{type: :result}), do: true
-  def is_result_message?(_), do: false
+  @spec result_message?(any()) :: boolean()
+  def result_message?(%__MODULE__{type: :result}), do: true
+  def result_message?(_), do: false
 
   defp parse_subtype("success"), do: :success
   defp parse_subtype("error_max_turns"), do: :error_max_turns

@@ -187,15 +187,15 @@ defmodule ClaudeCode.Message.AssistantTest do
   end
 
   describe "type guards" do
-    test "is_assistant_message?/1 returns true for assistant messages" do
+    test "assistant_message?/1 returns true for assistant messages" do
       {:ok, message} = Assistant.new(valid_assistant_json())
-      assert Assistant.is_assistant_message?(message)
+      assert Assistant.assistant_message?(message)
     end
 
-    test "is_assistant_message?/1 returns false for non-assistant messages" do
-      refute Assistant.is_assistant_message?(%{type: :user})
-      refute Assistant.is_assistant_message?(nil)
-      refute Assistant.is_assistant_message?("not a message")
+    test "assistant_message?/1 returns false for non-assistant messages" do
+      refute Assistant.assistant_message?(%{type: :user})
+      refute Assistant.assistant_message?(nil)
+      refute Assistant.assistant_message?("not a message")
     end
   end
 

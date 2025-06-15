@@ -42,7 +42,7 @@ defmodule ClaudeCode.Message.Assistant do
 
       iex> Assistant.new(%{"type" => "assistant", "message" => %{...}})
       {:ok, %Assistant{...}}
-      
+
       iex> Assistant.new(%{"type" => "user"})
       {:error, :invalid_message_type}
   """
@@ -62,9 +62,9 @@ defmodule ClaudeCode.Message.Assistant do
   @doc """
   Type guard to check if a value is an Assistant message.
   """
-  @spec is_assistant_message?(any()) :: boolean()
-  def is_assistant_message?(%__MODULE__{type: :assistant}), do: true
-  def is_assistant_message?(_), do: false
+  @spec assistant_message?(any()) :: boolean()
+  def assistant_message?(%__MODULE__{type: :assistant}), do: true
+  def assistant_message?(_), do: false
 
   defp parse_message(message_data, parent_json) do
     case Content.parse_all(message_data["content"] || []) do

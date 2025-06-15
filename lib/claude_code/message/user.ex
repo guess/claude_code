@@ -58,9 +58,9 @@ defmodule ClaudeCode.Message.User do
   @doc """
   Type guard to check if a value is a User message.
   """
-  @spec is_user_message?(any()) :: boolean()
-  def is_user_message?(%__MODULE__{type: :user}), do: true
-  def is_user_message?(_), do: false
+  @spec user_message?(any()) :: boolean()
+  def user_message?(%__MODULE__{type: :user}), do: true
+  def user_message?(_), do: false
 
   defp parse_message(message_data, parent_json) do
     case parse_content(message_data["content"]) do

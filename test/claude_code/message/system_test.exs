@@ -62,15 +62,15 @@ defmodule ClaudeCode.Message.SystemTest do
   end
 
   describe "type guards" do
-    test "is_system_message?/1 returns true for system messages" do
+    test "system_message?/1 returns true for system messages" do
       {:ok, message} = System.new(valid_system_json())
-      assert System.is_system_message?(message)
+      assert System.system_message?(message)
     end
 
-    test "is_system_message?/1 returns false for non-system messages" do
-      refute System.is_system_message?(%{type: :assistant})
-      refute System.is_system_message?(nil)
-      refute System.is_system_message?("not a message")
+    test "system_message?/1 returns false for non-system messages" do
+      refute System.system_message?(%{type: :assistant})
+      refute System.system_message?(nil)
+      refute System.system_message?("not a message")
     end
   end
 
