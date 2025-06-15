@@ -42,7 +42,19 @@ defmodule ClaudeCode.Stream do
   @spec create(pid(), String.t(), keyword()) :: Enumerable.t()
   def create(session, prompt, opts \\ []) do
     Stream.resource(
-      fn -> init_stream(session, prompt, opts) end,
+      fn ->
+        # Defer initialization to avoid blocking on stream creation
+        %{
+          session: session,
+          prompt: prompt,
+          opts: opts,
+          initialized: false,
+          request_ref: nil,
+          timeout: Keyword.get(opts, :timeout, 60_000),
+          filter: Keyword.get(opts, :filter, :all),
+          done: false
+        }
+      end,
       &next_message/1,
       &cleanup_stream/1
     )
@@ -168,29 +180,30 @@ defmodule ClaudeCode.Stream do
 
   # Private functions
 
-  defp init_stream(session, prompt, opts) do
-    # Use query_async which automatically subscribes the caller
-    case GenServer.call(session, {:query_async, prompt, opts}) do
+  # Remove init_stream as it's no longer needed
+
+  defp next_message(%{done: true} = state) do
+    {:halt, state}
+  end
+
+  defp next_message(%{initialized: false} = state) do
+    # Initialize the stream on first message request
+    case GenServer.call(state.session, {:query_async, state.prompt, state.opts}) do
       {:ok, request_ref} ->
-        %{
-          session: session,
-          request_ref: request_ref,
-          timeout: Keyword.get(opts, :timeout, 60_000),
-          filter: Keyword.get(opts, :filter, :all),
-          done: false
-        }
+        new_state = %{state | initialized: true, request_ref: request_ref}
+        next_message(new_state)
 
       {:error, reason} ->
         throw({:stream_init_error, reason})
     end
   end
 
-  defp next_message(%{done: true} = state) do
-    {:halt, state}
-  end
-
   defp next_message(state) do
     receive do
+      {:claude_stream_started, ref} when ref == state.request_ref ->
+        # CLI has started, continue waiting for messages
+        next_message(state)
+
       {:claude_message, ref, message} when ref == state.request_ref ->
         if should_emit?(message, state.filter) do
           case message do
@@ -217,7 +230,7 @@ defmodule ClaudeCode.Stream do
 
   defp cleanup_stream(state) do
     # Notify session that we're done with this stream
-    if state.session && Process.alive?(state.session) do
+    if state.session && state.request_ref && Process.alive?(state.session) do
       GenServer.cast(state.session, {:stream_cleanup, state.request_ref})
     end
   end

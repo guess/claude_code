@@ -76,53 +76,45 @@ defmodule ClaudeCode.Session do
   end
 
   def handle_call({:query_stream, prompt, opts}, _from, state) do
-    # Start a new CLI subprocess for this streaming query
-    case start_cli_process(prompt, state, opts) do
-      {:ok, port} ->
-        # Create a unique request reference
-        request_ref = make_ref()
+    # Return immediately with a request ref, start CLI async
+    request_ref = make_ref()
 
-        # Store the streaming request details
-        new_state = %{
-          state
-          | port: port,
-            streaming_requests:
-              Map.put(state.streaming_requests, request_ref, %{
-                subscribers: [],
-                messages: []
-              })
-        }
+    # Schedule the CLI start as a cast to avoid blocking
+    GenServer.cast(self(), {:start_stream_cli, request_ref, prompt, opts})
 
-        {:reply, {:ok, request_ref}, new_state}
+    # Store the streaming request placeholder
+    new_state = %{
+      state
+      | streaming_requests:
+          Map.put(state.streaming_requests, request_ref, %{
+            subscribers: [],
+            messages: [],
+            status: :pending
+          })
+    }
 
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
-    end
+    {:reply, {:ok, request_ref}, new_state}
   end
 
   def handle_call({:query_async, prompt, opts}, {pid, _tag}, state) do
-    # Start a new CLI subprocess for this async query
-    case start_cli_process(prompt, state, opts) do
-      {:ok, port} ->
-        # Create a unique request reference
-        request_ref = make_ref()
+    # Return immediately with a request ref, start CLI async
+    request_ref = make_ref()
 
-        # Store the streaming request with the caller as subscriber
-        new_state = %{
-          state
-          | port: port,
-            streaming_requests:
-              Map.put(state.streaming_requests, request_ref, %{
-                subscribers: [pid],
-                messages: []
-              })
-        }
+    # Schedule the CLI start as a cast to avoid blocking
+    GenServer.cast(self(), {:start_stream_cli, request_ref, prompt, opts})
 
-        {:reply, {:ok, request_ref}, new_state}
+    # Store the streaming request with the caller as subscriber
+    new_state = %{
+      state
+      | streaming_requests:
+          Map.put(state.streaming_requests, request_ref, %{
+            subscribers: [pid],
+            messages: [],
+            status: :pending
+          })
+    }
 
-      {:error, reason} ->
-        {:reply, {:error, reason}, state}
-    end
+    {:reply, {:ok, request_ref}, new_state}
   end
 
   @impl true
@@ -132,7 +124,20 @@ defmodule ClaudeCode.Session do
     {:noreply, new_state}
   end
 
+  def handle_cast({:start_stream_cli, request_ref, prompt, opts}, state) do
+    # Start CLI process directly - the blocking happens in Port.open but since
+    # this is a handle_cast, it won't block the caller
+    case start_cli_process(prompt, state, opts) do
+      {:ok, port} ->
+        handle_cli_started(request_ref, {:ok, port}, state)
+
+      {:error, reason} ->
+        handle_cli_started(request_ref, {:error, reason}, state)
+    end
+  end
+
   @impl true
+
   def handle_info({port, {:data, data}}, %{port: port} = state) do
     # Process the raw binary data from the CLI subprocess
     new_state = process_cli_output(data, state)
@@ -184,6 +189,61 @@ defmodule ClaudeCode.Session do
   def terminate(_reason, _state), do: :ok
 
   # Private Functions
+
+  defp handle_cli_started(request_ref, {:ok, port}, state) do
+    case Map.get(state.streaming_requests, request_ref) do
+      nil ->
+        safe_close_port(port)
+        {:noreply, state}
+
+      request ->
+        activate_streaming_request(request_ref, request, port, state)
+    end
+  end
+
+  defp handle_cli_started(request_ref, {:error, reason}, state) do
+    case Map.get(state.streaming_requests, request_ref) do
+      nil ->
+        {:noreply, state}
+
+      request ->
+        notify_stream_error(request_ref, request, reason, state)
+    end
+  end
+
+  defp safe_close_port(port) do
+    Port.close(port)
+  catch
+    :error, :badarg -> :ok
+  end
+
+  defp activate_streaming_request(request_ref, request, port, state) do
+    # Update request status and set port
+    updated_request = %{request | status: :active}
+
+    new_state = %{
+      state
+      | port: port,
+        streaming_requests: Map.put(state.streaming_requests, request_ref, updated_request)
+    }
+
+    # Notify subscribers that streaming has started
+    for pid <- request.subscribers do
+      send(pid, {:claude_stream_started, request_ref})
+    end
+
+    {:noreply, new_state}
+  end
+
+  defp notify_stream_error(request_ref, request, reason, state) do
+    for pid <- request.subscribers do
+      send(pid, {:claude_stream_error, request_ref, reason})
+    end
+
+    # Remove the failed request
+    new_state = %{state | streaming_requests: Map.delete(state.streaming_requests, request_ref)}
+    {:noreply, new_state}
+  end
 
   defp start_cli_process(prompt, state, opts) do
     # Build the command
