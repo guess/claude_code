@@ -72,9 +72,9 @@ ClaudeCode sessions are GenServers that maintain conversation state and handle a
 # Use application config defaults
 # config/config.exs
 config :claude_code,
-  default_model: "opus",
-  default_system_prompt: "You are an expert Elixir developer",
-  default_permission_mode: :auto_accept_reads
+  model: "opus",
+  system_prompt: "You are an expert Elixir developer",
+  permission_mode: :auto_accept_reads
 
 {:ok, session} = ClaudeCode.start_link(api_key: api_key)
 # Automatically uses config defaults ↑
@@ -499,8 +499,8 @@ end
 # config/config.exs
 config :claude_code,
   # Global defaults
-  default_model: "claude-3-5-sonnet-20241022",
-  default_timeout: :timer.minutes(5),
+  model: "claude-3-5-sonnet-20241022",
+  timeout: :timer.minutes(5),
   
   # Telemetry
   telemetry_prefix: [:my_app, :claude],

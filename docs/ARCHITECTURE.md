@@ -134,8 +134,8 @@ final_options = Options.resolve_final_options(session_opts, query_opts)
    ```elixir
    # config/config.exs
    config :claude_code,
-     default_system_prompt: "App-wide default",
-     default_timeout: 180_000
+     system_prompt: "App-wide default",
+     timeout: 180_000
    ```
 
 4. **Schema defaults** (lowest precedence)

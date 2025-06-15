@@ -152,10 +152,10 @@ ClaudeCode.stop(session)
 # Set defaults in your config files
 # config/config.exs
 config :claude_code,
-  default_model: "opus",
-  default_timeout: 180_000,
-  default_permission_mode: :auto_accept_reads,
-  default_system_prompt: "You are a helpful Elixir assistant"
+  model: "opus",
+  timeout: 180_000,
+  permission_mode: :auto_accept_reads,
+  system_prompt: "You are a helpful Elixir assistant"
 
 # Sessions now automatically use these defaults
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")

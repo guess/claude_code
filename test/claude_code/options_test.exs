@@ -28,12 +28,13 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.get(api_key_opts, :type) == :string
     end
 
-    test "model has default value" do
+    test "model has proper type" do
       schema = Options.session_schema()
       model_opts = Keyword.get(schema, :model)
 
-      assert Keyword.get(model_opts, :default) == "sonnet"
       assert Keyword.get(model_opts, :type) == :string
+      # No default value - let CLI handle its own defaults
+      refute Keyword.has_key?(model_opts, :default)
     end
 
     test "permission_mode has valid enum values" do
@@ -94,7 +95,8 @@ defmodule ClaudeCode.OptionsTest do
       opts = [api_key: "sk-ant-test"]
 
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:model] == "sonnet"
+      # No model default - CLI handles its own defaults
+      refute Keyword.has_key?(validated, :model)
       assert validated[:permission_mode] == :ask_always
       assert validated[:timeout] == 300_000
     end
@@ -269,8 +271,8 @@ defmodule ClaudeCode.OptionsTest do
   describe "get_app_config/0" do
     test "returns application config for claude_code" do
       # Mock application config
-      Application.put_env(:claude_code, :default_model, "opus")
-      Application.put_env(:claude_code, :default_timeout, 180_000)
+      Application.put_env(:claude_code, :model, "opus")
+      Application.put_env(:claude_code, :timeout, 180_000)
 
       config = Options.get_app_config()
 
@@ -278,8 +280,8 @@ defmodule ClaudeCode.OptionsTest do
       assert config[:timeout] == 180_000
 
       # Cleanup
-      Application.delete_env(:claude_code, :default_model)
-      Application.delete_env(:claude_code, :default_timeout)
+      Application.delete_env(:claude_code, :model)
+      Application.delete_env(:claude_code, :timeout)
     end
 
     test "returns empty list when no config is set" do

@@ -8,38 +8,46 @@ defmodule ClaudeCode.Options do
   """
 
   @session_opts_schema [
+    # Elixir-specific options
     api_key: [type: :string, required: true, doc: "Anthropic API key"],
-    model: [type: :string, default: "sonnet", doc: "Model to use"],
-    system_prompt: [type: :string, doc: "System prompt for Claude"],
-    allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
-    max_conversation_turns: [type: :integer, default: 50, doc: "Max conversation turns"],
-    working_directory: [type: :string, doc: "Working directory for file operations"],
-    permission_mode: [
-      type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
-      default: :ask_always,
-      doc: "Permission handling mode"
-    ],
+    name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
     permission_handler: [type: :atom, doc: "Custom permission handler module"],
-    name: [type: :atom, doc: "Process name for the session"]
+    
+    # CLI options (aligned with TypeScript SDK)
+    model: [type: :string, doc: "Model to use"],
+    cwd: [type: :string, doc: "Current working directory"],
+    system_prompt: [type: :string, doc: "Override system prompt"],
+    append_system_prompt: [type: :string, doc: "Append to system prompt"],
+    max_turns: [type: :integer, doc: "Limit agentic turns in non-interactive mode"],
+    allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
+    disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
+    mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
+    permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
+    permission_mode: [type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}, default: :ask_always, doc: "Permission handling mode"],
+    
+    # Legacy aliases for backward compatibility
+    working_directory: [type: :string, doc: "Alias for cwd (deprecated, use cwd)"],
+    max_conversation_turns: [type: :integer, doc: "Alias for max_turns (deprecated, use max_turns)"]
   ]
 
   @query_opts_schema [
+    # Query-level overrides for CLI options
     system_prompt: [type: :string, doc: "Override system prompt for this query"],
+    append_system_prompt: [type: :string, doc: "Append to system prompt for this query"], 
+    max_turns: [type: :integer, doc: "Override max turns for this query"],
+    allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
+    disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
+    cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
-    allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"]
+    permission_mode: [type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}, doc: "Override permission mode for this query"],
+    
+    # Legacy aliases
+    working_directory: [type: :string, doc: "Alias for cwd (deprecated, use cwd)"],
+    max_conversation_turns: [type: :integer, doc: "Alias for max_turns (deprecated, use max_turns)"]
   ]
 
-  @app_config_mapping %{
-    default_model: :model,
-    default_system_prompt: :system_prompt,
-    default_timeout: :timeout,
-    default_permission_mode: :permission_mode,
-    default_max_conversation_turns: :max_conversation_turns,
-    default_working_directory: :working_directory,
-    default_allowed_tools: :allowed_tools,
-    default_permission_handler: :permission_handler
-  }
+  # App config uses same option names directly - no mapping needed
 
   @doc """
   Returns the session options schema.
@@ -130,18 +138,14 @@ defmodule ClaudeCode.Options do
   @doc """
   Gets application configuration for claude_code.
 
-  Maps app config keys like :default_model to option keys like :model.
+  Returns only valid option keys from the session schema.
   """
   def get_app_config do
+    valid_keys = @session_opts_schema |> Keyword.keys() |> MapSet.new()
+    
     :claude_code
     |> Application.get_all_env()
-    |> Enum.map(fn {key, value} ->
-      case Map.get(@app_config_mapping, key) do
-        nil -> nil
-        option_key -> {option_key, value}
-      end
-    end)
-    |> Enum.reject(&is_nil/1)
+    |> Enum.filter(fn {key, _value} -> MapSet.member?(valid_keys, key) end)
   end
 
   @doc """
@@ -186,8 +190,17 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:permission_handler, _value), do: nil
   defp convert_option_to_cli_flag(_key, nil), do: nil
 
+  # TypeScript SDK aligned options
   defp convert_option_to_cli_flag(:system_prompt, value) do
     {"--system-prompt", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:append_system_prompt, value) do
+    {"--append-system-prompt", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:max_turns, value) do
+    {"--max-turns", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:allowed_tools, value) when is_list(value) do
@@ -195,25 +208,44 @@ defmodule ClaudeCode.Options do
     {"--allowed-tools", tools_csv}
   end
 
-  defp convert_option_to_cli_flag(:max_conversation_turns, value) do
-    {"--max-conversation-turns", to_string(value)}
+  defp convert_option_to_cli_flag(:disallowed_tools, value) when is_list(value) do
+    tools_csv = Enum.join(value, ",")
+    {"--disallowed-tools", tools_csv}
   end
 
-  defp convert_option_to_cli_flag(:working_directory, value) do
-    {"--working-directory", to_string(value)}
+  defp convert_option_to_cli_flag(:cwd, value) do
+    # Use cwd directly as argument, not a flag
+    {"--cwd", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:mcp_config, value) do
+    {"--mcp-config", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:permission_prompt_tool, value) do
+    {"--permission-prompt-tool", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:model, value) do
+    {"--model", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:permission_mode, value) do
-    flag_value = value |> to_string() |> String.replace("_", "-")
-    {"--permission-mode", flag_value}
+    mode_string = value |> to_string() |> String.replace("_", "-")
+    {"--permission-mode", mode_string}
   end
 
   defp convert_option_to_cli_flag(:timeout, value) do
     {"--timeout", to_string(value)}
   end
 
-  defp convert_option_to_cli_flag(:model, value) do
-    {"--model", to_string(value)}
+  # Legacy aliases (handle for backward compatibility)
+  defp convert_option_to_cli_flag(:working_directory, value) do
+    {"--working-directory", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:max_conversation_turns, value) do
+    {"--max-conversation-turns", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(key, value) do

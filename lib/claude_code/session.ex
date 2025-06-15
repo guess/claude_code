@@ -73,7 +73,7 @@ defmodule ClaudeCode.Session do
     # Options are already validated in start_link/1
     state = %__MODULE__{
       api_key: Keyword.fetch!(validated_opts, :api_key),
-      model: Keyword.fetch!(validated_opts, :model),
+      model: Keyword.get(validated_opts, :model),
       session_options: validated_opts,
       active_requests: %{}
     }
