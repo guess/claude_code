@@ -194,39 +194,101 @@ end)
 
 ## Phase 4: Options & Configuration (Week 4)
 
-**Goal**: Support all configuration options from the SDK
+**Goal**: Support all configuration options from the SDK with idiomatic Elixir interface
 
 ### New Components
 ```elixir
 # lib/claude_code/options.ex
 defmodule ClaudeCode.Options do
-  defstruct [
-    :system_prompt,
-    :allowed_tools,
-    :max_conversation_turns,
-    :working_directory,
-    :permission_mode,
-    :timeout
-  ]
+  @moduledoc """
+  Handles option validation and CLI flag conversion.
+  Uses NimbleOptions for schema validation.
+  """
+  
+  # Session-level options schema
+  def session_schema()
+  
+  # Query-level options schema  
+  def query_schema()
+  
+  # Convert Elixir options to CLI flags
+  def to_cli_args(opts)
+  
+  # Merge options with proper precedence
+  def merge_options(session_opts, query_opts)
 end
 ```
 
 ### Features
-- [ ] Full options support
+- [ ] Flattened options in start_link (no nested :options key)
+- [ ] NimbleOptions validation for type safety and documentation
+- [ ] Session-level default options
 - [ ] Per-query option overrides
 - [ ] Global configuration via Application env
-- [ ] Option validation
+- [ ] Clear option precedence: query > session > app config > defaults
+- [ ] CLI flag mapping for all supported options
+
+### Option Schema
+```elixir
+@session_opts_schema [
+  api_key: [type: :string, required: true, doc: "Anthropic API key"],
+  model: [type: :string, default: "sonnet", doc: "Model to use"],
+  system_prompt: [type: :string, doc: "System prompt for Claude"],
+  allowed_tools: [type: {:list, :atom}, doc: "List of allowed tools"],
+  max_conversation_turns: [type: :integer, default: 50, doc: "Max conversation turns"],
+  working_directory: [type: :string, doc: "Working directory for file operations"],
+  permission_mode: [
+    type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
+    default: :ask_always,
+    doc: "Permission handling mode"
+  ],
+  timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
+  permission_handler: [type: :atom, doc: "Custom permission handler module"],
+  name: [type: :atom, doc: "Process name for the session"]
+]
+
+@query_opts_schema [
+  system_prompt: [type: :string, doc: "Override system prompt for this query"],
+  timeout: [type: :timeout, doc: "Override timeout for this query"],
+  allowed_tools: [type: {:list, :atom}, doc: "Override allowed tools for this query"]
+]
+```
 
 ### Example Usage
 ```elixir
-options = %ClaudeCode.Options{
+# Session with flattened options
+{:ok, session} = ClaudeCode.start_link(
+  api_key: "sk-ant-...",
   system_prompt: "You are an Elixir expert",
-  allowed_tools: [:read, :write],
-  permission_mode: :auto_accept_reads
-}
+  allowed_tools: [:read, :write, :bash],
+  max_conversation_turns: 20,
+  permission_mode: :auto_accept_reads,
+  timeout: 60_000
+)
 
-{:ok, session} = ClaudeCode.start_link(api_key: key, options: options)
+# Query with overrides
+response = ClaudeCode.query_sync(session, "Optimize this function",
+  system_prompt: "Focus on performance optimization",
+  timeout: 120_000
+)
+
+# Using application config
+# config/config.exs
+config :claude_code,
+  default_model: "opus",
+  default_timeout: 180_000,
+  default_permission_mode: :auto_accept_reads
+
+# Session uses app config defaults
+{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 ```
+
+### Implementation Notes
+- Options are passed directly to start_link as a flat keyword list
+- NimbleOptions provides automatic validation and helpful error messages
+- Session stores validated options for use in queries
+- Query functions accept option overrides that merge with session defaults
+- Options.to_cli_args/1 converts Elixir-style options to CLI flags
 
 ## Phase 5: Permission System (Week 5)
 
