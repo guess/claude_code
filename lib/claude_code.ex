@@ -20,22 +20,32 @@ defmodule ClaudeCode do
   @type message_stream :: Enumerable.t(ClaudeCode.Message.t())
 
   @doc """
-  Starts a new Claude Code session.
+  Starts a new Claude Code session with flattened options.
 
   ## Options
 
     * `:api_key` - Required. Your Anthropic API key
-    * `:model` - Optional. The model to use (defaults to sonnet)
+    * `:model` - Optional. The model to use (defaults to "sonnet")
+    * `:system_prompt` - Optional. System prompt for Claude
+    * `:allowed_tools` - Optional. List of allowed tools (e.g. ["View", "Bash(git:*)"])
+    * `:max_conversation_turns` - Optional. Max conversation turns (default: 50)
+    * `:working_directory` - Optional. Working directory for file operations
+    * `:permission_mode` - Optional. Permission mode (:auto_accept_all, :auto_accept_reads, :ask_always)
+    * `:timeout` - Optional. Query timeout in ms (default: 300_000)
     * `:name` - Optional. A name to register the session under
 
   ## Examples
 
-      # Start an unnamed session
+      # Start a basic session
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 
-      # Start a named session
+      # Start with custom options
       {:ok, session} = ClaudeCode.start_link(
         api_key: "sk-ant-...",
+        system_prompt: "You are an Elixir expert",
+        allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+        max_conversation_turns: 20,
+        permission_mode: :auto_accept_reads,
         name: :my_session
       )
   """
@@ -50,21 +60,33 @@ defmodule ClaudeCode do
   This function blocks until Claude has finished responding. For streaming
   responses, use `query/3` instead.
 
+  ## Options
+
+  Query-level options override session-level options:
+
+    * `:system_prompt` - Override system prompt for this query
+    * `:timeout` - Override timeout for this query
+    * `:allowed_tools` - Override allowed tools for this query
+
   ## Examples
 
       {:ok, response} = ClaudeCode.query_sync(session, "What is 2 + 2?")
       IO.puts(response)
       # => "4"
 
-      # With a timeout
-      {:ok, response} = ClaudeCode.query_sync(session, "Complex query", timeout: 60_000)
+      # With overrides
+      {:ok, response} = ClaudeCode.query_sync(session, "Complex query", 
+        system_prompt: "Focus on performance optimization",
+        timeout: 120_000
+      )
   """
   @spec query_sync(session(), String.t(), keyword()) :: query_response()
   def query_sync(session, prompt, opts \\ []) do
-    timeout = Keyword.get(opts, :timeout, 60_000)
+    # Extract timeout for GenServer.call, pass rest to session
+    {timeout, query_opts} = Keyword.pop(opts, :timeout, 60_000)
 
     try do
-      GenServer.call(session, {:query_sync, prompt, opts}, timeout)
+      GenServer.call(session, {:query_sync, prompt, query_opts}, timeout)
     catch
       :exit, {:timeout, _} ->
         {:error, :timeout}
@@ -80,7 +102,11 @@ defmodule ClaudeCode do
 
   ## Options
 
-    * `:timeout` - Maximum time to wait for each message (default: 60_000ms)
+  Query-level options override session-level options:
+
+    * `:system_prompt` - Override system prompt for this query
+    * `:timeout` - Override timeout for this query  
+    * `:allowed_tools` - Override allowed tools for this query
     * `:filter` - Message type filter (:all, :assistant, :tool_use, :result)
 
   ## Examples
@@ -90,9 +116,11 @@ defmodule ClaudeCode do
       |> ClaudeCode.query("Write a hello world program")
       |> Enum.each(&IO.inspect/1)
 
-      # Stream only assistant messages
+      # Stream with option overrides
       session
-      |> ClaudeCode.query("Explain quantum computing", filter: :assistant)
+      |> ClaudeCode.query("Explain quantum computing", 
+           system_prompt: "Focus on practical applications",
+           filter: :assistant)
       |> Stream.map(& &1.message.content)
       |> Stream.flat_map(&Function.identity/1)
       |> Enum.each(&IO.inspect/1)

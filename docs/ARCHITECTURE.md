@@ -17,13 +17,17 @@ The SDK spawns the `claude` command as a subprocess using a shell wrapper to pre
 
 This approach ensures proper TTY handling and prevents the CLI from buffering output.
 
-Key CLI flags we'll use:
+Key CLI flags we use:
 - `--output-format stream-json`: Outputs JSON messages line by line
 - `--verbose`: Includes all message types in output
 - `--print`: Non-interactive mode, exits after completion
 - `--system-prompt`: Sets the system prompt
-- `--allowed-tools`: Comma-separated list of allowed tools
+- `--allowed-tools`: Comma-separated list of allowed tools (e.g. "View,Bash(git:*)")
 - `--model`: Specifies the model to use
+- `--max-conversation-turns`: Limits conversation length
+- `--working-directory`: Sets working directory for file operations
+- `--permission-mode`: Controls permission handling (auto-accept-all, auto-accept-reads, ask-always)
+- `--timeout`: Query timeout in milliseconds
 - `--resume`: Resume a previous session by ID
 - `--continue`: Continue the most recent conversation
 
@@ -55,6 +59,7 @@ defmodule ClaudeCode.Session do
   # - active_requests: Map of request_id => RequestInfo
   # - api_key: Authentication key
   # - model: Model to use for queries
+  # - session_options: Validated session-level options
   
   # Each RequestInfo tracks:
   # - port: Dedicated CLI subprocess
@@ -65,6 +70,18 @@ defmodule ClaudeCode.Session do
 end
 ```
 
+#### Options Module (`ClaudeCode.Options`)
+```elixir
+defmodule ClaudeCode.Options do
+  # Handles:
+  # - NimbleOptions validation with helpful error messages
+  # - Option precedence: query > session > app config > defaults
+  # - CLI flag conversion (e.g. :permission_mode → "--permission-mode")
+  # - Application config integration
+  # - Type safety for all configuration options
+end
+```
+
 The Session GenServer supports multiple concurrent queries, with each query spawning its own CLI subprocess. This design ensures true concurrency without race conditions.
 
 #### CLI Module (`ClaudeCode.CLI`)
@@ -72,7 +89,8 @@ The Session GenServer supports multiple concurrent queries, with each query spaw
 defmodule ClaudeCode.CLI do
   # Handles:
   # - Finding the claude binary
-  # - Building command arguments
+  # - Building command arguments from validated options
+  # - Converting Elixir options to CLI flags
   # - Spawning the process
   # - Managing stdin/stdout/stderr
 end
@@ -87,6 +105,104 @@ defmodule ClaudeCode.Parser do
   # - ResultMessage
   # - etc.
 end
+```
+
+## Configuration System (Phase 4)
+
+### Options & Validation
+
+The SDK uses a sophisticated configuration system with multiple layers of precedence:
+
+```elixir
+# Precedence: Query > Session > App Config > Defaults
+final_options = Options.resolve_final_options(session_opts, query_opts)
+```
+
+#### Option Precedence Chain
+
+1. **Query-level options** (highest precedence)
+   ```elixir
+   ClaudeCode.query_sync(session, "prompt", system_prompt: "Override for this query")
+   ```
+
+2. **Session-level options**
+   ```elixir
+   ClaudeCode.start_link(api_key: key, system_prompt: "Session default")
+   ```
+
+3. **Application config**
+   ```elixir
+   # config/config.exs
+   config :claude_code,
+     default_system_prompt: "App-wide default",
+     default_timeout: 180_000
+   ```
+
+4. **Schema defaults** (lowest precedence)
+   ```elixir
+   @session_opts_schema [
+     timeout: [type: :timeout, default: 300_000]
+   ]
+   ```
+
+#### Flattened Options API
+
+Options are passed directly as keyword arguments (no nested `:options` key):
+
+```elixir
+# Before (nested)
+{:ok, session} = ClaudeCode.start_link(
+  api_key: key,
+  options: %{system_prompt: "...", timeout: 60_000}
+)
+
+# After (flattened) 
+{:ok, session} = ClaudeCode.start_link(
+  api_key: key,
+  system_prompt: "...",
+  timeout: 60_000
+)
+```
+
+#### NimbleOptions Integration
+
+All options are validated using NimbleOptions for type safety:
+
+```elixir
+@session_opts_schema [
+  api_key: [type: :string, required: true],
+  model: [type: :string, default: "sonnet"],
+  allowed_tools: [type: {:list, :string}],
+  permission_mode: [type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}]
+]
+```
+
+Benefits:
+- Helpful error messages for invalid options
+- Auto-generated documentation
+- Type safety at compile time
+- Consistent validation across the API
+
+#### CLI Flag Conversion
+
+The Options module converts Elixir-style options to CLI flags:
+
+```elixir
+# Elixir options
+[
+  system_prompt: "You are helpful",
+  allowed_tools: ["View", "Bash(git:*)"],
+  permission_mode: :auto_accept_reads,
+  max_conversation_turns: 20
+]
+
+# Converted to CLI flags
+[
+  "--system-prompt", "You are helpful",
+  "--allowed-tools", "View,Bash(git:*)",
+  "--permission-mode", "auto-accept-reads", 
+  "--max-conversation-turns", "20"
+]
 ```
 
 ## Implementation Details
@@ -192,21 +308,31 @@ We'll pass through important environment variables:
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
   api_key: "sk-ant-...",
-  model: "claude-3-5-sonnet-20241022"
+  model: "opus",
+  system_prompt: "You are an Elixir expert",
+  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  permission_mode: :auto_accept_reads,
+  timeout: 120_000
 )
 ```
 
 This will:
-1. Start a GenServer
-2. Find the CLI binary
-3. Prepare command arguments
-4. Ready for queries (no subprocess yet)
+1. Validate all options using NimbleOptions
+2. Apply application config defaults
+3. Start a GenServer with validated configuration
+4. Find the CLI binary
+5. Ready for queries (no subprocess yet)
+
+Options are validated early to provide immediate feedback on configuration errors.
 
 ### Query Lifecycle
 
 1. **Query starts**: 
+   - Validate query-level options using NimbleOptions
+   - Merge session and query options (query takes precedence)
+   - Convert merged options to CLI flags
    - Generate unique request ID
-   - Spawn dedicated CLI subprocess with prompt
+   - Spawn dedicated CLI subprocess with prompt and flags
    - Register request in `active_requests` map
 2. **Stream messages**: 
    - Route port messages to correct request via port lookup

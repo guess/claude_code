@@ -4,9 +4,11 @@ defmodule ClaudeCode.CLI do
 
   This module is responsible for:
   - Finding the claude binary
-  - Building command arguments
+  - Building command arguments from validated options
   - Managing the subprocess lifecycle
   """
+
+  alias ClaudeCode.Options
 
   @claude_binary "claude"
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
@@ -27,19 +29,16 @@ defmodule ClaudeCode.CLI do
   @doc """
   Builds the command and arguments for running the Claude CLI.
 
-  ## Options
-
-    * `:model` - The model to use
-    * `:timeout` - Command timeout in milliseconds
+  Accepts validated options from the Options module and converts them to CLI flags.
 
   Returns `{:ok, {executable, args}}` or `{:error, reason}`.
   """
-  @spec build_command(String.t(), String.t(), String.t(), keyword()) ::
+  @spec build_command(String.t(), String.t(), keyword()) ::
           {:ok, {String.t(), [String.t()]}} | {:error, term()}
-  def build_command(prompt, _api_key, model, opts \\ []) do
+  def build_command(prompt, _api_key, opts) do
     case find_binary() do
       {:ok, executable} ->
-        args = build_args(prompt, model, opts)
+        args = build_args(prompt, opts)
         {:ok, {executable, args}}
 
       {:error, :not_found} ->
@@ -74,12 +73,15 @@ defmodule ClaudeCode.CLI do
 
   # Private Functions
 
-  defp build_args(prompt, model, _opts) do
-    base_args = @required_flags ++ ["--model", model]
+  defp build_args(prompt, opts) do
+    # Start with required flags
+    base_args = @required_flags
 
-    # Add any additional options here in future phases
-    # For now, we just append the prompt
-    base_args ++ [prompt]
+    # Convert options to CLI flags using Options module
+    option_args = Options.to_cli_args(opts)
+
+    # Combine all arguments and append the prompt
+    base_args ++ option_args ++ [prompt]
   end
 
   defp cli_not_found_message do

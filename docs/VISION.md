@@ -6,6 +6,8 @@ An idiomatic Elixir SDK for Claude Code that leverages OTP patterns, functional 
 
 - 🎭 **GenServer-based Sessions** - Each session is a supervised process with automatic recovery
 - 🌊 **Native Streaming** - Built on Elixir's Stream module for efficient, lazy evaluation
+- ⚙️ **Flattened Configuration** - Clean, intuitive options API with NimbleOptions validation
+- 📊 **Option Precedence** - Query > Session > App Config > Defaults hierarchy
 - 🛡️ **Behaviour-based Permissions** - Extensible permission system using Elixir behaviours
 - 📊 **Telemetry Integration** - First-class observability with :telemetry
 - 🔄 **Async & Sync APIs** - Choose between async streaming or synchronous responses
@@ -48,27 +50,34 @@ session
 ClaudeCode sessions are GenServers that maintain conversation state and handle all Claude interactions.
 
 ```elixir
-# Start a session with options
+# Start a session with flattened options
 {:ok, session} = ClaudeCode.start_link(
   api_key: "sk-ant-...",
-  model: "claude-3-5-sonnet-20241022",
-  options: %ClaudeCode.Options{
-    system_prompt: "You are an expert Elixir developer",
-    allowed_tools: [:read, :write, :bash],
-    permission_mode: :auto_accept_reads,
-    working_directory: "/path/to/project",
-    max_conversation_turns: 20
-  }
+  model: "opus",
+  system_prompt: "You are an expert Elixir developer",
+  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  permission_mode: :auto_accept_reads,
+  working_directory: "/path/to/project",
+  max_conversation_turns: 20,
+  timeout: 120_000
 )
 
 # Named sessions for global access
 {:ok, _} = ClaudeCode.start_link(
   api_key: api_key,
+  system_prompt: "You are helpful",
   name: {:global, :coding_assistant}
 )
 
-# Resume a previous conversation
-{:ok, session} = ClaudeCode.resume(session_id, api_key: api_key)
+# Use application config defaults
+# config/config.exs
+config :claude_code,
+  default_model: "opus",
+  default_system_prompt: "You are an expert Elixir developer",
+  default_permission_mode: :auto_accept_reads
+
+{:ok, session} = ClaudeCode.start_link(api_key: api_key)
+# Automatically uses config defaults ↑
 ```
 
 ### Querying Claude
@@ -87,13 +96,12 @@ stream
 |> Stream.map(& &1.text)
 |> Enum.join()
 
-# Synchronous query (blocks until complete)
+# Synchronous query with option overrides (blocks until complete)
 {:ok, messages} = ClaudeCode.query_sync(session, 
   "Fix the compilation errors",
-  options: %ClaudeCode.Options{
-    allowed_tools: [:read, :edit],
-    timeout: :timer.minutes(5)
-  }
+  allowed_tools: ["View", "Edit"],
+  timeout: :timer.minutes(5),
+  system_prompt: "Focus on fixing syntax errors"
 )
 ```
 
@@ -291,18 +299,18 @@ defmodule MyApp.ClaudeSupervisor do
       {ClaudeCode, 
         api_key: System.fetch_env!("ANTHROPIC_API_KEY"),
         name: :main_assistant,
-        options: %ClaudeCode.Options{
-          system_prompt: "You are an expert Elixir developer"
-        }
+        system_prompt: "You are an expert Elixir developer",
+        allowed_tools: ["View", "GlobTool", "Edit"],
+        permission_mode: :auto_accept_reads
       },
       
       # Specialized test writer
       {ClaudeCode,
         api_key: System.fetch_env!("ANTHROPIC_API_KEY"), 
         name: :test_assistant,
-        options: %ClaudeCode.Options{
-          system_prompt: "You are an expert at writing ExUnit tests"
-        }
+        system_prompt: "You are an expert at writing ExUnit tests",
+        allowed_tools: ["View", "Edit"],
+        permission_mode: :auto_accept_reads
       }
     ]
     

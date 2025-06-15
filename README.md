@@ -2,7 +2,7 @@
 
 An Elixir SDK for Claude Code - bringing AI-powered coding assistance to the Elixir ecosystem.
 
-> **Status**: Alpha (Phase 3 Complete) - Streaming support is now available! Message types and content blocks are fully implemented with SDK-compliant schema. See our [Roadmap](docs/ROADMAP.md) for implementation timeline.
+> **Status**: Alpha (Phase 4 Complete) - Full options & configuration support is now available! Flattened options API with NimbleOptions validation, option precedence, and application config support. See our [Roadmap](docs/ROADMAP.md) for implementation timeline.
 
 ## Project Overview
 
@@ -17,29 +17,32 @@ ClaudeCode is an idiomatic Elixir interface to the Claude Code CLI, designed to 
 
 ## Current Status
 
-✅ **Phase 3 is complete!** The SDK now provides:
+✅ **Phase 4 is complete!** The SDK now provides:
 
-- Basic session management with GenServer
-- Synchronous query interface
-- **NEW: Streaming support with native Elixir Streams**
-- **NEW: Real-time message processing**
-- **NEW: Stream utilities for text extraction and filtering**
-- **NEW: Async query support with message delivery**
+- **NEW: Flattened options API** - Pass options directly as keyword arguments 
+- **NEW: NimbleOptions validation** - Type safety with helpful error messages
+- **NEW: Option precedence system** - Query > Session > App Config > Defaults
+- **NEW: Application configuration support** - Set defaults in config files
+- **NEW: Query-level option overrides** - Override session options per query
+- Streaming support with native Elixir Streams
+- Real-time message processing with stream utilities
+- Async query support with message delivery
 - Full message type parsing (System, Assistant, User, Result) matching official SDK schema
 - Content block handling (Text, ToolUse, ToolResult) with proper struct types
 - Nested message structure for Assistant/User messages as per SDK spec
 - Pattern matching support for all message types
 - Error handling with proper Result subtypes (error_max_turns, error_during_execution)
-- Comprehensive test suite with 146 passing tests including streaming integration tests
+- Comprehensive test suite with 199 passing tests including options validation
 
 ```
 claude_code/
 ├── lib/
-│   ├── claude_code.ex         # Main API module with streaming support
+│   ├── claude_code.ex         # Main API module with flattened options support
 │   └── claude_code/
-│       ├── session.ex         # GenServer with streaming enhancements
-│       ├── stream.ex          # Stream utilities (NEW)
-│       ├── cli.ex            # CLI binary handling
+│       ├── session.ex         # GenServer with options validation
+│       ├── options.ex         # Options validation & CLI conversion (NEW)
+│       ├── stream.ex          # Stream utilities
+│       ├── cli.ex            # CLI binary handling with options support
 │       ├── message.ex        # Unified message parsing
 │       ├── content.ex        # Content block parsing
 │       ├── types.ex          # Type definitions matching SDK schema
@@ -53,15 +56,17 @@ claude_code/
 │           ├── tool_use.ex   # Tool use blocks
 │           └── tool_result.ex # Tool result blocks
 ├── test/
-│   ├── claude_code_test.exs
+│   ├── claude_code_test.exs       # Updated with flattened options tests
 │   └── claude_code/
 │       ├── session_test.exs
-│       ├── stream_test.exs         # Stream module tests (NEW)
-│       ├── cli_test.exs
+│       ├── options_test.exs           # Options module tests (NEW)
+│       ├── option_precedence_test.exs # Option precedence tests (NEW)
+│       ├── stream_test.exs            # Stream module tests
+│       ├── cli_test.exs               # Updated for new CLI interface
 │       ├── message_test.exs
 │       ├── content_test.exs
 │       ├── integration_test.exs
-│       ├── integration_stream_test.exs # Streaming integration tests (NEW)
+│       ├── integration_stream_test.exs # Streaming integration tests
 │       └── (matching test structure)
 └── docs/                      # Project documentation
 ```
@@ -106,15 +111,32 @@ mix deps.get
 ### Basic Usage
 
 ```elixir
-# Start a Claude session
+# Start a Claude session with basic options
 {:ok, session} = ClaudeCode.start_link(
   api_key: System.get_env("ANTHROPIC_API_KEY")
+)
+
+# Start with advanced configuration (NEW in Phase 4!)
+{:ok, session} = ClaudeCode.start_link(
+  api_key: System.get_env("ANTHROPIC_API_KEY"),
+  model: "opus",
+  system_prompt: "You are an Elixir expert",
+  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  max_conversation_turns: 20,
+  permission_mode: :auto_accept_reads,
+  timeout: 120_000
 )
 
 # Send a query and get a response
 {:ok, response} = ClaudeCode.query_sync(session, "Hello, Claude!")
 IO.puts(response)
 # => "Hello! How can I assist you today?"
+
+# Override options per query (NEW!)
+{:ok, response} = ClaudeCode.query_sync(session, "Optimize this code",
+  system_prompt: "Focus on performance optimization",
+  timeout: 180_000
+)
 
 # Check if session is alive
 ClaudeCode.alive?(session)
@@ -124,7 +146,23 @@ ClaudeCode.alive?(session)
 ClaudeCode.stop(session)
 ```
 
-### Streaming Responses (NEW in Phase 3!)
+### Application Configuration (NEW in Phase 4!)
+
+```elixir
+# Set defaults in your config files
+# config/config.exs
+config :claude_code,
+  default_model: "opus",
+  default_timeout: 180_000,
+  default_permission_mode: :auto_accept_reads,
+  default_system_prompt: "You are a helpful Elixir assistant"
+
+# Sessions now automatically use these defaults
+{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
+# Uses the configured defaults ↑
+```
+
+### Streaming Responses with Option Overrides
 
 ```elixir
 # Stream all messages as they arrive
@@ -132,9 +170,11 @@ session
 |> ClaudeCode.query("Write a story about Elixir")
 |> Enum.each(&IO.inspect/1)
 
-# Extract just the text content
+# Stream with query-level option overrides (NEW!)
 session
-|> ClaudeCode.query("Explain pattern matching")
+|> ClaudeCode.query("Explain pattern matching",
+     system_prompt: "Focus on practical examples",
+     allowed_tools: ["View"])
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 
@@ -159,7 +199,9 @@ session
 |> Enum.map(& &1.message.content)
 
 # Async queries with manual message handling
-{:ok, request_id} = ClaudeCode.query_async(session, "Complex task")
+{:ok, request_id} = ClaudeCode.query_async(session, "Complex task",
+  timeout: 300_000  # Override timeout for this query
+)
 
 receive do
   {:claude_message, ^request_id, message} ->
@@ -212,33 +254,56 @@ We welcome contributions! The project is in its early stages, making it a great 
 
 ## API Documentation
 
-### Starting a Session
+### Starting a Session (Updated for Phase 4!)
 
 ```elixir
 # Basic usage
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 
-# With custom model
+# With flattened configuration options
 {:ok, session} = ClaudeCode.start_link(
   api_key: "sk-ant-...",
-  model: "claude-3-opus-20240229"
+  model: "opus",
+  system_prompt: "You are an Elixir expert",
+  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  max_conversation_turns: 50,
+  working_directory: "/my/project",
+  permission_mode: :auto_accept_reads,
+  timeout: 120_000
 )
 
 # Named session for easier reference
 {:ok, session} = ClaudeCode.start_link(
   api_key: "sk-ant-...",
+  system_prompt: "You are helpful",
   name: :my_claude
 )
+
+# Use application config defaults
+# (assumes config is set in config/config.exs)
+{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 ```
 
-### Making Queries
+### Making Queries (Updated for Phase 4!)
 
 ```elixir
 # Synchronous query (blocks until complete)
 {:ok, response} = ClaudeCode.query_sync(session, "Explain GenServers")
 
-# With custom timeout (default is 60 seconds)
-{:ok, response} = ClaudeCode.query_sync(session, "Complex task", timeout: 120_000)
+# With query-level option overrides (NEW!)
+{:ok, response} = ClaudeCode.query_sync(session, "Complex task",
+  system_prompt: "Focus on performance",
+  timeout: 120_000,
+  allowed_tools: ["Bash(git:*)"]
+)
+
+# Streaming query with option overrides
+session
+|> ClaudeCode.query("Write Elixir code",
+     system_prompt: "Use modern Elixir patterns",
+     timeout: 180_000)
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
 
 # Handle errors
 case ClaudeCode.query_sync(session, prompt) do
@@ -279,11 +344,19 @@ ClaudeCode.stop(session)
 - [x] Buffered text output
 - [x] Message type filtering
 
-### 🚧 Phase 4: Advanced Features (Next)
-- [ ] Multiple conversation context
-- [ ] Conversation history
-- [ ] Token usage tracking
-- [ ] Rate limiting
+### ✅ Phase 4: Options & Configuration (Complete)
+- [x] Flattened options API (no nested :options key)
+- [x] NimbleOptions validation with helpful error messages
+- [x] Session-level and query-level options
+- [x] Option precedence: query > session > app config > defaults
+- [x] Application configuration support
+- [x] CLI flag conversion for all options
+
+### 🚧 Phase 5: Permission System (Next)
+- [ ] Permission handler behaviour
+- [ ] Built-in permission modes
+- [ ] Custom permission handlers
+- [ ] Security controls for tool usage
 
 See the [Roadmap](docs/ROADMAP.md) for the complete implementation plan.
 
@@ -397,23 +470,36 @@ Remember: Assistant messages have a nested structure where content is at `messag
 ### ClaudeCode Module
 
 ```elixir
-# Start a new session
+# Start a new session with flattened options
 ClaudeCode.start_link(opts)
 # Options:
 #   - api_key: String.t() (required)
-#   - model: String.t() (optional, default: "sonnet")
+#   - model: String.t() (optional, default: "sonnet")  
+#   - system_prompt: String.t() (optional)
+#   - allowed_tools: [String.t()] (optional, e.g. ["View", "Bash(git:*)"])
+#   - max_conversation_turns: integer() (optional, default: 50)
+#   - working_directory: String.t() (optional)
+#   - permission_mode: atom() (optional, default: :ask_always)
+#   - timeout: timeout() (optional, default: 300_000)
+#   - permission_handler: atom() (optional)
 #   - name: atom() (optional, for named GenServer)
 
-# Synchronous query
+# Synchronous query with optional overrides
 ClaudeCode.query_sync(session, prompt, opts \\ [])
+# Query Options:
+#   - system_prompt: String.t() (override session default)
+#   - timeout: timeout() (override session default)
+#   - allowed_tools: [String.t()] (override session default)
 # Returns: {:ok, String.t()} | {:error, term()}
 
-# Streaming query (returns Elixir Stream)
+# Streaming query with optional overrides (returns Elixir Stream)
 ClaudeCode.query(session, prompt, opts \\ [])
+# Same query options as above
 # Returns: Stream.t()
 
-# Async query (messages sent to calling process)
+# Async query with optional overrides (messages sent to calling process)
 ClaudeCode.query_async(session, prompt, opts \\ [])
+# Same query options as above
 # Returns: {:ok, reference()} | {:error, term()}
 
 # Session management

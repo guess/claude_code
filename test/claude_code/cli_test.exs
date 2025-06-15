@@ -36,7 +36,7 @@ defmodule ClaudeCode.CLITest do
     end
   end
 
-  describe "build_command/4" do
+  describe "build_command/3" do
     setup do
       # Create a mock claude binary for testing
       mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
@@ -63,8 +63,7 @@ defmodule ClaudeCode.CLITest do
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          "sonnet",
-          []
+          model: "sonnet"
         )
 
       assert executable == mock_binary
@@ -77,12 +76,35 @@ defmodule ClaudeCode.CLITest do
       assert "test prompt" in args
     end
 
+    test "builds command with additional options", %{mock_binary: mock_binary} do
+      {:ok, {executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          model: "opus",
+          system_prompt: "You are helpful",
+          allowed_tools: ["View", "Bash(git:*)"],
+          timeout: 120_000
+        )
+
+      assert executable == mock_binary
+      assert "--model" in args
+      assert "opus" in args
+      assert "--system-prompt" in args
+      assert "You are helpful" in args
+      assert "--allowed-tools" in args
+      assert "View,Bash(git:*)" in args
+      assert "--timeout" in args
+      assert "120000" in args
+      assert "test prompt" in args
+    end
+
     test "returns error when binary not found" do
       # Clear PATH
       original_path = System.get_env("PATH")
       System.put_env("PATH", "")
 
-      result = CLI.build_command("test", "key", "model", [])
+      result = CLI.build_command("test", "key", model: "sonnet")
 
       assert {:error, {:cli_not_found, message}} = result
       assert message =~ "Claude CLI not found"

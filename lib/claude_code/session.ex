@@ -11,12 +11,12 @@ defmodule ClaudeCode.Session do
 
   alias ClaudeCode.CLI
   alias ClaudeCode.Message
+  alias ClaudeCode.Options
 
   require Logger
 
-  defstruct [:api_key, :model, :active_requests]
+  defstruct [:api_key, :model, :active_requests, :session_options]
 
-  @default_model "sonnet"
   @request_timeout 300_000
 
   # Request tracking structure
@@ -45,24 +45,36 @@ defmodule ClaudeCode.Session do
   Starts a new session GenServer.
   """
   def start_link(opts) do
-    {name, opts} = Keyword.pop(opts, :name)
+    {name, session_opts} = Keyword.pop(opts, :name)
 
-    case name do
-      nil -> GenServer.start_link(__MODULE__, opts)
-      _ -> GenServer.start_link(__MODULE__, opts, name: name)
+    # Apply app config defaults and validate options early
+    opts_with_config = Options.apply_app_config_defaults(session_opts)
+
+    case Options.validate_session_options(opts_with_config) do
+      {:ok, validated_opts} ->
+        # Pass validated options to GenServer
+        init_opts = Keyword.put(validated_opts, :name, name)
+
+        case name do
+          nil -> GenServer.start_link(__MODULE__, init_opts)
+          _ -> GenServer.start_link(__MODULE__, init_opts, name: name)
+        end
+
+      {:error, validation_error} ->
+        # Raise ArgumentError for invalid options
+        raise ArgumentError, Exception.message(validation_error)
     end
   end
 
   # Server Callbacks
 
   @impl true
-  def init(opts) do
-    api_key = Keyword.fetch!(opts, :api_key)
-    model = Keyword.get(opts, :model, @default_model)
-
+  def init(validated_opts) do
+    # Options are already validated in start_link/1
     state = %__MODULE__{
-      api_key: api_key,
-      model: model,
+      api_key: Keyword.fetch!(validated_opts, :api_key),
+      model: Keyword.fetch!(validated_opts, :model),
+      session_options: validated_opts,
       active_requests: %{}
     }
 
@@ -450,50 +462,60 @@ defmodule ClaudeCode.Session do
     :error, :badarg -> :ok
   end
 
-  defp start_cli_process(prompt, state, opts) do
-    # Build the command
-    case CLI.build_command(prompt, state.api_key, state.model, opts) do
-      {:ok, {executable, args}} ->
-        # Start the CLI subprocess
-        # Environment variables need to be in the format [{key, value}] where both are charlists
-        env_vars = [
-          {~c"ANTHROPIC_API_KEY", String.to_charlist(state.api_key)}
-        ]
+  defp start_cli_process(prompt, state, query_opts) do
+    # Validate query options
+    case Options.validate_query_options(query_opts) do
+      {:ok, validated_query_opts} ->
+        # Merge session and query options with query taking precedence
+        final_opts = Options.merge_options(state.session_options, validated_query_opts)
 
-        try do
-          # Use the exact same approach as System.shell
-          shell_path = :os.find_executable(~c"sh") || raise "sh not found"
+        # Build the command
+        case CLI.build_command(prompt, state.api_key, final_opts) do
+          {:ok, {executable, args}} ->
+            # Start the CLI subprocess
+            # Environment variables need to be in the format [{key, value}] where both are charlists
+            env_vars = [
+              {~c"ANTHROPIC_API_KEY", String.to_charlist(state.api_key)}
+            ]
 
-          # Build the command string with proper escaping
-          cmd_parts = [executable | args]
-          cmd_string = Enum.map_join(cmd_parts, " ", &shell_escape/1)
+            try do
+              # Use the exact same approach as System.shell
+              shell_path = :os.find_executable(~c"sh") || raise "sh not found"
 
-          # Add environment variables to the command
-          env_prefix =
-            Enum.map_join(env_vars, " ", fn {key, value} ->
-              "#{key}=#{shell_escape(to_string(value))}"
-            end)
+              # Build the command string with proper escaping
+              cmd_parts = [executable | args]
+              cmd_string = Enum.map_join(cmd_parts, " ", &shell_escape/1)
 
-          # Build the full command exactly like System.shell does
-          # Wrap in parentheses, add newline, and redirect stdin from /dev/null
-          full_command = "(#{env_prefix} #{cmd_string}\n) </dev/null"
+              # Add environment variables to the command
+              env_prefix =
+                Enum.map_join(env_vars, " ", fn {key, value} ->
+                  "#{key}=#{shell_escape(to_string(value))}"
+                end)
 
-          port_opts = [
-            {:args, ["-c", full_command]},
-            :binary,
-            :exit_status,
-            :stderr_to_stdout
-          ]
+              # Build the full command exactly like System.shell does
+              # Wrap in parentheses, add newline, and redirect stdin from /dev/null
+              full_command = "(#{env_prefix} #{cmd_string}\n) </dev/null"
 
-          port = Port.open({:spawn_executable, shell_path}, port_opts)
-          {:ok, port}
-        rescue
-          e ->
-            {:error, {:port_open_failed, e}}
+              port_opts = [
+                {:args, ["-c", full_command]},
+                :binary,
+                :exit_status,
+                :stderr_to_stdout
+              ]
+
+              port = Port.open({:spawn_executable, shell_path}, port_opts)
+              {:ok, port}
+            rescue
+              e ->
+                {:error, {:port_open_failed, e}}
+            end
+
+          {:error, reason} ->
+            {:error, reason}
         end
 
-      {:error, reason} ->
-        {:error, reason}
+      {:error, validation_error} ->
+        {:error, {:invalid_query_options, validation_error}}
     end
   end
 
