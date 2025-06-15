@@ -1,9 +1,10 @@
 defmodule ClaudeCode.Session do
   @moduledoc """
-  GenServer that manages a Claude Code CLI subprocess.
+  GenServer that manages Claude Code CLI subprocesses.
 
-  Each session maintains a single Claude CLI process and handles
-  communication via JSON streaming over stdout/stderr.
+  Each session can handle multiple concurrent queries, with each query
+  spawning its own CLI subprocess. Communication is via JSON streaming
+  over stdout/stderr.
   """
 
   use GenServer
@@ -13,9 +14,30 @@ defmodule ClaudeCode.Session do
 
   require Logger
 
-  defstruct [:port, :api_key, :model, :buffer, :pending_requests, :streaming_requests]
+  defstruct [:api_key, :model, :active_requests]
 
   @default_model "sonnet"
+  @request_timeout 300_000
+
+  # Request tracking structure
+  defmodule RequestInfo do
+    @moduledoc false
+    defstruct [
+      :id,
+      # :sync | :stream
+      :type,
+      :port,
+      :buffer,
+      # For sync requests
+      :from,
+      # For stream requests
+      :subscribers,
+      :messages,
+      # :active | :completed
+      :status,
+      :created_at
+    ]
+  end
 
   # Client API
 
@@ -41,9 +63,7 @@ defmodule ClaudeCode.Session do
     state = %__MODULE__{
       api_key: api_key,
       model: model,
-      buffer: "",
-      pending_requests: %{},
-      streaming_requests: %{}
+      active_requests: %{}
     }
 
     {:ok, state}
@@ -51,22 +71,28 @@ defmodule ClaudeCode.Session do
 
   @impl true
   def handle_call({:query_sync, prompt, opts}, from, state) do
+    request_id = make_ref()
+
     # Start a new CLI subprocess for this query
     case start_cli_process(prompt, state, opts) do
       {:ok, port} ->
-        # Store the request details
-        request_id = make_ref()
-
-        new_state = %{
-          state
-          | port: port,
-            pending_requests:
-              Map.put(state.pending_requests, request_id, %{
-                from: from,
-                buffer: "",
-                messages: []
-              })
+        # Create request info
+        request = %RequestInfo{
+          id: request_id,
+          type: :sync,
+          port: port,
+          buffer: "",
+          from: from,
+          messages: [],
+          status: :active,
+          created_at: System.monotonic_time()
         }
+
+        # Register the request
+        new_state = register_request(request, state)
+
+        # Schedule timeout cleanup
+        schedule_request_timeout(request_id)
 
         {:noreply, new_state}
 
@@ -82,18 +108,7 @@ defmodule ClaudeCode.Session do
     # Schedule the CLI start as a cast to avoid blocking
     GenServer.cast(self(), {:start_stream_cli, request_ref, prompt, opts})
 
-    # Store the streaming request placeholder
-    new_state = %{
-      state
-      | streaming_requests:
-          Map.put(state.streaming_requests, request_ref, %{
-            subscribers: [],
-            messages: [],
-            status: :pending
-          })
-    }
-
-    {:reply, {:ok, request_ref}, new_state}
+    {:reply, {:ok, request_ref}, state}
   end
 
   def handle_call({:query_async, prompt, opts}, {pid, _tag}, state) do
@@ -101,79 +116,133 @@ defmodule ClaudeCode.Session do
     request_ref = make_ref()
 
     # Schedule the CLI start as a cast to avoid blocking
-    GenServer.cast(self(), {:start_stream_cli, request_ref, prompt, opts})
+    GenServer.cast(self(), {:start_async_cli, request_ref, prompt, opts, pid})
 
-    # Store the streaming request with the caller as subscriber
-    new_state = %{
-      state
-      | streaming_requests:
-          Map.put(state.streaming_requests, request_ref, %{
-            subscribers: [pid],
-            messages: [],
-            status: :pending
-          })
-    }
-
-    {:reply, {:ok, request_ref}, new_state}
+    {:reply, {:ok, request_ref}, state}
   end
 
   @impl true
   def handle_cast({:stream_cleanup, request_ref}, state) do
-    # Remove the streaming request
-    new_state = %{state | streaming_requests: Map.delete(state.streaming_requests, request_ref)}
+    # Remove the request if it exists
+    new_state = cleanup_request(request_ref, state)
     {:noreply, new_state}
   end
 
   def handle_cast({:start_stream_cli, request_ref, prompt, opts}, state) do
-    # Start CLI process directly - the blocking happens in Port.open but since
-    # this is a handle_cast, it won't block the caller
+    # Start CLI process for streaming
     case start_cli_process(prompt, state, opts) do
       {:ok, port} ->
-        handle_cli_started(request_ref, {:ok, port}, state)
+        request = %RequestInfo{
+          id: request_ref,
+          type: :stream,
+          port: port,
+          buffer: "",
+          subscribers: [],
+          messages: [],
+          status: :active,
+          created_at: System.monotonic_time()
+        }
+
+        new_state = register_request(request, state)
+        schedule_request_timeout(request_ref)
+
+        {:noreply, new_state}
 
       {:error, reason} ->
-        handle_cli_started(request_ref, {:error, reason}, state)
+        # Notify error - no subscribers yet for pure streaming
+        Logger.error("Failed to start CLI for stream request: #{inspect(reason)}")
+        {:noreply, state}
+    end
+  end
+
+  def handle_cast({:start_async_cli, request_ref, prompt, opts, subscriber}, state) do
+    # Start CLI process for async with subscriber
+    case start_cli_process(prompt, state, opts) do
+      {:ok, port} ->
+        request = %RequestInfo{
+          id: request_ref,
+          type: :stream,
+          port: port,
+          buffer: "",
+          subscribers: [subscriber],
+          messages: [],
+          status: :active,
+          created_at: System.monotonic_time()
+        }
+
+        # Notify subscriber that streaming has started
+        send(subscriber, {:claude_stream_started, request_ref})
+
+        new_state = register_request(request, state)
+        schedule_request_timeout(request_ref)
+
+        {:noreply, new_state}
+
+      {:error, reason} ->
+        # Notify subscriber of error
+        send(subscriber, {:claude_stream_error, request_ref, reason})
+        {:noreply, state}
     end
   end
 
   @impl true
+  def handle_info({port, {:data, data}}, state) when is_port(port) do
+    # Find the request associated with this port
+    case find_request_by_port(port, state.active_requests) do
+      {request_id, request} ->
+        # Process data for this specific request
+        new_state = process_cli_output_for_request(data, request_id, request, state)
+        {:noreply, new_state}
 
-  def handle_info({port, {:data, data}}, %{port: port} = state) do
-    # Process the raw binary data from the CLI subprocess
-    new_state = process_cli_output(data, state)
-    {:noreply, new_state}
+      nil ->
+        Logger.warning("Received data from unknown port: #{inspect(port)}")
+        {:noreply, state}
+    end
   end
 
-  def handle_info({port, {:exit_status, status}}, %{port: port} = state) do
-    # CLI process exited
-    if status != 0 do
-      Logger.error("Claude CLI exited with status #{status}")
+  def handle_info({port, {:exit_status, status}}, state) when is_port(port) do
+    # Find the request associated with this port
+    case find_request_by_port(port, state.active_requests) do
+      {request_id, request} ->
+        # Handle exit for this specific request
+        new_state = handle_request_exit(request_id, request, status, state)
+        {:noreply, new_state}
 
-      # Reply to all pending requests with an error
-      for {_id, %{from: from}} <- state.pending_requests do
-        GenServer.reply(from, {:error, {:cli_exit, status}})
-      end
+      nil ->
+        Logger.warning("Received exit status from unknown port: #{inspect(port)}")
+        {:noreply, state}
     end
-
-    new_state = %{state | port: nil, pending_requests: %{}}
-    {:noreply, new_state}
   end
 
-  def handle_info({:DOWN, _ref, :port, port, reason}, %{port: port} = state) do
-    Logger.error("Claude CLI port closed: #{inspect(reason)}")
+  def handle_info({:DOWN, _ref, :port, port, reason}, state) when is_port(port) do
+    # Find the request associated with this port
+    case find_request_by_port(port, state.active_requests) do
+      {request_id, request} ->
+        Logger.error("Claude CLI port closed for request #{inspect(request_id)}: #{inspect(reason)}")
+        new_state = handle_request_error(request_id, request, {:port_closed, reason}, state)
+        {:noreply, new_state}
 
-    # Reply to all pending requests with an error
-    for {_id, %{from: from}} <- state.pending_requests do
-      GenServer.reply(from, {:error, {:port_closed, reason}})
+      nil ->
+        {:noreply, state}
     end
-
-    new_state = %{state | port: nil, pending_requests: %{}}
-    {:noreply, new_state}
   end
 
   def handle_info({port, :eof}, state) when is_port(port) do
     # EOF received from port - this is expected when stdin is closed
     {:noreply, state}
+  end
+
+  def handle_info({:request_timeout, request_id}, state) do
+    # Clean up request if it still exists
+    case Map.get(state.active_requests, request_id) do
+      nil ->
+        {:noreply, state}
+
+      request ->
+        Logger.warning("Request #{inspect(request_id)} timed out after #{@request_timeout}ms")
+        new_state = handle_request_error(request_id, request, :timeout, state)
+        {:noreply, new_state}
+    end
   end
 
   def handle_info(msg, state) do
@@ -182,67 +251,203 @@ defmodule ClaudeCode.Session do
   end
 
   @impl true
-  def terminate(_reason, %{port: port} = _state) when not is_nil(port) do
-    Port.close(port)
-  end
+  def terminate(_reason, state) do
+    # Close all active ports
+    for {_id, %{port: port}} <- state.active_requests do
+      safe_close_port(port)
+    end
 
-  def terminate(_reason, _state), do: :ok
+    :ok
+  end
 
   # Private Functions
 
-  defp handle_cli_started(request_ref, {:ok, port}, state) do
-    case Map.get(state.streaming_requests, request_ref) do
-      nil ->
-        safe_close_port(port)
-        {:noreply, state}
+  defp register_request(request, state) do
+    %{state | active_requests: Map.put(state.active_requests, request.id, request)}
+  end
 
-      request ->
-        activate_streaming_request(request_ref, request, port, state)
+  defp find_request_by_port(port, active_requests) do
+    Enum.find(active_requests, fn {_id, request} -> request.port == port end)
+  end
+
+  defp schedule_request_timeout(request_id) do
+    Process.send_after(self(), {:request_timeout, request_id}, @request_timeout)
+  end
+
+  defp process_cli_output_for_request(data, request_id, request, state) do
+    # Append to request-specific buffer
+    buffer = request.buffer <> data
+
+    # Process complete lines
+    {lines, remaining_buffer} = extract_lines(buffer)
+
+    # Process each complete line for this request
+    {updated_request, should_complete} =
+      Enum.reduce(lines, {request, false}, fn line, {req, complete} ->
+        case process_json_line_for_request(line, req) do
+          {:ok, updated_req, :result} ->
+            {updated_req, true}
+
+          {:ok, updated_req, _message_type} ->
+            {updated_req, complete}
+
+          {:error, _reason} ->
+            # Skip invalid JSON lines
+            {req, complete}
+        end
+      end)
+
+    # Update buffer
+    updated_request = %{updated_request | buffer: remaining_buffer}
+
+    # Update state
+    new_state = %{state | active_requests: Map.put(state.active_requests, request_id, updated_request)}
+
+    # Complete request if we received a result message
+    if should_complete do
+      complete_request(request_id, updated_request, new_state)
+    else
+      new_state
     end
   end
 
-  defp handle_cli_started(request_ref, {:error, reason}, state) do
-    case Map.get(state.streaming_requests, request_ref) do
+  defp extract_lines(buffer) do
+    lines = String.split(buffer, "\n")
+
+    case List.pop_at(lines, -1) do
+      {incomplete, complete_lines} ->
+        {complete_lines, incomplete || ""}
+    end
+  end
+
+  defp process_json_line_for_request("", _request), do: {:error, :empty_line}
+
+  defp process_json_line_for_request(line, request) do
+    case Jason.decode(line) do
+      {:ok, json} ->
+        case Message.parse(json) do
+          {:ok, message} ->
+            updated_request = process_message_for_request(message, request)
+            message_type = determine_message_type(message)
+            {:ok, updated_request, message_type}
+
+          {:error, error} ->
+            Logger.debug("Failed to parse message: #{inspect(error)}")
+            {:error, error}
+        end
+
+      {:error, _reason} ->
+        Logger.debug("Non-JSON output: #{line}")
+        {:error, :invalid_json}
+    end
+  end
+
+  defp determine_message_type(%Message.System{}), do: :system
+  defp determine_message_type(%Message.Assistant{}), do: :assistant
+  defp determine_message_type(%Message.User{}), do: :user
+  defp determine_message_type(%Message.Result{}), do: :result
+
+  defp process_message_for_request(message, request) do
+    # Store message
+    updated_request = %{request | messages: request.messages ++ [message]}
+
+    # Send to subscribers if streaming
+    case request.type do
+      :stream ->
+        Enum.each(request.subscribers, fn pid ->
+          send(pid, {:claude_message, request.id, message})
+        end)
+
+      :sync ->
+        # Just store for sync requests
+        nil
+    end
+
+    updated_request
+  end
+
+  defp complete_request(request_id, request, state) do
+    # Extract result from messages
+    result = extract_result_from_request(request)
+
+    # Handle based on request type
+    case request.type do
+      :sync ->
+        GenServer.reply(request.from, result)
+
+      :stream ->
+        # Notify subscribers that stream has ended
+        Enum.each(request.subscribers, fn pid ->
+          send(pid, {:claude_stream_end, request.id})
+        end)
+    end
+
+    # Clean up
+    cleanup_request(request_id, state)
+  end
+
+  defp extract_result_from_request(request) do
+    # Find the result message
+    case Enum.find(request.messages, &match?(%Message.Result{}, &1)) do
+      %Message.Result{is_error: true, result: error} ->
+        {:error, {:claude_error, error}}
+
+      %Message.Result{is_error: false, result: result} ->
+        {:ok, result}
+
       nil ->
-        {:noreply, state}
+        # No result message - this shouldn't happen
+        {:error, :no_result}
+    end
+  end
+
+  defp handle_request_exit(request_id, request, status, state) do
+    if status == 0 do
+      # Normal exit - wait for result message
+      state
+    else
+      Logger.error("Claude CLI exited with status #{status} for request #{inspect(request_id)}")
+      handle_request_error(request_id, request, {:cli_exit, status}, state)
+    end
+  end
+
+  defp handle_request_error(request_id, request, error, state) do
+    # Send error based on request type
+    case request.type do
+      :sync ->
+        GenServer.reply(request.from, {:error, error})
+
+      :stream ->
+        # Notify subscribers of error
+        Enum.each(request.subscribers, fn pid ->
+          send(pid, {:claude_stream_error, request.id, error})
+        end)
+    end
+
+    # Clean up
+    cleanup_request(request_id, state)
+  end
+
+  defp cleanup_request(request_id, state) do
+    case Map.get(state.active_requests, request_id) do
+      nil ->
+        state
 
       request ->
-        notify_stream_error(request_ref, request, reason, state)
+        # Close port if still open
+        safe_close_port(request.port)
+
+        # Remove from active requests
+        %{state | active_requests: Map.delete(state.active_requests, request_id)}
     end
   end
 
   defp safe_close_port(port) do
-    Port.close(port)
+    if Port.info(port) do
+      Port.close(port)
+    end
   catch
     :error, :badarg -> :ok
-  end
-
-  defp activate_streaming_request(request_ref, request, port, state) do
-    # Update request status and set port
-    updated_request = %{request | status: :active}
-
-    new_state = %{
-      state
-      | port: port,
-        streaming_requests: Map.put(state.streaming_requests, request_ref, updated_request)
-    }
-
-    # Notify subscribers that streaming has started
-    for pid <- request.subscribers do
-      send(pid, {:claude_stream_started, request_ref})
-    end
-
-    {:noreply, new_state}
-  end
-
-  defp notify_stream_error(request_ref, request, reason, state) do
-    for pid <- request.subscribers do
-      send(pid, {:claude_stream_error, request_ref, reason})
-    end
-
-    # Remove the failed request
-    new_state = %{state | streaming_requests: Map.delete(state.streaming_requests, request_ref)}
-    {:noreply, new_state}
   end
 
   defp start_cli_process(prompt, state, opts) do
@@ -292,122 +497,6 @@ defmodule ClaudeCode.Session do
     end
   end
 
-  defp process_cli_output(data, state) do
-    # Add data to buffer
-    buffer = state.buffer <> data
-
-    # Process complete lines
-    {lines, remaining_buffer} = extract_lines(buffer)
-
-    # Process each complete line
-    new_state =
-      Enum.reduce(lines, state, fn line, acc_state ->
-        process_json_line(line, acc_state)
-      end)
-
-    %{new_state | buffer: remaining_buffer}
-  end
-
-  defp extract_lines(buffer) do
-    lines = String.split(buffer, "\n")
-
-    case List.pop_at(lines, -1) do
-      {incomplete, complete_lines} ->
-        {complete_lines, incomplete || ""}
-    end
-  end
-
-  defp process_json_line("", state), do: state
-
-  defp process_json_line(line, state) do
-    case Jason.decode(line) do
-      {:ok, json} ->
-        process_message(json, state)
-
-      {:error, _reason} ->
-        # Skip non-JSON lines (might be debug output)
-        Logger.debug("Non-JSON output: #{line}")
-        state
-    end
-  end
-
-  defp process_message(json, state) when is_map(json) do
-    case Message.parse(json) do
-      {:ok, message} ->
-        case message do
-          %Message.System{} ->
-            handle_system_message(message, state)
-
-          %Message.Assistant{} ->
-            handle_assistant_message(message, state)
-
-          %Message.User{} ->
-            handle_user_message(message, state)
-
-          %Message.Result{} ->
-            handle_result_message(message, state)
-        end
-
-      {:error, error} ->
-        Logger.error("Failed to parse message: #{inspect(error)}")
-        state
-    end
-  end
-
-  defp handle_system_message(message, state) do
-    # System messages provide session initialization info
-    Logger.info("Session initialized with model: #{message.model}, session_id: #{message.session_id}")
-    state
-  end
-
-  defp handle_assistant_message(message, state) do
-    # Log the message
-    Logger.debug("Received assistant message: #{inspect(message)}")
-
-    # Send to streaming subscribers
-    state = send_to_stream_subscribers(message, state)
-
-    # Store in pending requests (for sync queries)
-    update_pending_messages(message, state)
-  end
-
-  defp handle_user_message(message, state) do
-    # User messages contain tool results - just log for now
-    Logger.debug("Received user message with tool results: #{inspect(message)}")
-    state
-  end
-
-  defp handle_result_message(message, state) do
-    # Send to streaming subscribers first
-    state = send_to_stream_subscribers(message, state)
-
-    # Handle sync requests
-    case Map.keys(state.pending_requests) do
-      [request_id | _] ->
-        request = Map.get(state.pending_requests, request_id)
-
-        # Reply based on whether it's an error or success
-        reply =
-          if message.is_error do
-            {:error, {:claude_error, message.result}}
-          else
-            {:ok, message.result}
-          end
-
-        GenServer.reply(request.from, reply)
-
-        # Remove the request
-        new_state = %{state | pending_requests: Map.delete(state.pending_requests, request_id)}
-
-        # Also notify streaming subscribers that the stream has ended
-        notify_stream_end(new_state)
-
-      [] ->
-        # Just streaming requests
-        notify_stream_end(state)
-    end
-  end
-
   defp shell_escape(str) when is_binary(str) do
     if String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n"]) do
       # Use single quotes and escape any single quotes
@@ -418,40 +507,4 @@ defmodule ClaudeCode.Session do
   end
 
   defp shell_escape(str), do: shell_escape(to_string(str))
-
-  # Streaming support functions
-
-  defp send_to_stream_subscribers(message, state) do
-    # Send message to all streaming request subscribers
-    Enum.reduce(state.streaming_requests, state, fn {ref, request}, acc_state ->
-      # Send to all subscribers for this request
-      Enum.each(request.subscribers, fn pid ->
-        send(pid, {:claude_message, ref, message})
-      end)
-
-      # Update stored messages
-      updated_request = %{request | messages: request.messages ++ [message]}
-      put_in(acc_state.streaming_requests[ref], updated_request)
-    end)
-  end
-
-  defp update_pending_messages(message, state) do
-    # Update messages for sync requests
-    Enum.reduce(state.pending_requests, state, fn {id, request}, acc_state ->
-      updated_request = %{request | messages: request.messages ++ [message]}
-      put_in(acc_state.pending_requests[id], updated_request)
-    end)
-  end
-
-  defp notify_stream_end(state) do
-    # Notify all streaming subscribers that the stream has ended
-    for {ref, request} <- state.streaming_requests do
-      for pid <- request.subscribers do
-        send(pid, {:claude_stream_end, ref})
-      end
-    end
-
-    # Clear all streaming requests
-    %{state | streaming_requests: %{}}
-  end
 end

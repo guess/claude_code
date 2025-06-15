@@ -52,12 +52,20 @@ defmodule ClaudeCode.Session do
   use GenServer
   
   # State includes:
-  # - CLI process (Port)
-  # - Current options
-  # - Message buffer
-  # - Session ID
+  # - active_requests: Map of request_id => RequestInfo
+  # - api_key: Authentication key
+  # - model: Model to use for queries
+  
+  # Each RequestInfo tracks:
+  # - port: Dedicated CLI subprocess
+  # - buffer: Request-specific JSON buffer
+  # - type: :sync or :stream
+  # - subscribers: PIDs receiving stream messages
+  # - messages: Accumulated messages
 end
 ```
+
+The Session GenServer supports multiple concurrent queries, with each query spawning its own CLI subprocess. This design ensures true concurrency without race conditions.
 
 #### CLI Module (`ClaudeCode.CLI`)
 ```elixir
@@ -82,6 +90,33 @@ end
 ```
 
 ## Implementation Details
+
+### Concurrent Query Support
+
+The Session GenServer is designed to handle multiple concurrent queries efficiently:
+
+```elixir
+# Each request gets a unique ID and dedicated resources
+defmodule RequestInfo do
+  defstruct [
+    :id,           # Unique request reference
+    :type,         # :sync | :stream
+    :port,         # Dedicated CLI subprocess
+    :buffer,       # Request-specific JSON buffer
+    :from,         # GenServer.reply target (sync only)
+    :subscribers,  # PIDs receiving messages (stream only)
+    :messages,     # Accumulated messages
+    :status,       # :active | :completed
+    :created_at    # For timeout tracking
+  ]
+end
+```
+
+Key design decisions:
+- **Port Isolation**: Each request owns its CLI subprocess
+- **Message Routing**: Port messages are routed by looking up the port in active requests
+- **Buffer Isolation**: Each request has its own JSON parsing buffer
+- **Cleanup**: Requests are automatically cleaned up on completion or timeout
 
 ### Process Management
 
@@ -169,10 +204,21 @@ This will:
 
 ### Query Lifecycle
 
-1. **Query starts**: Spawn CLI subprocess with prompt
-2. **Stream messages**: Parse JSON lines as they arrive
-3. **Query ends**: CLI process exits, cleanup resources
-4. **Session continues**: GenServer stays alive for next query
+1. **Query starts**: 
+   - Generate unique request ID
+   - Spawn dedicated CLI subprocess with prompt
+   - Register request in `active_requests` map
+2. **Stream messages**: 
+   - Route port messages to correct request via port lookup
+   - Parse JSON lines with request-specific buffer
+   - Send messages only to request's subscribers
+3. **Query ends**: 
+   - Extract result from final message
+   - CLI process exits, cleanup port
+   - Remove request from `active_requests`
+4. **Session continues**: 
+   - GenServer stays alive for next query
+   - Multiple queries can run concurrently
 
 ### Resuming Sessions
 
@@ -224,10 +270,11 @@ echo '{"type": "done"}'
 
 ## Performance Considerations
 
-1. **Process Pooling**: For high-concurrency apps, maintain a pool of sessions
-2. **Message Buffering**: Buffer incoming JSON lines for efficient parsing
-3. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
-4. **Subprocess Reuse**: Consider keeping CLI process alive between queries (if supported)
+1. **Concurrent Queries**: Each Session can handle multiple concurrent queries
+2. **Request Isolation**: Each query has its own port and buffer - no contention
+3. **Message Routing**: O(1) port-to-request lookup for efficient message delivery
+4. **Automatic Cleanup**: Requests timeout after 5 minutes to prevent resource leaks
+5. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
 
 ## Security
 

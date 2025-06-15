@@ -190,6 +190,7 @@ end)
 - Proper stream cleanup with `cleanup_stream/1`
 - Added 146 comprehensive tests including streaming integration tests
 - Updated documentation with streaming examples and troubleshooting
+- **Concurrent Query Fix**: Refactored Session to properly isolate concurrent requests with dedicated ports and buffers
 
 ## Phase 4: Options & Configuration (Week 4)
 
