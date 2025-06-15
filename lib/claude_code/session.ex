@@ -13,7 +13,7 @@ defmodule ClaudeCode.Session do
 
   require Logger
 
-  defstruct [:port, :api_key, :model, :buffer, :pending_requests]
+  defstruct [:port, :api_key, :model, :buffer, :pending_requests, :streaming_requests]
 
   @default_model "sonnet"
 
@@ -42,7 +42,8 @@ defmodule ClaudeCode.Session do
       api_key: api_key,
       model: model,
       buffer: "",
-      pending_requests: %{}
+      pending_requests: %{},
+      streaming_requests: %{}
     }
 
     {:ok, state}
@@ -72,6 +73,63 @@ defmodule ClaudeCode.Session do
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
+  end
+
+  def handle_call({:query_stream, prompt, opts}, _from, state) do
+    # Start a new CLI subprocess for this streaming query
+    case start_cli_process(prompt, state, opts) do
+      {:ok, port} ->
+        # Create a unique request reference
+        request_ref = make_ref()
+
+        # Store the streaming request details
+        new_state = %{
+          state
+          | port: port,
+            streaming_requests:
+              Map.put(state.streaming_requests, request_ref, %{
+                subscribers: [],
+                messages: []
+              })
+        }
+
+        {:reply, {:ok, request_ref}, new_state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:query_async, prompt, opts}, {pid, _tag}, state) do
+    # Start a new CLI subprocess for this async query
+    case start_cli_process(prompt, state, opts) do
+      {:ok, port} ->
+        # Create a unique request reference
+        request_ref = make_ref()
+
+        # Store the streaming request with the caller as subscriber
+        new_state = %{
+          state
+          | port: port,
+            streaming_requests:
+              Map.put(state.streaming_requests, request_ref, %{
+                subscribers: [pid],
+                messages: []
+              })
+        }
+
+        {:reply, {:ok, request_ref}, new_state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  @impl true
+  def handle_cast({:stream_cleanup, request_ref}, state) do
+    # Remove the streaming request
+    new_state = %{state | streaming_requests: Map.delete(state.streaming_requests, request_ref)}
+    {:noreply, new_state}
   end
 
   @impl true
@@ -243,9 +301,14 @@ defmodule ClaudeCode.Session do
   end
 
   defp handle_assistant_message(message, state) do
-    # For now, just log assistant messages - the actual response comes in the result message
+    # Log the message
     Logger.debug("Received assistant message: #{inspect(message)}")
-    state
+
+    # Send to streaming subscribers
+    state = send_to_stream_subscribers(message, state)
+
+    # Store in pending requests (for sync queries)
+    update_pending_messages(message, state)
   end
 
   defp handle_user_message(message, state) do
@@ -255,7 +318,10 @@ defmodule ClaudeCode.Session do
   end
 
   defp handle_result_message(message, state) do
-    # Get the first (and only for Phase 1) pending request
+    # Send to streaming subscribers first
+    state = send_to_stream_subscribers(message, state)
+
+    # Handle sync requests
     case Map.keys(state.pending_requests) do
       [request_id | _] ->
         request = Map.get(state.pending_requests, request_id)
@@ -271,11 +337,14 @@ defmodule ClaudeCode.Session do
         GenServer.reply(request.from, reply)
 
         # Remove the request
-        %{state | pending_requests: Map.delete(state.pending_requests, request_id)}
+        new_state = %{state | pending_requests: Map.delete(state.pending_requests, request_id)}
+
+        # Also notify streaming subscribers that the stream has ended
+        notify_stream_end(new_state)
 
       [] ->
-        Logger.warning("Received result message with no pending requests")
-        state
+        # Just streaming requests
+        notify_stream_end(state)
     end
   end
 
@@ -289,4 +358,40 @@ defmodule ClaudeCode.Session do
   end
 
   defp shell_escape(str), do: shell_escape(to_string(str))
+
+  # Streaming support functions
+
+  defp send_to_stream_subscribers(message, state) do
+    # Send message to all streaming request subscribers
+    Enum.reduce(state.streaming_requests, state, fn {ref, request}, acc_state ->
+      # Send to all subscribers for this request
+      Enum.each(request.subscribers, fn pid ->
+        send(pid, {:claude_message, ref, message})
+      end)
+
+      # Update stored messages
+      updated_request = %{request | messages: request.messages ++ [message]}
+      put_in(acc_state.streaming_requests[ref], updated_request)
+    end)
+  end
+
+  defp update_pending_messages(message, state) do
+    # Update messages for sync requests
+    Enum.reduce(state.pending_requests, state, fn {id, request}, acc_state ->
+      updated_request = %{request | messages: request.messages ++ [message]}
+      put_in(acc_state.pending_requests[id], updated_request)
+    end)
+  end
+
+  defp notify_stream_end(state) do
+    # Notify all streaming subscribers that the stream has ended
+    for {ref, request} <- state.streaming_requests do
+      for pid <- request.subscribers do
+        send(pid, {:claude_stream_end, ref})
+      end
+    end
+
+    # Clear all streaming requests
+    %{state | streaming_requests: %{}}
+  end
 end

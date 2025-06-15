@@ -2,6 +2,13 @@
 
 ## Recent Updates (December 2024)
 
+- **Phase 3 Completed**: Added full streaming support
+  - New `query/3` function returns Elixir Streams for real-time message processing
+  - Created `ClaudeCode.Stream` module with utilities for text extraction, filtering, and buffering
+  - Enhanced Session GenServer to handle concurrent streaming requests
+  - Added `query_async/3` for manual message handling
+  - Comprehensive test coverage for all streaming functionality
+
 - **Phase 2 Completed**: Refactored message types to match official Claude Code SDK schema
   - Assistant/User messages now use nested structure with `message` field
   - Result messages use proper subtypes (`:error_max_turns`, `:error_during_execution`)
@@ -126,31 +133,63 @@ Enum.each(messages, fn
 end)
 ```
 
-## Phase 3: Streaming Support (Week 3)
+## Phase 3: Streaming Support (Week 3) ✅
 
 **Goal**: Enable efficient streaming of responses for real-time applications
+
+**Status**: COMPLETED
 
 ### New Components
 ```elixir
 # lib/claude_code/stream.ex
 defmodule ClaudeCode.Stream do
-  # Stream parsing and emission
+  # Stream utilities for message processing
+  # Uses Stream.resource/3 for proper lifecycle management
 end
 ```
 
 ### Features
-- [ ] Streaming query interface
-- [ ] Lazy evaluation with Elixir streams
-- [ ] Backpressure handling
-- [ ] Stream interruption
+- [x] Streaming query interface with `query/3`
+- [x] Lazy evaluation with native Elixir streams
+- [x] Backpressure handling via process mailbox
+- [x] Stream interruption and cleanup
+- [x] Async queries with `query_async/3`
+- [x] Real-time message processing
 
 ### Example Usage
 ```elixir
+# Stream text content (recommended)
 session
 |> ClaudeCode.query("Generate a large module")
-|> Stream.each(&IO.write(&1.content))
+|> ClaudeCode.Stream.text_content()
+|> Stream.each(&IO.write/1)
+|> Stream.run()
+
+# Work with raw messages
+session
+|> ClaudeCode.query("Complex task")
+|> Stream.each(fn
+  %Message.Assistant{message: %{content: content}} ->
+    # Process assistant messages
+  %Message.Result{result: result} ->
+    # Handle final result
+end)
 |> Stream.run()
 ```
+
+**Key Deliverables**:
+- Added `query/3` and `query_async/3` functions to main module
+- Created `ClaudeCode.Stream` module with utilities:
+  - `text_content/1` - Extract text from assistant messages
+  - `tool_uses/1` - Extract tool use blocks
+  - `filter_type/2` - Filter by message type (:assistant, :result, :tool_use, etc.)
+  - `until_result/1` - Take messages until result received
+  - `buffered_text/1` - Buffer text until sentence boundaries
+- Enhanced Session GenServer to support concurrent streaming requests
+- Message delivery via process mailbox for async queries
+- Proper stream cleanup with `cleanup_stream/1`
+- Added 146 comprehensive tests including streaming integration tests
+- Updated documentation with streaming examples and troubleshooting
 
 ## Phase 4: Options & Configuration (Week 4)
 

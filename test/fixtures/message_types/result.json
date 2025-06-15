@@ -1,0 +1,18 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "is_error": false,
+  "duration_ms": 10048,
+  "duration_api_ms": 16300,
+  "num_turns": 1,
+  "result": "Hello! I'm ready to help you with the ClaudeCode Elixir SDK project. What would you like to work on today?",
+  "session_id": "a4c79bab-3a68-425c-988e-0aa6b9151a63",
+  "total_cost_usd": 0.12251155000000002,
+  "usage": {
+    "input_tokens": 3,
+    "cache_creation_input_tokens": 4355,
+    "cache_read_input_tokens": 22749,
+    "output_tokens": 38,
+    "server_tool_use": { "web_search_requests": 0 }
+  }
+}

@@ -129,4 +129,108 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
   end
+
+  describe "streaming queries" do
+    setup do
+      # Create a mock CLI script that outputs messages with delays
+      mock_dir = Path.join(System.tmp_dir!(), "claude_code_stream_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_script = Path.join(mock_dir, "claude")
+
+      # Write a mock script that streams messages
+      File.write!(mock_script, """
+      #!/bin/bash
+      # Output system init message
+      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"test-123","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+      sleep 0.1
+      # Output first assistant message
+      echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello "}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-123"}'
+      sleep 0.1
+      # Output second assistant message
+      echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"world!"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-123"}'
+      sleep 0.1
+      # Output result message
+      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":300,"duration_api_ms":250,"num_turns":1,"result":"Hello world!","session_id":"test-123","total_cost_usd":0.001,"usage":{}}'
+      exit 0
+      """)
+
+      File.chmod!(mock_script, 0o755)
+
+      # Add mock directory to PATH
+      original_path = System.get_env("PATH")
+      System.put_env("PATH", "#{mock_dir}:#{original_path}")
+
+      on_exit(fn ->
+        System.put_env("PATH", original_path)
+        File.rm_rf!(mock_dir)
+      end)
+
+      {:ok, mock_dir: mock_dir}
+    end
+
+    test "query_stream returns a request reference", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+      assert is_reference(ref)
+
+      GenServer.stop(session)
+    end
+
+    test "query_async sends messages to caller", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      {:ok, ref} = GenServer.call(session, {:query_async, "test", []})
+
+      # Collect messages
+      messages = collect_stream_messages(ref, 1000)
+
+      # Should receive assistant messages and result (no system message)
+      assert length(messages) >= 3
+
+      # Check message types
+      assert Enum.any?(messages, &match?(%ClaudeCode.Message.Assistant{}, &1))
+      assert Enum.any?(messages, &match?(%ClaudeCode.Message.Result{}, &1))
+
+      GenServer.stop(session)
+    end
+
+    test "stream cleanup removes request", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+
+      # Check that streaming request exists
+      state = :sys.get_state(session)
+      assert Map.has_key?(state.streaming_requests, ref)
+
+      # Send cleanup
+      GenServer.cast(session, {:stream_cleanup, ref})
+      Process.sleep(50)
+
+      # Check that request is removed
+      state = :sys.get_state(session)
+      refute Map.has_key?(state.streaming_requests, ref)
+
+      GenServer.stop(session)
+    end
+
+    defp collect_stream_messages(ref, timeout) do
+      collect_stream_messages(ref, timeout, [])
+    end
+
+    defp collect_stream_messages(ref, timeout, acc) do
+      receive do
+        {:claude_message, ^ref, message} ->
+          collect_stream_messages(ref, timeout, [message | acc])
+
+        {:claude_stream_end, ^ref} ->
+          Enum.reverse(acc)
+      after
+        timeout ->
+          Enum.reverse(acc)
+      end
+    end
+  end
 end

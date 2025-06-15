@@ -17,6 +17,7 @@ defmodule ClaudeCode do
 
   @type session :: pid() | atom() | {:via, module(), any()}
   @type query_response :: {:ok, String.t()} | {:error, term()}
+  @type message_stream :: Enumerable.t(ClaudeCode.Message.t())
 
   @doc """
   Starts a new Claude Code session.
@@ -47,7 +48,7 @@ defmodule ClaudeCode do
   Sends a synchronous query to Claude and waits for the complete response.
 
   This function blocks until Claude has finished responding. For streaming
-  responses, use `query/3` instead (to be implemented in Phase 3).
+  responses, use `query/3` instead.
 
   ## Examples
 
@@ -68,6 +69,66 @@ defmodule ClaudeCode do
       :exit, {:timeout, _} ->
         {:error, :timeout}
     end
+  end
+
+  @doc """
+  Sends a query to Claude and returns a stream of messages.
+
+  This function returns immediately with a stream that emits messages as they
+  arrive from Claude. The stream will automatically complete when Claude finishes
+  responding.
+
+  ## Options
+
+    * `:timeout` - Maximum time to wait for each message (default: 60_000ms)
+    * `:filter` - Message type filter (:all, :assistant, :tool_use, :result)
+
+  ## Examples
+
+      # Stream all messages
+      session
+      |> ClaudeCode.query("Write a hello world program")
+      |> Enum.each(&IO.inspect/1)
+
+      # Stream only assistant messages
+      session
+      |> ClaudeCode.query("Explain quantum computing", filter: :assistant)
+      |> Stream.map(& &1.message.content)
+      |> Stream.flat_map(&Function.identity/1)
+      |> Enum.each(&IO.inspect/1)
+
+      # Collect all text content
+      text = 
+        session
+        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
+  """
+  @spec query(session(), String.t(), keyword()) :: message_stream()
+  def query(session, prompt, opts \\ []) do
+    ClaudeCode.Stream.create(session, prompt, opts)
+  end
+
+  @doc """
+  Sends a query to Claude asynchronously and returns a request ID.
+
+  This function returns immediately with a request ID that can be used to
+  track the query. Use `receive_message/2` to get messages for a specific
+  request.
+
+  ## Examples
+
+      {:ok, request_id} = ClaudeCode.query_async(session, "Complex task")
+      
+      # Later, receive messages for this request
+      receive do
+        {:claude_message, ^request_id, message} ->
+          IO.inspect(message)
+      end
+  """
+  @spec query_async(session(), String.t(), keyword()) :: {:ok, reference()} | {:error, term()}
+  def query_async(session, prompt, opts \\ []) do
+    GenServer.call(session, {:query_async, prompt, opts})
   end
 
   @doc """

@@ -5,7 +5,7 @@ defmodule ClaudeCode.Types do
   These types match the official Claude SDK schema for messages
   returned from the CLI with --output-format stream-json.
   """
-  
+
   alias ClaudeCode.Content
 
   @type model :: String.t()

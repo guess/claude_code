@@ -1,0 +1,26 @@
+{
+  "type": "assistant",
+  "message": {
+    "id": "msg_01MdrpoBUNGFcga4mKy3HBCn",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-opus-4-20250514",
+    "content": [
+      {
+        "type": "text",
+        "text": "Hello! I'm ready to help you with the ClaudeCode Elixir SDK project. What would you like to work on today?"
+      }
+    ],
+    "stop_reason": null,
+    "stop_sequence": null,
+    "usage": {
+      "input_tokens": 3,
+      "cache_creation_input_tokens": 4355,
+      "cache_read_input_tokens": 22749,
+      "output_tokens": 5,
+      "service_tier": "standard"
+    }
+  },
+  "parent_tool_use_id": null,
+  "session_id": "a4c79bab-3a68-425c-988e-0aa6b9151a63"
+}
