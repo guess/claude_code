@@ -20,7 +20,7 @@ ClaudeCode is an idiomatic Elixir interface to the Claude Code CLI, designed to 
 ✅ **Phase 3 is complete!** The SDK now provides:
 
 - Basic session management with GenServer
-- Synchronous query interface 
+- Synchronous query interface
 - **NEW: Streaming support with native Elixir Streams**
 - **NEW: Real-time message processing**
 - **NEW: Stream utilities for text extraction and filtering**
@@ -140,7 +140,7 @@ session
 
 # React to tool usage in real-time
 session
-|> ClaudeCode.query("Create a new module")
+|> ClaudeCode.query("Create a new elixir module named Tester")
 |> ClaudeCode.Stream.tool_uses()
 |> Enum.each(fn tool_use ->
   IO.puts("Claude is using: #{tool_use.name}")
