@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/claudecode.png" alt="ClaudeCode" width="300" style="border-radius: 12px;">
+<img src="docs/claudecode.png" alt="ClaudeCode" width="300">
 
 # ClaudeCode
 
