@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/claudecode.png" alt="ClaudeCode" width="300">
+<img src="docs/claudecode.png" alt="ClaudeCode" width="200">
 
-# ClaudeCode
+# Claude Code SDK for Elixir
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
