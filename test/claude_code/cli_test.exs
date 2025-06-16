@@ -146,6 +146,92 @@ defmodule ClaudeCode.CLITest do
     end
   end
 
+  describe "session continuity support" do
+    setup do
+      # Create a mock claude binary for testing
+      mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_binary = Path.join(mock_dir, "claude")
+      File.write!(mock_binary, "#!/bin/bash\necho 'mock claude'")
+      File.chmod!(mock_binary, 0o755)
+
+      # Add to PATH
+      original_path = System.get_env("PATH")
+      System.put_env("PATH", "#{mock_dir}:#{original_path}")
+
+      on_exit(fn ->
+        System.put_env("PATH", original_path)
+        File.rm_rf!(mock_dir)
+      end)
+
+      {:ok, mock_binary: mock_binary}
+    end
+
+    test "builds command with --resume when session_id provided", %{mock_binary: mock_binary} do
+      {:ok, {executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          [model: "sonnet"],
+          "test-session-123"
+        )
+
+      assert executable == mock_binary
+      assert "--resume" in args
+      assert "test-session-123" in args
+      assert "test prompt" in args
+    end
+
+    test "builds command without --resume when session_id is nil", %{mock_binary: mock_binary} do
+      {:ok, {executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          [model: "sonnet"],
+          nil
+        )
+
+      assert executable == mock_binary
+      refute "--resume" in args
+      assert "test prompt" in args
+    end
+
+    test "places --resume flag before other options", %{mock_binary: mock_binary} do
+      {:ok, {_executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          [model: "sonnet", system_prompt: "You are helpful"],
+          "test-session-123"
+        )
+
+      # Find positions of key flags
+      resume_pos = Enum.find_index(args, &(&1 == "--resume"))
+      model_pos = Enum.find_index(args, &(&1 == "--model"))
+      system_pos = Enum.find_index(args, &(&1 == "--system-prompt"))
+
+      # --resume should come before other options
+      assert resume_pos < model_pos
+      assert resume_pos < system_pos
+    end
+
+    test "handles session_id with special characters", %{mock_binary: mock_binary} do
+      session_id = "session-with-dashes_and_underscores-123"
+
+      {:ok, {_executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          [model: "sonnet"],
+          session_id
+        )
+
+      assert "--resume" in args
+      assert session_id in args
+    end
+  end
+
   describe "validate_installation/0" do
     test "validates when claude binary exists and works" do
       # Create a mock claude that responds to --version

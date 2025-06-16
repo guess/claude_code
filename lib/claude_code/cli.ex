@@ -30,15 +30,16 @@ defmodule ClaudeCode.CLI do
   Builds the command and arguments for running the Claude CLI.
 
   Accepts validated options from the Options module and converts them to CLI flags.
+  If a session_id is provided, automatically adds --resume flag for session continuity.
 
   Returns `{:ok, {executable, args}}` or `{:error, reason}`.
   """
-  @spec build_command(String.t(), String.t(), keyword()) ::
+  @spec build_command(String.t(), String.t(), keyword(), String.t() | nil) ::
           {:ok, {String.t(), [String.t()]}} | {:error, term()}
-  def build_command(prompt, _api_key, opts) do
+  def build_command(prompt, _api_key, opts, session_id \\ nil) do
     case find_binary() do
       {:ok, executable} ->
-        args = build_args(prompt, opts)
+        args = build_args(prompt, opts, session_id)
         {:ok, {executable, args}}
 
       {:error, :not_found} ->
@@ -73,15 +74,23 @@ defmodule ClaudeCode.CLI do
 
   # Private Functions
 
-  defp build_args(prompt, opts) do
+  defp build_args(prompt, opts, session_id) do
     # Start with required flags
     base_args = @required_flags
+
+    # Add resume flag if session_id is provided
+    resume_args =
+      if session_id do
+        ["--resume", session_id]
+      else
+        []
+      end
 
     # Convert options to CLI flags using Options module
     option_args = Options.to_cli_args(opts)
 
-    # Combine all arguments and append the prompt
-    base_args ++ option_args ++ [prompt]
+    # Combine all arguments: base flags, resume (if any), options, then prompt
+    base_args ++ resume_args ++ option_args ++ [prompt]
   end
 
   defp cli_not_found_message do

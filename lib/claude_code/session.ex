@@ -15,7 +15,7 @@ defmodule ClaudeCode.Session do
 
   require Logger
 
-  defstruct [:api_key, :model, :active_requests, :session_options]
+  defstruct [:api_key, :model, :active_requests, :session_options, :session_id]
 
   @request_timeout 300_000
 
@@ -75,7 +75,8 @@ defmodule ClaudeCode.Session do
       api_key: Keyword.fetch!(validated_opts, :api_key),
       model: Keyword.get(validated_opts, :model),
       session_options: validated_opts,
-      active_requests: %{}
+      active_requests: %{},
+      session_id: nil
     }
 
     {:ok, state}
@@ -131,6 +132,14 @@ defmodule ClaudeCode.Session do
     GenServer.cast(self(), {:start_async_cli, request_ref, prompt, opts, pid})
 
     {:reply, {:ok, request_ref}, state}
+  end
+
+  def handle_call(:get_session_id, _from, state) do
+    {:reply, {:ok, state.session_id}, state}
+  end
+
+  def handle_call(:clear_session, _from, state) do
+    {:reply, :ok, %{state | session_id: nil}}
   end
 
   @impl true
@@ -294,26 +303,34 @@ defmodule ClaudeCode.Session do
     {lines, remaining_buffer} = extract_lines(buffer)
 
     # Process each complete line for this request
-    {updated_request, should_complete} =
-      Enum.reduce(lines, {request, false}, fn line, {req, complete} ->
+    {updated_request, should_complete, new_session_id} =
+      Enum.reduce(lines, {request, false, state.session_id}, fn line, {req, complete, session_id} ->
         case process_json_line_for_request(line, req) do
           {:ok, updated_req, :result} ->
-            {updated_req, true}
+            # Extract session ID from result message if available
+            result_session_id = extract_session_id_from_request(updated_req)
+            {updated_req, true, result_session_id || session_id}
 
           {:ok, updated_req, _message_type} ->
-            {updated_req, complete}
+            # Extract session ID from any message type
+            msg_session_id = extract_session_id_from_request(updated_req)
+            {updated_req, complete, msg_session_id || session_id}
 
           {:error, _reason} ->
             # Skip invalid JSON lines
-            {req, complete}
+            {req, complete, session_id}
         end
       end)
 
     # Update buffer
     updated_request = %{updated_request | buffer: remaining_buffer}
 
-    # Update state
-    new_state = %{state | active_requests: Map.put(state.active_requests, request_id, updated_request)}
+    # Update state with new session ID and request
+    new_state = %{
+      state
+      | active_requests: Map.put(state.active_requests, request_id, updated_request),
+        session_id: new_session_id
+    }
 
     # Complete request if we received a result message
     if should_complete do
@@ -469,8 +486,8 @@ defmodule ClaudeCode.Session do
         # Merge session and query options with query taking precedence
         final_opts = Options.merge_options(state.session_options, validated_query_opts)
 
-        # Build the command
-        case CLI.build_command(prompt, state.api_key, final_opts) do
+        # Build the command with session ID for automatic resume
+        case CLI.build_command(prompt, state.api_key, final_opts, state.session_id) do
           {:ok, {executable, args}} ->
             # Start the CLI subprocess
             # Environment variables need to be in the format [{key, value}] where both are charlists
@@ -529,4 +546,21 @@ defmodule ClaudeCode.Session do
   end
 
   defp shell_escape(str), do: shell_escape(to_string(str))
+
+  defp extract_session_id_from_request(request) do
+    # Get the last message from the request (the one we just processed)
+    case List.last(request.messages) do
+      %Message.System{session_id: session_id} when not is_nil(session_id) ->
+        session_id
+
+      %Message.Assistant{session_id: session_id} when not is_nil(session_id) ->
+        session_id
+
+      %Message.Result{session_id: session_id} when not is_nil(session_id) ->
+        session_id
+
+      _ ->
+        nil
+    end
+  end
 end

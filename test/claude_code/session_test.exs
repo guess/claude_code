@@ -221,6 +221,304 @@ defmodule ClaudeCode.SessionTest do
     end
   end
 
+  describe "session ID storage and continuity" do
+    setup do
+      # Create mock CLI scripts that output different session IDs
+      mock_dir = Path.join(System.tmp_dir!(), "claude_code_session_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_script = Path.join(mock_dir, "claude")
+
+      # Script that outputs a session ID and checks for --resume flag
+      File.write!(mock_script, """
+      #!/bin/bash
+
+      # Check for --resume flag and session ID
+      session_id="test-session-123"
+      is_resume=false
+
+      for arg in "$@"; do
+        case "$arg" in
+          --resume)
+            is_resume=true
+            ;;
+          test-session-123)
+            if [ "$is_resume" = true ]; then
+              session_id="test-session-123"  # Same session continued
+            fi
+            ;;
+        esac
+      done
+
+      # Output system init message with session ID
+      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+
+      # Output assistant message with session ID
+      echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+
+      # Output result message with session ID
+      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello from session '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+
+      exit 0
+      """)
+
+      File.chmod!(mock_script, 0o755)
+
+      # Add mock directory to PATH
+      original_path = System.get_env("PATH")
+      System.put_env("PATH", "#{mock_dir}:#{original_path}")
+
+      on_exit(fn ->
+        System.put_env("PATH", original_path)
+        File.rm_rf!(mock_dir)
+      end)
+
+      {:ok, mock_dir: mock_dir}
+    end
+
+    test "captures session ID from system message", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # Initial state should have no session ID
+      state = :sys.get_state(session)
+      assert state.session_id == nil
+
+      # Run a query
+      {:ok, _result} = GenServer.call(session, {:query_sync, "test prompt", []})
+
+      # Session ID should now be stored
+      state = :sys.get_state(session)
+      assert state.session_id == "test-session-123"
+
+      GenServer.stop(session)
+    end
+
+    test "captures session ID from assistant message", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # Run query and check that we capture session ID from assistant message too
+      {:ok, _result} = GenServer.call(session, {:query_sync, "test prompt", []})
+
+      state = :sys.get_state(session)
+      assert state.session_id == "test-session-123"
+
+      GenServer.stop(session)
+    end
+
+    test "captures session ID from result message", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # Run query and verify session ID is captured
+      {:ok, result} = GenServer.call(session, {:query_sync, "test prompt", []})
+
+      # Result should contain the session ID
+      assert result == "Hello from session test-session-123"
+
+      state = :sys.get_state(session)
+      assert state.session_id == "test-session-123"
+
+      GenServer.stop(session)
+    end
+
+    test "session ID persists across queries", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # First query establishes session ID
+      {:ok, _result1} = GenServer.call(session, {:query_sync, "first query", []})
+      state = :sys.get_state(session)
+      session_id_1 = state.session_id
+
+      # Second query should have same session ID
+      {:ok, _result2} = GenServer.call(session, {:query_sync, "second query", []})
+      state = :sys.get_state(session)
+      session_id_2 = state.session_id
+
+      assert session_id_1 == session_id_2
+      assert session_id_1 == "test-session-123"
+
+      GenServer.stop(session)
+    end
+
+    test "session ID is captured during streaming queries", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # Start streaming query
+      {:ok, ref} = GenServer.call(session, {:query_async, "streaming test", []})
+
+      # Collect messages
+      case collect_stream_messages(ref, 1000) do
+        {:error, reason} ->
+          flunk("Stream collection failed: #{inspect(reason)}")
+
+        _messages ->
+          # Session ID should be captured even during streaming
+          state = :sys.get_state(session)
+          assert state.session_id == "test-session-123"
+      end
+
+      GenServer.stop(session)
+    end
+  end
+
+  describe "session management API" do
+    setup do
+      # Create mock CLI that respects --resume flag
+      mock_dir = Path.join(System.tmp_dir!(), "claude_code_api_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_script = Path.join(mock_dir, "claude")
+
+      File.write!(mock_script, """
+      #!/bin/bash
+
+      # Default session ID
+      session_id="new-session-456"
+
+      # Check for --resume flag
+      is_resume=false
+      prev_arg=""
+
+      for arg in "$@"; do
+        if [ "$prev_arg" = "--resume" ]; then
+          session_id="$arg"  # Use provided session ID
+          break
+        fi
+        if [ "$arg" = "--resume" ]; then
+          is_resume=true
+        fi
+        prev_arg="$arg"
+      done
+
+      # Output messages with appropriate session ID
+      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+
+      exit 0
+      """)
+
+      File.chmod!(mock_script, 0o755)
+
+      original_path = System.get_env("PATH")
+      System.put_env("PATH", "#{mock_dir}:#{original_path}")
+
+      on_exit(fn ->
+        System.put_env("PATH", original_path)
+        File.rm_rf!(mock_dir)
+      end)
+
+      {:ok, mock_dir: mock_dir}
+    end
+
+    test "get_session_id returns current session ID", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # Initially no session ID
+      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      assert session_id == nil
+
+      # Run query to establish session
+      {:ok, _result} = GenServer.call(session, {:query_sync, "test", []})
+
+      # Now should return session ID
+      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      assert session_id == "new-session-456"
+
+      GenServer.stop(session)
+    end
+
+    test "clear clears the session ID", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # Establish session
+      {:ok, _result} = GenServer.call(session, {:query_sync, "test", []})
+      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      assert session_id == "new-session-456"
+
+      # Clear session
+      :ok = GenServer.call(session, :clear_session)
+
+      # Session ID should be nil
+      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      assert session_id == nil
+
+      GenServer.stop(session)
+    end
+
+    test "new queries after clear start fresh session", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # First query establishes session
+      {:ok, result1} = GenServer.call(session, {:query_sync, "first", []})
+      assert result1 == "Session: new-session-456"
+
+      # Clear session
+      :ok = GenServer.call(session, :clear_session)
+
+      # Next query starts new session (not using --resume)
+      {:ok, result2} = GenServer.call(session, {:query_sync, "second", []})
+      # New session gets same ID in mock
+      assert result2 == "Session: new-session-456"
+
+      GenServer.stop(session)
+    end
+  end
+
+  describe "session persistence" do
+    setup do
+      # Simple mock CLI that outputs session info
+      mock_dir = Path.join(System.tmp_dir!(), "claude_code_persistence_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_script = Path.join(mock_dir, "claude")
+
+      File.write!(mock_script, """
+      #!/bin/bash
+
+      # Default session ID
+      session_id="persistent-session-789"
+
+      # Output messages with session ID
+      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Success with session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+
+      exit 0
+      """)
+
+      File.chmod!(mock_script, 0o755)
+
+      original_path = System.get_env("PATH")
+      System.put_env("PATH", "#{mock_dir}:#{original_path}")
+
+      on_exit(fn ->
+        System.put_env("PATH", original_path)
+        File.rm_rf!(mock_dir)
+      end)
+
+      {:ok, mock_dir: mock_dir}
+    end
+
+    test "preserves valid session IDs when queries succeed", %{mock_dir: _mock_dir} do
+      {:ok, session} = Session.start_link(api_key: "test-key")
+
+      # First query establishes valid session
+      {:ok, result1} = GenServer.call(session, {:query_sync, "first query", []})
+      assert result1 == "Success with session: persistent-session-789"
+
+      {:ok, session_id1} = GenServer.call(session, :get_session_id)
+      assert session_id1 == "persistent-session-789"
+
+      # Second query should preserve the valid session
+      {:ok, result2} = GenServer.call(session, {:query_sync, "second query", []})
+      assert result2 == "Success with session: persistent-session-789"
+
+      {:ok, session_id2} = GenServer.call(session, :get_session_id)
+      # Should be the same
+      assert session_id2 == session_id1
+
+      GenServer.stop(session)
+    end
+  end
+
   describe "concurrent query handling" do
     setup do
       # Create mock scripts with different responses

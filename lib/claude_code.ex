@@ -177,4 +177,43 @@ defmodule ClaudeCode do
   def alive?(session) when is_pid(session) do
     Process.alive?(session)
   end
+
+  @doc """
+  Gets the current session ID for conversation continuity.
+
+  Returns the session ID that Claude CLI is using to maintain conversation 
+  context. This ID is automatically captured from CLI responses and used
+  for subsequent queries to continue the conversation.
+
+  ## Examples
+
+      {:ok, session_id} = ClaudeCode.get_session_id(session)
+      # => {:ok, "abc123-session-id"}
+      
+      # For a new session with no queries yet
+      {:ok, nil} = ClaudeCode.get_session_id(session)
+  """
+  @spec get_session_id(session()) :: {:ok, String.t() | nil}
+  def get_session_id(session) do
+    GenServer.call(session, :get_session_id)
+  end
+
+  @doc """
+  Clears the current session ID to start a fresh conversation.
+
+  This will cause the next query to start a new conversation context
+  rather than continuing the existing one. Useful when you want to
+  reset the conversation history.
+
+  ## Examples
+
+      :ok = ClaudeCode.clear_session(session)
+      
+      # Next query will start fresh
+      {:ok, response} = ClaudeCode.query_sync(session, "Hello!")
+  """
+  @spec clear_session(session()) :: :ok
+  def clear_session(session) do
+    GenServer.call(session, :clear_session)
+  end
 end

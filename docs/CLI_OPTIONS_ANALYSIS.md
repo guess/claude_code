@@ -161,16 +161,16 @@ end
 {:ok, session} = ClaudeCode.start_session(api_key: "...")
 
 # First query starts a new conversation
-{:ok, "Hello! I can help..."} = ClaudeCode.query(session, "Hello")
+{:ok, "Hello! I can help..."} = ClaudeCode.query_sync(session, "Hello")
 
 # Subsequent queries continue the conversation automatically
-{:ok, "As I mentioned earlier..."} = ClaudeCode.query(session, "What did you say?")
+{:ok, "As I mentioned earlier..."} = ClaudeCode.query_sync(session, "What did you say?")
 
 # Clear to start fresh
 :ok = ClaudeCode.clear(session)
 
 # Next query starts a new conversation
-{:ok, "Hello! How can I help?"} = ClaudeCode.query(session, "Hi")
+{:ok, "Hello! How can I help?"} = ClaudeCode.query_sync(session, "Hi")
 ```
 
 ### Implementation Notes

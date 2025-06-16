@@ -139,6 +139,60 @@ Override session defaults for specific queries:
 )
 ```
 
+## Session Continuity
+
+ClaudeCode automatically maintains conversation context across queries within a session, just like the interactive Claude CLI. No configuration required!
+
+### Automatic Conversation Continuity
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
+
+# First query establishes the conversation
+{:ok, response1} = ClaudeCode.query_sync(session, "Hello, my name is Alice")
+# => "Hello Alice! Nice to meet you."
+
+# Subsequent queries remember the conversation context
+{:ok, response2} = ClaudeCode.query_sync(session, "What's my name?")
+# => "Your name is Alice, as you mentioned when we first met."
+
+# Context is maintained across streaming queries too
+session
+|> ClaudeCode.query("Tell me more about yourself")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+# Claude remembers the previous conversation
+```
+
+### Session Management API
+
+When you need explicit control over conversation context:
+
+```elixir
+# Check current session ID (for debugging/logging)
+{:ok, session_id} = ClaudeCode.get_session_id(session)
+# => {:ok, "abc123-def456-session-id"}
+
+# For a new session with no queries yet
+{:ok, nil} = ClaudeCode.get_session_id(session)
+
+# Clear session to start a fresh conversation
+:ok = ClaudeCode.clear_session(session)
+
+# Next query starts with no previous context
+{:ok, response} = ClaudeCode.query_sync(session, "What's my name?")
+# => "I don't have any information about your name..."
+```
+
+### How It Works
+
+- **Automatic**: Session IDs are captured from Claude CLI responses and automatically used for subsequent queries
+- **Transparent**: Uses the CLI's `--resume` flag internally - no API changes needed
+- **Persistent**: Sessions persist for the lifetime of the GenServer process
+- **Stateful by Default**: Conversations continue naturally, matching interactive CLI behavior
+
+This provides the same conversational experience as using Claude Code interactively, but programmatically within your Elixir applications.
+
 ## Options Reference
 
 For complete documentation of all available options, see the `ClaudeCode.Options` module:
@@ -181,8 +235,10 @@ ClaudeCode.query_async(session, prompt, opts \\ [])
 # Returns: {:ok, reference()} | {:error, term()}
 
 # Session management
-ClaudeCode.alive?(session)  # Check if session is running
-ClaudeCode.stop(session)    # Stop the session
+ClaudeCode.alive?(session)         # Check if session is running
+ClaudeCode.stop(session)           # Stop the session
+ClaudeCode.get_session_id(session) # Get current session ID for conversation continuity
+ClaudeCode.clear_session(session)  # Clear session to start fresh conversation
 ```
 
 ### ClaudeCode.Stream Module
