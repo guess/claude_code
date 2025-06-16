@@ -1,202 +1,111 @@
-# Claude Code SDK for Elixir
+# 🤖 Claude Code SDK for Elixir
+
+**The most ergonomic way to integrate Claude AI into your Elixir applications**
+
+✨ **GenServer-based sessions** with automatic conversation continuity
+🔄 **Real-time streaming** responses for interactive experiences
+🏭 **Production-ready** with supervised fault tolerance
+⚡ **Concurrent queries** for high-performance applications
+🔧 **Zero-config** integration with Phoenix LiveView
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
+[![Downloads](https://img.shields.io/hexpm/dt/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/guess/claude_code/blob/main/LICENSE)
 [![Elixir](https://img.shields.io/badge/elixir-%3E%3D1.14-purple.svg)](https://elixir-lang.org)
-
-ClaudeCode provides a GenServer-based interface to the Claude Code CLI with support for streaming responses, concurrent queries, and Phoenix LiveView integration.
 
 <div align="center">
     <img src="https://github.com/guess/claude_code/raw/main/docs/claudecode.png" alt="ClaudeCode" width="200">
 </div>
 
-## Prerequisites
-
-1. **Install Claude Code CLI**:
-   - Visit [claude.ai/code](https://claude.ai/code)
-   - Follow the installation instructions for your platform
-   - Verify installation: `claude --version`
-
-2. **Get an API Key**:
-   - Sign up at [console.anthropic.com](https://console.anthropic.com)
-   - Create an API key and configure it (see Configuration section below)
-
-## Installation
-
-Add to your `mix.exs`:
+## 🎯 30-Second Demo
 
 ```elixir
+# Start a session and query Claude
+{:ok, session} = ClaudeCode.start_link(api_key: "your-key")
+
+# Real-time streaming responses
+session
+|> ClaudeCode.query_stream("Explain Elixir GenServers")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)  # Watch Claude type in real-time! 🎬
+
+# Conversation continuity - Claude remembers context
+ClaudeCode.query(session, "My favorite language is Elixir")
+ClaudeCode.query(session, "What's my favorite language?")
+# => "Your favorite language is Elixir!"
+```
+
+## 🆚 Why ClaudeCode for Elixir?
+
+| Feature | ClaudeCode | Direct HTTP | Other SDKs |
+|---------|------------|-------------|------------|
+| 🔄 Streaming | ✅ Native Elixir Streams | ❌ Manual chunking | ⚠️ Limited |
+| 💬 Conversation continuity | ✅ Automatic | ❌ Manual state | ⚠️ Basic |
+| 🏭 Production supervision | ✅ Built-in | ❌ Custom | ❌ None |
+| 🛠️ File operations | ✅ Built-in tools | ❌ Not supported | ❌ None |
+| ⚡ Concurrent sessions | ✅ Native GenServers | ⚠️ Connection pooling | ⚠️ Limited |
+
+## 📦 Installation
+
+**Step 1:** Add to your `mix.exs`
+```elixir
 def deps do
-  [
-    {:claude_code, "~> 0.2.0"}
-  ]
+  [{:claude_code, "~> 0.2.0"}]
 end
 ```
 
-Then run:
+**Step 2:** Install dependencies
 ```bash
 mix deps.get
 ```
 
-## Quick Start
+**Step 3:** Get the Claude CLI
+```bash
+# Install from claude.ai/code
+claude --version  # Verify installation
+```
+
+**Step 4:** Configure your API key
+```elixir
+# config/config.exs
+config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
+```
+
+🎉 **Ready to go!** Try the quick demo above.
+
+## ⚡ Quick Examples
 
 ```elixir
-# 1. Configure your API key
-config :claude_code, api_key: "sk-ant-your-api-key-here"
-
-# 2. Start a session and query Claude
+# Basic usage
 {:ok, session} = ClaudeCode.start_link()
 {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
-IO.puts(response)
 
-# 3. Stream responses in real-time
-session
-|> ClaudeCode.query_stream("Explain GenServers")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
+# File operations
+ClaudeCode.query(session, "Review my mix.exs file",
+  allowed_tools: ["View", "Edit"])
+
+# Production with supervision
+{:ok, _} = ClaudeCode.Supervisor.start_link([
+  [name: :assistant, api_key: api_key]
+])
+ClaudeCode.query(:assistant, "Help with this task")
 ```
 
 📖 **[Complete Getting Started Guide →](docs/GETTING_STARTED.md)**
 
-For detailed installation, configuration, and first steps.
+## 🚀 Key Features
 
-## Key Features
+- **💬 Conversation Continuity**: Claude remembers context across queries automatically
+- **🔄 Real-time Streaming**: Watch responses appear in real-time with Elixir Streams
+- **🛠️ File Operations**: Built-in tools for reading, editing, and analyzing files
+- **🏭 Production Ready**: Fault-tolerant supervision with automatic restarts
+- **⚡ High Performance**: Concurrent sessions for parallel processing
+- **🔧 Phoenix Integration**: Drop-in compatibility with LiveView and Phoenix apps
 
-### Conversation Continuity
-```elixir
-{:ok, session} = ClaudeCode.start_link()
+## 🏭 Production Usage
 
-# Context is automatically maintained across queries
-ClaudeCode.query(session, "My name is Alice")
-ClaudeCode.query(session, "What's my name?")  # Remembers "Alice"
-```
-
-### Real-time Streaming
-```elixir
-session
-|> ClaudeCode.query_stream("Write a GenServer")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)  # Live text as Claude types
-```
-
-### File Operations
-```elixir
-ClaudeCode.query(session, "Review my mix.exs file", 
-  allowed_tools: ["View", "Edit"])
-```
-
-## Usage Patterns
-
-### Scripts & Prototyping
-```elixir
-{:ok, session} = ClaudeCode.start_link()
-{:ok, response} = ClaudeCode.query(session, "Explain this concept")
-ClaudeCode.stop(session)
-```
-
-### Production Applications
-```elixir
-# Fault-tolerant supervised sessions
-{ClaudeCode.Supervisor, [
-  [name: :assistant, api_key: api_key],
-  [name: :code_reviewer, api_key: api_key]
-]}
-
-# Use from anywhere in your app
-ClaudeCode.query(:assistant, "Help with this task")
-```
-
-## Options Reference
-
-For complete documentation of all available options, see the `ClaudeCode.Options` module:
-
-```elixir
-# View session options schema
-ClaudeCode.Options.session_schema()
-
-# View query options schema
-ClaudeCode.Options.query_schema()
-```
-
-**Key points:**
-- `:api_key` is required and can be provided via session options or application config
-- Query options can override session defaults
-- Some options (`:timeout`, `:name`) are Elixir-specific
-- Most options map directly to Claude CLI flags
-
-Run `mix docs` and navigate to `ClaudeCode.Options` for detailed option documentation including types, defaults, and validation rules.
-
-## API Reference
-
-### ClaudeCode Module
-
-```elixir
-# Start a session
-ClaudeCode.start_link(opts)
-# See ClaudeCode.Options.session_schema() for all available options
-
-# Synchronous query (blocks until complete)
-ClaudeCode.query(session, prompt, opts \\ [])
-# Returns: {:ok, String.t()} | {:error, term()}
-
-# Streaming query (returns Elixir Stream)
-ClaudeCode.query_stream(session, prompt, opts \\ [])
-# Returns: Stream.t()
-
-# Async query (sends messages to calling process)
-ClaudeCode.query_async(session, prompt, opts \\ [])
-# Returns: {:ok, reference()} | {:error, term()}
-
-# Session management
-ClaudeCode.alive?(session)         # Check if session is running
-ClaudeCode.stop(session)           # Stop the session
-ClaudeCode.get_session_id(session) # Get current session ID for conversation continuity
-ClaudeCode.clear(session)  # Clear session to start fresh conversation
-```
-
-### ClaudeCode.Stream Module
-
-```elixir
-# Extract text content from responses
-ClaudeCode.Stream.text_content(stream)
-
-# Extract tool usage blocks
-ClaudeCode.Stream.tool_uses(stream)
-
-# Filter messages by type
-ClaudeCode.Stream.filter_type(stream, :assistant)
-
-# Buffer text until sentence boundaries
-ClaudeCode.Stream.buffered_text(stream)
-```
-
-## Error Handling
-
-```elixir
-case ClaudeCode.query(session, "Hello") do
-  {:ok, response} ->
-    IO.puts(response)
-  {:error, :timeout} ->
-    IO.puts("Request timed out")
-  {:error, {:cli_not_found, msg}} ->
-    IO.puts("CLI error: #{msg}")
-  {:error, {:claude_error, msg}} ->
-    IO.puts("Claude error: #{msg}")
-end
-```
-
-## Documentation
-
-- 🚀 **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
-- 🏭 **[Production Supervision Guide](docs/SUPERVISION.md)** - Fault-tolerant production deployments
-- 💻 **[Examples](docs/EXAMPLES.md)** - Real-world usage patterns and code samples
-- 🔧 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-
-## Production Setup with Supervision
-
-For production applications, use `ClaudeCode.Supervisor` for fault-tolerant AI services with automatic restart capabilities:
-
+### Supervised Sessions
 ```elixir
 # In your application.ex
 def start(_type, _args) do
@@ -207,7 +116,6 @@ def start(_type, _args) do
       [name: :general_assistant, api_key: api_key]
     ]}
   ]
-
   Supervisor.start_link(children, strategy: :one_for_one)
 end
 
@@ -215,132 +123,71 @@ end
 {:ok, review} = ClaudeCode.query(:code_reviewer, "Review this code")
 ```
 
-**Key Benefits:**
+**Benefits:**
 - ✅ **Fault tolerance** - Sessions restart automatically on crashes
 - ✅ **Zero downtime** - Hot code reloading preserves session state
 - ✅ **Global access** - Named sessions work from anywhere in your app
 - ✅ **Distributed support** - Sessions work across Elixir clusters
 
-📖 **[Complete Production Supervision Guide →](docs/SUPERVISION.md)**
-
-For detailed patterns, examples, and advanced features including dynamic session management, load balancing, monitoring, and distributed deployments.
-
-## Production Usage
-
-### Performance & Concurrency
-
-ClaudeCode is designed for production use with multiple concurrent sessions:
-
-```elixir
-# Multiple sessions for parallel processing
-sessions = 1..4 |> Enum.map(fn _i ->
-  {:ok, session} = ClaudeCode.start_link()
-  session
-end)
-
-# Process tasks in parallel
-results = Task.async_stream(tasks, fn task ->
-  session = Enum.random(sessions)  # Simple load balancing
-  ClaudeCode.query(session, task.prompt)
-end, max_concurrency: 4)
-
-# Clean up
-Enum.each(sessions, &ClaudeCode.stop/1)
-```
-
 ### Phoenix Integration
-
 ```elixir
-# Use supervised sessions in Phoenix apps
-def start(_type, _args) do
-  children = [
-    MyAppWeb.Endpoint,
-    {ClaudeCode.Supervisor, [
-      [name: :chat_assistant, api_key: api_key]
-    ]}
-  ]
+# Use in LiveViews and Controllers
+def handle_event("ask_claude", %{"message" => message}, socket) do
+  case ClaudeCode.query(:assistant, message) do
+    {:ok, response} -> {:noreply, assign(socket, response: response)}
+    {:error, _} -> {:noreply, put_flash(socket, :error, "Claude unavailable")}
+  end
 end
-
-# In controllers and LiveViews
-ClaudeCode.query(:chat_assistant, message)
 ```
 
-### Best Practices
+### Error Handling
+```elixir
+case ClaudeCode.query(session, "Hello") do
+  {:ok, response} -> IO.puts(response)
+  {:error, :timeout} -> IO.puts("Request timed out")
+  {:error, {:cli_not_found, msg}} -> IO.puts("CLI error: #{msg}")
+  {:error, {:claude_error, msg}} -> IO.puts("Claude error: #{msg}")
+end
+```
 
-1. **Session Management:**
-   ```elixir
-   # ✅ RECOMMENDED: Use supervised sessions for production
-   {ClaudeCode.Supervisor, [[name: :assistant, api_key: api_key]]}
+## 📚 Documentation
 
-   # ✅ Good: Temporary sessions for scripts/one-off tasks
-   {:ok, temp} = ClaudeCode.start_link(api_key: api_key)
-   result = ClaudeCode.query(temp, prompt)
-   ClaudeCode.stop(temp)
-   ```
+- 🚀 **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
+- 🏭 **[Production Guide](docs/SUPERVISION.md)** - Fault-tolerant production deployments
+- 💻 **[Examples](docs/EXAMPLES.md)** - Real-world usage patterns and code samples
+- 📖 **[API Reference](https://hexdocs.pm/claude_code)** - Complete API documentation
+- 🔧 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 
-2. **Error Handling:**
-   ```elixir
-   defp safe_claude_query(session, prompt) do
-     case ClaudeCode.query(session, prompt, timeout: 30_000) do
-       {:ok, response} -> {:ok, response}
-       {:error, :timeout} -> {:error, "Request timed out"}
-       {:error, reason} -> {:error, "Claude error: #{inspect(reason)}"}
-     end
-   end
-   ```
+## 🤝 Contributing
 
-3. **Resource Management:**
-   ```elixir
-   # Always clean up sessions
-   try do
-     {:ok, session} = ClaudeCode.start_link()
-     # ... use session
-   after
-     ClaudeCode.stop(session)
-   end
-   ```
+We ❤️ contributions! Whether it's:
 
-## Development
+- 🐛 **Bug reports** - Found an issue? Let us know!
+- 💡 **Feature requests** - Have an idea? We'd love to hear it!
+- 📝 **Documentation** - Help make our docs even better
+- 🔧 **Code contributions** - PRs welcome!
+
+See our [Contributing Guide](CONTRIBUTING.md) to get started.
+
+## 🛠️ Development
 
 ```bash
-# Clone and install dependencies
+# Clone and setup
 git clone https://github.com/guess/claude_code.git
 cd claude_code
 mix deps.get
 
-# Run tests
+# Run tests and quality checks
 mix test
-
-# Run quality checks (format, credo, dialyzer)
-mix quality
+mix quality  # format, credo, dialyzer
 ```
 
-## Contributing
+## 📜 License
 
-We welcome contributions! Please:
+MIT License - see [LICENSE](LICENSE) for details.
 
-1. Pick an unimplemented feature or bug fix
-2. Open an issue to discuss your approach
-3. Submit a PR with tests and documentation
+---
 
-## License
+**Built on top of the [Claude Code CLI](https://github.com/anthropics/claude-code) and designed for the Elixir community.**
 
-MIT License
-
-## Architecture
-
-The SDK uses a GenServer-based architecture where each Claude session is a separate process that spawns the Claude CLI as a subprocess. Communication happens via JSON streaming over stdout, with the CLI process exiting after each query (stateless).
-
-```
-┌─────────────┐     ┌─────────────────┐     ┌──────────────┐
-│ Your Code   │────▶│ ClaudeCode API  │────▶│ Session      │
-└─────────────┘     └─────────────────┘     │ (GenServer)  │
-                                            └──────┬───────┘
-                                                   │
-                                            ┌──────▼───────┐
-                                            │ CLI Process  │
-                                            │ (Port)       │
-                                            └──────────────┘
-```
-
-Built on top of the [Claude Code CLI](https://github.com/anthropics/claude-code) and designed for the Elixir community.
+*Made with ❤️ for Elixir developers who want the best AI integration experience.*
