@@ -76,7 +76,7 @@ defmodule ClaudeCode.CLITest do
       assert "test prompt" in args
     end
 
-    test "builds command with additional options", %{mock_binary: mock_binary} do
+    test "builds command with additional options (timeout ignored)", %{mock_binary: mock_binary} do
       {:ok, {executable, args}} =
         CLI.build_command(
           "test prompt",
@@ -94,8 +94,8 @@ defmodule ClaudeCode.CLITest do
       assert "You are helpful" in args
       assert "--allowedTools" in args
       assert "View,Bash(git:*)" in args
-      assert "--timeout" in args
-      assert "120000" in args
+      refute "--timeout" in args
+      refute "120000" in args
       assert "test prompt" in args
     end
 
@@ -197,7 +197,7 @@ defmodule ClaudeCode.CLITest do
       assert "test prompt" in args
     end
 
-    test "places --resume flag before other options", %{mock_binary: mock_binary} do
+    test "places --resume flag before other options" do
       {:ok, {_executable, args}} =
         CLI.build_command(
           "test prompt",
@@ -216,7 +216,7 @@ defmodule ClaudeCode.CLITest do
       assert resume_pos < system_pos
     end
 
-    test "handles session_id with special characters", %{mock_binary: mock_binary} do
+    test "handles session_id with special characters" do
       session_id = "session-with-dashes_and_underscores-123"
 
       {:ok, {_executable, args}} =

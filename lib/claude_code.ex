@@ -67,7 +67,7 @@ defmodule ClaudeCode do
       # => "4"
 
       # With option overrides
-      {:ok, response} = ClaudeCode.query_sync(session, "Complex query", 
+      {:ok, response} = ClaudeCode.query_sync(session, "Complex query",
         system_prompt: "Focus on performance optimization",
         allowed_tools: ["View"],
         timeout: 120_000
@@ -107,14 +107,14 @@ defmodule ClaudeCode do
 
       # Stream with option overrides
       session
-      |> ClaudeCode.query("Explain quantum computing", 
+      |> ClaudeCode.query("Explain quantum computing",
            system_prompt: "Focus on practical applications",
            allowed_tools: ["View"])
       |> ClaudeCode.Stream.text_content()
       |> Enum.each(&IO.write/1)
 
       # Collect all text content
-      text = 
+      text =
         session
         |> ClaudeCode.query("Tell me a story")
         |> ClaudeCode.Stream.text_content()
@@ -135,7 +135,7 @@ defmodule ClaudeCode do
   ## Examples
 
       {:ok, request_id} = ClaudeCode.query_async(session, "Complex task")
-      
+
       # Later, receive messages for this request
       receive do
         {:claude_message, ^request_id, message} ->
@@ -181,7 +181,7 @@ defmodule ClaudeCode do
   @doc """
   Gets the current session ID for conversation continuity.
 
-  Returns the session ID that Claude CLI is using to maintain conversation 
+  Returns the session ID that Claude CLI is using to maintain conversation
   context. This ID is automatically captured from CLI responses and used
   for subsequent queries to continue the conversation.
 
@@ -189,7 +189,7 @@ defmodule ClaudeCode do
 
       {:ok, session_id} = ClaudeCode.get_session_id(session)
       # => {:ok, "abc123-session-id"}
-      
+
       # For a new session with no queries yet
       {:ok, nil} = ClaudeCode.get_session_id(session)
   """
@@ -207,13 +207,13 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      :ok = ClaudeCode.clear_session(session)
-      
+      :ok = ClaudeCode.clear(session)
+
       # Next query will start fresh
       {:ok, response} = ClaudeCode.query_sync(session, "Hello!")
   """
-  @spec clear_session(session()) :: :ok
-  def clear_session(session) do
+  @spec clear(session()) :: :ok
+  def clear(session) do
     GenServer.call(session, :clear_session)
   end
 end

@@ -197,22 +197,29 @@ defmodule ClaudeCode.OptionsTest do
       assert "/tmp" in args
     end
 
-    test "converts timeout to --timeout" do
+    test "does not convert timeout to CLI flag" do
       opts = [timeout: 120_000]
 
       args = Options.to_cli_args(opts)
-      assert "--timeout" in args
-      assert "120000" in args
+      refute "--timeout" in args
+      refute "120000" in args
     end
 
-    test "ignores api_key and name options" do
-      opts = [api_key: "sk-ant-test", name: :session, model: "opus"]
+    test "ignores internal options (api_key, name, timeout, permission_handler)" do
+      opts = [api_key: "sk-ant-test", name: :session, timeout: 60_000, permission_handler: :custom, model: "opus"]
 
       args = Options.to_cli_args(opts)
       refute "--api-key" in args
       refute "--name" in args
+      refute "--timeout" in args
+      refute "--permission-handler" in args
       refute "sk-ant-test" in args
       refute ":session" in args
+      refute "60000" in args
+      refute ":custom" in args
+      # But model should still be included
+      assert "--model" in args
+      assert "opus" in args
     end
 
     test "ignores nil values" do

@@ -176,8 +176,18 @@ When you need explicit control over conversation context:
 # For a new session with no queries yet
 {:ok, nil} = ClaudeCode.get_session_id(session)
 
+{:ok, response} = ClaudeCode.query_sync(session, "What is your name?")
+# => {:ok, "Claude"}
+
+{:ok, response} = ClaudeCode.query_sync(session, "What did I first ask you?")
+# => {:ok, "You first asked \"What is your name?\""}
+
 # Clear session to start a fresh conversation
-:ok = ClaudeCode.clear_session(session)
+:ok = ClaudeCode.clear(session)
+
+# Next query starts with no previous context
+{:ok, response} = ClaudeCode.query_sync(session, "What did I first ask you?")
+# => "You asked me \"What did I first ask you?\"\n\nThis is the first question you've asked me in this conversation."
 
 # Next query starts with no previous context
 {:ok, response} = ClaudeCode.query_sync(session, "What's my name?")
@@ -201,7 +211,7 @@ For complete documentation of all available options, see the `ClaudeCode.Options
 # View session options schema
 ClaudeCode.Options.session_schema()
 
-# View query options schema  
+# View query options schema
 ClaudeCode.Options.query_schema()
 ```
 
@@ -238,7 +248,7 @@ ClaudeCode.query_async(session, prompt, opts \\ [])
 ClaudeCode.alive?(session)         # Check if session is running
 ClaudeCode.stop(session)           # Stop the session
 ClaudeCode.get_session_id(session) # Get current session ID for conversation continuity
-ClaudeCode.clear_session(session)  # Clear session to start fresh conversation
+ClaudeCode.clear(session)  # Clear session to start fresh conversation
 ```
 
 ### ClaudeCode.Stream Module
@@ -261,13 +271,13 @@ ClaudeCode.Stream.buffered_text(stream)
 
 ```elixir
 case ClaudeCode.query_sync(session, "Hello") do
-  {:ok, response} -> 
+  {:ok, response} ->
     IO.puts(response)
-  {:error, :timeout} -> 
+  {:error, :timeout} ->
     IO.puts("Request timed out")
-  {:error, {:cli_not_found, msg}} -> 
+  {:error, {:cli_not_found, msg}} ->
     IO.puts("CLI error: #{msg}")
-  {:error, {:claude_error, msg}} -> 
+  {:error, {:claude_error, msg}} ->
     IO.puts("Claude error: #{msg}")
 end
 ```
@@ -275,7 +285,7 @@ end
 ## Documentation
 
 - 📋 **[Roadmap](docs/ROADMAP.md)** - Implementation progress and timeline
-- 🔮 **[Vision](docs/VISION.md)** - Complete API documentation and future features  
+- 🔮 **[Vision](docs/VISION.md)** - Complete API documentation and future features
 - 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - Technical design decisions
 - 🛠️ **[Development Setup](docs/DEV_SETUP.md)** - Developer environment guide
 
@@ -305,7 +315,7 @@ mix quality
 We welcome contributions! Check the [Roadmap](docs/ROADMAP.md) for current development priorities, then:
 
 1. Pick an unimplemented feature or bug fix
-2. Open an issue to discuss your approach  
+2. Open an issue to discuss your approach
 3. Submit a PR with tests and documentation
 
 ## License

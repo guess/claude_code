@@ -36,7 +36,7 @@ defmodule ClaudeCode.Options do
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
-  - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000)
+  - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
   - `:permission_handler` - Custom permission handler module (atom, optional)
   - `:cwd` - Current working directory (string, optional)
 
@@ -179,7 +179,7 @@ defmodule ClaudeCode.Options do
   @doc """
   Converts Elixir options to CLI arguments.
 
-  Ignores internal options like :api_key and :name that are not CLI flags.
+  Ignores internal options like :api_key, :name, :timeout, and :permission_handler that are not CLI flags.
 
   ## Examples
 
@@ -271,6 +271,7 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:api_key, _value), do: nil
   defp convert_option_to_cli_flag(:name, _value), do: nil
   defp convert_option_to_cli_flag(:permission_handler, _value), do: nil
+  defp convert_option_to_cli_flag(:timeout, _value), do: nil
   defp convert_option_to_cli_flag(_key, nil), do: nil
 
   # TypeScript SDK aligned options
@@ -311,10 +312,6 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:model, value) do
     {"--model", to_string(value)}
-  end
-
-  defp convert_option_to_cli_flag(:timeout, value) do
-    {"--timeout", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:dangerously_skip_permissions, true) do
