@@ -297,9 +297,10 @@ defmodule ClaudeCode.Options do
     {"--disallowedTools", tools_csv}
   end
 
-  defp convert_option_to_cli_flag(:cwd, value) do
-    # Use cwd directly as argument, not a flag
-    {"--cwd", to_string(value)}
+  defp convert_option_to_cli_flag(:cwd, _value) do
+    # cwd is handled internally by changing working directory when spawning CLI process
+    # It's not passed as a CLI flag since the CLI doesn't support --cwd
+    nil
   end
 
   defp convert_option_to_cli_flag(:mcp_config, value) do

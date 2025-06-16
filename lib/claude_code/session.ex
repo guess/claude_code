@@ -509,9 +509,16 @@ defmodule ClaudeCode.Session do
                   "#{key}=#{shell_escape(to_string(value))}"
                 end)
 
+              # Add cd command if cwd is specified
+              cwd_prefix =
+                case Keyword.get(final_opts, :cwd) do
+                  nil -> ""
+                  cwd_path -> "cd #{shell_escape(cwd_path)} && "
+                end
+
               # Build the full command exactly like System.shell does
               # Wrap in parentheses, add newline, and redirect stdin from /dev/null
-              full_command = "(#{env_prefix} #{cmd_string}\n) </dev/null"
+              full_command = "(#{cwd_prefix}#{env_prefix} #{cmd_string}\n) </dev/null"
 
               port_opts = [
                 {:args, ["-c", full_command]},

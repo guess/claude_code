@@ -189,12 +189,12 @@ defmodule ClaudeCode.OptionsTest do
       assert "20" in args
     end
 
-    test "converts cwd to --cwd" do
+    test "cwd option is not converted to CLI flag" do
       opts = [cwd: "/tmp"]
 
       args = Options.to_cli_args(opts)
-      assert "--cwd" in args
-      assert "/tmp" in args
+      refute "--cwd" in args
+      refute "/tmp" in args
     end
 
     test "does not convert timeout to CLI flag" do
