@@ -23,12 +23,7 @@ defmodule ClaudeCode.Options do
     allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
-    permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
-    permission_mode: [
-      type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
-      default: :ask_always,
-      doc: "Permission handling mode"
-    ]
+    permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"]
   ]
 
   @query_opts_schema [
@@ -39,11 +34,7 @@ defmodule ClaudeCode.Options do
     allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     cwd: [type: :string, doc: "Override working directory for this query"],
-    timeout: [type: :timeout, doc: "Override timeout for this query"],
-    permission_mode: [
-      type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
-      doc: "Override permission mode for this query"
-    ]
+    timeout: [type: :timeout, doc: "Override timeout for this query"]
   ]
 
   # App config uses same option names directly - no mapping needed
@@ -64,7 +55,7 @@ defmodule ClaudeCode.Options do
   ## Examples
 
       iex> ClaudeCode.Options.validate_session_options([api_key: "sk-test"])
-      {:ok, [api_key: "sk-test", model: "sonnet", timeout: 300_000, permission_mode: :ask_always, max_conversation_turns: 50]}
+      {:ok, [api_key: "sk-test", timeout: 300_000]}
       
       iex> ClaudeCode.Options.validate_session_options([])
       {:error, %NimbleOptions.ValidationError{}}
@@ -227,11 +218,6 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:model, value) do
     {"--model", to_string(value)}
-  end
-
-  defp convert_option_to_cli_flag(:permission_mode, value) do
-    mode_string = value |> to_string() |> String.replace("_", "-")
-    {"--permission-mode", mode_string}
   end
 
   defp convert_option_to_cli_flag(:timeout, value) do

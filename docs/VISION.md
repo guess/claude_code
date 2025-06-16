@@ -56,7 +56,6 @@ ClaudeCode sessions are GenServers that maintain conversation state and handle a
   model: "opus",
   system_prompt: "You are an expert Elixir developer",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-  permission_mode: :auto_accept_reads,
   cwd: "/path/to/project",
   max_turns: 20,
   timeout: 120_000
@@ -74,7 +73,6 @@ ClaudeCode sessions are GenServers that maintain conversation state and handle a
 config :claude_code,
   model: "opus",
   system_prompt: "You are an expert Elixir developer",
-  permission_mode: :auto_accept_reads
 
 {:ok, session} = ClaudeCode.start_link(api_key: api_key)
 # Automatically uses config defaults ↑
@@ -202,22 +200,18 @@ Built-in permission modes for common scenarios:
 ```elixir
 # Auto-accept read operations
 %ClaudeCode.Options{
-  permission_mode: :auto_accept_reads
 }
 
 # Auto-accept file edits
 %ClaudeCode.Options{
-  permission_mode: :accept_edits
 }
 
 # Ask for confirmation on all tools
 %ClaudeCode.Options{
-  permission_mode: :confirm_all
 }
 
 # Custom combination
 %ClaudeCode.Options{
-  permission_mode: {:custom, 
     auto_accept: [:read],
     auto_deny: [:delete],
     confirm: [:write, :bash]
@@ -301,7 +295,6 @@ defmodule MyApp.ClaudeSupervisor do
         name: :main_assistant,
         system_prompt: "You are an expert Elixir developer",
         allowed_tools: ["View", "GlobTool", "Edit"],
-        permission_mode: :auto_accept_reads
       },
       
       # Specialized test writer
@@ -310,7 +303,6 @@ defmodule MyApp.ClaudeSupervisor do
         name: :test_assistant,
         system_prompt: "You are an expert at writing ExUnit tests",
         allowed_tools: ["View", "Edit"],
-        permission_mode: :auto_accept_reads
       }
     ]
     

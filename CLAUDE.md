@@ -117,7 +117,6 @@ Session options (all optional except `api_key`):
 - `allowed_tools: [String.t()]` - Tool restrictions (e.g. ["View", "Bash(git:*)"])
 - `max_turns: integer()` - Maximum conversation turns
 - `cwd: String.t()` - Working directory for CLI
-- `permission_mode: atom()` - Permission handling (:ask_always, :auto_accept_reads, etc.)
 - `timeout: timeout()` - Query timeout in milliseconds
 - `name: atom()` - GenServer name for named sessions
 

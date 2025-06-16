@@ -14,7 +14,6 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :allowed_tools)
       assert Keyword.has_key?(schema, :max_turns)
       assert Keyword.has_key?(schema, :cwd)
-      assert Keyword.has_key?(schema, :permission_mode)
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :permission_handler)
       assert Keyword.has_key?(schema, :name)
@@ -35,14 +34,6 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.get(model_opts, :type) == :string
       # No default value - let CLI handle its own defaults
       refute Keyword.has_key?(model_opts, :default)
-    end
-
-    test "permission_mode has valid enum values" do
-      schema = Options.session_schema()
-      permission_opts = Keyword.get(schema, :permission_mode)
-
-      assert Keyword.get(permission_opts, :type) == {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}
-      assert Keyword.get(permission_opts, :default) == :ask_always
     end
 
     test "timeout has proper type and default" do
@@ -81,7 +72,6 @@ defmodule ClaudeCode.OptionsTest do
         system_prompt: "You are helpful",
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
         max_turns: 20,
-        permission_mode: :auto_accept_reads,
         timeout: 60_000
       ]
 
@@ -97,18 +87,11 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       # No model default - CLI handles its own defaults
       refute Keyword.has_key?(validated, :model)
-      assert validated[:permission_mode] == :ask_always
       assert validated[:timeout] == 300_000
     end
 
     test "rejects missing required api_key" do
       opts = [model: "opus"]
-
-      assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_session_options(opts)
-    end
-
-    test "rejects invalid permission_mode" do
-      opts = [api_key: "sk-ant-test", permission_mode: :invalid]
 
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_session_options(opts)
     end
@@ -182,14 +165,6 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       assert "--cwd" in args
       assert "/tmp" in args
-    end
-
-    test "converts permission_mode to --permission-mode" do
-      opts = [permission_mode: :auto_accept_reads]
-
-      args = Options.to_cli_args(opts)
-      assert "--permission-mode" in args
-      assert "auto-accept-reads" in args
     end
 
     test "converts timeout to --timeout" do

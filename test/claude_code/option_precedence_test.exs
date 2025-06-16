@@ -50,7 +50,6 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       # Set app config
       Application.put_env(:claude_code, :model, "opus")
       Application.put_env(:claude_code, :timeout, 180_000)
-      Application.put_env(:claude_code, :permission_mode, :auto_accept_all)
 
       session_opts = [
         api_key: "sk-session",
@@ -67,14 +66,12 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       assert final_opts[:timeout] == 60_000
 
       # App config used where not overridden
-      assert final_opts[:permission_mode] == :auto_accept_all
     end
 
     test "app config overrides defaults" do
       # Set app config
       Application.put_env(:claude_code, :model, "opus")
       Application.put_env(:claude_code, :timeout, 180_000)
-      Application.put_env(:claude_code, :permission_mode, :auto_accept_reads)
 
       session_opts = [api_key: "sk-session"]
       query_opts = []
@@ -84,7 +81,6 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       # App config should override defaults
       assert final_opts[:model] == "opus"
       assert final_opts[:timeout] == 180_000
-      assert final_opts[:permission_mode] == :auto_accept_reads
     end
 
     test "defaults are used when no other options specified" do
@@ -97,14 +93,12 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       # No model default - CLI handles its own defaults
       refute Keyword.has_key?(final_opts, :model)
       assert final_opts[:timeout] == 300_000
-      assert final_opts[:permission_mode] == :ask_always
     end
 
     test "complete precedence chain" do
       # Set app config (level 3)
       Application.put_env(:claude_code, :model, "opus")
       Application.put_env(:claude_code, :timeout, 180_000)
-      Application.put_env(:claude_code, :permission_mode, :auto_accept_all)
       Application.put_env(:claude_code, :max_turns, 100)
 
       # Session options (level 2) - override some app config
@@ -135,7 +129,6 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       assert final_opts[:api_key] == "sk-session"
 
       # App config (override defaults)
-      assert final_opts[:permission_mode] == :auto_accept_all
       assert final_opts[:max_turns] == 100
     end
   end
@@ -189,14 +182,12 @@ defmodule ClaudeCode.OptionPrecedenceTest do
       Application.put_env(:claude_code, :model, "opus")
       Application.put_env(:claude_code, :system_prompt, "App prompt")
       Application.put_env(:claude_code, :timeout, 180_000)
-      Application.put_env(:claude_code, :permission_mode, :auto_accept_reads)
 
       config = Options.get_app_config()
 
       assert config[:model] == "opus"
       assert config[:system_prompt] == "App prompt"
       assert config[:timeout] == 180_000
-      assert config[:permission_mode] == :auto_accept_reads
     end
 
     test "ignores unknown app config keys" do

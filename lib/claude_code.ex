@@ -30,7 +30,6 @@ defmodule ClaudeCode do
     * `:allowed_tools` - Optional. List of allowed tools (e.g. ["View", "Bash(git:*)"])
     * `:max_conversation_turns` - Optional. Max conversation turns (default: 50)
     * `:working_directory` - Optional. Working directory for file operations
-    * `:permission_mode` - Optional. Permission mode (:auto_accept_all, :auto_accept_reads, :ask_always)
     * `:timeout` - Optional. Query timeout in ms (default: 300_000)
     * `:name` - Optional. A name to register the session under
 
@@ -45,7 +44,6 @@ defmodule ClaudeCode do
         system_prompt: "You are an Elixir expert",
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
         max_conversation_turns: 20,
-        permission_mode: :auto_accept_reads,
         name: :my_session
       )
   """

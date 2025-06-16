@@ -237,7 +237,6 @@ end
   allowed_tools: [type: {:list, :string}, doc: "List of allowed tools (e.g. [\"View\", \"Bash(git:*)\"])"],
   max_conversation_turns: [type: :integer, default: 50, doc: "Max conversation turns"],
   working_directory: [type: :string, doc: "Working directory for file operations"],
-  permission_mode: [
     type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
     default: :ask_always,
     doc: "Permission handling mode"
@@ -262,7 +261,6 @@ end
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
   max_conversation_turns: 20,
-  permission_mode: :auto_accept_reads,
   timeout: 60_000
 )
 
@@ -277,7 +275,6 @@ response = ClaudeCode.query_sync(session, "Optimize this function",
 config :claude_code,
   default_model: "opus",
   default_timeout: 180_000,
-  default_permission_mode: :auto_accept_reads
 
 # Session uses app config defaults
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")

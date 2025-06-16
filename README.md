@@ -133,7 +133,7 @@ Override session defaults for specific queries:
 # Start a session
 ClaudeCode.start_link(opts)
 # Options: api_key, model, system_prompt, allowed_tools, max_turns, 
-#          cwd, permission_mode, timeout, name
+#          cwd, timeout, name
 
 # Synchronous query (blocks until complete)
 ClaudeCode.query_sync(session, prompt, opts \\ [])

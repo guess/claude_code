@@ -90,17 +90,6 @@ defmodule ClaudeCodeTest do
       ClaudeCode.stop(session)
     end
 
-    test "accepts permission_mode option" do
-      {:ok, session} =
-        ClaudeCode.start_link(
-          api_key: "test-key",
-          permission_mode: :auto_accept_reads
-        )
-
-      assert is_pid(session)
-      ClaudeCode.stop(session)
-    end
-
     test "accepts timeout option" do
       {:ok, session} =
         ClaudeCode.start_link(
@@ -131,14 +120,6 @@ defmodule ClaudeCodeTest do
         ClaudeCode.start_link(
           api_key: "test-key",
           timeout: "not_a_number"
-        )
-      end
-
-      # Invalid permission_mode
-      assert_raise ArgumentError, fn ->
-        ClaudeCode.start_link(
-          api_key: "test-key",
-          permission_mode: :invalid_mode
         )
       end
 

@@ -76,7 +76,6 @@ defmodule ClaudeCode.Options do
   # Handles:
   # - NimbleOptions validation with helpful error messages
   # - Option precedence: query > session > app config > defaults
-  # - CLI flag conversion (e.g. :permission_mode → "--permission-mode")
   # - Application config integration
   # - Type safety for all configuration options
 end
@@ -173,7 +172,6 @@ All options are validated using NimbleOptions for type safety:
   api_key: [type: :string, required: true],
   model: [type: :string, default: "sonnet"],
   allowed_tools: [type: {:list, :string}],
-  permission_mode: [type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]}]
 ]
 ```
 
@@ -192,7 +190,6 @@ The Options module converts Elixir-style options to CLI flags:
 [
   system_prompt: "You are helpful",
   allowed_tools: ["View", "Bash(git:*)"],
-  permission_mode: :auto_accept_reads,
   max_turns: 20
 ]
 
@@ -311,7 +308,6 @@ We'll pass through important environment variables:
   model: "opus",
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-  permission_mode: :auto_accept_reads,
   timeout: 120_000
 )
 ```
