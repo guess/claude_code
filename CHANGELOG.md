@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Replaced `dangerously_skip_permissions` boolean option with `permission_mode` enum
+- Permission modes now align with Python SDK: `:default`, `:accept_edits`, `:bypass_permissions`
+- CLI flag changed from `--dangerously-skip-permissions` to `--permission-mode`
+- Updated all documentation and examples to use new option
+
+### Fixed
+- Updated ROADMAP.md to mark Phase 4 as completed
+- Corrected ARCHITECTURE.md to reflect actual session continuity implementation
+- Removed references to non-existent `ClaudeCode.continue/1` and `ClaudeCode.resume/2` functions
+
 ## [0.1.0-alpha.1] - 2025-01-13
 
 ### Added

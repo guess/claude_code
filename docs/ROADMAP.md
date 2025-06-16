@@ -192,9 +192,17 @@ end)
 - Updated documentation with streaming examples and troubleshooting
 - **Concurrent Query Fix**: Refactored Session to properly isolate concurrent requests with dedicated ports and buffers
 
-## Phase 4: Options & Configuration (Week 4)
+## Phase 4: Options & Configuration (Week 4) ✅
 
 **Goal**: Support all configuration options from the SDK with idiomatic Elixir interface
+
+**Status**: COMPLETED
+
+**Key Updates**:
+- Implemented flattened options API with NimbleOptions validation
+- Added complete option precedence system (query > session > app config > defaults)
+- Replaced `dangerously_skip_permissions` with `permission_mode` enum to align with Python SDK
+- Added support for all Claude CLI flags with proper conversion
 
 ### New Components
 ```elixir
@@ -220,25 +228,26 @@ end
 ```
 
 ### Features
-- [ ] Flattened options in start_link (no nested :options key)
-- [ ] NimbleOptions validation for type safety and documentation
-- [ ] Session-level default options
-- [ ] Per-query option overrides
-- [ ] Global configuration via Application env
-- [ ] Clear option precedence: query > session > app config > defaults
-- [ ] CLI flag mapping for all supported options
+- [x] Flattened options in start_link (no nested :options key)
+- [x] NimbleOptions validation for type safety and documentation
+- [x] Session-level default options
+- [x] Per-query option overrides
+- [x] Global configuration via Application env
+- [x] Clear option precedence: query > session > app config > defaults
+- [x] CLI flag mapping for all supported options
 
 ### Option Schema
 ```elixir
 @session_opts_schema [
   api_key: [type: :string, required: true, doc: "Anthropic API key"],
-  model: [type: :string, default: "sonnet", doc: "Model to use"],
+  model: [type: :string, doc: "Model to use"],
   system_prompt: [type: :string, doc: "System prompt for Claude"],
   allowed_tools: [type: {:list, :string}, doc: "List of allowed tools (e.g. [\"View\", \"Bash(git:*)\"])"],
-  max_conversation_turns: [type: :integer, default: 50, doc: "Max conversation turns"],
-  working_directory: [type: :string, doc: "Working directory for file operations"],
-    type: {:in, [:auto_accept_all, :auto_accept_reads, :ask_always]},
-    default: :ask_always,
+  max_turns: [type: :integer, doc: "Max conversation turns"],
+  cwd: [type: :string, doc: "Working directory for file operations"],
+  permission_mode: [
+    type: {:in, [:default, :accept_edits, :bypass_permissions]},
+    default: :default,
     doc: "Permission handling mode"
   ],
   timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
@@ -249,7 +258,8 @@ end
 @query_opts_schema [
   system_prompt: [type: :string, doc: "Override system prompt for this query"],
   timeout: [type: :timeout, doc: "Override timeout for this query"],
-  allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"]
+  allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
+  permission_mode: [type: {:in, [:default, :accept_edits, :bypass_permissions]}, doc: "Override permission mode for this query"]
 ]
 ```
 
@@ -260,21 +270,24 @@ end
   api_key: "sk-ant-...",
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-  max_conversation_turns: 20,
-  timeout: 60_000
+  max_turns: 20,
+  timeout: 60_000,
+  permission_mode: :default
 )
 
 # Query with overrides
 response = ClaudeCode.query_sync(session, "Optimize this function",
   system_prompt: "Focus on performance optimization",
-  timeout: 120_000
+  timeout: 120_000,
+  permission_mode: :accept_edits
 )
 
 # Using application config
 # config/config.exs
 config :claude_code,
-  default_model: "opus",
-  default_timeout: 180_000,
+  model: "opus",
+  timeout: 180_000,
+  permission_mode: :default
 
 # Session uses app config defaults
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")

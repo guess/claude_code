@@ -26,10 +26,9 @@ Key CLI flags we use:
 - `--model`: Specifies the model to use
 - `--max-turns`: Limits conversation length
 - `--cwd`: Sets working directory for file operations
-- `--permission-mode`: Controls permission handling (auto-accept-all, auto-accept-reads, ask-always)
+- `--permission-mode`: Controls permission handling (default, acceptEdits, bypassPermissions)
 - `--timeout`: Query timeout in milliseconds
 - `--resume`: Resume a previous session by ID
-- `--continue`: Continue the most recent conversation
 
 ### 2. Message Flow
 
@@ -197,7 +196,7 @@ The Options module converts Elixir-style options to CLI flags:
 [
   "--system-prompt", "You are helpful",
   "--allowed-tools", "View,Bash(git:*)",
-  "--permission-mode", "auto-accept-reads", 
+  "--permission-mode", "acceptEdits", 
   "--max-turns", "20"
 ]
 ```
@@ -342,17 +341,31 @@ Options are validated early to provide immediate feedback on configuration error
    - GenServer stays alive for next query
    - Multiple queries can run concurrently
 
-### Resuming Sessions
+### Session Continuity
 
-The CLI supports resuming previous conversations:
+The SDK automatically maintains conversation context across queries within a session:
 
 ```elixir
-# Resume by session ID
-{:ok, session} = ClaudeCode.resume("session-123", api_key: key)
+# Start a session
+{:ok, session} = ClaudeCode.start_link(api_key: key)
 
-# Continue most recent
-{:ok, session} = ClaudeCode.continue(api_key: key)
+# First query establishes conversation context
+{:ok, response1} = ClaudeCode.query_sync(session, "Hello, my name is Alice")
+
+# Subsequent queries automatically continue the conversation using stored session_id
+{:ok, response2} = ClaudeCode.query_sync(session, "What's my name?")
+
+# Check current session ID
+{:ok, session_id} = ClaudeCode.get_session_id(session)
+
+# Clear session to start fresh conversation
+:ok = ClaudeCode.clear(session)
 ```
+
+**How it works:**
+- Session IDs are captured from CLI responses and stored in the GenServer state
+- The `--resume` flag is automatically added to subsequent queries
+- Sessions maintain conversation history until explicitly cleared
 
 ## Permissions
 
