@@ -80,7 +80,7 @@ Let's start with a simple example:
 iex -S mix
 
 # Start a ClaudeCode session (using app config)
-{:ok, session} = ClaudeCode.start_link([])
+{:ok, session} = ClaudeCode.start_link()
 
 # Or with explicit API key
 {:ok, session} = ClaudeCode.start_link(
@@ -113,7 +113,7 @@ Configure your session with common options:
 For real-time responses, use streaming:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link([])
+{:ok, session} = ClaudeCode.start_link()
 
 # Stream the response as it arrives
 session
@@ -146,7 +146,7 @@ ClaudeCode.stop(session)
 ClaudeCode automatically maintains conversation context:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link([])
+{:ok, session} = ClaudeCode.start_link()
 
 # First message
 {:ok, _} = ClaudeCode.query(session, "My name is Alice and I'm learning Elixir")
@@ -173,7 +173,7 @@ config :claude_code,
   allowed_tools: ["View"]
 
 # Now sessions use these defaults
-{:ok, session} = ClaudeCode.start_link([])
+{:ok, session} = ClaudeCode.start_link()
   # All options inherited from config
 ```
 
@@ -182,7 +182,7 @@ config :claude_code,
 Always handle potential errors:
 
 ```elixir
-case ClaudeCode.start_link([]) do
+case ClaudeCode.start_link() do
   {:ok, session} ->
     case ClaudeCode.query(session, "Hello!") do
       {:ok, response} ->
@@ -243,7 +243,7 @@ defmodule MyApp.ClaudeService do
   end
 
   def init(_) do
-    {:ok, session} = ClaudeCode.start_link([])
+    {:ok, session} = ClaudeCode.start_link()
     {:ok, %{session: session}}
   end
 

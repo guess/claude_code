@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `query_sync/3` → `query/3` (synchronous queries, now the default)
   - `query/3` → `query_stream/3` (streaming queries, explicitly named)
   - `query_async/3` remains unchanged
+- **API Ergonomics:** Made `start_link/1` options parameter optional with default empty list for cleaner API when using application configuration
 
 ## [0.1.0] - 2025-06-16
 

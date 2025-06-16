@@ -35,7 +35,7 @@ defmodule ClaudeCodeTest do
 
       try do
         assert_raise ArgumentError, ~r/required :api_key option not found/, fn ->
-          ClaudeCode.start_link([])
+          ClaudeCode.start_link()
         end
       after
         # Restore original config and environment
@@ -53,7 +53,7 @@ defmodule ClaudeCodeTest do
       Application.put_env(:claude_code, :api_key, "app-config-key")
 
       try do
-        {:ok, session} = ClaudeCode.start_link([])
+        {:ok, session} = ClaudeCode.start_link()
         assert is_pid(session)
         assert ClaudeCode.alive?(session)
         ClaudeCode.stop(session)

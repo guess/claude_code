@@ -39,7 +39,7 @@ defmodule ClaudeCode do
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 
       # Start with application config (if api_key is configured)
-      {:ok, session} = ClaudeCode.start_link([])
+      {:ok, session} = ClaudeCode.start_link()
 
       # Start with custom options
       {:ok, session} = ClaudeCode.start_link(
@@ -54,7 +54,7 @@ defmodule ClaudeCode do
       )
   """
   @spec start_link(keyword()) :: GenServer.on_start()
-  def start_link(opts) do
+  def start_link(opts \\ []) do
     Session.start_link(opts)
   end
 

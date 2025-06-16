@@ -62,7 +62,7 @@ export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 
 ```elixir
 # Start a session (using app config)
-{:ok, session} = ClaudeCode.start_link([])
+{:ok, session} = ClaudeCode.start_link()
 
 # Or with explicit API key
 {:ok, session} = ClaudeCode.start_link(
@@ -104,7 +104,7 @@ config :claude_code,
   add_dir: ["/tmp"]
 
 # Session automatically uses configured defaults
-{:ok, session} = ClaudeCode.start_link([])
+{:ok, session} = ClaudeCode.start_link()
 ```
 
 ### Streaming Responses
@@ -319,7 +319,7 @@ ClaudeCode is designed for production use with multiple concurrent sessions:
 ```elixir
 # Multiple sessions for parallel processing
 sessions = 1..4 |> Enum.map(fn _i ->
-  {:ok, session} = ClaudeCode.start_link([])
+  {:ok, session} = ClaudeCode.start_link()
   session
 end)
 
@@ -360,7 +360,7 @@ ClaudeCode.query(:claude_session, prompt)
    {:ok, _} = ClaudeCode.start_link(name: :main_claude)
 
    # Use temporary sessions for isolated tasks
-   {:ok, temp} = ClaudeCode.start_link([])
+   {:ok, temp} = ClaudeCode.start_link()
    result = ClaudeCode.query(temp, prompt)
    ClaudeCode.stop(temp)
    ```
@@ -380,7 +380,7 @@ ClaudeCode.query(:claude_session, prompt)
    ```elixir
    # Always clean up sessions
    try do
-     {:ok, session} = ClaudeCode.start_link([])
+     {:ok, session} = ClaudeCode.start_link()
      # ... use session
    after
      ClaudeCode.stop(session)
