@@ -67,7 +67,7 @@ Configure sessions with various options:
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
   add_dir: ["/tmp", "/var/log"],
   timeout: 120_000,
-  dangerously_skip_permissions: false
+  permission_mode: :default
 )
 
 # Use application configuration for defaults
@@ -176,18 +176,16 @@ When you need explicit control over conversation context:
 # For a new session with no queries yet
 {:ok, nil} = ClaudeCode.get_session_id(session)
 
-{:ok, response} = ClaudeCode.query_sync(session, "What is your name?")
-# => {:ok, "Claude"}
+# First query establishes the conversation
+{:ok, response1} = ClaudeCode.query_sync(session, "Hello, my name is Alice")
+# => "Hello Alice! Nice to meet you."
 
-{:ok, response} = ClaudeCode.query_sync(session, "What did I first ask you?")
-# => {:ok, "You first asked \"What is your name?\""}
+# Subsequent queries remember the conversation context
+{:ok, response2} = ClaudeCode.query_sync(session, "What's my name?")
+# => "Your name is Alice, as you mentioned when we first met."
 
 # Clear session to start a fresh conversation
 :ok = ClaudeCode.clear(session)
-
-# Next query starts with no previous context
-{:ok, response} = ClaudeCode.query_sync(session, "What did I first ask you?")
-# => "You asked me \"What did I first ask you?\"\n\nThis is the first question you've asked me in this conversation."
 
 # Next query starts with no previous context
 {:ok, response} = ClaudeCode.query_sync(session, "What's my name?")

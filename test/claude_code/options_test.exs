@@ -17,7 +17,7 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :permission_handler)
       assert Keyword.has_key?(schema, :name)
-      assert Keyword.has_key?(schema, :dangerously_skip_permissions)
+      assert Keyword.has_key?(schema, :permission_mode)
       assert Keyword.has_key?(schema, :add_dir)
     end
 
@@ -46,12 +46,12 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.get(timeout_opts, :default) == 300_000
     end
 
-    test "dangerously_skip_permissions has proper type and default" do
+    test "permission_mode has proper type and default" do
       schema = Options.session_schema()
-      skip_perms_opts = Keyword.get(schema, :dangerously_skip_permissions)
+      permission_mode_opts = Keyword.get(schema, :permission_mode)
 
-      assert Keyword.get(skip_perms_opts, :type) == :boolean
-      assert Keyword.get(skip_perms_opts, :default) == false
+      assert Keyword.get(permission_mode_opts, :type) == {:in, [:default, :accept_edits, :bypass_permissions]}
+      assert Keyword.get(permission_mode_opts, :default) == :default
     end
 
     test "add_dir has proper type" do
@@ -72,7 +72,7 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :system_prompt)
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :allowed_tools)
-      assert Keyword.has_key?(schema, :dangerously_skip_permissions)
+      assert Keyword.has_key?(schema, :permission_mode)
       assert Keyword.has_key?(schema, :add_dir)
     end
 
@@ -94,7 +94,7 @@ defmodule ClaudeCode.OptionsTest do
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
         max_turns: 20,
         timeout: 60_000,
-        dangerously_skip_permissions: true,
+        permission_mode: :bypass_permissions,
         add_dir: ["/tmp", "/var/log"]
       ]
 
@@ -102,7 +102,7 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:api_key] == "sk-ant-test"
       assert validated[:model] == "opus"
       assert validated[:timeout] == 60_000
-      assert validated[:dangerously_skip_permissions] == true
+      assert validated[:permission_mode] == :bypass_permissions
       assert validated[:add_dir] == ["/tmp", "/var/log"]
     end
 
@@ -113,7 +113,7 @@ defmodule ClaudeCode.OptionsTest do
       # No model default - CLI handles its own defaults
       refute Keyword.has_key?(validated, :model)
       assert validated[:timeout] == 300_000
-      assert validated[:dangerously_skip_permissions] == false
+      assert validated[:permission_mode] == :default
     end
 
     test "rejects missing required api_key" do
@@ -141,7 +141,7 @@ defmodule ClaudeCode.OptionsTest do
         system_prompt: "Focus on performance",
         timeout: 120_000,
         allowed_tools: ["Bash(git:*)"],
-        dangerously_skip_permissions: true,
+        permission_mode: :bypass_permissions,
         add_dir: ["/home/user/docs"]
       ]
 
@@ -149,7 +149,7 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:system_prompt] == "Focus on performance"
       assert validated[:timeout] == 120_000
       assert validated[:allowed_tools] == ["Bash(git:*)"]
-      assert validated[:dangerously_skip_permissions] == true
+      assert validated[:permission_mode] == :bypass_permissions
       assert validated[:add_dir] == ["/home/user/docs"]
     end
 
@@ -230,21 +230,28 @@ defmodule ClaudeCode.OptionsTest do
       refute nil in args
     end
 
-    test "converts dangerously_skip_permissions to --dangerously-skip-permissions when true" do
-      opts = [dangerously_skip_permissions: true]
+    test "converts permission_mode to --permission-mode" do
+      opts = [permission_mode: :accept_edits]
 
       args = Options.to_cli_args(opts)
-      assert "--dangerously-skip-permissions" in args
-      # Should not have a separate value argument
-      refute "true" in args
+      assert "--permission-mode" in args
+      assert "acceptEdits" in args
     end
 
-    test "ignores dangerously_skip_permissions when false" do
-      opts = [dangerously_skip_permissions: false]
+    test "converts permission_mode bypass_permissions to --permission-mode bypassPermissions" do
+      opts = [permission_mode: :bypass_permissions]
 
       args = Options.to_cli_args(opts)
-      refute "--dangerously-skip-permissions" in args
-      refute "false" in args
+      assert "--permission-mode" in args
+      assert "bypassPermissions" in args
+    end
+
+    test "ignores permission_mode when default" do
+      opts = [permission_mode: :default]
+
+      args = Options.to_cli_args(opts)
+      refute "--permission-mode" in args
+      refute "default" in args
     end
 
     test "converts add_dir to --add-dir" do

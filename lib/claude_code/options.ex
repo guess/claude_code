@@ -31,8 +31,8 @@ defmodule ClaudeCode.Options do
   ### Advanced Options
   - `:mcp_config` - Path to MCP servers JSON config file (string, optional)
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
-  - `:dangerously_skip_permissions` - Bypass all permission checks (boolean, default: false)
-    **⚠️ Security Warning**: Only use during development
+  - `:permission_mode` - Permission handling mode (atom, default: :default)
+    Options: `:default`, `:accept_edits`, `:bypass_permissions`
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
@@ -65,7 +65,7 @@ defmodule ClaudeCode.Options do
         add_dir: ["/tmp", "/var/log"],
         max_turns: 20,
         timeout: 180_000,
-        dangerously_skip_permissions: false
+        permission_mode: :default
       )
 
       # Query with option overrides
@@ -84,8 +84,8 @@ defmodule ClaudeCode.Options do
 
   ## Security Considerations
 
-  - **`:dangerously_skip_permissions`**: Bypasses CLI permission prompts.
-    Only use in development environments.
+  - **`:permission_mode`**: Controls permission handling behavior.
+    Use `:bypass_permissions` only in development environments.
   - **`:add_dir`**: Grants tool access to additional directories.
     Only include safe directories.
   - **`:allowed_tools`**: Use tool restrictions to limit Claude's capabilities.
@@ -109,7 +109,11 @@ defmodule ClaudeCode.Options do
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
-    dangerously_skip_permissions: [type: :boolean, default: false, doc: "Bypass all permission checks"],
+    permission_mode: [
+      type: {:in, [:default, :accept_edits, :bypass_permissions]},
+      default: :default,
+      doc: "Permission handling mode"
+    ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"]
   ]
 
@@ -122,7 +126,10 @@ defmodule ClaudeCode.Options do
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
-    dangerously_skip_permissions: [type: :boolean, doc: "Override permission skip setting for this query"],
+    permission_mode: [
+      type: {:in, [:default, :accept_edits, :bypass_permissions]},
+      doc: "Override permission mode for this query"
+    ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"]
   ]
 
@@ -194,8 +201,6 @@ defmodule ClaudeCode.Options do
     |> Enum.reduce([], fn {key, value}, acc ->
       case convert_option_to_cli_flag(key, value) do
         {flag, flag_value} -> [flag_value, flag | acc]
-        # Handle boolean flags without values
-        {flag} -> [flag | acc]
         # Handle multiple flag entries (like add_dir)
         flag_entries when is_list(flag_entries) -> flag_entries ++ acc
         nil -> acc
@@ -315,11 +320,15 @@ defmodule ClaudeCode.Options do
     {"--model", to_string(value)}
   end
 
-  defp convert_option_to_cli_flag(:dangerously_skip_permissions, true) do
-    {"--dangerously-skip-permissions"}
+  defp convert_option_to_cli_flag(:permission_mode, :default), do: nil
+
+  defp convert_option_to_cli_flag(:permission_mode, :accept_edits) do
+    {"--permission-mode", "acceptEdits"}
   end
 
-  defp convert_option_to_cli_flag(:dangerously_skip_permissions, false), do: nil
+  defp convert_option_to_cli_flag(:permission_mode, :bypass_permissions) do
+    {"--permission-mode", "bypassPermissions"}
+  end
 
   defp convert_option_to_cli_flag(:add_dir, value) when is_list(value) do
     if value == [] do
