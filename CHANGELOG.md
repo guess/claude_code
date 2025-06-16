@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-06-16
+
 ### Added
 - **Environment Variable Fallback:** Added support for `ANTHROPIC_API_KEY` environment variable as fallback when no explicit `api_key` option or application config is provided
 - **Enhanced Option Precedence:** Updated option precedence chain to: query > session > app config > environment variables > defaults

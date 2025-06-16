@@ -31,7 +31,7 @@ Add to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:claude_code, "~> 0.1.0"}
+    {:claude_code, "~> 0.2.0"}
   ]
 end
 ```
