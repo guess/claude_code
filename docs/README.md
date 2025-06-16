@@ -7,14 +7,10 @@ Welcome to the ClaudeCode Elixir SDK documentation!
 ### Getting Started
 - **[Getting Started](GETTING_STARTED.md)** - Step-by-step tutorial for new users
 - **[Examples](EXAMPLES.md)** - Real-world usage patterns and code samples
-- **[Architecture](ARCHITECTURE.md)** - Understand how the SDK works
 
 ### Troubleshooting & Support
 - **[Troubleshooting](TROUBLESHOOTING.md)** - Common issues and solutions
 
-### Planning & Vision
-- **[Roadmap](ROADMAP.md)** - Implementation progress and future plans
-- **[Vision](VISION.md)** - Complete API design and future features
 
 ## 🚀 Quick Links
 
@@ -29,7 +25,4 @@ If you're new to the project:
 1. Start with the main [README](../README.md) for installation and overview
 2. Follow the [Getting Started](GETTING_STARTED.md) tutorial for your first query
 3. Browse [Examples](EXAMPLES.md) for real-world usage patterns
-4. Read the [Architecture](ARCHITECTURE.md) to understand the design
-5. Check [Troubleshooting](TROUBLESHOOTING.md) if you run into issues
-6. Check the [Roadmap](ROADMAP.md) for current status
-7. Explore the [Vision](VISION.md) for future possibilities
+4. Check [Troubleshooting](TROUBLESHOOTING.md) if you run into issues

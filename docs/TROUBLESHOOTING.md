@@ -1,4 +1,4 @@
-# Troubleshooting ClaudeCode
+# Troubleshooting
 
 This guide helps you diagnose and resolve common issues with the ClaudeCode Elixir SDK.
 
@@ -150,7 +150,7 @@ mix compile
    ```bash
    # For bash/zsh
    export PATH="$PATH:/path/to/claude/bin"
-   
+
    # Or create a symlink
    ln -s /path/to/claude/bin/claude /usr/local/bin/claude
    ```
@@ -226,16 +226,16 @@ Supported CLI versions: 0.8.0+
    # You need to create a wrapper or use a simple supervisor
    defmodule MyApp.ClaudeSupervisor do
      use Supervisor
-     
+
      def start_link(opts) do
        Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
      end
-     
+
      def init(opts) do
        children = [
          {ClaudeCode, [api_key: "...", name: :claude_session]}
        ]
-       
+
        Supervisor.init(children, strategy: :one_for_one)
      end
    end

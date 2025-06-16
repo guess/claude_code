@@ -1,4 +1,4 @@
-# Getting Started with ClaudeCode
+# Getting Started
 
 This guide walks you through setting up and using the ClaudeCode Elixir SDK for the first time.
 
@@ -122,7 +122,7 @@ Claude can read and analyze files in your project:
   allowed_tools: ["View", "Edit"]  # Allow file operations
 )
 
-{:ok, response} = ClaudeCode.query_sync(session, 
+{:ok, response} = ClaudeCode.query_sync(session,
   "Can you look at my mix.exs file and suggest any improvements?"
 )
 
@@ -177,15 +177,15 @@ Always handle potential errors:
 case ClaudeCode.start_link(api_key: System.get_env("ANTHROPIC_API_KEY")) do
   {:ok, session} ->
     case ClaudeCode.query_sync(session, "Hello!") do
-      {:ok, response} -> 
+      {:ok, response} ->
         IO.puts("Claude says: #{response}")
-      {:error, :timeout} -> 
+      {:error, :timeout} ->
         IO.puts("Request timed out")
-      {:error, reason} -> 
+      {:error, reason} ->
         IO.puts("Error: #{inspect(reason)}")
     end
     ClaudeCode.stop(session)
-  
+
   {:error, reason} ->
     IO.puts("Failed to start session: #{inspect(reason)}")
 end
@@ -196,9 +196,8 @@ end
 Now that you have ClaudeCode working:
 
 1. **Explore Examples** - Check out [examples](EXAMPLES.md) for real-world usage patterns
-2. **Read the Architecture** - Understand how the SDK works in [Architecture](ARCHITECTURE.md)
-3. **Configure for Production** - Learn about advanced options in the main [README](../README.md)
-4. **Troubleshooting** - If you run into issues, see [Troubleshooting](TROUBLESHOOTING.md)
+2. **Configure for Production** - Learn about advanced options in the main [README](../README.md)
+3. **Troubleshooting** - If you run into issues, see [Troubleshooting](TROUBLESHOOTING.md)
 
 ## Common First Steps
 
@@ -210,14 +209,14 @@ defmodule MyCLI do
       api_key: System.get_env("ANTHROPIC_API_KEY"),
       allowed_tools: ["View", "Edit", "Bash"]
     )
-    
+
     prompt = Enum.join(args, " ")
-    
+
     session
     |> ClaudeCode.query(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
-    
+
     ClaudeCode.stop(session)
   end
 end
@@ -227,22 +226,22 @@ end
 ```elixir
 defmodule MyApp.ClaudeService do
   use GenServer
-  
+
   def start_link(_) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
-  
+
   def ask_claude(prompt) do
     GenServer.call(__MODULE__, {:query, prompt})
   end
-  
+
   def init(_) do
     {:ok, session} = ClaudeCode.start_link(
       api_key: System.get_env("ANTHROPIC_API_KEY")
     )
     {:ok, %{session: session}}
   end
-  
+
   def handle_call({:query, prompt}, _from, %{session: session} = state) do
     case ClaudeCode.query_sync(session, prompt) do
       {:ok, response} -> {:reply, {:ok, response}, state}

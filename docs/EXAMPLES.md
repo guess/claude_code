@@ -1,4 +1,4 @@
-# ClaudeCode Examples
+# Examples
 
 This document provides real-world examples of using ClaudeCode in different scenarios.
 
@@ -29,7 +29,7 @@ defmodule CodeAssistant do
       {:ok, session} ->
         run_interactive_loop(session, args)
         ClaudeCode.stop(session)
-      
+
       {:error, reason} ->
         IO.puts("Failed to start: #{reason}")
         System.halt(1)
@@ -60,23 +60,23 @@ defmodule CodeAssistant do
   defp run_interactive_loop(session, args) do
     # Non-interactive mode - process arguments as single query
     prompt = Enum.join(args, " ")
-    
+
     session
     |> ClaudeCode.query(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
-    
+
     IO.puts("\n")
   end
 
   defp interactive_loop(session) do
     case IO.gets("code_assistant> ") |> String.trim() do
-      "quit" -> 
+      "quit" ->
         IO.puts("Goodbye! 👋")
-        
-      "" -> 
+
+      "" ->
         interactive_loop(session)
-        
+
       prompt ->
         handle_query(session, prompt)
         interactive_loop(session)
@@ -88,7 +88,7 @@ defmodule CodeAssistant do
     |> ClaudeCode.query(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
-    
+
     IO.puts("\n")
   rescue
     error ->
@@ -102,7 +102,7 @@ Usage:
 # Interactive mode
 mix run -e "CodeAssistant.main([])"
 
-# Single query mode  
+# Single query mode
 mix run -e "CodeAssistant.main(['Review', 'this', 'function'])"
 ```
 
@@ -141,11 +141,11 @@ defmodule MyApp.ClaudeService do
   # Server Implementation
   def init(opts) do
     case start_claude_session(opts) do
-      {:ok, session} -> 
+      {:ok, session} ->
         Logger.info("ClaudeService started successfully")
         {:ok, %{session: session, active_streams: %{}}}
-      
-      {:error, reason} -> 
+
+      {:error, reason} ->
         Logger.error("Failed to start ClaudeService: #{inspect(reason)}")
         {:stop, reason}
     end
@@ -153,10 +153,10 @@ defmodule MyApp.ClaudeService do
 
   def handle_call({:ask, prompt, options}, _from, %{session: session} = state) do
     case ClaudeCode.query_sync(session, prompt, options) do
-      {:ok, response} -> 
+      {:ok, response} ->
         {:reply, {:ok, response}, state}
-      
-      {:error, reason} -> 
+
+      {:error, reason} ->
         Logger.warning("Claude query failed: #{inspect(reason)}")
         {:reply, {:error, reason}, state}
     end
@@ -166,10 +166,10 @@ defmodule MyApp.ClaudeService do
     try do
       stream = ClaudeCode.query(session, prompt, options)
       stream_id = make_ref()
-      
+
       # Store the stream for cleanup
       new_state = put_in(state.active_streams[stream_id], {pid, stream})
-      
+
       {:reply, {:ok, stream_id, stream}, new_state}
     rescue
       error ->
@@ -180,14 +180,14 @@ defmodule MyApp.ClaudeService do
   def handle_cast({:ask_async, prompt, options, caller_pid}, %{session: session} = state) do
     Task.start(fn ->
       case ClaudeCode.query_sync(session, prompt, options) do
-        {:ok, response} -> 
+        {:ok, response} ->
           send(caller_pid, {:claude_response, {:ok, response}})
-        
-        {:error, reason} -> 
+
+        {:error, reason} ->
           send(caller_pid, {:claude_response, {:error, reason}})
       end
     end)
-    
+
     {:noreply, state}
   end
 
@@ -196,7 +196,7 @@ defmodule MyApp.ClaudeService do
     new_streams = state.active_streams
                   |> Enum.reject(fn {_id, {stream_pid, _stream}} -> stream_pid == pid end)
                   |> Map.new()
-    
+
     {:noreply, %{state | active_streams: new_streams}}
   end
 
@@ -225,7 +225,7 @@ defmodule MyAppWeb.ClaudeController do
     case ClaudeService.ask(prompt) do
       {:ok, response} ->
         json(conn, %{response: response})
-      
+
       {:error, reason} ->
         conn
         |> put_status(:bad_request)
@@ -238,7 +238,7 @@ defmodule MyAppWeb.ClaudeController do
       {:ok, _stream_id, stream} ->
         conn = put_resp_header(conn, "content-type", "text/plain")
         conn = send_chunked(conn, 200)
-        
+
         stream
         |> ClaudeCode.Stream.text_content()
         |> Enum.reduce_while(conn, fn chunk, conn ->
@@ -247,9 +247,9 @@ defmodule MyAppWeb.ClaudeController do
             {:error, :closed} -> {:halt, conn}
           end
         end)
-        
+
         conn
-      
+
       {:error, reason} ->
         conn
         |> put_status(:bad_request)
@@ -277,7 +277,7 @@ defmodule MyAppWeb.ClaudeChatLive do
       stream_content: "",
       stream_active: false
     )
-    
+
     {:ok, socket}
   end
 
@@ -286,13 +286,13 @@ defmodule MyAppWeb.ClaudeChatLive do
       # Add user message
       socket = add_message(socket, "user", message)
       socket = assign(socket, current_input: "", loading: true, stream_active: true)
-      
+
       # Start streaming Claude's response
       case ClaudeService.stream_query(message) do
         {:ok, _stream_id, stream} ->
           start_streaming(stream)
           {:noreply, socket}
-        
+
         {:error, reason} ->
           socket = add_message(socket, "error", "Error: #{inspect(reason)}")
           socket = assign(socket, loading: false, stream_active: false)
@@ -315,9 +315,9 @@ defmodule MyAppWeb.ClaudeChatLive do
   def handle_info(:stream_complete, socket) do
     # Add the complete streamed response as a message
     socket = add_message(socket, "claude", socket.assigns.stream_content)
-    socket = assign(socket, 
-      loading: false, 
-      stream_active: false, 
+    socket = assign(socket,
+      loading: false,
+      stream_active: false,
       stream_content: ""
     )
     {:noreply, socket}
@@ -331,7 +331,7 @@ defmodule MyAppWeb.ClaudeChatLive do
 
   defp start_streaming(stream) do
     parent = self()
-    
+
     Task.start(fn ->
       try do
         stream
@@ -339,7 +339,7 @@ defmodule MyAppWeb.ClaudeChatLive do
         |> Enum.each(fn chunk ->
           send(parent, {:stream_chunk, chunk})
         end)
-        
+
         send(parent, :stream_complete)
       rescue
         _error ->
@@ -363,7 +363,7 @@ defmodule MyAppWeb.ClaudeChatLive do
             <span><%= message.content %></span>
           </div>
         <% end %>
-        
+
         <%= if @stream_active and @stream_content != "" do %>
           <div class="message message-claude streaming">
             <strong>Claude:</strong>
@@ -406,11 +406,11 @@ defmodule FileAnalyzer do
 
   def analyze_directory(path, pattern \\ "**/*.ex") do
     files = Path.wildcard(Path.join(path, pattern))
-    
+
     # Start multiple Claude sessions for parallel processing
     session_count = min(System.schedulers_online(), 4)
     sessions = start_sessions(session_count)
-    
+
     try do
       files
       |> Task.async_stream(
@@ -454,7 +454,7 @@ defmodule FileAnalyzer do
 
     prompt = """
     Please analyze this Elixir file: #{file_path}
-    
+
     Provide a concise analysis including:
     - Overall code quality (1-10)
     - Key issues found
@@ -469,7 +469,7 @@ defmodule FileAnalyzer do
           analysis: analysis,
           analyzed_at: DateTime.utc_now()
         }
-      
+
       {:error, reason} ->
         %{
           file: file_path,
@@ -485,20 +485,20 @@ defmodule FileAnalyzer do
 
     """
     # Code Analysis Report
-    
+
     **Files Analyzed:** #{length(results)}
     **Successful:** #{length(successful)}
     **Failed:** #{length(failed)}
     **Generated:** #{DateTime.utc_now()}
-    
+
     ## Analysis Results
-    
+
     #{Enum.map_join(successful, "\n\n", &format_analysis/1)}
-    
+
     #{if length(failed) > 0 do
       """
       ## Failed Analyses
-      
+
       #{Enum.map_join(failed, "\n", &"- #{&1.file}: #{inspect(&1.error)}")}
       """
     else
@@ -510,7 +510,7 @@ defmodule FileAnalyzer do
   defp format_analysis(result) do
     """
     ### #{result.file}
-    
+
     #{result.analysis}
     """
   end
@@ -536,7 +536,7 @@ defmodule DependencyAnalyzer do
   def analyze_mix_file(project_path \\ ".") do
     mix_file = Path.join(project_path, "mix.exs")
     lock_file = Path.join(project_path, "mix.lock")
-    
+
     {:ok, session} = ClaudeCode.start_link(
       api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: """
@@ -552,13 +552,13 @@ defmodule DependencyAnalyzer do
 
     prompt = """
     Please analyze the dependencies in this Elixir project.
-    
+
     Look at both mix.exs and mix.lock files and provide:
     - Security vulnerabilities
     - Outdated dependencies
     - Dependency conflicts
     - Recommendations for optimization
-    
+
     Files to analyze:
     - #{mix_file}
     - #{lock_file}
@@ -568,7 +568,7 @@ defmodule DependencyAnalyzer do
       {:ok, analysis} ->
         ClaudeCode.stop(session)
         {:ok, analysis}
-      
+
       error ->
         ClaudeCode.stop(session)
         error
@@ -584,7 +584,7 @@ defmodule DependencyAnalyzer do
 
     prompt = """
     Compare the Elixir dependency "#{dependency_name}" with its alternatives.
-    
+
     Provide:
     1. Popular alternatives
     2. Pros/cons comparison
@@ -597,7 +597,7 @@ defmodule DependencyAnalyzer do
       {:ok, comparison} ->
         ClaudeCode.stop(session)
         {:ok, comparison}
-      
+
       error ->
         ClaudeCode.stop(session)
         error
@@ -623,7 +623,7 @@ defmodule TestGenerator do
       system_prompt: """
       You are an Elixir testing expert. Generate comprehensive ExUnit tests including:
       1. Happy path tests
-      2. Edge case tests  
+      2. Edge case tests
       3. Error condition tests
       4. Property-based tests when appropriate
       5. Mock usage when needed
@@ -634,13 +634,13 @@ defmodule TestGenerator do
 
     prompt = """
     Please generate comprehensive ExUnit tests for the module in: #{module_file}
-    
+
     Create a complete test file that covers:
     - All public functions
     - Edge cases and error conditions
     - Property-based tests where appropriate
     - Proper setup and teardown
-    
+
     Follow Elixir testing best practices and use descriptive test names.
     """
 
@@ -675,10 +675,10 @@ defmodule TestGenerator do
 
     prompt = """
     Please analyze and improve the test file: #{test_file}
-    
+
     Suggest improvements for:
     - Test coverage gaps
-    - Better test organization  
+    - Better test organization
     - More descriptive test names
     - Additional edge cases
     - Performance test optimizations
@@ -688,7 +688,7 @@ defmodule TestGenerator do
       {:ok, suggestions} ->
         ClaudeCode.stop(session)
         {:ok, suggestions}
-      
+
       error ->
         ClaudeCode.stop(session)
         error
@@ -714,7 +714,7 @@ defmodule PerformanceMonitor do
 
   def monitor_stream_performance(session, prompt) do
     start_time = System.monotonic_time(:millisecond)
-    
+
     metrics = %{
       start_time: start_time,
       first_chunk_time: nil,
@@ -729,19 +729,19 @@ defmodule PerformanceMonitor do
     |> Stream.with_index()
     |> Stream.map(fn {chunk, index} ->
       current_time = System.monotonic_time(:millisecond)
-      
+
       metrics = if index == 0 do
         %{metrics | first_chunk_time: current_time}
       else
         metrics
       end
-      
-      metrics = %{metrics | 
+
+      metrics = %{metrics |
         total_chunks: index + 1,
         total_characters: metrics.total_characters + String.length(chunk),
         end_time: current_time
       }
-      
+
       {chunk, metrics}
     end)
     |> Enum.reduce({[], nil}, fn {chunk, metrics}, {chunks, _} ->
@@ -750,9 +750,9 @@ defmodule PerformanceMonitor do
     |> case do
       {chunks, final_metrics} ->
         content = chunks |> Enum.reverse() |> Enum.join()
-        
+
         report = generate_performance_report(final_metrics)
-        
+
         {:ok, content, report}
     end
   end
@@ -763,9 +763,9 @@ defmodule PerformanceMonitor do
       time_to_first_chunk_ms: metrics.first_chunk_time - metrics.start_time,
       total_chunks: metrics.total_chunks,
       total_characters: metrics.total_characters,
-      characters_per_second: metrics.total_characters / 
+      characters_per_second: metrics.total_characters /
         ((metrics.end_time - metrics.start_time) / 1000),
-      chunks_per_second: metrics.total_chunks / 
+      chunks_per_second: metrics.total_chunks /
         ((metrics.end_time - metrics.start_time) / 1000)
     }
   end
@@ -792,7 +792,7 @@ defmodule ResilientClaudeHandler do
   def query_with_retry(session, prompt, opts \\ []) do
     max_retries = Keyword.get(opts, :max_retries, 3)
     base_delay = Keyword.get(opts, :base_delay_ms, 1000)
-    
+
     do_query_with_retry(session, prompt, opts, max_retries, base_delay, 0)
   end
 
@@ -800,18 +800,18 @@ defmodule ResilientClaudeHandler do
     case ClaudeCode.query_sync(session, prompt, opts) do
       {:ok, response} ->
         {:ok, response}
-      
+
       {:error, :timeout} when attempt < max_retries ->
         delay = base_delay * :math.pow(2, attempt)
         :timer.sleep(round(delay))
         do_query_with_retry(session, prompt, opts, max_retries, base_delay, attempt + 1)
-      
+
       {:error, {:cli_exit, _}} when attempt < max_retries ->
         # CLI crashed, might recover on retry
         delay = base_delay * :math.pow(2, attempt)
         :timer.sleep(round(delay))
         do_query_with_retry(session, prompt, opts, max_retries, base_delay, attempt + 1)
-      
+
       error ->
         {:error, {error, attempts: attempt + 1}}
     end

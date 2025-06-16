@@ -285,9 +285,6 @@ end
 - 🚀 **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
 - 💻 **[Examples](docs/EXAMPLES.md)** - Real-world usage patterns and code samples
 - 🔧 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
-- 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - Technical design decisions
-- 📋 **[Roadmap](docs/ROADMAP.md)** - Implementation progress and future plans
-- 🔮 **[Vision](docs/VISION.md)** - Complete API documentation and future features
 
 ## Production Usage
 
@@ -326,7 +323,7 @@ def start(_type, _args) do
       name: :claude_session
     ]}
   ]
-  
+
   Supervisor.start_link(children, strategy: :one_for_one)
 end
 
@@ -340,7 +337,7 @@ ClaudeCode.query_sync(:claude_session, prompt)
    ```elixir
    # Use named sessions for long-running processes
    {:ok, _} = ClaudeCode.start_link(api_key: "...", name: :main_claude)
-   
+
    # Use temporary sessions for isolated tasks
    {:ok, temp} = ClaudeCode.start_link(api_key: "...")
    result = ClaudeCode.query_sync(temp, prompt)
@@ -386,7 +383,7 @@ mix quality
 
 ## Contributing
 
-We welcome contributions! Check the [Roadmap](docs/ROADMAP.md) for current development priorities, then:
+We welcome contributions! Please:
 
 1. Pick an unimplemented feature or bug fix
 2. Open an issue to discuss your approach
@@ -394,7 +391,7 @@ We welcome contributions! Check the [Roadmap](docs/ROADMAP.md) for current devel
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License
 
 ## Architecture
 

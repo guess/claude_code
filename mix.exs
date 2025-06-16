@@ -1,7 +1,7 @@
 defmodule ClaudeCode.MixProject do
   use Mix.Project
 
-  @version "0.1.0-alpha.1"
+  @version "0.1.0"
   @source_url "https://github.com/guess/claude_code"
 
   def project do
@@ -99,26 +99,40 @@ defmodule ClaudeCode.MixProject do
       source_url: @source_url,
       extras: [
         "README.md",
-        "CHANGELOG.md",
-        "LICENSE",
-        "docs/ROADMAP.md",
-        "docs/VISION.md",
-        "docs/ARCHITECTURE.md",
-        "docs/DEV_SETUP.md"
+        "docs/GETTING_STARTED.md",
+        "docs/EXAMPLES.md",
+        "docs/TROUBLESHOOTING.md",
+        "CHANGELOG.md"
+      ],
+      groups_for_extras: [
+        Introduction: [
+          "README.md",
+          "docs/GETTING_STARTED.md"
+        ],
+        Misc: [
+          "docs/EXAMPLES.md",
+          "docs/TROUBLESHOOTING.md"
+        ]
       ],
       groups_for_modules: [
         "Core API": [
           ClaudeCode,
-          ClaudeCode.Session,
-          ClaudeCode.Options
+          ClaudeCode.Session
+        ],
+        "Configuration & Options": [
+          ClaudeCode.Options,
+          ClaudeCode.CLI
+        ],
+        Streaming: [
+          ClaudeCode.Stream
+        ],
+        "Types & Parsing": [
+          ClaudeCode.Types,
+          ClaudeCode.Message,
+          ClaudeCode.Content
         ],
         Messages: ~r/ClaudeCode.Message/,
-        "Content Blocks": ~r/ClaudeCode.Content/,
-        Permissions: ~r/ClaudeCode.Permission/,
-        Errors: ~r/ClaudeCode.Error/,
-        Testing: [
-          ClaudeCode.Test
-        ]
+        "Content Blocks": ~r/ClaudeCode.Content/
       ]
     ]
   end
