@@ -92,7 +92,7 @@ defmodule ClaudeCode.CLITest do
       assert "opus" in args
       assert "--system-prompt" in args
       assert "You are helpful" in args
-      assert "--allowed-tools" in args
+      assert "--allowedTools" in args
       assert "View,Bash(git:*)" in args
       assert "--timeout" in args
       assert "120000" in args

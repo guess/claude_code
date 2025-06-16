@@ -102,7 +102,7 @@ defmodule ClaudeCode.Options do
       ["--system-prompt", "You are helpful"]
       
       iex> ClaudeCode.Options.to_cli_args([allowed_tools: ["View", "Bash(git:*)"]])
-      ["--allowed-tools", "View,Bash(git:*)"]
+      ["--allowedTools", "View,Bash(git:*)"]
   """
   def to_cli_args(opts) do
     opts
@@ -203,12 +203,12 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:allowed_tools, value) when is_list(value) do
     tools_csv = Enum.join(value, ",")
-    {"--allowed-tools", tools_csv}
+    {"--allowedTools", tools_csv}
   end
 
   defp convert_option_to_cli_flag(:disallowed_tools, value) when is_list(value) do
     tools_csv = Enum.join(value, ",")
-    {"--disallowed-tools", tools_csv}
+    {"--disallowedTools", tools_csv}
   end
 
   defp convert_option_to_cli_flag(:cwd, value) do

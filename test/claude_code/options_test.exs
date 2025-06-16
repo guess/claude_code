@@ -173,11 +173,11 @@ defmodule ClaudeCode.OptionsTest do
       assert "You are helpful" in args
     end
 
-    test "converts allowed_tools to --allowed-tools" do
+    test "converts allowed_tools to --allowedTools" do
       opts = [allowed_tools: ["View", "GlobTool", "Bash(git:*)"]]
 
       args = Options.to_cli_args(opts)
-      assert "--allowed-tools" in args
+      assert "--allowedTools" in args
       assert "View,GlobTool,Bash(git:*)" in args
     end
 

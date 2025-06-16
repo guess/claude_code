@@ -57,31 +57,17 @@ This document compares the CLI options available in the `claude` command with ou
 - **`:continue`** and **`:resume`** - Should NOT be exposed as user options
   - See "Session Continuity Strategy" section below
 
-#### Medium Priority
-- **`:add_dir`** - Additional directory access
-  ```elixir
-  add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"]
-  ```
-
-### 3. Fix Option Mappings
-
-- **Tool lists** - Currently converted to CSV correctly ✅
-- **Flag naming** - Need to ensure proper kebab-case conversion
-  - `allowed_tools` → `--allowedTools` (not kebab-case!)
-  - `disallowed_tools` → `--disallowedTools` (not kebab-case!)
-
 ### 4. Special Handling Required
 
 - **Session Management** - Handled internally, no user-facing options needed
 
 ## Implementation Steps
 
-1. **Update `options.ex`** schema to add missing options
-2. **Fix flag name conversion** for camelCase CLI flags (allowedTools, disallowedTools)
+1. **Update `options.ex`** schema to add missing options ✅
+2. **Fix flag name conversion** for camelCase CLI flags (allowedTools, disallowedTools) ✅
 3. **Remove or document** unsupported options (`:cwd`, `:permission_mode`)
-4. **Add validation** for mutually exclusive options
-5. **Update tests** to cover new options
-6. **Document** any SDK-specific options that don't map to CLI
+4. **Update tests** to cover new options ✅
+5. **Document** any SDK-specific options that don't map to CLI
 
 ## Questions to Investigate
 
