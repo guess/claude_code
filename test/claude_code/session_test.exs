@@ -759,4 +759,72 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
   end
+
+  describe "start_link with application config" do
+    test "can start without api_key when provided in app config" do
+      # Set application config
+      original_config = Application.get_all_env(:claude_code)
+      Application.put_env(:claude_code, :api_key, "app-config-key")
+
+      try do
+        # Should work without explicit api_key
+        {:ok, session} = Session.start_link([])
+
+        # Verify session has the API key from app config
+        state = :sys.get_state(session)
+        assert state.api_key == "app-config-key"
+
+        GenServer.stop(session)
+      after
+        # Restore original config
+        Application.delete_env(:claude_code, :api_key)
+
+        for {key, value} <- original_config do
+          Application.put_env(:claude_code, key, value)
+        end
+      end
+    end
+
+    test "session api_key overrides app config" do
+      # Set application config
+      original_config = Application.get_all_env(:claude_code)
+      Application.put_env(:claude_code, :api_key, "app-config-key")
+
+      try do
+        # Explicit api_key should override app config
+        {:ok, session} = Session.start_link(api_key: "session-key")
+
+        # Verify session uses the explicit api_key
+        state = :sys.get_state(session)
+        assert state.api_key == "session-key"
+
+        GenServer.stop(session)
+      after
+        # Restore original config
+        Application.delete_env(:claude_code, :api_key)
+
+        for {key, value} <- original_config do
+          Application.put_env(:claude_code, key, value)
+        end
+      end
+    end
+
+    test "fails when no api_key in either session opts or app config" do
+      # Ensure no api_key in app config
+      original_config = Application.get_all_env(:claude_code)
+      Application.delete_env(:claude_code, :api_key)
+
+      try do
+        # Should fail validation
+        assert_raise ArgumentError, ~r/required :api_key option not found/, fn ->
+          Session.start_link([])
+        end
+      after
+        # Restore original config
+        for {key, value} <- original_config do
+          Application.put_env(:claude_code, key, value)
+        end
+      end
+    end
+  end
 end

@@ -36,10 +36,7 @@ You'll need an API key from Anthropic.
 **Get your API key:**
 1. Sign up at [console.anthropic.com](https://console.anthropic.com)
 2. Create a new API key
-3. Set it as an environment variable:
-   ```bash
-   export ANTHROPIC_API_KEY="sk-ant-your-key-here"
-   ```
+3. Configure it in your application (see Configuration section below)
 
 ## Installation
 
@@ -59,6 +56,21 @@ Install dependencies:
 mix deps.get
 ```
 
+## Configuration
+
+First, configure your API key. Choose one of these methods:
+
+**Method 1: Application Configuration (Recommended)**
+```elixir
+# config/config.exs
+config :claude_code, api_key: "sk-ant-your-api-key-here"
+```
+
+**Method 2: Environment Variable**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+```
+
 ## Your First Query
 
 Let's start with a simple example:
@@ -67,13 +79,16 @@ Let's start with a simple example:
 # Start an interactive Elixir session
 iex -S mix
 
-# Start a ClaudeCode session
+# Start a ClaudeCode session (using app config)
+{:ok, session} = ClaudeCode.start_link([])
+
+# Or with explicit API key
 {:ok, session} = ClaudeCode.start_link(
   api_key: System.get_env("ANTHROPIC_API_KEY")
 )
 
 # Send your first query
-{:ok, response} = ClaudeCode.query_sync(session, "Hello! What's 2 + 2?")
+{:ok, response} = ClaudeCode.query(session, "Hello! What's 2 + 2?")
 IO.puts(response)
 # => "Hello! 2 + 2 equals 4."
 
@@ -87,7 +102,6 @@ Configure your session with common options:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY"),
   model: "claude-3-5-sonnet-20241022",  # Use a specific model
   system_prompt: "You are a helpful Elixir programming assistant",
   timeout: 120_000  # 2 minute timeout
@@ -99,13 +113,11 @@ Configure your session with common options:
 For real-time responses, use streaming:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY")
-)
+{:ok, session} = ClaudeCode.start_link([])
 
 # Stream the response as it arrives
 session
-|> ClaudeCode.query("Explain how GenServers work in Elixir")
+|> ClaudeCode.query_stream("Explain how GenServers work in Elixir")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 
@@ -118,11 +130,10 @@ Claude can read and analyze files in your project:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY"),
   allowed_tools: ["View", "Edit"]  # Allow file operations
 )
 
-{:ok, response} = ClaudeCode.query_sync(session,
+{:ok, response} = ClaudeCode.query(session,
   "Can you look at my mix.exs file and suggest any improvements?"
 )
 
@@ -135,15 +146,13 @@ ClaudeCode.stop(session)
 ClaudeCode automatically maintains conversation context:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY")
-)
+{:ok, session} = ClaudeCode.start_link([])
 
 # First message
-{:ok, _} = ClaudeCode.query_sync(session, "My name is Alice and I'm learning Elixir")
+{:ok, _} = ClaudeCode.query(session, "My name is Alice and I'm learning Elixir")
 
 # Follow-up message - Claude remembers the context
-{:ok, response} = ClaudeCode.query_sync(session, "What's my name and what am I learning?")
+{:ok, response} = ClaudeCode.query(session, "What's my name and what am I learning?")
 IO.puts(response)
 # => "Your name is Alice and you're learning Elixir!"
 
@@ -157,16 +166,15 @@ For production applications, configure defaults in your app config:
 ```elixir
 # config/config.exs
 config :claude_code,
+  api_key: "sk-ant-your-api-key-here",
   model: "claude-3-5-sonnet-20241022",
   timeout: 180_000,
   system_prompt: "You are a helpful assistant for our Elixir application",
   allowed_tools: ["View"]
 
 # Now sessions use these defaults
-{:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY")
-  # Other options inherited from config
-)
+{:ok, session} = ClaudeCode.start_link([])
+  # All options inherited from config
 ```
 
 ## Error Handling
@@ -174,9 +182,9 @@ config :claude_code,
 Always handle potential errors:
 
 ```elixir
-case ClaudeCode.start_link(api_key: System.get_env("ANTHROPIC_API_KEY")) do
+case ClaudeCode.start_link([]) do
   {:ok, session} ->
-    case ClaudeCode.query_sync(session, "Hello!") do
+    case ClaudeCode.query(session, "Hello!") do
       {:ok, response} ->
         IO.puts("Claude says: #{response}")
       {:error, :timeout} ->
@@ -206,14 +214,13 @@ Now that you have ClaudeCode working:
 defmodule MyCLI do
   def run(args) do
     {:ok, session} = ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       allowed_tools: ["View", "Edit", "Bash"]
     )
 
     prompt = Enum.join(args, " ")
 
     session
-    |> ClaudeCode.query(prompt)
+    |> ClaudeCode.query_stream(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
 
@@ -236,14 +243,12 @@ defmodule MyApp.ClaudeService do
   end
 
   def init(_) do
-    {:ok, session} = ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY")
-    )
+    {:ok, session} = ClaudeCode.start_link([])
     {:ok, %{session: session}}
   end
 
   def handle_call({:query, prompt}, _from, %{session: session} = state) do
-    case ClaudeCode.query_sync(session, prompt) do
+    case ClaudeCode.query(session, prompt) do
       {:ok, response} -> {:reply, {:ok, response}, state}
       error -> {:reply, error, state}
     end

@@ -27,10 +27,19 @@ defmodule ClaudeCode do
   For complete option documentation including types, validation rules, and examples,
   see `ClaudeCode.Options.session_schema/0` and the `ClaudeCode.Options` module.
 
+  The `api_key` option is required and can be provided either:
+  - As a session option: `ClaudeCode.start_link(api_key: "sk-ant-...")`
+  - Via application configuration: `config :claude_code, api_key: "sk-ant-..."`
+
+  Session options take precedence over application configuration.
+
   ## Examples
 
       # Start a basic session
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
+
+      # Start with application config (if api_key is configured)
+      {:ok, session} = ClaudeCode.start_link([])
 
       # Start with custom options
       {:ok, session} = ClaudeCode.start_link(

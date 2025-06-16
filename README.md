@@ -13,10 +13,7 @@ ClaudeCode provides a GenServer-based interface to the Claude Code CLI with supp
 
 2. **Get an API Key**:
    - Sign up at [console.anthropic.com](https://console.anthropic.com)
-   - Create an API key and set it as an environment variable:
-     ```bash
-     export ANTHROPIC_API_KEY="sk-ant-..."
-     ```
+   - Create an API key and configure it (see Configuration section below)
 
 ## Installation
 
@@ -37,16 +34,34 @@ mix deps.get
 
 ## Quick Start
 
+### Configuration
+
+First, configure your API key. Choose one of these methods:
+
+**Method 1: Application Configuration (Recommended)**
+```elixir
+# config/config.exs
+config :claude_code, api_key: "sk-ant-your-api-key-here"
+```
+
+**Method 2: Environment Variable**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+```
+
 ### Basic Usage
 
 ```elixir
-# Start a session
+# Start a session (using app config)
+{:ok, session} = ClaudeCode.start_link([])
+
+# Or with explicit API key
 {:ok, session} = ClaudeCode.start_link(
   api_key: System.get_env("ANTHROPIC_API_KEY")
 )
 
 # Send a query and get a response
-{:ok, response} = ClaudeCode.query_sync(session, "Hello, Claude!")
+{:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
 IO.puts(response)
 # => "Hello! How can I assist you today?"
 
@@ -54,14 +69,13 @@ IO.puts(response)
 ClaudeCode.stop(session)
 ```
 
-### Configuration
+### Advanced Configuration
 
 Configure sessions with various options:
 
 ```elixir
 # Session with custom configuration
 {:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY"),
   model: "opus",
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "Edit", "Bash(git:*)"],
@@ -73,6 +87,7 @@ Configure sessions with various options:
 # Use application configuration for defaults
 # config/config.exs
 config :claude_code,
+  api_key: "sk-ant-your-api-key-here",
   model: "opus",
   timeout: 180_000,
   system_prompt: "You are a helpful Elixir assistant",
@@ -80,7 +95,7 @@ config :claude_code,
   add_dir: ["/tmp"]
 
 # Session automatically uses configured defaults
-{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
+{:ok, session} = ClaudeCode.start_link([])
 ```
 
 ### Streaming Responses
@@ -90,13 +105,13 @@ Process responses as they arrive:
 ```elixir
 # Stream text content
 session
-|> ClaudeCode.query("Explain GenServers in Elixir")
+|> ClaudeCode.query_stream("Explain GenServers in Elixir")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 
 # React to tool usage in real-time
 session
-|> ClaudeCode.query("Create a new Elixir module")
+|> ClaudeCode.query_stream("Create a new Elixir module")
 |> ClaudeCode.Stream.tool_uses()
 |> Enum.each(fn tool_use ->
   IO.puts("Claude is using: #{tool_use.name}")
@@ -104,7 +119,7 @@ end)
 
 # Query with additional directory access and custom tools
 session
-|> ClaudeCode.query("Analyze the log files and create a summary report",
+|> ClaudeCode.query_stream("Analyze the log files and create a summary report",
   add_dir: ["/var/log", "/tmp/analysis"],
   allowed_tools: ["View", "Edit"],
   timeout: 180_000
@@ -114,7 +129,7 @@ session
 
 # Handle all message types
 session
-|> ClaudeCode.query("Help me debug this code")
+|> ClaudeCode.query_stream("Help me debug this code")
 |> Enum.each(fn
   %ClaudeCode.Message.Assistant{message: %{content: content}} ->
     # Process assistant response
@@ -132,7 +147,7 @@ Override session defaults for specific queries:
 
 ```elixir
 # Override options per query
-{:ok, response} = ClaudeCode.query_sync(session, "Complex task",
+{:ok, response} = ClaudeCode.query(session, "Complex task",
   system_prompt: "Focus on performance optimization",
   timeout: 300_000,
   allowed_tools: ["Bash(git:*)"]
@@ -149,16 +164,16 @@ ClaudeCode automatically maintains conversation context across queries within a 
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 
 # First query establishes the conversation
-{:ok, response1} = ClaudeCode.query_sync(session, "Hello, my name is Alice")
+{:ok, response1} = ClaudeCode.query(session, "Hello, my name is Alice")
 # => "Hello Alice! Nice to meet you."
 
 # Subsequent queries remember the conversation context
-{:ok, response2} = ClaudeCode.query_sync(session, "What's my name?")
+{:ok, response2} = ClaudeCode.query(session, "What's my name?")
 # => "Your name is Alice, as you mentioned when we first met."
 
 # Context is maintained across streaming queries too
 session
-|> ClaudeCode.query("Tell me more about yourself")
+|> ClaudeCode.query_stream("Tell me more about yourself")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 # Claude remembers the previous conversation
@@ -177,18 +192,18 @@ When you need explicit control over conversation context:
 {:ok, nil} = ClaudeCode.get_session_id(session)
 
 # First query establishes the conversation
-{:ok, response1} = ClaudeCode.query_sync(session, "Hello, my name is Alice")
+{:ok, response1} = ClaudeCode.query(session, "Hello, my name is Alice")
 # => "Hello Alice! Nice to meet you."
 
 # Subsequent queries remember the conversation context
-{:ok, response2} = ClaudeCode.query_sync(session, "What's my name?")
+{:ok, response2} = ClaudeCode.query(session, "What's my name?")
 # => "Your name is Alice, as you mentioned when we first met."
 
 # Clear session to start a fresh conversation
 :ok = ClaudeCode.clear(session)
 
 # Next query starts with no previous context
-{:ok, response} = ClaudeCode.query_sync(session, "What's my name?")
+{:ok, response} = ClaudeCode.query(session, "What's my name?")
 # => "I don't have any information about your name..."
 ```
 
@@ -214,7 +229,7 @@ ClaudeCode.Options.query_schema()
 ```
 
 **Key points:**
-- `:api_key` is required for all sessions
+- `:api_key` is required and can be provided via session options or application config
 - Query options can override session defaults
 - Some options (`:timeout`, `:name`) are Elixir-specific
 - Most options map directly to Claude CLI flags
@@ -231,11 +246,11 @@ ClaudeCode.start_link(opts)
 # See ClaudeCode.Options.session_schema() for all available options
 
 # Synchronous query (blocks until complete)
-ClaudeCode.query_sync(session, prompt, opts \\ [])
+ClaudeCode.query(session, prompt, opts \\ [])
 # Returns: {:ok, String.t()} | {:error, term()}
 
 # Streaming query (returns Elixir Stream)
-ClaudeCode.query(session, prompt, opts \\ [])
+ClaudeCode.query_stream(session, prompt, opts \\ [])
 # Returns: Stream.t()
 
 # Async query (sends messages to calling process)
@@ -268,7 +283,7 @@ ClaudeCode.Stream.buffered_text(stream)
 ## Error Handling
 
 ```elixir
-case ClaudeCode.query_sync(session, "Hello") do
+case ClaudeCode.query(session, "Hello") do
   {:ok, response} ->
     IO.puts(response)
   {:error, :timeout} ->
@@ -295,14 +310,14 @@ ClaudeCode is designed for production use with multiple concurrent sessions:
 ```elixir
 # Multiple sessions for parallel processing
 sessions = 1..4 |> Enum.map(fn _i ->
-  {:ok, session} = ClaudeCode.start_link(api_key: "...")
+  {:ok, session} = ClaudeCode.start_link([])
   session
 end)
 
 # Process tasks in parallel
 results = Task.async_stream(tasks, fn task ->
   session = Enum.random(sessions)  # Simple load balancing
-  ClaudeCode.query_sync(session, task.prompt)
+  ClaudeCode.query(session, task.prompt)
 end, max_concurrency: 4)
 
 # Clean up
@@ -318,17 +333,14 @@ Add ClaudeCode to your supervision tree for web applications:
 def start(_type, _args) do
   children = [
     MyAppWeb.Endpoint,
-    {ClaudeCode, [
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
-      name: :claude_session
-    ]}
+    {ClaudeCode, [name: :claude_session]}
   ]
 
   Supervisor.start_link(children, strategy: :one_for_one)
 end
 
 # Use in controllers/live views
-ClaudeCode.query_sync(:claude_session, prompt)
+ClaudeCode.query(:claude_session, prompt)
 ```
 
 ### Best Practices
@@ -336,18 +348,18 @@ ClaudeCode.query_sync(:claude_session, prompt)
 1. **Session Management:**
    ```elixir
    # Use named sessions for long-running processes
-   {:ok, _} = ClaudeCode.start_link(api_key: "...", name: :main_claude)
+   {:ok, _} = ClaudeCode.start_link(name: :main_claude)
 
    # Use temporary sessions for isolated tasks
-   {:ok, temp} = ClaudeCode.start_link(api_key: "...")
-   result = ClaudeCode.query_sync(temp, prompt)
+   {:ok, temp} = ClaudeCode.start_link([])
+   result = ClaudeCode.query(temp, prompt)
    ClaudeCode.stop(temp)
    ```
 
 2. **Error Handling:**
    ```elixir
    defp safe_claude_query(session, prompt) do
-     case ClaudeCode.query_sync(session, prompt, timeout: 30_000) do
+     case ClaudeCode.query(session, prompt, timeout: 30_000) do
        {:ok, response} -> {:ok, response}
        {:error, :timeout} -> {:error, "Request timed out"}
        {:error, reason} -> {:error, "Claude error: #{inspect(reason)}"}
@@ -359,7 +371,7 @@ ClaudeCode.query_sync(:claude_session, prompt)
    ```elixir
    # Always clean up sessions
    try do
-     {:ok, session} = ClaudeCode.start_link(api_key: "...")
+     {:ok, session} = ClaudeCode.start_link([])
      # ... use session
    after
      ClaudeCode.stop(session)

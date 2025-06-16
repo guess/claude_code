@@ -24,9 +24,60 @@ defmodule ClaudeCodeTest do
       ClaudeCode.stop(:test_session)
     end
 
-    test "requires api_key option" do
-      assert_raise ArgumentError, ~r/required :api_key option not found/, fn ->
-        ClaudeCode.start_link([])
+    test "requires api_key option when not in app config" do
+      # Ensure no api_key in app config
+      original_config = Application.get_all_env(:claude_code)
+      Application.delete_env(:claude_code, :api_key)
+
+      try do
+        assert_raise ArgumentError, ~r/required :api_key option not found/, fn ->
+          ClaudeCode.start_link([])
+        end
+      after
+        # Restore original config
+        for {key, value} <- original_config do
+          Application.put_env(:claude_code, key, value)
+        end
+      end
+    end
+
+    test "works without api_key when provided in app config" do
+      # Set application config
+      original_config = Application.get_all_env(:claude_code)
+      Application.put_env(:claude_code, :api_key, "app-config-key")
+
+      try do
+        {:ok, session} = ClaudeCode.start_link([])
+        assert is_pid(session)
+        assert ClaudeCode.alive?(session)
+        ClaudeCode.stop(session)
+      after
+        # Restore original config
+        Application.delete_env(:claude_code, :api_key)
+
+        for {key, value} <- original_config do
+          Application.put_env(:claude_code, key, value)
+        end
+      end
+    end
+
+    test "session api_key overrides app config" do
+      # Set application config
+      original_config = Application.get_all_env(:claude_code)
+      Application.put_env(:claude_code, :api_key, "app-config-key")
+
+      try do
+        {:ok, session} = ClaudeCode.start_link(api_key: "session-key")
+        assert is_pid(session)
+        assert ClaudeCode.alive?(session)
+        ClaudeCode.stop(session)
+      after
+        # Restore original config
+        Application.delete_env(:claude_code, :api_key)
+
+        for {key, value} <- original_config do
+          Application.put_env(:claude_code, key, value)
+        end
       end
     end
 
