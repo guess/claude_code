@@ -23,7 +23,8 @@ defmodule ClaudeCode.Options do
     allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
-    permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"]
+    permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
+    dangerously_skip_permissions: [type: :boolean, default: false, doc: "Bypass all permission checks"]
   ]
 
   @query_opts_schema [
@@ -34,7 +35,8 @@ defmodule ClaudeCode.Options do
     allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     cwd: [type: :string, doc: "Override working directory for this query"],
-    timeout: [type: :timeout, doc: "Override timeout for this query"]
+    timeout: [type: :timeout, doc: "Override timeout for this query"],
+    dangerously_skip_permissions: [type: :boolean, doc: "Override permission skip setting for this query"]
   ]
 
   # App config uses same option names directly - no mapping needed
@@ -104,7 +106,9 @@ defmodule ClaudeCode.Options do
     opts
     |> Enum.reduce([], fn {key, value}, acc ->
       case convert_option_to_cli_flag(key, value) do
-        {flag, flag_value} -> [flag, flag_value | acc]
+        {flag, flag_value} -> [flag_value, flag | acc]
+        # Handle boolean flags without values
+        {flag} -> [flag | acc]
         nil -> acc
       end
     end)
@@ -223,6 +227,12 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:timeout, value) do
     {"--timeout", to_string(value)}
   end
+
+  defp convert_option_to_cli_flag(:dangerously_skip_permissions, true) do
+    {"--dangerously-skip-permissions"}
+  end
+
+  defp convert_option_to_cli_flag(:dangerously_skip_permissions, false), do: nil
 
   defp convert_option_to_cli_flag(key, value) do
     # Convert unknown keys to kebab-case flags

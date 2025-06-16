@@ -16,20 +16,19 @@ This document compares the CLI options available in the `claude` command with ou
 | `--disallowedTools` | `:disallowed_tools` | List converted to CSV |
 | `--mcp-config` | `:mcp_config` | Supported |
 | `--permission-prompt-tool` | Only supported with `--print` flag (which we use) |
+| `--dangerously-skip-permissions` | Bypass permission checks | High (security feature) |
 
 ### Options We Have But CLI Doesn't Support ❌
 
 | SDK Option | Issue |
 |------------|-------|
 | `:cwd` | CLI doesn't have `--cwd` flag (might use working directory differently) |
-| `:permission_mode` | CLI doesn't have this flag - not mentioned in help, should remove |
 | `:timeout` | CLI doesn't have this flag - internal to SDK |
 
 ### CLI Options We're Missing 🚧
 
 | CLI Flag | Description | Priority |
 |----------|-------------|----------|
-| `--dangerously-skip-permissions` | Bypass permission checks | High (security feature) |
 | `--continue, -c` | Continue most recent conversation | High (useful feature) |
 | `--resume, -r` | Resume conversation by ID | High (useful feature) |
 | `--add-dir` | Additional directories for tool access | Medium |
@@ -42,10 +41,6 @@ This document compares the CLI options available in the `claude` command with ou
   - Option 1: Remove from SDK if not supported
   - Option 2: Use `cd` before running command if needed
   - Option 3: Check if it's an environment variable instead
-
-- **`:permission_mode`** - Not in CLI help
-  - Need to verify if this is actually supported (might be undocumented)
-  - If not supported, remove from SDK options
 
 - **`:timeout`** - Internal SDK option
   - Keep as Elixir-specific option, don't pass to CLI
@@ -83,8 +78,6 @@ This document compares the CLI options available in the `claude` command with ou
 ### 4. Special Handling Required
 
 - **Session Management** - Handled internally, no user-facing options needed
-- **Permission Handling** - `:dangerously_skip_permissions` should override `:permission_mode`
-- **Debug Flags** - Avoid using deprecated `--mcp-debug`
 
 ## Implementation Steps
 

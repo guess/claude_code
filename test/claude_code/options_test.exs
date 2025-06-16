@@ -17,6 +17,7 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :permission_handler)
       assert Keyword.has_key?(schema, :name)
+      assert Keyword.has_key?(schema, :dangerously_skip_permissions)
     end
 
     test "api_key is required" do
@@ -43,6 +44,14 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.get(timeout_opts, :type) == :timeout
       assert Keyword.get(timeout_opts, :default) == 300_000
     end
+
+    test "dangerously_skip_permissions has proper type and default" do
+      schema = Options.session_schema()
+      skip_perms_opts = Keyword.get(schema, :dangerously_skip_permissions)
+
+      assert Keyword.get(skip_perms_opts, :type) == :boolean
+      assert Keyword.get(skip_perms_opts, :default) == false
+    end
   end
 
   describe "query_schema/0" do
@@ -53,6 +62,7 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :system_prompt)
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :allowed_tools)
+      assert Keyword.has_key?(schema, :dangerously_skip_permissions)
     end
 
     test "query options are all optional" do
@@ -72,13 +82,15 @@ defmodule ClaudeCode.OptionsTest do
         system_prompt: "You are helpful",
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
         max_turns: 20,
-        timeout: 60_000
+        timeout: 60_000,
+        dangerously_skip_permissions: true
       ]
 
       assert {:ok, validated} = Options.validate_session_options(opts)
       assert validated[:api_key] == "sk-ant-test"
       assert validated[:model] == "opus"
       assert validated[:timeout] == 60_000
+      assert validated[:dangerously_skip_permissions] == true
     end
 
     test "applies default values" do
@@ -88,6 +100,7 @@ defmodule ClaudeCode.OptionsTest do
       # No model default - CLI handles its own defaults
       refute Keyword.has_key?(validated, :model)
       assert validated[:timeout] == 300_000
+      assert validated[:dangerously_skip_permissions] == false
     end
 
     test "rejects missing required api_key" do
@@ -114,13 +127,15 @@ defmodule ClaudeCode.OptionsTest do
       opts = [
         system_prompt: "Focus on performance",
         timeout: 120_000,
-        allowed_tools: ["Bash(git:*)"]
+        allowed_tools: ["Bash(git:*)"],
+        dangerously_skip_permissions: true
       ]
 
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:system_prompt] == "Focus on performance"
       assert validated[:timeout] == 120_000
       assert validated[:allowed_tools] == ["Bash(git:*)"]
+      assert validated[:dangerously_skip_permissions] == true
     end
 
     test "accepts empty options" do
@@ -191,6 +206,23 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       refute "--system-prompt" in args
       refute nil in args
+    end
+
+    test "converts dangerously_skip_permissions to --dangerously-skip-permissions when true" do
+      opts = [dangerously_skip_permissions: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--dangerously-skip-permissions" in args
+      # Should not have a separate value argument
+      refute "true" in args
+    end
+
+    test "ignores dangerously_skip_permissions when false" do
+      opts = [dangerously_skip_permissions: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--dangerously-skip-permissions" in args
+      refute "false" in args
     end
   end
 
