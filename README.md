@@ -1,10 +1,8 @@
 <div align="center">
 
+<img src="docs/claudecode.png" alt="ClaudeCode" width="300" style="border-radius: 12px;">
+
 # ClaudeCode
-
-<img src="docs/claudecode.png" alt="ClaudeCode" width="400">
-
-**An idiomatic Elixir SDK for Claude Code - bringing AI-powered coding assistance to the Elixir ecosystem.**
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
