@@ -17,6 +17,7 @@ This document compares the CLI options available in the `claude` command with ou
 | `--mcp-config` | `:mcp_config` | Supported |
 | `--permission-prompt-tool` | Only supported with `--print` flag (which we use) |
 | `--dangerously-skip-permissions` | Bypass permission checks | High (security feature) |
+| `--add-dir` | Additional directories for tool access | Medium |
 
 ### Options We Have But CLI Doesn't Support ❌
 
@@ -31,7 +32,6 @@ This document compares the CLI options available in the `claude` command with ou
 |----------|-------------|----------|
 | `--continue, -c` | Continue most recent conversation | High (useful feature) |
 | `--resume, -r` | Resume conversation by ID | High (useful feature) |
-| `--add-dir` | Additional directories for tool access | Medium |
 
 ## Action Plan
 
@@ -51,11 +51,6 @@ This document compares the CLI options available in the `claude` command with ou
 - **`:debug`** - Add support for debug mode
   ```elixir
   debug: [type: :boolean, default: false, doc: "Enable debug mode"]
-  ```
-
-- **`:dangerously_skip_permissions`** - Add security bypass option
-  ```elixir
-  dangerously_skip_permissions: [type: :boolean, default: false, doc: "Bypass all permission checks"]
   ```
 
 #### Session Management (Internal Implementation)

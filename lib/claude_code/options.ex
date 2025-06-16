@@ -24,7 +24,8 @@ defmodule ClaudeCode.Options do
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
-    dangerously_skip_permissions: [type: :boolean, default: false, doc: "Bypass all permission checks"]
+    dangerously_skip_permissions: [type: :boolean, default: false, doc: "Bypass all permission checks"],
+    add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"]
   ]
 
   @query_opts_schema [
@@ -36,7 +37,8 @@ defmodule ClaudeCode.Options do
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
-    dangerously_skip_permissions: [type: :boolean, doc: "Override permission skip setting for this query"]
+    dangerously_skip_permissions: [type: :boolean, doc: "Override permission skip setting for this query"],
+    add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"]
   ]
 
   # App config uses same option names directly - no mapping needed
@@ -109,6 +111,8 @@ defmodule ClaudeCode.Options do
         {flag, flag_value} -> [flag_value, flag | acc]
         # Handle boolean flags without values
         {flag} -> [flag | acc]
+        # Handle multiple flag entries (like add_dir)
+        flag_entries when is_list(flag_entries) -> flag_entries ++ acc
         nil -> acc
       end
     end)
@@ -233,6 +237,15 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:dangerously_skip_permissions, false), do: nil
+
+  defp convert_option_to_cli_flag(:add_dir, value) when is_list(value) do
+    if value == [] do
+      nil
+    else
+      # Return a flat list of alternating flags and values
+      Enum.flat_map(value, fn dir -> ["--add-dir", to_string(dir)] end)
+    end
+  end
 
   defp convert_option_to_cli_flag(key, value) do
     # Convert unknown keys to kebab-case flags

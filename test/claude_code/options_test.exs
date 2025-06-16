@@ -18,6 +18,7 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :permission_handler)
       assert Keyword.has_key?(schema, :name)
       assert Keyword.has_key?(schema, :dangerously_skip_permissions)
+      assert Keyword.has_key?(schema, :add_dir)
     end
 
     test "api_key is required" do
@@ -52,6 +53,15 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.get(skip_perms_opts, :type) == :boolean
       assert Keyword.get(skip_perms_opts, :default) == false
     end
+
+    test "add_dir has proper type" do
+      schema = Options.session_schema()
+      add_dir_opts = Keyword.get(schema, :add_dir)
+
+      assert Keyword.get(add_dir_opts, :type) == {:list, :string}
+      # No default value
+      refute Keyword.has_key?(add_dir_opts, :default)
+    end
   end
 
   describe "query_schema/0" do
@@ -63,6 +73,7 @@ defmodule ClaudeCode.OptionsTest do
       assert Keyword.has_key?(schema, :timeout)
       assert Keyword.has_key?(schema, :allowed_tools)
       assert Keyword.has_key?(schema, :dangerously_skip_permissions)
+      assert Keyword.has_key?(schema, :add_dir)
     end
 
     test "query options are all optional" do
@@ -83,7 +94,8 @@ defmodule ClaudeCode.OptionsTest do
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
         max_turns: 20,
         timeout: 60_000,
-        dangerously_skip_permissions: true
+        dangerously_skip_permissions: true,
+        add_dir: ["/tmp", "/var/log"]
       ]
 
       assert {:ok, validated} = Options.validate_session_options(opts)
@@ -91,6 +103,7 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:model] == "opus"
       assert validated[:timeout] == 60_000
       assert validated[:dangerously_skip_permissions] == true
+      assert validated[:add_dir] == ["/tmp", "/var/log"]
     end
 
     test "applies default values" do
@@ -128,7 +141,8 @@ defmodule ClaudeCode.OptionsTest do
         system_prompt: "Focus on performance",
         timeout: 120_000,
         allowed_tools: ["Bash(git:*)"],
-        dangerously_skip_permissions: true
+        dangerously_skip_permissions: true,
+        add_dir: ["/home/user/docs"]
       ]
 
       assert {:ok, validated} = Options.validate_query_options(opts)
@@ -136,6 +150,7 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:timeout] == 120_000
       assert validated[:allowed_tools] == ["Bash(git:*)"]
       assert validated[:dangerously_skip_permissions] == true
+      assert validated[:add_dir] == ["/home/user/docs"]
     end
 
     test "accepts empty options" do
@@ -224,6 +239,33 @@ defmodule ClaudeCode.OptionsTest do
       refute "--dangerously-skip-permissions" in args
       refute "false" in args
     end
+
+    test "converts add_dir to --add-dir" do
+      opts = [add_dir: ["/tmp", "/var/log", "/home/user/docs"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--add-dir" in args
+      assert "/tmp" in args
+      assert "--add-dir" in args
+      assert "/var/log" in args
+      assert "--add-dir" in args
+      assert "/home/user/docs" in args
+    end
+
+    test "handles empty add_dir list" do
+      opts = [add_dir: []]
+
+      args = Options.to_cli_args(opts)
+      refute "--add-dir" in args
+    end
+
+    test "handles single add_dir entry" do
+      opts = [add_dir: ["/single/path"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--add-dir" in args
+      assert "/single/path" in args
+    end
   end
 
   describe "merge_options/2" do
@@ -231,12 +273,14 @@ defmodule ClaudeCode.OptionsTest do
       session_opts = [
         system_prompt: "You are helpful",
         timeout: 60_000,
-        allowed_tools: ["View", "GlobTool"]
+        allowed_tools: ["View", "GlobTool"],
+        add_dir: ["/tmp", "/var/log"]
       ]
 
       query_opts = [
         system_prompt: "Focus on performance",
-        timeout: 120_000
+        timeout: 120_000,
+        add_dir: ["/home/user/custom"]
       ]
 
       merged = Options.merge_options(session_opts, query_opts)
@@ -244,12 +288,14 @@ defmodule ClaudeCode.OptionsTest do
       assert merged[:system_prompt] == "Focus on performance"
       assert merged[:timeout] == 120_000
       assert merged[:allowed_tools] == ["View", "GlobTool"]
+      assert merged[:add_dir] == ["/home/user/custom"]
     end
 
     test "preserves session options when query options are empty" do
       session_opts = [
         system_prompt: "You are helpful",
-        timeout: 60_000
+        timeout: 60_000,
+        add_dir: ["/data"]
       ]
 
       query_opts = []
@@ -258,6 +304,7 @@ defmodule ClaudeCode.OptionsTest do
 
       assert merged[:system_prompt] == "You are helpful"
       assert merged[:timeout] == 60_000
+      assert merged[:add_dir] == ["/data"]
     end
 
     test "uses query options when session options are empty" do

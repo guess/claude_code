@@ -99,6 +99,39 @@ defmodule ClaudeCode.CLITest do
       assert "test prompt" in args
     end
 
+    test "builds command with add_dir option", %{mock_binary: mock_binary} do
+      {:ok, {executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          model: "sonnet",
+          add_dir: ["/tmp", "/var/log", "/home/user/docs"]
+        )
+
+      assert executable == mock_binary
+      assert "--add-dir" in args
+      assert "/tmp" in args
+      assert "--add-dir" in args
+      assert "/var/log" in args
+      assert "--add-dir" in args
+      assert "/home/user/docs" in args
+      assert "test prompt" in args
+    end
+
+    test "handles empty add_dir list", %{mock_binary: mock_binary} do
+      {:ok, {executable, args}} =
+        CLI.build_command(
+          "test prompt",
+          "test-api-key",
+          model: "sonnet",
+          add_dir: []
+        )
+
+      assert executable == mock_binary
+      refute "--add-dir" in args
+      assert "test prompt" in args
+    end
+
     test "returns error when binary not found" do
       # Clear PATH
       original_path = System.get_env("PATH")

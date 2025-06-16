@@ -65,7 +65,9 @@ Configure sessions with various options:
   model: "opus",
   system_prompt: "You are an Elixir expert",
   allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-  timeout: 120_000
+  add_dir: ["/tmp", "/var/log"],
+  timeout: 120_000,
+  dangerously_skip_permissions: false
 )
 
 # Use application configuration for defaults
@@ -73,7 +75,9 @@ Configure sessions with various options:
 config :claude_code,
   model: "opus",
   timeout: 180_000,
-  system_prompt: "You are a helpful Elixir assistant"
+  system_prompt: "You are a helpful Elixir assistant",
+  allowed_tools: ["View", "Edit", "Bash(git:*)"],
+  add_dir: ["/tmp"]
 
 # Session automatically uses configured defaults
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
@@ -97,6 +101,16 @@ session
 |> Enum.each(fn tool_use ->
   IO.puts("Claude is using: #{tool_use.name}")
 end)
+
+# Query with additional directory access and custom tools
+session
+|> ClaudeCode.query("Analyze the log files and create a summary report",
+  add_dir: ["/var/log", "/tmp/analysis"],
+  allowed_tools: ["View", "Edit"],
+  timeout: 180_000
+)
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
 
 # Handle all message types
 session
@@ -125,6 +139,43 @@ Override session defaults for specific queries:
 )
 ```
 
+## Options Reference
+
+### Session Options
+
+| Option | Type | Description | Example |
+|--------|------|-------------|---------|
+| `:api_key` | `String.t()` | **Required.** Anthropic API key | `"sk-ant-..."` |
+| `:model` | `String.t()` | Claude model to use | `"opus"`, `"sonnet"`, `"haiku"` |
+| `:system_prompt` | `String.t()` | Custom system prompt | `"You are an Elixir expert"` |
+| `:allowed_tools` | `[String.t()]` | Restrict to specific tools | `["View", "Bash(git:*)"]` |
+| `:disallowed_tools` | `[String.t()]` | Block specific tools | `["Bash"]` |
+| `:add_dir` | `[String.t()]` | Additional directories for tool access | `["/tmp", "/var/log"]` |
+| `:max_turns` | `integer()` | Limit conversation turns | `20` |
+| `:timeout` | `timeout()` | Query timeout in milliseconds | `300_000` |
+| `:dangerously_skip_permissions` | `boolean()` | Bypass all permission checks ⚠️ | `false` |
+| `:cwd` | `String.t()` | Working directory for CLI | `"/path/to/project"` |
+| `:name` | `atom()` | GenServer process name | `:my_session` |
+
+### Query Options
+
+All session options except `:api_key` and `:name` can be overridden at the query level:
+
+```elixir
+# Override session defaults for a specific query
+ClaudeCode.query_sync(session, "Help with testing",
+  system_prompt: "Focus on ExUnit testing patterns",
+  allowed_tools: ["View", "Edit"],
+  add_dir: ["/test/fixtures"],
+  timeout: 60_000
+)
+```
+
+### Security Notes
+
+- **`:dangerously_skip_permissions`**: Only use during development. This bypasses all CLI permission prompts and can be dangerous in production environments.
+- **`:add_dir`**: Grants Claude access to additional directories beyond the default project root. Use with caution and only include directories that are safe for AI tool access.
+
 ## API Reference
 
 ### ClaudeCode Module
@@ -132,8 +183,8 @@ Override session defaults for specific queries:
 ```elixir
 # Start a session
 ClaudeCode.start_link(opts)
-# Options: api_key, model, system_prompt, allowed_tools, max_turns, 
-#          cwd, timeout, name
+# Options: api_key, model, system_prompt, allowed_tools, disallowed_tools,
+#          max_turns, add_dir, cwd, timeout, dangerously_skip_permissions, name
 
 # Synchronous query (blocks until complete)
 ClaudeCode.query_sync(session, prompt, opts \\ [])
