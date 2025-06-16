@@ -1,6 +1,17 @@
+<div align="center">
+
 # ClaudeCode
 
-An idiomatic Elixir SDK for Claude Code - bringing AI-powered coding assistance to the Elixir ecosystem.
+<img src="docs/claudecode.png" alt="ClaudeCode" width="400">
+
+**An idiomatic Elixir SDK for Claude Code - bringing AI-powered coding assistance to the Elixir ecosystem.**
+
+[![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
+[![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Elixir](https://img.shields.io/badge/elixir-%3E%3D1.14-purple.svg)](https://elixir-lang.org)
+
+</div>
 
 ClaudeCode provides a GenServer-based interface to the Claude Code CLI with support for streaming responses, concurrent queries, and Phoenix LiveView integration.
 
