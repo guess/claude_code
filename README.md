@@ -141,40 +141,23 @@ Override session defaults for specific queries:
 
 ## Options Reference
 
-### Session Options
-
-| Option | Type | Description | Example |
-|--------|------|-------------|---------|
-| `:api_key` | `String.t()` | **Required.** Anthropic API key | `"sk-ant-..."` |
-| `:model` | `String.t()` | Claude model to use | `"opus"`, `"sonnet"`, `"haiku"` |
-| `:system_prompt` | `String.t()` | Custom system prompt | `"You are an Elixir expert"` |
-| `:allowed_tools` | `[String.t()]` | Restrict to specific tools | `["View", "Bash(git:*)"]` |
-| `:disallowed_tools` | `[String.t()]` | Block specific tools | `["Bash"]` |
-| `:add_dir` | `[String.t()]` | Additional directories for tool access | `["/tmp", "/var/log"]` |
-| `:max_turns` | `integer()` | Limit conversation turns | `20` |
-| `:timeout` | `timeout()` | Query timeout in milliseconds | `300_000` |
-| `:dangerously_skip_permissions` | `boolean()` | Bypass all permission checks ⚠️ | `false` |
-| `:cwd` | `String.t()` | Working directory for CLI | `"/path/to/project"` |
-| `:name` | `atom()` | GenServer process name | `:my_session` |
-
-### Query Options
-
-All session options except `:api_key` and `:name` can be overridden at the query level:
+For complete documentation of all available options, see the `ClaudeCode.Options` module:
 
 ```elixir
-# Override session defaults for a specific query
-ClaudeCode.query_sync(session, "Help with testing",
-  system_prompt: "Focus on ExUnit testing patterns",
-  allowed_tools: ["View", "Edit"],
-  add_dir: ["/test/fixtures"],
-  timeout: 60_000
-)
+# View session options schema
+ClaudeCode.Options.session_schema()
+
+# View query options schema  
+ClaudeCode.Options.query_schema()
 ```
 
-### Security Notes
+**Key points:**
+- `:api_key` is required for all sessions
+- Query options can override session defaults
+- Some options (`:timeout`, `:name`) are Elixir-specific
+- Most options map directly to Claude CLI flags
 
-- **`:dangerously_skip_permissions`**: Only use during development. This bypasses all CLI permission prompts and can be dangerous in production environments.
-- **`:add_dir`**: Grants Claude access to additional directories beyond the default project root. Use with caution and only include directories that are safe for AI tool access.
+Run `mix docs` and navigate to `ClaudeCode.Options` for detailed option documentation including types, defaults, and validation rules.
 
 ## API Reference
 
@@ -183,8 +166,7 @@ ClaudeCode.query_sync(session, "Help with testing",
 ```elixir
 # Start a session
 ClaudeCode.start_link(opts)
-# Options: api_key, model, system_prompt, allowed_tools, disallowed_tools,
-#          max_turns, add_dir, cwd, timeout, dangerously_skip_permissions, name
+# See ClaudeCode.Options.session_schema() for all available options
 
 # Synchronous query (blocks until complete)
 ClaudeCode.query_sync(session, prompt, opts \\ [])
@@ -243,8 +225,9 @@ end
 
 ## Examples
 
-See the [examples](examples/) directory for complete working examples:
-- `streaming_example.exs` - Comprehensive streaming API usage
+Check the test files for comprehensive usage examples:
+- `test/claude_code/integration_test.exs` - End-to-end examples
+- `test/claude_code/stream_test.exs` - Streaming API examples
 
 ## Development
 

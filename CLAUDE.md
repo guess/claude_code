@@ -110,15 +110,16 @@ Implemented:
 
 ### Complete Options List
 
-Session options (all optional except `api_key`):
-- `api_key: String.t()` - Anthropic API key (required)
-- `model: String.t()` - Claude model ("sonnet", "opus", "haiku")
-- `system_prompt: String.t()` - System prompt for the session
-- `allowed_tools: [String.t()]` - Tool restrictions (e.g. ["View", "Bash(git:*)"])
-- `max_turns: integer()` - Maximum conversation turns
-- `cwd: String.t()` - Working directory for CLI
-- `timeout: timeout()` - Query timeout in milliseconds
-- `name: atom()` - GenServer name for named sessions
+**See `ClaudeCode.Options` module documentation** for the authoritative source of all options, including:
+- Complete schema definitions with NimbleOptions validation
+- Type specifications and documentation
+- Default values and precedence rules
+- CLI flag mappings
+
+Quick reference for development:
+- `api_key` (required) - Anthropic API key  
+- Options grouped by: Claude config, tool control, advanced features, Elixir-specific
+- Query options can override session defaults (except `:api_key`, `:name`, `:permission_handler`)
 
 ### Message Type Structure
 

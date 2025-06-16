@@ -2,9 +2,94 @@ defmodule ClaudeCode.Options do
   @moduledoc """
   Handles option validation and CLI flag conversion.
 
-  This module provides validation for session and query options using NimbleOptions,
+  This module is the **single source of truth** for all ClaudeCode options.
+  It provides validation for session and query options using NimbleOptions,
   converts Elixir options to CLI flags, and manages option precedence:
   query > session > app config > defaults.
+
+  ## Session Options
+
+  Session options are used when starting a ClaudeCode session. Most options
+  can be overridden at the query level.
+
+  ### Required Options
+  - `:api_key` - Anthropic API key (string, required)
+
+  ### Claude Configuration
+  - `:model` - Claude model to use (string, optional - CLI uses its default)
+  - `:system_prompt` - Override system prompt (string, optional)
+  - `:append_system_prompt` - Append to system prompt (string, optional)
+  - `:max_turns` - Limit agentic turns in non-interactive mode (integer, optional)
+
+  ### Tool Control
+  - `:allowed_tools` - List of allowed tools (list of strings, optional)
+    Example: `["View", "Bash(git:*)"]`
+  - `:disallowed_tools` - List of denied tools (list of strings, optional)
+  - `:add_dir` - Additional directories for tool access (list of strings, optional)
+    Example: `["/tmp", "/var/log"]`
+
+  ### Advanced Options
+  - `:mcp_config` - Path to MCP servers JSON config file (string, optional)
+  - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
+  - `:dangerously_skip_permissions` - Bypass all permission checks (boolean, default: false)
+    **⚠️ Security Warning**: Only use during development
+
+  ### Elixir-Specific Options
+  - `:name` - GenServer process name (atom, optional)
+  - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000)
+  - `:permission_handler` - Custom permission handler module (atom, optional)
+  - `:cwd` - Current working directory (string, optional)
+
+  ## Query Options
+
+  Query options can override session defaults for individual queries.
+  All session options except `:api_key`, `:name`, and `:permission_handler`
+  can be used as query options.
+
+  ## Option Precedence
+
+  Options are resolved in this order (highest to lowest priority):
+  1. Query-level options
+  2. Session-level options  
+  3. Application configuration
+  4. Schema defaults
+
+  ## Usage Examples
+
+      # Session with comprehensive options
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "sk-ant-...",
+        model: "opus",
+        system_prompt: "You are an Elixir expert",
+        allowed_tools: ["View", "Edit", "Bash(git:*)"],
+        add_dir: ["/tmp", "/var/log"],
+        max_turns: 20,
+        timeout: 180_000,
+        dangerously_skip_permissions: false
+      )
+
+      # Query with option overrides
+      ClaudeCode.query_sync(session, "Help with testing",
+        system_prompt: "Focus on ExUnit patterns",
+        allowed_tools: ["View"],
+        timeout: 60_000
+      )
+
+      # Application configuration
+      # config/config.exs
+      config :claude_code,
+        model: "sonnet",
+        timeout: 120_000,
+        allowed_tools: ["View", "Edit"]
+
+  ## Security Considerations
+
+  - **`:dangerously_skip_permissions`**: Bypasses CLI permission prompts.
+    Only use in development environments.
+  - **`:add_dir`**: Grants tool access to additional directories.
+    Only include safe directories.
+  - **`:allowed_tools`**: Use tool restrictions to limit Claude's capabilities.
+    Example: `["View", "Bash(git:*)"]` allows read-only operations and git commands.
   """
 
   @session_opts_schema [
