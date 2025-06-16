@@ -1,12 +1,13 @@
 # 🤖 Claude Code SDK for Elixir
 
-**The most ergonomic way to integrate Claude AI into your Elixir applications**
+The most ergonomic way to integrate Claude AI into your Elixir applications.
 
-✨ **GenServer-based sessions** with automatic conversation continuity
-🔄 **Real-time streaming** responses for interactive experiences
-🏭 **Production-ready** with supervised fault tolerance
-⚡ **Concurrent queries** for high-performance applications
-🔧 **Zero-config** integration with Phoenix LiveView
+- **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
+- **💬 Automatic Conversation Continuity**: Claude remembers context across queries
+- **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
+- **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
+- **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
+- **🔧 Zero-Config Phoenix Integration**: Drop-in support for LiveView and Phoenix apps
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Downloads](https://img.shields.io/hexpm/dt/claude_code.svg)](https://hex.pm/packages/claude_code)
@@ -35,15 +36,6 @@ ClaudeCode.query(session, "My favorite language is Elixir")
 ClaudeCode.query(session, "What's my favorite language?")
 # => "Your favorite language is Elixir!"
 ```
-
-## 🆚 Why ClaudeCode for Elixir?
-
-- **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
-- **💬 Automatic Conversation Continuity**: Claude remembers context across queries
-- **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
-- **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
-- **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
-- **🔧 Zero-Config Phoenix Integration**: Drop-in support for LiveView and Phoenix apps
 
 ## 📦 Installation
 
