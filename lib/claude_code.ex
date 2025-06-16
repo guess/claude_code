@@ -20,18 +20,12 @@ defmodule ClaudeCode do
   @type message_stream :: Enumerable.t(ClaudeCode.Message.t())
 
   @doc """
-  Starts a new Claude Code session with flattened options.
+  Starts a new Claude Code session.
 
   ## Options
 
-    * `:api_key` - Required. Your Anthropic API key
-    * `:model` - Optional. The model to use (defaults to "sonnet")
-    * `:system_prompt` - Optional. System prompt for Claude
-    * `:allowed_tools` - Optional. List of allowed tools (e.g. ["View", "Bash(git:*)"])
-    * `:max_conversation_turns` - Optional. Max conversation turns (default: 50)
-    * `:working_directory` - Optional. Working directory for file operations
-    * `:timeout` - Optional. Query timeout in ms (default: 300_000)
-    * `:name` - Optional. A name to register the session under
+  For complete option documentation including types, validation rules, and examples,
+  see `ClaudeCode.Options.session_schema/0` and the `ClaudeCode.Options` module.
 
   ## Examples
 
@@ -41,9 +35,12 @@ defmodule ClaudeCode do
       # Start with custom options
       {:ok, session} = ClaudeCode.start_link(
         api_key: "sk-ant-...",
+        model: "opus",
         system_prompt: "You are an Elixir expert",
-        allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
-        max_conversation_turns: 20,
+        allowed_tools: ["View", "Edit", "Bash(git:*)"],
+        add_dir: ["/tmp", "/var/log"],
+        max_turns: 20,
+        timeout: 180_000,
         name: :my_session
       )
   """
@@ -60,11 +57,8 @@ defmodule ClaudeCode do
 
   ## Options
 
-  Query-level options override session-level options:
-
-    * `:system_prompt` - Override system prompt for this query
-    * `:timeout` - Override timeout for this query
-    * `:allowed_tools` - Override allowed tools for this query
+  Query-level options override session-level options. See `ClaudeCode.Options.query_schema/0`
+  for all available query options.
 
   ## Examples
 
@@ -72,9 +66,10 @@ defmodule ClaudeCode do
       IO.puts(response)
       # => "4"
 
-      # With overrides
+      # With option overrides
       {:ok, response} = ClaudeCode.query_sync(session, "Complex query", 
         system_prompt: "Focus on performance optimization",
+        allowed_tools: ["View"],
         timeout: 120_000
       )
   """
@@ -100,12 +95,8 @@ defmodule ClaudeCode do
 
   ## Options
 
-  Query-level options override session-level options:
-
-    * `:system_prompt` - Override system prompt for this query
-    * `:timeout` - Override timeout for this query  
-    * `:allowed_tools` - Override allowed tools for this query
-    * `:filter` - Message type filter (:all, :assistant, :tool_use, :result)
+  Query-level options override session-level options. See `ClaudeCode.Options.query_schema/0`
+  for all available query options.
 
   ## Examples
 
@@ -118,10 +109,9 @@ defmodule ClaudeCode do
       session
       |> ClaudeCode.query("Explain quantum computing", 
            system_prompt: "Focus on practical applications",
-           filter: :assistant)
-      |> Stream.map(& &1.message.content)
-      |> Stream.flat_map(&Function.identity/1)
-      |> Enum.each(&IO.inspect/1)
+           allowed_tools: ["View"])
+      |> ClaudeCode.Stream.text_content()
+      |> Enum.each(&IO.write/1)
 
       # Collect all text content
       text = 
