@@ -76,9 +76,7 @@ ClaudeCode.query(session, "Review my mix.exs file",
   allowed_tools: ["View", "Edit"])
 
 # Production with supervision
-{:ok, _} = ClaudeCode.Supervisor.start_link([
-  [name: :assistant, api_key: api_key]
-])
+{:ok, _} = ClaudeCode.Supervisor.start_link(name: :assistant)
 ClaudeCode.query(:assistant, "Help with this task")
 ```
 
