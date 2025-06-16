@@ -75,7 +75,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # This should use our mock CLI
-      response = GenServer.call(session, {:query_sync, "test prompt", []}, 5000)
+      response = GenServer.call(session, {:query, "test prompt", []}, 5000)
 
       assert response == {:ok, "Hello from mock CLI!"}
 
@@ -91,7 +91,7 @@ defmodule ClaudeCode.SessionTest do
 
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      response = GenServer.call(session, {:query_sync, "test", []})
+      response = GenServer.call(session, {:query, "test", []})
 
       assert {:error, {:cli_not_found, _message}} = response
 
@@ -284,7 +284,7 @@ defmodule ClaudeCode.SessionTest do
       assert state.session_id == nil
 
       # Run a query
-      {:ok, _result} = GenServer.call(session, {:query_sync, "test prompt", []})
+      {:ok, _result} = GenServer.call(session, {:query, "test prompt", []})
 
       # Session ID should now be stored
       state = :sys.get_state(session)
@@ -297,7 +297,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Run query and check that we capture session ID from assistant message too
-      {:ok, _result} = GenServer.call(session, {:query_sync, "test prompt", []})
+      {:ok, _result} = GenServer.call(session, {:query, "test prompt", []})
 
       state = :sys.get_state(session)
       assert state.session_id == "test-session-123"
@@ -309,7 +309,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Run query and verify session ID is captured
-      {:ok, result} = GenServer.call(session, {:query_sync, "test prompt", []})
+      {:ok, result} = GenServer.call(session, {:query, "test prompt", []})
 
       # Result should contain the session ID
       assert result == "Hello from session test-session-123"
@@ -324,12 +324,12 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # First query establishes session ID
-      {:ok, _result1} = GenServer.call(session, {:query_sync, "first query", []})
+      {:ok, _result1} = GenServer.call(session, {:query, "first query", []})
       state = :sys.get_state(session)
       session_id_1 = state.session_id
 
       # Second query should have same session ID
-      {:ok, _result2} = GenServer.call(session, {:query_sync, "second query", []})
+      {:ok, _result2} = GenServer.call(session, {:query, "second query", []})
       state = :sys.get_state(session)
       session_id_2 = state.session_id
 
@@ -417,7 +417,7 @@ defmodule ClaudeCode.SessionTest do
       assert session_id == nil
 
       # Run query to establish session
-      {:ok, _result} = GenServer.call(session, {:query_sync, "test", []})
+      {:ok, _result} = GenServer.call(session, {:query, "test", []})
 
       # Now should return session ID
       {:ok, session_id} = GenServer.call(session, :get_session_id)
@@ -430,7 +430,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Establish session
-      {:ok, _result} = GenServer.call(session, {:query_sync, "test", []})
+      {:ok, _result} = GenServer.call(session, {:query, "test", []})
       {:ok, session_id} = GenServer.call(session, :get_session_id)
       assert session_id == "new-session-456"
 
@@ -448,14 +448,14 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # First query establishes session
-      {:ok, result1} = GenServer.call(session, {:query_sync, "first", []})
+      {:ok, result1} = GenServer.call(session, {:query, "first", []})
       assert result1 == "Session: new-session-456"
 
       # Clear session
       :ok = GenServer.call(session, :clear_session)
 
       # Next query starts new session (not using --resume)
-      {:ok, result2} = GenServer.call(session, {:query_sync, "second", []})
+      {:ok, result2} = GenServer.call(session, {:query, "second", []})
       # New session gets same ID in mock
       assert result2 == "Session: new-session-456"
 
@@ -501,14 +501,14 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # First query establishes valid session
-      {:ok, result1} = GenServer.call(session, {:query_sync, "first query", []})
+      {:ok, result1} = GenServer.call(session, {:query, "first query", []})
       assert result1 == "Success with session: persistent-session-789"
 
       {:ok, session_id1} = GenServer.call(session, :get_session_id)
       assert session_id1 == "persistent-session-789"
 
       # Second query should preserve the valid session
-      {:ok, result2} = GenServer.call(session, {:query_sync, "second query", []})
+      {:ok, result2} = GenServer.call(session, {:query, "second query", []})
       assert result2 == "Success with session: persistent-session-789"
 
       {:ok, session_id2} = GenServer.call(session, :get_session_id)
@@ -583,17 +583,17 @@ defmodule ClaudeCode.SessionTest do
       # Start 3 concurrent queries
       task1 =
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query1", []}, 5000)
+          GenServer.call(session, {:query, "query1", []}, 5000)
         end)
 
       task2 =
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query2", []}, 5000)
+          GenServer.call(session, {:query, "query2", []}, 5000)
         end)
 
       task3 =
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query3", []}, 5000)
+          GenServer.call(session, {:query, "query3", []}, 5000)
         end)
 
       # Wait for all results
@@ -668,7 +668,7 @@ defmodule ClaudeCode.SessionTest do
       # Start mixed query types
       sync_task =
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query1", []}, 5000)
+          GenServer.call(session, {:query, "query1", []}, 5000)
         end)
 
       {:ok, stream_ref} = GenServer.call(session, {:query_async, "query2", []})
@@ -701,15 +701,15 @@ defmodule ClaudeCode.SessionTest do
       # Start multiple concurrent queries
       tasks = [
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query1", []}, 5000)
+          GenServer.call(session, {:query, "query1", []}, 5000)
         end),
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query2", []}, 5000)
+          GenServer.call(session, {:query, "query2", []}, 5000)
         end),
         Task.async(fn ->
           # This one will fail because the mock doesn't recognize "unknown"
           # and returns the default case
-          GenServer.call(session, {:query_sync, "query3", []}, 5000)
+          GenServer.call(session, {:query, "query3", []}, 5000)
         end)
       ]
 
@@ -750,7 +750,7 @@ defmodule ClaudeCode.SessionTest do
       # Start a normal query
       task1 =
         Task.async(fn ->
-          GenServer.call(session, {:query_sync, "query1", []}, 5000)
+          GenServer.call(session, {:query, "query1", []}, 5000)
         end)
 
       # Verify normal query completes

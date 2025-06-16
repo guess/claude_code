@@ -7,13 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING:** Renamed API functions for better clarity and Elixir conventions:
+  - `query_sync/3` → `query/3` (synchronous queries, now the default)
+  - `query/3` → `query_stream/3` (streaming queries, explicitly named)
+  - `query_async/3` remains unchanged
+
 ## [0.1.0] - 2025-06-16
 
 ### Added
 - **Complete SDK Implementation (Phases 1-4):**
   - Session management with GenServer-based architecture
-  - Synchronous queries with `query_sync/3`
-  - Streaming queries with native Elixir streams via `query/3`
+  - Synchronous queries with `query_sync/3` (renamed to `query/3` in later version)
+  - Streaming queries with native Elixir streams via `query/3` (renamed to `query_stream/3` in later version)
   - Async queries with `query_async/3` for manual message handling
   - Complete message type parsing (system, assistant, user, result)
   - Content block handling (text, tool use, tool result) with proper struct types

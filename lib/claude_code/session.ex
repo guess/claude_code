@@ -83,7 +83,7 @@ defmodule ClaudeCode.Session do
   end
 
   @impl true
-  def handle_call({:query_sync, prompt, opts}, from, state) do
+  def handle_call({:query, prompt, opts}, from, state) do
     request_id = make_ref()
 
     # Start a new CLI subprocess for this query

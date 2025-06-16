@@ -49,7 +49,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       messages =
         session
-        |> ClaudeCode.query("Tell me a story", timeout: 5000)
+        |> ClaudeCode.query_stream("Tell me a story", timeout: 5000)
         |> Enum.to_list()
 
       # Should have multiple assistant messages and result
@@ -71,7 +71,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       text_parts =
         session
-        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.query_stream("Tell me a story")
         |> ClaudeCode.Stream.text_content()
         |> Enum.to_list()
 
@@ -91,7 +91,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
       # Get only assistant messages
       assistant_messages =
         session
-        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.query_stream("Tell me a story")
         |> ClaudeCode.Stream.filter_type(:assistant)
         |> Enum.to_list()
 
@@ -106,7 +106,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       buffered =
         session
-        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.query_stream("Tell me a story")
         |> ClaudeCode.Stream.buffered_text()
         |> Enum.to_list()
 
@@ -124,7 +124,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       messages =
         session
-        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.query_stream("Tell me a story")
         |> ClaudeCode.Stream.until_result()
         |> Enum.to_list()
 
@@ -143,7 +143,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
       # First query
       text1 =
         session
-        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.query_stream("Tell me a story")
         |> ClaudeCode.Stream.text_content()
         |> Enum.join()
 
@@ -152,7 +152,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
       # Second query (new stream)
       text2 =
         session
-        |> ClaudeCode.query("Tell me another story")
+        |> ClaudeCode.query_stream("Tell me another story")
         |> ClaudeCode.Stream.text_content()
         |> Enum.join()
 
@@ -236,7 +236,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       tool_uses =
         session
-        |> ClaudeCode.query("Create a file")
+        |> ClaudeCode.query_stream("Create a file")
         |> ClaudeCode.Stream.tool_uses()
         |> Enum.to_list()
 
@@ -254,7 +254,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       tool_messages =
         session
-        |> ClaudeCode.query("Create a file")
+        |> ClaudeCode.query_stream("Create a file")
         |> ClaudeCode.Stream.filter_type(:tool_use)
         |> Enum.to_list()
 

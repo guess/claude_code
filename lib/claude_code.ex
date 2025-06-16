@@ -9,7 +9,7 @@ defmodule ClaudeCode do
   ## Example
 
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
-      {:ok, response} = ClaudeCode.query_sync(session, "Hello, Claude!")
+      {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
       IO.puts(response.content)
   """
 
@@ -50,10 +50,10 @@ defmodule ClaudeCode do
   end
 
   @doc """
-  Sends a synchronous query to Claude and waits for the complete response.
+  Sends a query to Claude and waits for the complete response.
 
   This function blocks until Claude has finished responding. For streaming
-  responses, use `query/3` instead.
+  responses, use `query_stream/3` instead.
 
   ## Options
 
@@ -62,24 +62,24 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, response} = ClaudeCode.query_sync(session, "What is 2 + 2?")
+      {:ok, response} = ClaudeCode.query(session, "What is 2 + 2?")
       IO.puts(response)
       # => "4"
 
       # With option overrides
-      {:ok, response} = ClaudeCode.query_sync(session, "Complex query",
+      {:ok, response} = ClaudeCode.query(session, "Complex query",
         system_prompt: "Focus on performance optimization",
         allowed_tools: ["View"],
         timeout: 120_000
       )
   """
-  @spec query_sync(session(), String.t(), keyword()) :: query_response()
-  def query_sync(session, prompt, opts \\ []) do
+  @spec query(session(), String.t(), keyword()) :: query_response()
+  def query(session, prompt, opts \\ []) do
     # Extract timeout for GenServer.call, pass rest to session
     {timeout, query_opts} = Keyword.pop(opts, :timeout, 60_000)
 
     try do
-      GenServer.call(session, {:query_sync, prompt, query_opts}, timeout)
+      GenServer.call(session, {:query, prompt, query_opts}, timeout)
     catch
       :exit, {:timeout, _} ->
         {:error, :timeout}
@@ -102,12 +102,12 @@ defmodule ClaudeCode do
 
       # Stream all messages
       session
-      |> ClaudeCode.query("Write a hello world program")
+      |> ClaudeCode.query_stream("Write a hello world program")
       |> Enum.each(&IO.inspect/1)
 
       # Stream with option overrides
       session
-      |> ClaudeCode.query("Explain quantum computing",
+      |> ClaudeCode.query_stream("Explain quantum computing",
            system_prompt: "Focus on practical applications",
            allowed_tools: ["View"])
       |> ClaudeCode.Stream.text_content()
@@ -116,12 +116,12 @@ defmodule ClaudeCode do
       # Collect all text content
       text =
         session
-        |> ClaudeCode.query("Tell me a story")
+        |> ClaudeCode.query_stream("Tell me a story")
         |> ClaudeCode.Stream.text_content()
         |> Enum.join()
   """
-  @spec query(session(), String.t(), keyword()) :: message_stream()
-  def query(session, prompt, opts \\ []) do
+  @spec query_stream(session(), String.t(), keyword()) :: message_stream()
+  def query_stream(session, prompt, opts \\ []) do
     ClaudeCode.Stream.create(session, prompt, opts)
   end
 
@@ -209,7 +209,7 @@ defmodule ClaudeCode do
       :ok = ClaudeCode.clear(session)
 
       # Next query will start fresh
-      {:ok, response} = ClaudeCode.query_sync(session, "Hello!")
+      {:ok, response} = ClaudeCode.query(session, "Hello!")
   """
   @spec clear(session()) :: :ok
   def clear(session) do

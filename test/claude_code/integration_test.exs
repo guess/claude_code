@@ -71,7 +71,7 @@ defmodule ClaudeCode.IntegrationTest do
     test "successful query returns response" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:ok, response} = ClaudeCode.query_sync(session, "Hello, Claude!")
+      {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
 
       assert response == "Mock response to: Hello, Claude!"
 
@@ -81,7 +81,7 @@ defmodule ClaudeCode.IntegrationTest do
     test "error in prompt returns error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:error, {:claude_error, message}} = ClaudeCode.query_sync(session, "Please error")
+      {:error, {:claude_error, message}} = ClaudeCode.query(session, "Please error")
 
       assert message == "Simulated error response"
 
@@ -91,7 +91,7 @@ defmodule ClaudeCode.IntegrationTest do
     test "missing API key returns authentication error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "")
 
-      {:error, {:claude_error, message}} = ClaudeCode.query_sync(session, "Hello")
+      {:error, {:claude_error, message}} = ClaudeCode.query(session, "Hello")
 
       assert message == "Authentication failed: Missing API key"
 
@@ -102,7 +102,7 @@ defmodule ClaudeCode.IntegrationTest do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
       # Use a short timeout
-      {:error, :timeout} = ClaudeCode.query_sync(session, "Please timeout", timeout: 1000)
+      {:error, :timeout} = ClaudeCode.query(session, "Please timeout", timeout: 1000)
 
       ClaudeCode.stop(session)
     end
@@ -111,8 +111,8 @@ defmodule ClaudeCode.IntegrationTest do
       {:ok, _session1} = ClaudeCode.start_link(api_key: "key1", name: :session1)
       {:ok, _session2} = ClaudeCode.start_link(api_key: "key2", name: :session2)
 
-      {:ok, response1} = ClaudeCode.query_sync(:session1, "From session 1")
-      {:ok, response2} = ClaudeCode.query_sync(:session2, "From session 2")
+      {:ok, response1} = ClaudeCode.query(:session1, "From session 1")
+      {:ok, response2} = ClaudeCode.query(:session2, "From session 2")
 
       assert response1 == "Mock response to: From session 1"
       assert response2 == "Mock response to: From session 2"
@@ -138,7 +138,7 @@ defmodule ClaudeCode.IntegrationTest do
     test "CLI not found returns appropriate error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
-      {:error, {:cli_not_found, message}} = ClaudeCode.query_sync(session, "Hello")
+      {:error, {:cli_not_found, message}} = ClaudeCode.query(session, "Hello")
 
       assert message =~ "Claude CLI not found"
       assert message =~ "Please install Claude Code CLI"
