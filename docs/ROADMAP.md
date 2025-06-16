@@ -40,10 +40,11 @@ The following optional features could be added in future releases:
 - Performance metrics and token usage tracking
 - Query lifecycle monitoring
 
-### Supervision & Fault Tolerance
-- OTP supervision tree support
-- Named sessions with process registry
-- Automatic restart strategies and state recovery
+### Supervision & Fault Tolerance ✅
+- ✅ OTP supervision tree support (`ClaudeCode.Supervisor`)
+- ✅ Named sessions with process registry (global, local, via)
+- ✅ Automatic restart strategies and state recovery
+- ✅ Dynamic session management (start/stop sessions at runtime)
 
 ### Advanced Features
 - Session resumption and conversation management

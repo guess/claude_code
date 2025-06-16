@@ -41,187 +41,71 @@ mix deps.get
 
 ## Quick Start
 
-### Configuration
-
-First, configure your API key. Choose one of these methods:
-
-**Method 1: Application Configuration (Recommended)**
 ```elixir
-# config/config.exs
+# 1. Configure your API key
 config :claude_code, api_key: "sk-ant-your-api-key-here"
-```
 
-**Method 2: Environment Variable**
-```bash
-export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
-```
-
-### Basic Usage
-
-```elixir
-# Start a session (using app config)
+# 2. Start a session and query Claude
 {:ok, session} = ClaudeCode.start_link()
-
-# Or with explicit API key
-{:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY")
-)
-
-# Send a query and get a response
 {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
 IO.puts(response)
-# => "Hello! How can I assist you today?"
 
-# Stop the session when done
+# 3. Stream responses in real-time
+session
+|> ClaudeCode.query_stream("Explain GenServers")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+```
+
+📖 **[Complete Getting Started Guide →](docs/GETTING_STARTED.md)**
+
+For detailed installation, configuration, and first steps.
+
+## Key Features
+
+### Conversation Continuity
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+
+# Context is automatically maintained across queries
+ClaudeCode.query(session, "My name is Alice")
+ClaudeCode.query(session, "What's my name?")  # Remembers "Alice"
+```
+
+### Real-time Streaming
+```elixir
+session
+|> ClaudeCode.query_stream("Write a GenServer")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)  # Live text as Claude types
+```
+
+### File Operations
+```elixir
+ClaudeCode.query(session, "Review my mix.exs file", 
+  allowed_tools: ["View", "Edit"])
+```
+
+## Usage Patterns
+
+### Scripts & Prototyping
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+{:ok, response} = ClaudeCode.query(session, "Explain this concept")
 ClaudeCode.stop(session)
 ```
 
-### Advanced Configuration
-
-Configure sessions with various options:
-
+### Production Applications
 ```elixir
-# Session with custom configuration
-{:ok, session} = ClaudeCode.start_link(
-  model: "opus",
-  system_prompt: "You are an Elixir expert",
-  allowed_tools: ["View", "Edit", "Bash(git:*)"],
-  add_dir: ["/tmp", "/var/log"],
-  timeout: 120_000,
-  permission_mode: :default
-)
+# Fault-tolerant supervised sessions
+{ClaudeCode.Supervisor, [
+  [name: :assistant, api_key: api_key],
+  [name: :code_reviewer, api_key: api_key]
+]}
 
-# Use application configuration for defaults
-# config/config.exs
-config :claude_code,
-  api_key: "sk-ant-your-api-key-here",
-  model: "opus",
-  timeout: 180_000,
-  system_prompt: "You are a helpful Elixir assistant",
-  allowed_tools: ["View", "Edit", "Bash(git:*)"],
-  add_dir: ["/tmp"]
-
-# Session automatically uses configured defaults
-{:ok, session} = ClaudeCode.start_link()
+# Use from anywhere in your app
+ClaudeCode.query(:assistant, "Help with this task")
 ```
-
-### Streaming Responses
-
-Process responses as they arrive:
-
-```elixir
-# Stream text content
-session
-|> ClaudeCode.query_stream("Explain GenServers in Elixir")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-
-# React to tool usage in real-time
-session
-|> ClaudeCode.query_stream("Create a new Elixir module")
-|> ClaudeCode.Stream.tool_uses()
-|> Enum.each(fn tool_use ->
-  IO.puts("Claude is using: #{tool_use.name}")
-end)
-
-# Query with additional directory access and custom tools
-session
-|> ClaudeCode.query_stream("Analyze the log files and create a summary report",
-  add_dir: ["/var/log", "/tmp/analysis"],
-  allowed_tools: ["View", "Edit"],
-  timeout: 180_000
-)
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-
-# Handle all message types
-session
-|> ClaudeCode.query_stream("Help me debug this code")
-|> Enum.each(fn
-  %ClaudeCode.Message.Assistant{message: %{content: content}} ->
-    # Process assistant response
-  %ClaudeCode.Message.Result{result: result} ->
-    # Final result
-  _ ->
-    # Other message types
-    :ok
-end)
-```
-
-### Query-Level Overrides
-
-Override session defaults for specific queries:
-
-```elixir
-# Override options per query
-{:ok, response} = ClaudeCode.query(session, "Complex task",
-  system_prompt: "Focus on performance optimization",
-  timeout: 300_000,
-  allowed_tools: ["Bash(git:*)"]
-)
-```
-
-## Session Continuity
-
-ClaudeCode automatically maintains conversation context across queries within a session, just like the interactive Claude CLI. No configuration required!
-
-### Automatic Conversation Continuity
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
-
-# First query establishes the conversation
-{:ok, response1} = ClaudeCode.query(session, "Hello, my name is Alice")
-# => "Hello Alice! Nice to meet you."
-
-# Subsequent queries remember the conversation context
-{:ok, response2} = ClaudeCode.query(session, "What's my name?")
-# => "Your name is Alice, as you mentioned when we first met."
-
-# Context is maintained across streaming queries too
-session
-|> ClaudeCode.query_stream("Tell me more about yourself")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-# Claude remembers the previous conversation
-```
-
-### Session Management API
-
-When you need explicit control over conversation context:
-
-```elixir
-# Check current session ID (for debugging/logging)
-{:ok, session_id} = ClaudeCode.get_session_id(session)
-# => {:ok, "abc123-def456-session-id"}
-
-# For a new session with no queries yet
-{:ok, nil} = ClaudeCode.get_session_id(session)
-
-# First query establishes the conversation
-{:ok, response1} = ClaudeCode.query(session, "Hello, my name is Alice")
-# => "Hello Alice! Nice to meet you."
-
-# Subsequent queries remember the conversation context
-{:ok, response2} = ClaudeCode.query(session, "What's my name?")
-# => "Your name is Alice, as you mentioned when we first met."
-
-# Clear session to start a fresh conversation
-:ok = ClaudeCode.clear(session)
-
-# Next query starts with no previous context
-{:ok, response} = ClaudeCode.query(session, "What's my name?")
-# => "I don't have any information about your name..."
-```
-
-### How It Works
-
-- **Automatic**: Session IDs are captured from Claude CLI responses and automatically used for subsequent queries
-- **Transparent**: Uses the CLI's `--resume` flag internally - no API changes needed
-- **Persistent**: Sessions persist for the lifetime of the GenServer process
-- **Stateful by Default**: Conversations continue naturally, matching interactive CLI behavior
-
-This provides the same conversational experience as using Claude Code interactively, but programmatically within your Elixir applications.
 
 ## Options Reference
 
@@ -305,8 +189,41 @@ end
 ## Documentation
 
 - 🚀 **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
+- 🏭 **[Production Supervision Guide](docs/SUPERVISION.md)** - Fault-tolerant production deployments
 - 💻 **[Examples](docs/EXAMPLES.md)** - Real-world usage patterns and code samples
 - 🔧 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+
+## Production Setup with Supervision
+
+For production applications, use `ClaudeCode.Supervisor` for fault-tolerant AI services with automatic restart capabilities:
+
+```elixir
+# In your application.ex
+def start(_type, _args) do
+  children = [
+    MyAppWeb.Endpoint,
+    {ClaudeCode.Supervisor, [
+      [name: :code_reviewer, api_key: api_key, system_prompt: "You review code"],
+      [name: :general_assistant, api_key: api_key]
+    ]}
+  ]
+
+  Supervisor.start_link(children, strategy: :one_for_one)
+end
+
+# Use from anywhere in your app
+{:ok, review} = ClaudeCode.query(:code_reviewer, "Review this code")
+```
+
+**Key Benefits:**
+- ✅ **Fault tolerance** - Sessions restart automatically on crashes
+- ✅ **Zero downtime** - Hot code reloading preserves session state
+- ✅ **Global access** - Named sessions work from anywhere in your app
+- ✅ **Distributed support** - Sessions work across Elixir clusters
+
+📖 **[Complete Production Supervision Guide →](docs/SUPERVISION.md)**
+
+For detailed patterns, examples, and advanced features including dynamic session management, load balancing, monitoring, and distributed deployments.
 
 ## Production Usage
 
@@ -333,32 +250,30 @@ Enum.each(sessions, &ClaudeCode.stop/1)
 
 ### Phoenix Integration
 
-Add ClaudeCode to your supervision tree for web applications:
-
 ```elixir
-# lib/my_app/application.ex
+# Use supervised sessions in Phoenix apps
 def start(_type, _args) do
   children = [
     MyAppWeb.Endpoint,
-    {ClaudeCode, [name: :claude_session]}
+    {ClaudeCode.Supervisor, [
+      [name: :chat_assistant, api_key: api_key]
+    ]}
   ]
-
-  Supervisor.start_link(children, strategy: :one_for_one)
 end
 
-# Use in controllers/live views
-ClaudeCode.query(:claude_session, prompt)
+# In controllers and LiveViews
+ClaudeCode.query(:chat_assistant, message)
 ```
 
 ### Best Practices
 
 1. **Session Management:**
    ```elixir
-   # Use named sessions for long-running processes
-   {:ok, _} = ClaudeCode.start_link(name: :main_claude)
+   # ✅ RECOMMENDED: Use supervised sessions for production
+   {ClaudeCode.Supervisor, [[name: :assistant, api_key: api_key]]}
 
-   # Use temporary sessions for isolated tasks
-   {:ok, temp} = ClaudeCode.start_link()
+   # ✅ Good: Temporary sessions for scripts/one-off tasks
+   {:ok, temp} = ClaudeCode.start_link(api_key: api_key)
    result = ClaudeCode.query(temp, prompt)
    ClaudeCode.stop(temp)
    ```

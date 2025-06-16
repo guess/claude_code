@@ -6,11 +6,60 @@ defmodule ClaudeCode do
   through the command-line interface. It manages sessions as GenServer processes
   that communicate with the Claude CLI via JSON streaming over stdout.
 
-  ## Example
+  ## Quick Start
 
+      # Start a single session
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
       {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
-      IO.puts(response.content)
+      IO.puts(response)
+
+  ## Supervision for Production
+
+  For production applications, use the supervisor for fault tolerance and
+  automatic restart capabilities:
+
+      # In your application supervision tree
+      children = [
+        {ClaudeCode.Supervisor, [
+          [name: :code_reviewer, api_key: api_key, system_prompt: "You review Elixir code"],
+          [name: :test_writer, api_key: api_key, system_prompt: "You write ExUnit tests"]
+        ]}
+      ]
+
+      Supervisor.start_link(children, strategy: :one_for_one)
+
+      # Access supervised sessions from anywhere
+      {:ok, response} = ClaudeCode.query(:code_reviewer, "Review this function")
+
+  ## Session Management Patterns
+
+  ### Static Named Sessions (Recommended for most use cases)
+
+  Best for long-lived assistants with specific roles:
+
+      # In supervision tree
+      {ClaudeCode.Supervisor, [
+        [name: {:global, :main_assistant}, api_key: api_key],
+        [name: :local_helper, api_key: api_key]
+      ]}
+
+      # Access from anywhere in your application
+      ClaudeCode.query({:global, :main_assistant}, "Help me with this bug")
+
+  ### Dynamic On-Demand Sessions
+
+  Best for temporary or user-specific contexts:
+
+      # Create as needed
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: user_api_key,
+        system_prompt: "Help user #\{user_id\}"
+      )
+
+      # Use and let it terminate naturally
+      {:ok, result} = ClaudeCode.query(session, prompt)
+
+  See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
 
   alias ClaudeCode.Session

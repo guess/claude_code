@@ -100,6 +100,7 @@ defmodule ClaudeCode.MixProject do
       extras: [
         "README.md",
         "docs/GETTING_STARTED.md",
+        "docs/SUPERVISION.md",
         "docs/EXAMPLES.md",
         "docs/TROUBLESHOOTING.md",
         "CHANGELOG.md"
@@ -109,7 +110,10 @@ defmodule ClaudeCode.MixProject do
           "README.md",
           "docs/GETTING_STARTED.md"
         ],
-        Misc: [
+        "Production Guide": [
+          "docs/SUPERVISION.md"
+        ],
+        Reference: [
           "docs/EXAMPLES.md",
           "docs/TROUBLESHOOTING.md"
         ]
@@ -117,7 +121,8 @@ defmodule ClaudeCode.MixProject do
       groups_for_modules: [
         "Core API": [
           ClaudeCode,
-          ClaudeCode.Session
+          ClaudeCode.Session,
+          ClaudeCode.Supervisor
         ],
         "Configuration & Options": [
           ClaudeCode.Options,

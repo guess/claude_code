@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Production Supervision Support:** Added `ClaudeCode.Supervisor` for managing multiple Claude sessions with fault tolerance
+  - Static named sessions in supervision tree for long-lived assistants
+  - Dynamic session management (start/stop sessions at runtime)
+  - Global, local, and registry-based session naming
+  - Automatic restart strategies with OTP supervision
+  - Production-ready fault tolerance for AI applications
+- **Enhanced Session Management:**
+  - Named sessions accessible from anywhere in the application
+  - Process isolation with independent crash recovery
+  - Hot code reloading support for zero-downtime deployments
+  - Session lifecycle management (start, restart, terminate, count)
+
+### Changed
+- **Documentation:** Updated main module docs to showcase supervision patterns
+- **Architecture:** Enhanced to support both static supervised sessions and dynamic on-demand sessions
+- **Examples:** Added comprehensive supervision and production usage examples
+
 ## [0.2.0] - 2025-06-16
 
 ### Added
