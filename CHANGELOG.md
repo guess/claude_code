@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-06-16
+
 ### Added
 - **Production Supervision Support:** Added `ClaudeCode.Supervisor` for managing multiple Claude sessions with fault tolerance
   - Static named sessions in supervision tree for long-lived assistants
