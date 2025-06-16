@@ -128,17 +128,16 @@ defmodule ClaudeCode do
   @doc """
   Sends a query to Claude asynchronously and returns a request ID.
 
-  This function returns immediately with a request ID that can be used to
-  track the query. Use `receive_message/2` to get messages for a specific
-  request.
+  This function returns immediately with a request reference that can be used to
+  track the query. Messages will be sent to the calling process as they arrive.
 
   ## Examples
 
-      {:ok, request_id} = ClaudeCode.query_async(session, "Complex task")
+      {:ok, request_ref} = ClaudeCode.query_async(session, "Complex task")
 
-      # Later, receive messages for this request
+      # Receive messages for this request
       receive do
-        {:claude_message, ^request_id, message} ->
+        {:claude_message, ^request_ref, message} ->
           IO.inspect(message)
       end
   """

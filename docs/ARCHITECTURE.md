@@ -306,7 +306,7 @@ We'll pass through important environment variables:
   api_key: "sk-ant-...",
   model: "opus",
   system_prompt: "You are an Elixir expert",
-  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  allowed_tools: ["View", "Edit", "Bash(git:*)"],
   timeout: 120_000
 )
 ```

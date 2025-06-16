@@ -55,7 +55,7 @@ ClaudeCode sessions are GenServers that maintain conversation state and handle a
   api_key: "sk-ant-...",
   model: "opus",
   system_prompt: "You are an expert Elixir developer",
-  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  allowed_tools: ["View", "Edit", "Bash(git:*)"],
   cwd: "/path/to/project",
   max_turns: 20,
   timeout: 120_000
@@ -294,7 +294,7 @@ defmodule MyApp.ClaudeSupervisor do
         api_key: System.fetch_env!("ANTHROPIC_API_KEY"),
         name: :main_assistant,
         system_prompt: "You are an expert Elixir developer",
-        allowed_tools: ["View", "GlobTool", "Edit"],
+        allowed_tools: ["View", "Edit"],
       },
       
       # Specialized test writer

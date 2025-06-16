@@ -25,7 +25,7 @@ Add to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:claude_code, github: "guess/claude_code", branch: "main"}
+    {:claude_code, "~> 0.1.0"}
   ]
 end
 ```
@@ -64,7 +64,7 @@ Configure sessions with various options:
   api_key: System.get_env("ANTHROPIC_API_KEY"),
   model: "opus",
   system_prompt: "You are an Elixir expert",
-  allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
+  allowed_tools: ["View", "Edit", "Bash(git:*)"],
   add_dir: ["/tmp", "/var/log"],
   timeout: 120_000,
   permission_mode: :default
@@ -282,16 +282,92 @@ end
 
 ## Documentation
 
-- 📋 **[Roadmap](docs/ROADMAP.md)** - Implementation progress and timeline
-- 🔮 **[Vision](docs/VISION.md)** - Complete API documentation and future features
+- 🚀 **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
+- 💻 **[Examples](docs/EXAMPLES.md)** - Real-world usage patterns and code samples
+- 🔧 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
 - 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - Technical design decisions
-- 🛠️ **[Development Setup](docs/DEV_SETUP.md)** - Developer environment guide
+- 📋 **[Roadmap](docs/ROADMAP.md)** - Implementation progress and future plans
+- 🔮 **[Vision](docs/VISION.md)** - Complete API documentation and future features
 
-## Examples
+## Production Usage
 
-Check the test files for comprehensive usage examples:
-- `test/claude_code/integration_test.exs` - End-to-end examples
-- `test/claude_code/stream_test.exs` - Streaming API examples
+### Performance & Concurrency
+
+ClaudeCode is designed for production use with multiple concurrent sessions:
+
+```elixir
+# Multiple sessions for parallel processing
+sessions = 1..4 |> Enum.map(fn _i ->
+  {:ok, session} = ClaudeCode.start_link(api_key: "...")
+  session
+end)
+
+# Process tasks in parallel
+results = Task.async_stream(tasks, fn task ->
+  session = Enum.random(sessions)  # Simple load balancing
+  ClaudeCode.query_sync(session, task.prompt)
+end, max_concurrency: 4)
+
+# Clean up
+Enum.each(sessions, &ClaudeCode.stop/1)
+```
+
+### Phoenix Integration
+
+Add ClaudeCode to your supervision tree for web applications:
+
+```elixir
+# lib/my_app/application.ex
+def start(_type, _args) do
+  children = [
+    MyAppWeb.Endpoint,
+    {ClaudeCode, [
+      api_key: System.get_env("ANTHROPIC_API_KEY"),
+      name: :claude_session
+    ]}
+  ]
+  
+  Supervisor.start_link(children, strategy: :one_for_one)
+end
+
+# Use in controllers/live views
+ClaudeCode.query_sync(:claude_session, prompt)
+```
+
+### Best Practices
+
+1. **Session Management:**
+   ```elixir
+   # Use named sessions for long-running processes
+   {:ok, _} = ClaudeCode.start_link(api_key: "...", name: :main_claude)
+   
+   # Use temporary sessions for isolated tasks
+   {:ok, temp} = ClaudeCode.start_link(api_key: "...")
+   result = ClaudeCode.query_sync(temp, prompt)
+   ClaudeCode.stop(temp)
+   ```
+
+2. **Error Handling:**
+   ```elixir
+   defp safe_claude_query(session, prompt) do
+     case ClaudeCode.query_sync(session, prompt, timeout: 30_000) do
+       {:ok, response} -> {:ok, response}
+       {:error, :timeout} -> {:error, "Request timed out"}
+       {:error, reason} -> {:error, "Claude error: #{inspect(reason)}"}
+     end
+   end
+   ```
+
+3. **Resource Management:**
+   ```elixir
+   # Always clean up sessions
+   try do
+     {:ok, session} = ClaudeCode.start_link(api_key: "...")
+     # ... use session
+   after
+     ClaudeCode.stop(session)
+   end
+   ```
 
 ## Development
 
