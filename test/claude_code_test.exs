@@ -24,20 +24,26 @@ defmodule ClaudeCodeTest do
       ClaudeCode.stop(:test_session)
     end
 
-    test "requires api_key option when not in app config" do
+    test "requires api_key option when not in app config or environment" do
       # Ensure no api_key in app config
       original_config = Application.get_all_env(:claude_code)
       Application.delete_env(:claude_code, :api_key)
+
+      # Ensure no api_key in environment
+      original_env = System.get_env("ANTHROPIC_API_KEY")
+      System.delete_env("ANTHROPIC_API_KEY")
 
       try do
         assert_raise ArgumentError, ~r/required :api_key option not found/, fn ->
           ClaudeCode.start_link([])
         end
       after
-        # Restore original config
+        # Restore original config and environment
         for {key, value} <- original_config do
           Application.put_env(:claude_code, key, value)
         end
+
+        if original_env, do: System.put_env("ANTHROPIC_API_KEY", original_env)
       end
     end
 

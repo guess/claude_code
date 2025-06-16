@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Environment Variable Fallback:** Added support for `ANTHROPIC_API_KEY` environment variable as fallback when no explicit `api_key` option or application config is provided
+- **Enhanced Option Precedence:** Updated option precedence chain to: query > session > app config > environment variables > defaults
+
 ### Changed
 - **BREAKING:** Renamed API functions for better clarity and Elixir conventions:
   - `query_sync/3` → `query/3` (synchronous queries, now the default)

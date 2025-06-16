@@ -5,7 +5,7 @@ defmodule ClaudeCode.Options do
   This module is the **single source of truth** for all ClaudeCode options.
   It provides validation for session and query options using NimbleOptions,
   converts Elixir options to CLI flags, and manages option precedence:
-  query > session > app config > defaults.
+  query > session > app config > environment variables > defaults.
 
   ## Session Options
 
@@ -13,7 +13,7 @@ defmodule ClaudeCode.Options do
   can be overridden at the query level.
 
   ### Required Options
-  - `:api_key` - Anthropic API key (string, required)
+  - `:api_key` - Anthropic API key (string, required - falls back to ANTHROPIC_API_KEY env var)
 
   ### Claude Configuration
   - `:model` - Claude model to use (string, optional - CLI uses its default)
@@ -52,7 +52,8 @@ defmodule ClaudeCode.Options do
   1. Query-level options
   2. Session-level options
   3. Application configuration
-  4. Schema defaults
+  4. Environment variables (ANTHROPIC_API_KEY for api_key)
+  5. Schema defaults
 
   ## Usage Examples
 
@@ -148,6 +149,9 @@ defmodule ClaudeCode.Options do
   @doc """
   Validates session options using NimbleOptions.
 
+  If no `:api_key` is provided in options, falls back to checking the
+  `ANTHROPIC_API_KEY` environment variable.
+
   ## Examples
 
       iex> ClaudeCode.Options.validate_session_options([api_key: "sk-test"])
@@ -157,7 +161,10 @@ defmodule ClaudeCode.Options do
       {:error, %NimbleOptions.ValidationError{}}
   """
   def validate_session_options(opts) do
-    validated = NimbleOptions.validate!(opts, @session_opts_schema)
+    # Check for API key fallback before validation
+    opts_with_api_key_fallback = maybe_add_api_key_from_env(opts)
+
+    validated = NimbleOptions.validate!(opts_with_api_key_fallback, @session_opts_schema)
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->
@@ -239,30 +246,53 @@ defmodule ClaudeCode.Options do
   @doc """
   Applies application config defaults to session options.
 
-  Session options take precedence over app config.
+  Session options take precedence over app config, which takes
+  precedence over environment variables.
   """
   def apply_app_config_defaults(session_opts) do
     app_config = get_app_config()
-    Keyword.merge(app_config, session_opts)
+
+    # Apply environment variable fallback first, then app config, then session opts
+    []
+    |> maybe_add_api_key_from_env()
+    |> Keyword.merge(app_config)
+    |> Keyword.merge(session_opts)
   end
 
   @doc """
   Resolves final options using complete precedence chain.
 
-  Precedence: query > session > app config > defaults
+  Precedence: query > session > app config > environment variables > defaults
   """
   def resolve_final_options(session_opts, query_opts) do
     # Extract defaults from schema
     defaults = extract_defaults_from_schema(@session_opts_schema)
+    env_fallback = maybe_add_api_key_from_env([])
 
-    # Apply precedence chain: defaults -> app config -> session -> query
+    # Apply precedence chain: defaults -> env vars -> app config -> session -> query
     defaults
+    |> Keyword.merge(env_fallback)
     |> Keyword.merge(get_app_config())
     |> Keyword.merge(session_opts)
     |> Keyword.merge(query_opts)
   end
 
   # Private functions
+
+  defp maybe_add_api_key_from_env(opts) do
+    case Keyword.get(opts, :api_key) do
+      nil ->
+        # No api_key provided, check environment variable
+        case System.get_env("ANTHROPIC_API_KEY") do
+          nil -> opts
+          api_key -> Keyword.put(opts, :api_key, api_key)
+        end
+
+      _ ->
+        # api_key already provided, use as-is
+        opts
+    end
+  end
 
   defp extract_defaults_from_schema(schema) do
     Enum.reduce(schema, [], fn {key, opts}, acc ->
