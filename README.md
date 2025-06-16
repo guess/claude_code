@@ -10,7 +10,6 @@ The most ergonomic way to integrate Claude AI into your Elixir applications.
 - **🔧 Zero-Config Phoenix Integration**: Drop-in support for LiveView and Phoenix apps
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
-[![Downloads](https://img.shields.io/hexpm/dt/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/guess/claude_code/blob/main/LICENSE)
 [![Elixir](https://img.shields.io/badge/elixir-%3E%3D1.14-purple.svg)](https://elixir-lang.org)
