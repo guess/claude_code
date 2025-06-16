@@ -35,12 +35,12 @@ end
 
 # Query Claude (streaming)
 session
-|> ClaudeCode.query("Write a GenServer for a rate limiter")
+|> ClaudeCode.query_stream("Write a GenServer for a rate limiter")
 |> Stream.each(&IO.inspect/1)
 |> Stream.run()
 
 # Query Claude (synchronous)
-{:ok, messages} = ClaudeCode.query_sync(session, "Explain this code")
+{:ok, messages} = ClaudeCode.query(session, "Explain this code")
 ```
 
 ## Core API
@@ -84,7 +84,7 @@ The primary interface mirrors the Python SDK's async pattern while feeling natur
 
 ```elixir
 # Streaming query (returns a Stream)
-stream = ClaudeCode.query(session, "Create a Phoenix LiveView component")
+stream = ClaudeCode.query_stream(session, "Create a Phoenix LiveView component")
 
 # Process the stream
 stream
@@ -95,7 +95,7 @@ stream
 |> Enum.join()
 
 # Synchronous query with option overrides (blocks until complete)
-{:ok, messages} = ClaudeCode.query_sync(session, 
+{:ok, messages} = ClaudeCode.query(session,
   "Fix the compilation errors",
   allowed_tools: ["View", "Edit"],
   timeout: :timer.minutes(5),
@@ -112,16 +112,16 @@ stream
 |> Stream.each(fn
   %ClaudeCode.AssistantMessage{content: blocks} ->
     handle_assistant_blocks(blocks)
-    
+
   %ClaudeCode.UserMessage{content: content} ->
     Logger.debug("User: #{content}")
-    
+
   %ClaudeCode.ToolUseMessage{tool: tool, args: args} ->
     Logger.info("Claude is using #{tool}")
-    
+
   %ClaudeCode.ResultMessage{result: result, error: nil} ->
     handle_tool_result(result)
-    
+
   %ClaudeCode.ResultMessage{error: error} ->
     handle_tool_error(error)
 end)
@@ -135,10 +135,10 @@ defp handle_assistant_blocks(blocks) do
   Enum.each(blocks, fn
     %ClaudeCode.TextBlock{text: text} ->
       IO.write(text)
-      
+
     %ClaudeCode.ToolUseBlock{id: id, name: name, input: input} ->
       Logger.info("Tool use: #{name} with #{inspect(input)}")
-      
+
     %ClaudeCode.ToolResultBlock{tool_use_id: id, output: output} ->
       Logger.debug("Tool result for #{id}: #{output}")
   end)
@@ -152,21 +152,21 @@ Define custom permission handlers using Elixir behaviours:
 ```elixir
 defmodule MyApp.PermissionHandler do
   @behaviour ClaudeCode.PermissionHandler
-  
+
   @impl true
   def handle_permission(:write, %{path: path}, _context) do
     cond do
       String.contains?(path, ".env") ->
         {:deny, "Cannot modify environment files"}
-        
+
       String.starts_with?(path, "/tmp") ->
         :allow
-        
+
       true ->
         {:confirm, "Allow writing to #{path}?"}
     end
   end
-  
+
   @impl true
   def handle_permission(:bash, %{command: command}, _context) do
     if safe_command?(command) do
@@ -175,10 +175,10 @@ defmodule MyApp.PermissionHandler do
       {:confirm, "Execute command: #{command}?"}
     end
   end
-  
+
   @impl true
   def handle_permission(_, _, _), do: :allow
-  
+
   defp safe_command?(cmd) do
     safe_commands = ~w[ls pwd echo date whoami]
     first_word = cmd |> String.split() |> List.first()
@@ -224,23 +224,23 @@ Built-in permission modes for common scenarios:
 Comprehensive error types for different failure scenarios:
 
 ```elixir
-case ClaudeCode.query_sync(session, prompt) do
+case ClaudeCode.query(session, prompt) do
   {:ok, messages} ->
     process_messages(messages)
-    
+
   {:error, %ClaudeCode.CLINotFoundError{}} ->
     Logger.error("Claude Code CLI not found. Please install it.")
-    
+
   {:error, %ClaudeCode.CLIConnectionError{message: msg}} ->
     Logger.error("Connection failed: #{msg}")
-    
+
   {:error, %ClaudeCode.ProcessError{exit_code: code}} ->
     Logger.error("Process exited with code: #{code}")
-    
+
   {:error, %ClaudeCode.RateLimitError{retry_after: seconds}} ->
     Process.sleep(seconds * 1000)
     # Retry...
-    
+
   {:error, error} ->
     Logger.error("Unexpected error: #{inspect(error)}")
 end
@@ -281,31 +281,31 @@ Build fault-tolerant applications with OTP supervision:
 ```elixir
 defmodule MyApp.ClaudeSupervisor do
   use Supervisor
-  
+
   def start_link(opts) do
     Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
   end
-  
+
   @impl true
   def init(_opts) do
     children = [
       # Primary coding assistant
-      {ClaudeCode, 
+      {ClaudeCode,
         api_key: System.fetch_env!("ANTHROPIC_API_KEY"),
         name: :main_assistant,
         system_prompt: "You are an expert Elixir developer",
         allowed_tools: ["View", "Edit"],
       },
-      
+
       # Specialized test writer
       {ClaudeCode,
-        api_key: System.fetch_env!("ANTHROPIC_API_KEY"), 
+        api_key: System.fetch_env!("ANTHROPIC_API_KEY"),
         name: :test_assistant,
         system_prompt: "You are an expert at writing ExUnit tests",
         allowed_tools: ["View", "Edit"],
       }
     ]
-    
+
     Supervisor.init(children, strategy: :one_for_one)
   end
 end
@@ -318,44 +318,44 @@ Build real-time coding assistants:
 ```elixir
 defmodule MyAppWeb.CodingAssistantLive do
   use MyAppWeb, :live_view
-  
+
   @impl true
   def mount(_params, _session, socket) do
     {:ok, claude} = ClaudeCode.start_link(
       api_key: System.get_env("ANTHROPIC_API_KEY")
     )
-    
+
     {:ok,
      socket
      |> assign(claude_session: claude)
      |> assign(messages: [])
      |> assign(streaming: false)}
   end
-  
+
   @impl true
   def handle_event("submit", %{"prompt" => prompt}, socket) do
     # Start streaming in a separate process
     parent = self()
-    
+
     Task.start(fn ->
       socket.assigns.claude_session
-      |> ClaudeCode.query(prompt)
+      |> ClaudeCode.query_stream(prompt)
       |> Stream.each(fn message ->
         send(parent, {:claude_message, message})
       end)
       |> Stream.run()
-      
+
       send(parent, :claude_done)
     end)
-    
+
     {:noreply, assign(socket, streaming: true)}
   end
-  
-  @impl true  
+
+  @impl true
   def handle_info({:claude_message, message}, socket) do
     {:noreply, update(socket, :messages, &[&1 | message])}
   end
-  
+
   @impl true
   def handle_info(:claude_done, socket) do
     {:noreply, assign(socket, streaming: false)}
@@ -370,7 +370,7 @@ end
 ```elixir
 defmodule MyApp.RefactorPipeline do
   import ClaudeCode.Pipeline
-  
+
   def refactor_module(session, file_path) do
     session
     |> read_file(file_path)
@@ -380,23 +380,23 @@ defmodule MyApp.RefactorPipeline do
     |> write_file(file_path)
     |> run_tests()
   end
-  
+
   defp analyze(session, file_content, prompt) do
     session
-    |> ClaudeCode.query_sync("File content:\n#{file_content}\n\n#{prompt}")
+    |> ClaudeCode.query("File content:\n#{file_content}\n\n#{prompt}")
     |> extract_analysis()
   end
-  
+
   defp refactor(session, analysis, instructions) do
     prompt = """
     Based on this analysis:
     #{analysis}
-    
+
     #{instructions}
     """
-    
+
     session
-    |> ClaudeCode.query_sync(prompt)
+    |> ClaudeCode.query(prompt)
     |> extract_code()
   end
 end
@@ -407,40 +407,40 @@ end
 ```elixir
 defmodule MyApp.Conversation do
   use GenServer
-  
+
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts)
   end
-  
+
   def add_context(conversation, context) do
     GenServer.call(conversation, {:add_context, context})
   end
-  
+
   def ask(conversation, question) do
     GenServer.call(conversation, {:ask, question}, :infinity)
   end
-  
+
   @impl true
   def init(opts) do
     {:ok, claude} = ClaudeCode.start_link(opts)
     {:ok, %{claude: claude, context: []}}
   end
-  
+
   @impl true
   def handle_call({:ask, question}, from, state) do
     # Include context in the question
     full_prompt = build_prompt_with_context(question, state.context)
-    
+
     # Stream response back to caller
     Task.start(fn ->
-      response = 
+      response =
         state.claude
-        |> ClaudeCode.query(full_prompt)
+        |> ClaudeCode.query_stream(full_prompt)
         |> Enum.to_list()
-        
+
       GenServer.reply(from, {:ok, response})
     end)
-    
+
     {:noreply, state}
   end
 end
@@ -452,7 +452,7 @@ end
 defmodule MyApp.ClaudeTest do
   use ExUnit.Case
   import ClaudeCode.Test
-  
+
   test "generates valid Elixir code" do
     # Mock session with predefined responses
     session = mock_session([
@@ -464,23 +464,23 @@ defmodule MyApp.ClaudeTest do
         ]
       }
     ])
-    
-    {:ok, messages} = ClaudeCode.query_sync(session, "Generate example module")
-    
+
+    {:ok, messages} = ClaudeCode.query(session, "Generate example module")
+
     assert [%{content: [%{text: code}]}] = messages
     assert {:ok, _} = Code.string_to_quoted(code)
   end
-  
+
   test "respects permission handler" do
-    session = mock_session([], 
+    session = mock_session([],
       permission_handler: fn
         :write, %{path: "/etc/passwd"}, _ -> {:deny, "Nope!"}
         _, _, _ -> :allow
       end
     )
-    
-    assert {:error, %{reason: "Nope!"}} = 
-      ClaudeCode.query_sync(session, "Write to /etc/passwd")
+
+    assert {:error, %{reason: "Nope!"}} =
+      ClaudeCode.query(session, "Write to /etc/passwd")
   end
 end
 ```
@@ -493,22 +493,22 @@ config :claude_code,
   # Global defaults
   model: "claude-3-5-sonnet-20241022",
   timeout: :timer.minutes(5),
-  
+
   # Telemetry
   telemetry_prefix: [:my_app, :claude],
-  
+
   # Connection pooling (for high-concurrency apps)
   pool_size: System.schedulers_online() * 2,
   pool_overflow: 10,
-  
+
   # Retry configuration
   retry_attempts: 3,
   retry_delay: 1000,
   retry_max_delay: 10_000,
-  
+
   # Global tool restrictions
   forbidden_tools: [:delete_file],
-  
+
   # Enable debug logging
   debug: Mix.env() == :dev
 ```

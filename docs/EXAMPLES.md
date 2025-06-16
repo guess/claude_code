@@ -62,7 +62,7 @@ defmodule CodeAssistant do
     prompt = Enum.join(args, " ")
 
     session
-    |> ClaudeCode.query(prompt)
+    |> ClaudeCode.query_stream(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
 
@@ -85,7 +85,7 @@ defmodule CodeAssistant do
 
   defp handle_query(session, prompt) do
     session
-    |> ClaudeCode.query(prompt)
+    |> ClaudeCode.query_stream(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
 
@@ -152,7 +152,7 @@ defmodule MyApp.ClaudeService do
   end
 
   def handle_call({:ask, prompt, options}, _from, %{session: session} = state) do
-    case ClaudeCode.query_sync(session, prompt, options) do
+    case ClaudeCode.query(session, prompt, options) do
       {:ok, response} ->
         {:reply, {:ok, response}, state}
 
@@ -164,7 +164,7 @@ defmodule MyApp.ClaudeService do
 
   def handle_call({:stream, prompt, options}, {pid, _ref}, %{session: session} = state) do
     try do
-      stream = ClaudeCode.query(session, prompt, options)
+      stream = ClaudeCode.query_stream(session, prompt, options)
       stream_id = make_ref()
 
       # Store the stream for cleanup
@@ -179,7 +179,7 @@ defmodule MyApp.ClaudeService do
 
   def handle_cast({:ask_async, prompt, options, caller_pid}, %{session: session} = state) do
     Task.start(fn ->
-      case ClaudeCode.query_sync(session, prompt, options) do
+      case ClaudeCode.query(session, prompt, options) do
         {:ok, response} ->
           send(caller_pid, {:claude_response, {:ok, response}})
 
@@ -462,7 +462,7 @@ defmodule FileAnalyzer do
     - Estimated complexity
     """
 
-    case ClaudeCode.query_sync(session, prompt) do
+    case ClaudeCode.query(session, prompt) do
       {:ok, analysis} ->
         %{
           file: file_path,
@@ -564,7 +564,7 @@ defmodule DependencyAnalyzer do
     - #{lock_file}
     """
 
-    case ClaudeCode.query_sync(session, prompt) do
+    case ClaudeCode.query(session, prompt) do
       {:ok, analysis} ->
         ClaudeCode.stop(session)
         {:ok, analysis}
@@ -593,7 +593,7 @@ defmodule DependencyAnalyzer do
     5. Community adoption
     """
 
-    case ClaudeCode.query_sync(session, prompt) do
+    case ClaudeCode.query(session, prompt) do
       {:ok, comparison} ->
         ClaudeCode.stop(session)
         {:ok, comparison}
@@ -645,7 +645,7 @@ defmodule TestGenerator do
     """
 
     session
-    |> ClaudeCode.query(prompt)
+    |> ClaudeCode.query_stream(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.to_list()
     |> Enum.join()
@@ -684,7 +684,7 @@ defmodule TestGenerator do
     - Performance test optimizations
     """
 
-    case ClaudeCode.query_sync(session, prompt) do
+    case ClaudeCode.query(session, prompt) do
       {:ok, suggestions} ->
         ClaudeCode.stop(session)
         {:ok, suggestions}
@@ -724,7 +724,7 @@ defmodule PerformanceMonitor do
     }
 
     session
-    |> ClaudeCode.query(prompt)
+    |> ClaudeCode.query_stream(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Stream.with_index()
     |> Stream.map(fn {chunk, index} ->
@@ -797,7 +797,7 @@ defmodule ResilientClaudeHandler do
   end
 
   defp do_query_with_retry(session, prompt, opts, max_retries, base_delay, attempt) do
-    case ClaudeCode.query_sync(session, prompt, opts) do
+    case ClaudeCode.query(session, prompt, opts) do
       {:ok, response} ->
         {:ok, response}
 
@@ -820,7 +820,7 @@ defmodule ResilientClaudeHandler do
   def stream_with_recovery(session, prompt, opts \\ []) do
     try do
       session
-      |> ClaudeCode.query(prompt, opts)
+      |> ClaudeCode.query_stream(prompt, opts)
       |> ClaudeCode.Stream.text_content()
       |> Stream.map(&{:ok, &1})
     rescue

@@ -262,7 +262,7 @@ Supported CLI versions: 0.8.0+
    ```elixir
    # For isolated queries
    {:ok, temp_session} = ClaudeCode.start_link(api_key: "...")
-   result = ClaudeCode.query_sync(temp_session, prompt)
+   result = ClaudeCode.query(temp_session, prompt)
    ClaudeCode.stop(temp_session)
    ```
 
@@ -276,7 +276,7 @@ Supported CLI versions: 0.8.0+
 
 1. **Test with synchronous query first:**
    ```elixir
-   case ClaudeCode.query_sync(session, prompt) do
+   case ClaudeCode.query(session, prompt) do
      {:ok, response} -> IO.puts("Sync works: #{response}")
      error -> IO.puts("Sync error: #{inspect(error)}")
    end
@@ -286,7 +286,7 @@ Supported CLI versions: 0.8.0+
    ```elixir
    # Force stream evaluation
    session
-   |> ClaudeCode.query(prompt)
+   |> ClaudeCode.query_stream(prompt)
    |> Enum.to_list()
    |> IO.inspect()
    ```
@@ -294,7 +294,7 @@ Supported CLI versions: 0.8.0+
 3. **Use stream utilities:**
    ```elixir
    session
-   |> ClaudeCode.query(prompt)
+   |> ClaudeCode.query_stream(prompt)
    |> ClaudeCode.Stream.text_content()
    |> Enum.each(&IO.write/1)
    ```
@@ -308,7 +308,7 @@ Supported CLI versions: 0.8.0+
 1. **Add timeouts:**
    ```elixir
    session
-   |> ClaudeCode.query(prompt, timeout: 120_000)
+   |> ClaudeCode.query_stream(prompt, timeout: 120_000)
    |> Stream.take_while(fn _ -> true end)
    |> Enum.to_list()
    ```
@@ -316,7 +316,7 @@ Supported CLI versions: 0.8.0+
 2. **Use stream debugging:**
    ```elixir
    session
-   |> ClaudeCode.query(prompt)
+   |> ClaudeCode.query_stream(prompt)
    |> Stream.each(fn msg -> IO.inspect(msg, label: "Stream message") end)
    |> ClaudeCode.Stream.text_content()
    |> Enum.to_list()
@@ -331,7 +331,7 @@ Supported CLI versions: 0.8.0+
 1. **Process chunks immediately:**
    ```elixir
    session
-   |> ClaudeCode.query(prompt)
+   |> ClaudeCode.query_stream(prompt)
    |> ClaudeCode.Stream.text_content()
    |> Stream.each(&IO.write/1)  # Don't accumulate
    |> Stream.run()
@@ -340,7 +340,7 @@ Supported CLI versions: 0.8.0+
 2. **Use buffered streaming:**
    ```elixir
    session
-   |> ClaudeCode.query(prompt)
+   |> ClaudeCode.query_stream(prompt)
    |> ClaudeCode.Stream.buffered_text()
    |> Stream.each(&process_complete_sentences/1)
    |> Stream.run()
@@ -373,7 +373,7 @@ Supported CLI versions: 0.8.0+
    ```elixir
    # User sees response immediately
    session
-   |> ClaudeCode.query(prompt)
+   |> ClaudeCode.query_stream(prompt)
    |> ClaudeCode.Stream.text_content()
    |> Enum.each(&IO.write/1)
    ```
@@ -417,7 +417,7 @@ Supported CLI versions: 0.8.0+
 1. **Implement backoff:**
    ```elixir
    defp query_with_backoff(session, prompt, retries \\ 3) do
-     case ClaudeCode.query_sync(session, prompt) do
+     case ClaudeCode.query(session, prompt) do
        {:ok, response} -> {:ok, response}
        {:error, {:claude_error, "Rate limit" <> _}} when retries > 0 ->
          :timer.sleep(2000)  # Wait 2 seconds
@@ -536,7 +536,7 @@ end
 )
 
 # The failing operation
-result = ClaudeCode.query_sync(session, "Hello")
+result = ClaudeCode.query(session, "Hello")
 IO.inspect(result, label: "Result")
 
 ClaudeCode.stop(session)

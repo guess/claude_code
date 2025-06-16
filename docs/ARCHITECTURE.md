@@ -53,13 +53,13 @@ The CLI outputs newline-delimited JSON messages to stdout:
 ```elixir
 defmodule ClaudeCode.Session do
   use GenServer
-  
+
   # State includes:
   # - active_requests: Map of request_id => RequestInfo
   # - api_key: Authentication key
   # - model: Model to use for queries
   # - session_options: Validated session-level options
-  
+
   # Each RequestInfo tracks:
   # - port: Dedicated CLI subprocess
   # - buffer: Request-specific JSON buffer
@@ -120,7 +120,7 @@ final_options = Options.resolve_final_options(session_opts, query_opts)
 
 1. **Query-level options** (highest precedence)
    ```elixir
-   ClaudeCode.query_sync(session, "prompt", system_prompt: "Override for this query")
+   ClaudeCode.query(session, "prompt", system_prompt: "Override for this query")
    ```
 
 2. **Session-level options**
@@ -154,7 +154,7 @@ Options are passed directly as keyword arguments (no nested `:options` key):
   options: %{system_prompt: "...", timeout: 60_000}
 )
 
-# After (flattened) 
+# After (flattened)
 {:ok, session} = ClaudeCode.start_link(
   api_key: key,
   system_prompt: "...",
@@ -196,7 +196,7 @@ The Options module converts Elixir-style options to CLI flags:
 [
   "--system-prompt", "You are helpful",
   "--allowed-tools", "View,Bash(git:*)",
-  "--permission-mode", "acceptEdits", 
+  "--permission-mode", "acceptEdits",
   "--max-turns", "20"
 ]
 ```
@@ -250,7 +250,7 @@ port = Port.open({:spawn_executable, cli_path}, [
 For streaming responses, we'll use Elixir's `Stream` module:
 
 ```elixir
-def query(session, prompt) do
+def query_stream(session, prompt) do
   Stream.resource(
     fn -> start_query(session, prompt) end,
     fn state -> receive_next_message(state) end,
@@ -322,22 +322,22 @@ Options are validated early to provide immediate feedback on configuration error
 
 ### Query Lifecycle
 
-1. **Query starts**: 
+1. **Query starts**:
    - Validate query-level options using NimbleOptions
    - Merge session and query options (query takes precedence)
    - Convert merged options to CLI flags
    - Generate unique request ID
    - Spawn dedicated CLI subprocess with prompt and flags
    - Register request in `active_requests` map
-2. **Stream messages**: 
+2. **Stream messages**:
    - Route port messages to correct request via port lookup
    - Parse JSON lines with request-specific buffer
    - Send messages only to request's subscribers
-3. **Query ends**: 
+3. **Query ends**:
    - Extract result from final message
    - CLI process exits, cleanup port
    - Remove request from `active_requests`
-4. **Session continues**: 
+4. **Session continues**:
    - GenServer stays alive for next query
    - Multiple queries can run concurrently
 
@@ -350,10 +350,10 @@ The SDK automatically maintains conversation context across queries within a ses
 {:ok, session} = ClaudeCode.start_link(api_key: key)
 
 # First query establishes conversation context
-{:ok, response1} = ClaudeCode.query_sync(session, "Hello, my name is Alice")
+{:ok, response1} = ClaudeCode.query(session, "Hello, my name is Alice")
 
 # Subsequent queries automatically continue the conversation using stored session_id
-{:ok, response2} = ClaudeCode.query_sync(session, "What's my name?")
+{:ok, response2} = ClaudeCode.query(session, "What's my name?")
 
 # Check current session ID
 {:ok, session_id} = ClaudeCode.get_session_id(session)
@@ -374,7 +374,7 @@ The CLI has built-in permission handling, but we'll add an Elixir layer:
 ```elixir
 defmodule MyHandler do
   @behaviour ClaudeCode.PermissionHandler
-  
+
   def handle_permission(tool, args, context) do
     # Called when CLI would ask for permission
     # Return :allow, {:deny, reason}, or {:confirm, prompt}

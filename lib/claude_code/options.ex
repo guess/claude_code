@@ -50,7 +50,7 @@ defmodule ClaudeCode.Options do
 
   Options are resolved in this order (highest to lowest priority):
   1. Query-level options
-  2. Session-level options  
+  2. Session-level options
   3. Application configuration
   4. Schema defaults
 
@@ -69,7 +69,7 @@ defmodule ClaudeCode.Options do
       )
 
       # Query with option overrides
-      ClaudeCode.query_sync(session, "Help with testing",
+      ClaudeCode.query(session, "Help with testing",
         system_prompt: "Focus on ExUnit patterns",
         allowed_tools: ["View"],
         timeout: 60_000
@@ -152,7 +152,7 @@ defmodule ClaudeCode.Options do
 
       iex> ClaudeCode.Options.validate_session_options([api_key: "sk-test"])
       {:ok, [api_key: "sk-test", timeout: 300_000]}
-      
+
       iex> ClaudeCode.Options.validate_session_options([])
       {:error, %NimbleOptions.ValidationError{}}
   """
@@ -171,7 +171,7 @@ defmodule ClaudeCode.Options do
 
       iex> ClaudeCode.Options.validate_query_options([timeout: 60_000])
       {:ok, [timeout: 60_000]}
-      
+
       iex> ClaudeCode.Options.validate_query_options([invalid: "option"])
       {:error, %NimbleOptions.ValidationError{}}
   """
@@ -192,7 +192,7 @@ defmodule ClaudeCode.Options do
 
       iex> ClaudeCode.Options.to_cli_args([system_prompt: "You are helpful"])
       ["--system-prompt", "You are helpful"]
-      
+
       iex> ClaudeCode.Options.to_cli_args([allowed_tools: ["View", "Bash(git:*)"]])
       ["--allowedTools", "View,Bash(git:*)"]
   """
