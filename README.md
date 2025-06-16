@@ -155,7 +155,7 @@ We ❤️ contributions! Whether it's:
 - 📝 **Documentation** - Help make our docs even better
 - 🔧 **Code contributions** - PRs welcome!
 
-See our [Contributing Guide](CONTRIBUTING.md) to get started.
+See our [Contributing Guide](https://github.com/guess/claude_code/blob/main/CONTRIBUTING.md) to get started.
 
 ## 🛠️ Development
 
@@ -172,7 +172,7 @@ mix quality  # format, credo, dialyzer
 
 ## 📜 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License - see [LICENSE](https://github.com/guess/claude_code/blob/main/LICENSE) for details.
 
 ---
 
