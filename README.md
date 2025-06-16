@@ -38,13 +38,12 @@ ClaudeCode.query(session, "What's my favorite language?")
 
 ## 🆚 Why ClaudeCode for Elixir?
 
-| Feature | ClaudeCode | Direct HTTP | Other SDKs |
-|---------|------------|-------------|------------|
-| 🔄 Streaming | ✅ Native Elixir Streams | ❌ Manual chunking | ⚠️ Limited |
-| 💬 Conversation continuity | ✅ Automatic | ❌ Manual state | ⚠️ Basic |
-| 🏭 Production supervision | ✅ Built-in | ❌ Custom | ❌ None |
-| 🛠️ File operations | ✅ Built-in tools | ❌ Not supported | ❌ None |
-| ⚡ Concurrent sessions | ✅ Native GenServers | ⚠️ Connection pooling | ⚠️ Limited |
+- **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
+- **💬 Automatic Conversation Continuity**: Claude remembers context across queries
+- **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
+- **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
+- **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
+- **🔧 Zero-Config Phoenix Integration**: Drop-in support for LiveView and Phoenix apps
 
 ## 📦 Installation
 
