@@ -8,7 +8,7 @@
 ClaudeCode provides a GenServer-based interface to the Claude Code CLI with support for streaming responses, concurrent queries, and Phoenix LiveView integration.
 
 <div align="center">
-    <img src="docs/claudecode.png" alt="ClaudeCode" width="200">
+    <img src="https://github.com/guess/claude_code/raw/main/docs/claudecode.png" alt="ClaudeCode" width="200">
 </div>
 
 ## Prerequisites
