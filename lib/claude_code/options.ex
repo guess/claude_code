@@ -115,7 +115,8 @@ defmodule ClaudeCode.Options do
       default: :default,
       doc: "Permission handling mode"
     ],
-    add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"]
+    add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
+    output_format: [type: :string, doc: "Output format (text, json, stream-json)"]
   ]
 
   @query_opts_schema [
@@ -131,7 +132,8 @@ defmodule ClaudeCode.Options do
       type: {:in, [:default, :accept_edits, :bypass_permissions]},
       doc: "Override permission mode for this query"
     ],
-    add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"]
+    add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
+    output_format: [type: :string, doc: "Override output format for this query"]
   ]
 
   # App config uses same option names directly - no mapping needed
@@ -367,6 +369,10 @@ defmodule ClaudeCode.Options do
       # Return a flat list of alternating flags and values
       Enum.flat_map(value, fn dir -> ["--add-dir", to_string(dir)] end)
     end
+  end
+
+  defp convert_option_to_cli_flag(:output_format, value) do
+    {"--output-format", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(key, value) do
