@@ -149,7 +149,7 @@ defmodule ClaudeCode.Message.ResultTest do
 
   describe "from fixture" do
     test "parses real CLI result message" do
-      fixture_path = "test/fixtures/cli_messages/simple_hello.json"
+      fixture_path = "test/fixtures/cli_messages/simple_hello.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Last line should be result message
@@ -166,7 +166,7 @@ defmodule ClaudeCode.Message.ResultTest do
     end
 
     test "parses result message with high token usage" do
-      fixture_path = "test/fixtures/cli_messages/read_file.json"
+      fixture_path = "test/fixtures/cli_messages/read_file.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find result message

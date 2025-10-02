@@ -54,7 +54,7 @@ defmodule ClaudeCode.Content.TextTest do
   describe "from real messages" do
     test "parses text content from assistant message fixture" do
       # Load a fixture with text content
-      fixture_path = "test/fixtures/cli_messages/simple_hello.json"
+      fixture_path = "test/fixtures/cli_messages/simple_hello.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find assistant message (should be second line)

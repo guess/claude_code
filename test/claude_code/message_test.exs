@@ -257,7 +257,7 @@ defmodule ClaudeCode.MessageTest do
 
   describe "from fixture" do
     test "parses all messages from a real CLI session" do
-      fixture_path = "test/fixtures/cli_messages/simple_hello.json"
+      fixture_path = "test/fixtures/cli_messages/simple_hello.jsonl"
       content = File.read!(fixture_path)
 
       assert {:ok, messages} = Message.parse_stream(content)

@@ -76,7 +76,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
 
   describe "from real messages" do
     test "parses tool use from create_file fixture" do
-      fixture_path = "test/fixtures/cli_messages/create_file.json"
+      fixture_path = "test/fixtures/cli_messages/create_file.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find assistant message with tool use
@@ -99,7 +99,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
     end
 
     test "parses tool use from file_listing fixture" do
-      fixture_path = "test/fixtures/cli_messages/file_listing.json"
+      fixture_path = "test/fixtures/cli_messages/file_listing.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find assistant message with LS tool

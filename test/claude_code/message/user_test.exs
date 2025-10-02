@@ -138,7 +138,7 @@ defmodule ClaudeCode.Message.UserTest do
 
   describe "from fixture" do
     test "parses real CLI user message with tool result" do
-      fixture_path = "test/fixtures/cli_messages/create_file.json"
+      fixture_path = "test/fixtures/cli_messages/create_file.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find user message
@@ -160,7 +160,7 @@ defmodule ClaudeCode.Message.UserTest do
     end
 
     test "parses real CLI user message with error" do
-      fixture_path = "test/fixtures/cli_messages/error_case.json"
+      fixture_path = "test/fixtures/cli_messages/error_case.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find user message with error

@@ -81,7 +81,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
 
   describe "from real messages" do
     test "parses successful tool result from create_file fixture" do
-      fixture_path = "test/fixtures/cli_messages/create_file.json"
+      fixture_path = "test/fixtures/cli_messages/create_file.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find user message with tool result
@@ -103,7 +103,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
     end
 
     test "parses error tool result from error_case fixture" do
-      fixture_path = "test/fixtures/cli_messages/error_case.json"
+      fixture_path = "test/fixtures/cli_messages/error_case.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find user message with error tool result

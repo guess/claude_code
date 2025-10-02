@@ -201,7 +201,7 @@ defmodule ClaudeCode.Message.AssistantTest do
 
   describe "from fixture" do
     test "parses real CLI assistant message with text" do
-      fixture_path = "test/fixtures/cli_messages/simple_hello.json"
+      fixture_path = "test/fixtures/cli_messages/simple_hello.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Second line should be assistant message
@@ -216,7 +216,7 @@ defmodule ClaudeCode.Message.AssistantTest do
     end
 
     test "parses real CLI assistant message with tool use" do
-      fixture_path = "test/fixtures/cli_messages/file_listing.json"
+      fixture_path = "test/fixtures/cli_messages/file_listing.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # Find assistant message with tool use

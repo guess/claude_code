@@ -77,7 +77,7 @@ defmodule ClaudeCode.Message.SystemTest do
   describe "from fixture" do
     test "parses real CLI system message" do
       # Load from our captured fixture
-      fixture_path = "test/fixtures/cli_messages/simple_hello.json"
+      fixture_path = "test/fixtures/cli_messages/simple_hello.jsonl"
       lines = fixture_path |> File.read!() |> String.split("\n", trim: true)
 
       # First line should be system message
