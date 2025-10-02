@@ -72,7 +72,7 @@ defmodule ClaudeCode.Session do
   def init(validated_opts) do
     # Options are already validated in start_link/1
     state = %__MODULE__{
-      api_key: Keyword.fetch!(validated_opts, :api_key),
+      api_key: Keyword.get(validated_opts, :api_key),
       model: Keyword.get(validated_opts, :model),
       session_options: validated_opts,
       active_requests: %{},
@@ -491,9 +491,7 @@ defmodule ClaudeCode.Session do
           {:ok, {executable, args}} ->
             # Start the CLI subprocess
             # Environment variables need to be in the format [{key, value}] where both are charlists
-            env_vars = [
-              {~c"ANTHROPIC_API_KEY", String.to_charlist(state.api_key)}
-            ]
+            env_vars = prepare_env(state)
 
             try do
               # Use the exact same approach as System.shell
@@ -542,6 +540,20 @@ defmodule ClaudeCode.Session do
         {:error, {:invalid_query_options, validation_error}}
     end
   end
+
+  defp prepare_env(state) do
+    System.get_env()
+    |> Map.take(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"])
+    |> maybe_put_api_override(state)
+    |> Map.to_list()
+    |> Enum.map(fn {key, value} -> {String.to_charlist(key), String.to_charlist(value)} end)
+  end
+
+  defp maybe_put_api_override(env, %{api_key: api_key}) when is_binary(api_key) do
+    Map.put(env, "ANTHROPIC_API_KEY", api_key)
+  end
+
+  defp maybe_put_api_override(env, _state), do: env
 
   defp shell_escape(str) when is_binary(str) do
     if String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n"]) do

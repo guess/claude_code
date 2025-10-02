@@ -34,52 +34,18 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:permission_mode] == :default
     end
 
-    test "rejects missing required api_key when environment variable not set" do
-      original_env = System.get_env("ANTHROPIC_API_KEY")
-      System.delete_env("ANTHROPIC_API_KEY")
-
-      try do
-        opts = [model: "opus"]
-        assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_session_options(opts)
-      after
-        if original_env, do: System.put_env("ANTHROPIC_API_KEY", original_env)
-      end
+    test "allows missing api_key - CLI handles environment fallback" do
+      opts = [model: "opus"]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      refute Keyword.has_key?(validated, :api_key)
+      assert validated[:model] == "opus"
     end
 
-    test "uses ANTHROPIC_API_KEY environment variable as fallback" do
-      original_env = System.get_env("ANTHROPIC_API_KEY")
-      System.put_env("ANTHROPIC_API_KEY", "env-test-key")
-
-      try do
-        opts = [model: "opus"]
-        assert {:ok, validated} = Options.validate_session_options(opts)
-        assert validated[:api_key] == "env-test-key"
-        assert validated[:model] == "opus"
-      after
-        if original_env do
-          System.put_env("ANTHROPIC_API_KEY", original_env)
-        else
-          System.delete_env("ANTHROPIC_API_KEY")
-        end
-      end
-    end
-
-    test "explicit api_key takes precedence over environment variable" do
-      original_env = System.get_env("ANTHROPIC_API_KEY")
-      System.put_env("ANTHROPIC_API_KEY", "env-test-key")
-
-      try do
-        opts = [api_key: "explicit-key", model: "opus"]
-        assert {:ok, validated} = Options.validate_session_options(opts)
-        assert validated[:api_key] == "explicit-key"
-        assert validated[:model] == "opus"
-      after
-        if original_env do
-          System.put_env("ANTHROPIC_API_KEY", original_env)
-        else
-          System.delete_env("ANTHROPIC_API_KEY")
-        end
-      end
+    test "accepts explicit api_key when provided" do
+      opts = [api_key: "explicit-key", model: "opus"]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:api_key] == "explicit-key"
+      assert validated[:model] == "opus"
     end
 
     test "rejects invalid timeout type" do
@@ -459,30 +425,24 @@ defmodule ClaudeCode.OptionsTest do
   end
 
   describe "apply_app_config_defaults/1" do
-    test "uses environment variable when no app config or session opts" do
-      # Clear app config
-      original_config = Application.get_all_env(:claude_code)
-      Application.delete_env(:claude_code, :api_key)
-
-      # Set environment variable
-      original_env = System.get_env("ANTHROPIC_API_KEY")
-      System.put_env("ANTHROPIC_API_KEY", "env-fallback-key")
+    test "merges app config with session opts, session opts take precedence" do
+      # Set app config
+      Application.put_env(:claude_code, :model, "opus")
+      Application.put_env(:claude_code, :timeout, 180_000)
 
       try do
-        result = Options.apply_app_config_defaults([])
-        assert result[:api_key] == "env-fallback-key"
+        result = Options.apply_app_config_defaults([timeout: 60_000])
+        assert result[:model] == "opus"
+        assert result[:timeout] == 60_000
       after
-        # Restore original config and environment
-        for {key, value} <- original_config do
-          Application.put_env(:claude_code, key, value)
-        end
-
-        if original_env do
-          System.put_env("ANTHROPIC_API_KEY", original_env)
-        else
-          System.delete_env("ANTHROPIC_API_KEY")
-        end
+        Application.delete_env(:claude_code, :model)
+        Application.delete_env(:claude_code, :timeout)
       end
+    end
+
+    test "returns session opts when no app config" do
+      result = Options.apply_app_config_defaults([model: "sonnet"])
+      assert result[:model] == "sonnet"
     end
   end
 end

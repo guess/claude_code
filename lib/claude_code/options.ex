@@ -12,8 +12,8 @@ defmodule ClaudeCode.Options do
   Session options are used when starting a ClaudeCode session. Most options
   can be overridden at the query level.
 
-  ### Required Options
-  - `:api_key` - Anthropic API key (string, required - falls back to ANTHROPIC_API_KEY env var)
+  ### API Key
+  - `:api_key` - Anthropic API key (string, optional - falls back to ANTHROPIC_API_KEY env var)
 
   ### Claude Configuration
   - `:model` - Claude model to use (string, optional - CLI uses its default)
@@ -106,7 +106,7 @@ defmodule ClaudeCode.Options do
 
   @session_opts_schema [
     # Elixir-specific options
-    api_key: [type: :string, required: true, doc: "Anthropic API key"],
+    api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
     permission_handler: [type: :atom, doc: "Custom permission handler module"],
@@ -187,8 +187,7 @@ defmodule ClaudeCode.Options do
   @doc """
   Validates session options using NimbleOptions.
 
-  If no `:api_key` is provided in options, falls back to checking the
-  `ANTHROPIC_API_KEY` environment variable.
+  The CLI will handle API key resolution from the environment if not provided.
 
   ## Examples
 
@@ -196,13 +195,10 @@ defmodule ClaudeCode.Options do
       {:ok, [api_key: "sk-test", timeout: 300_000]}
 
       iex> ClaudeCode.Options.validate_session_options([])
-      {:error, %NimbleOptions.ValidationError{}}
+      {:ok, [timeout: 300_000]}
   """
   def validate_session_options(opts) do
-    # Check for API key fallback before validation
-    opts_with_api_key_fallback = maybe_add_api_key_from_env(opts)
-
-    validated = NimbleOptions.validate!(opts_with_api_key_fallback, @session_opts_schema)
+    validated = NimbleOptions.validate!(opts, @session_opts_schema)
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->
@@ -284,35 +280,16 @@ defmodule ClaudeCode.Options do
   @doc """
   Applies application config defaults to session options.
 
-  Session options take precedence over app config, which takes
-  precedence over environment variables.
+  Session options take precedence over app config.
   """
   def apply_app_config_defaults(session_opts) do
     app_config = get_app_config()
 
-    # Apply environment variable fallback first, then app config, then session opts
-    []
-    |> maybe_add_api_key_from_env()
-    |> Keyword.merge(app_config)
-    |> Keyword.merge(session_opts)
+    # Apply app config first, then session opts
+    Keyword.merge(app_config, session_opts)
   end
 
   # Private functions
-
-  defp maybe_add_api_key_from_env(opts) do
-    case Keyword.get(opts, :api_key) do
-      nil ->
-        # No api_key provided, check environment variable
-        case System.get_env("ANTHROPIC_API_KEY") do
-          nil -> opts
-          api_key -> Keyword.put(opts, :api_key, api_key)
-        end
-
-      _ ->
-        # api_key already provided, use as-is
-        opts
-    end
-  end
 
   defp convert_option_to_cli_flag(:api_key, _value), do: nil
   defp convert_option_to_cli_flag(:name, _value), do: nil

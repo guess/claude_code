@@ -692,28 +692,11 @@ defmodule ClaudeCode.SessionTest do
       end
     end
 
-    test "fails when no api_key in session opts, app config, or environment" do
-      # Ensure no api_key in app config
-      original_config = Application.get_all_env(:claude_code)
-      Application.delete_env(:claude_code, :api_key)
-
-      # Ensure no api_key in environment
-      original_env = System.get_env("ANTHROPIC_API_KEY")
-      System.delete_env("ANTHROPIC_API_KEY")
-
-      try do
-        # Should fail validation
-        assert_raise ArgumentError, ~r/required :api_key option not found/, fn ->
-          Session.start_link([])
-        end
-      after
-        # Restore original config and environment
-        for {key, value} <- original_config do
-          Application.put_env(:claude_code, key, value)
-        end
-
-        if original_env, do: System.put_env("ANTHROPIC_API_KEY", original_env)
-      end
+    test "can start without api_key - CLI handles environment fallback" do
+      # This should succeed - the CLI will check for ANTHROPIC_API_KEY itself
+      {:ok, session} = Session.start_link([])
+      assert is_pid(session)
+      GenServer.stop(session)
     end
   end
 end
