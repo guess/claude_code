@@ -263,24 +263,6 @@ defmodule ClaudeCode.Options do
     |> Keyword.merge(session_opts)
   end
 
-  @doc """
-  Resolves final options using complete precedence chain.
-
-  Precedence: query > session > app config > environment variables > defaults
-  """
-  def resolve_final_options(session_opts, query_opts) do
-    # Extract defaults from schema
-    defaults = extract_defaults_from_schema(@session_opts_schema)
-    env_fallback = maybe_add_api_key_from_env([])
-
-    # Apply precedence chain: defaults -> env vars -> app config -> session -> query
-    defaults
-    |> Keyword.merge(env_fallback)
-    |> Keyword.merge(get_app_config())
-    |> Keyword.merge(session_opts)
-    |> Keyword.merge(query_opts)
-  end
-
   # Private functions
 
   defp maybe_add_api_key_from_env(opts) do
@@ -296,15 +278,6 @@ defmodule ClaudeCode.Options do
         # api_key already provided, use as-is
         opts
     end
-  end
-
-  defp extract_defaults_from_schema(schema) do
-    Enum.reduce(schema, [], fn {key, opts}, acc ->
-      case Keyword.get(opts, :default) do
-        nil -> acc
-        default -> Keyword.put(acc, key, default)
-      end
-    end)
   end
 
   defp convert_option_to_cli_flag(:api_key, _value), do: nil
