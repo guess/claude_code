@@ -20,7 +20,7 @@ An idiomatic Elixir SDK for Claude Code that leverages OTP patterns, functional 
 ```elixir
 def deps do
   [
-    {:claude_code, "~> 0.1.0"}
+    {:claude_code, "~> 0.3.0"}
   ]
 end
 ```

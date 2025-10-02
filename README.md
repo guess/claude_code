@@ -41,7 +41,7 @@ ClaudeCode.query(session, "What's my favorite language?")
 **Step 1:** Add to your `mix.exs`
 ```elixir
 def deps do
-  [{:claude_code, "~> 0.2.0"}]
+  [{:claude_code, "~> 0.3.0"}]
 end
 ```
 

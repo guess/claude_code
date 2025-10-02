@@ -26,7 +26,7 @@ The SDK requires the Claude Code CLI to be installed on your system.
 3. Verify installation:
    ```bash
    claude --version
-   # => claude 0.10.1
+   # => claude 2.0.1
    ```
 
 ### 3. Anthropic API Key
@@ -46,7 +46,7 @@ Add ClaudeCode to your project dependencies:
 # mix.exs
 def deps do
   [
-    {:claude_code, "~> 0.1.0"}
+    {:claude_code, "~> 0.3.0"}
   ]
 end
 ```
