@@ -47,24 +47,29 @@ Key CLI flags used:
 
 ## Current Implementation Status
 
-Phase 4 (Options & Configuration) is COMPLETE! ✅
+**18 features implemented** (75% of relevant features) - See `docs/proposals/FEATURE_MATRIX.md`
 
-Implemented:
-- Phase 1: Basic session management with GenServer
-- Phase 1: Synchronous query interface
-- Phase 1: JSON message parsing from CLI stdout (system, assistant, result messages)
-- Phase 1: Error handling for CLI not found and auth errors
-- Phase 1: Shell wrapper to prevent CLI hanging
-- Phase 2: Complete message type parsing matching official SDK schema
-- Phase 2: Content block handling (Text, ToolUse, ToolResult) with proper struct types
-- Phase 2: Nested message structure for Assistant/User messages
-- Phase 3: Streaming support with native Elixir Streams
-- Phase 3: Real-time message processing with stream utilities
-- Phase 3: Async query support with message delivery
-- Phase 4: Flattened options API with NimbleOptions validation
-- Phase 4: Option precedence system (Query > Session > App Config > Defaults)
-- Phase 4: Application configuration support
-- Phase 4: Query-level option overrides
+Core capabilities:
+- Session management with GenServer
+- Synchronous and async query interface
+- Streaming support with native Elixir Streams
+- Message parsing (System, Assistant, User, Result)
+- Content blocks (Text, ToolUse, ToolResult)
+- Options API with NimbleOptions validation
+- Model selection, system prompts, turn limiting
+- Tool control (allowed/disallowed tools, additional directories)
+- Permission modes and MCP integration
+- Session tracking and auto-resume
+
+Known issues (⚠️):
+- `--allowedTools` format bug (needs fix)
+- `--disallowedTools` format bug (needs fix)
+
+Planned for v1.0 (🔨):
+- Fallback model support (P0 - production resilience)
+- Session forking (P1 - conversation branching)
+- Team settings loading (P1)
+- Partial message streaming (P1 - LiveView real-time updates)
 
 ## Testing Approach
 
@@ -95,12 +100,12 @@ Implemented:
   - `message/` - Message type modules (system, assistant, user, result)
   - `content/` - Content block modules (text, tool_use, tool_result)
 - `test/` - Test files mirror lib structure
-- `docs/` - All documentation (ROADMAP, VISION, ARCHITECTURE)
+- `docs/proposals/` - Feature planning and roadmap
 - `examples/` - Working examples
 
 ## Development Workflow
 
-1. Check `docs/ROADMAP.md` for current phase and tasks
+1. Check `docs/proposals/FEATURE_MATRIX.md` for prioritized features
 2. Write tests first (TDD approach)
 3. Implement features
 4. Run `mix quality` before committing
