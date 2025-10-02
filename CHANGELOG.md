@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add --settings and --setting-sources CLI options support ([d21137d])
+  - `:settings` option accepts file path, JSON string, or map (auto-encoded to JSON)
+  - `:setting_sources` option accepts list of sources (user, project, local) as CSV
+  - Both options available at session and query level
+
 ### Fixed
 - Fix CLI streaming by adding explicit output-format support ([3a1c772])
 
