@@ -33,6 +33,8 @@ defmodule ClaudeCode.Options do
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
+  - `:output_format` - Output format (string, optional)
+    Options: `"text"`, `"json"`, `"stream-json"`
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
