@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fix CLI streaming by adding explicit output-format support ([3a1c772])
+
+### Documentation
+- Add output_format option documentation ([0a228ce])
+
 ## [0.3.0] - 2025-06-16
 
 ### Added
