@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Add custom agents support ([2a9dce0])
+  - `:agents` option accepts map of agent name to configuration
+  - Each agent can define description, prompt, tools, and model
+  - Agents passed as JSON to CLI via --agents flag
+  - Available at both session and query level
 - Add --settings and --setting-sources CLI options support ([d21137d])
   - `:settings` option accepts file path, JSON string, or map (auto-encoded to JSON)
   - `:setting_sources` option accepts list of sources (user, project, local) as CSV
