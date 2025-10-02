@@ -326,6 +326,60 @@ defmodule ClaudeCode.OptionsTest do
       assert "--setting-sources" in args
       assert "" in args
     end
+
+    test "converts agents map to JSON-encoded --agents" do
+      opts = [
+        agents: %{
+          "code-reviewer" => %{
+            "description" => "Reviews code for quality",
+            "prompt" => "You are a code reviewer",
+            "tools" => ["Read", "Edit"],
+            "model" => "sonnet"
+          }
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--agents" in args
+
+      # Find the JSON value
+      agents_index = Enum.find_index(args, &(&1 == "--agents"))
+      json_value = Enum.at(args, agents_index + 1)
+
+      # Decode and verify
+      decoded = Jason.decode!(json_value)
+      assert decoded["code-reviewer"]["description"] == "Reviews code for quality"
+      assert decoded["code-reviewer"]["prompt"] == "You are a code reviewer"
+      assert decoded["code-reviewer"]["tools"] == ["Read", "Edit"]
+      assert decoded["code-reviewer"]["model"] == "sonnet"
+    end
+
+    test "converts multiple agents to JSON" do
+      opts = [
+        agents: %{
+          "code-reviewer" => %{
+            "description" => "Reviews code",
+            "prompt" => "You are a reviewer"
+          },
+          "debugger" => %{
+            "description" => "Debugs code",
+            "prompt" => "You are a debugger",
+            "tools" => ["Read", "Bash"]
+          }
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--agents" in args
+
+      agents_index = Enum.find_index(args, &(&1 == "--agents"))
+      json_value = Enum.at(args, agents_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert Map.has_key?(decoded, "code-reviewer")
+      assert Map.has_key?(decoded, "debugger")
+      assert decoded["debugger"]["tools"] == ["Read", "Bash"]
+    end
   end
 
   describe "merge_options/2" do

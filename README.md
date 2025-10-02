@@ -75,6 +75,17 @@ config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 ClaudeCode.query(session, "Review my mix.exs file",
   allowed_tools: ["View", "Edit"])
 
+# Custom agents
+agents = %{
+  "code-reviewer" => %{
+    "description" => "Expert code reviewer. Use proactively after code changes.",
+    "prompt" => "You are a senior code reviewer. Focus on quality and best practices.",
+    "tools" => ["Read", "Grep", "Glob"],
+    "model" => "sonnet"
+  }
+}
+{:ok, session} = ClaudeCode.start_link(agents: agents)
+
 # Production with supervision
 {:ok, _} = ClaudeCode.Supervisor.start_link(name: :assistant)
 ClaudeCode.query(:assistant, "Help with this task")

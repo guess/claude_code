@@ -29,6 +29,9 @@ defmodule ClaudeCode.Options do
     Example: `["/tmp", "/var/log"]`
 
   ### Advanced Options
+  - `:agents` - Custom agent definitions (map, optional)
+    Map of agent name to agent configuration. Each agent must have `description` and `prompt`.
+    Example: `%{"code-reviewer" => %{"description" => "Reviews code", "prompt" => "You are a code reviewer", "tools" => ["Read", "Edit"], "model" => "sonnet"}}`
   - `:mcp_config` - Path to MCP servers JSON config file (string, optional)
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
@@ -116,6 +119,11 @@ defmodule ClaudeCode.Options do
     max_turns: [type: :integer, doc: "Limit agentic turns in non-interactive mode"],
     allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
+    agents: [
+      type: {:map, :string, {:map, :string, :any}},
+      doc:
+        "Custom agent definitions. Map of agent name to config with 'description', 'prompt', 'tools' (optional), 'model' (optional)"
+    ],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
     permission_mode: [
@@ -142,6 +150,10 @@ defmodule ClaudeCode.Options do
     max_turns: [type: :integer, doc: "Override max turns for this query"],
     allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
+    agents: [
+      type: {:map, :string, :map},
+      doc: "Override agent definitions for this query"
+    ],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
     permission_mode: [
@@ -384,6 +396,11 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:setting_sources, value) when is_list(value) do
     sources_csv = Enum.join(value, ",")
     {"--setting-sources", sources_csv}
+  end
+
+  defp convert_option_to_cli_flag(:agents, value) when is_map(value) do
+    json_string = Jason.encode!(value)
+    {"--agents", json_string}
   end
 
   defp convert_option_to_cli_flag(key, value) do
