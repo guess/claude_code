@@ -18,6 +18,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `:setting_sources` option accepts list of sources (user, project, local) as CSV
   - Both options available at session and query level
 
+### Changed
+- Make `:api_key` option optional, delegating environment resolution to CLI ([a4ce6aa])
+  - Sessions can now start without explicit api_key - CLI handles ANTHROPIC_API_KEY fallback
+  - Simplified option validation by removing SDK-side environment variable logic
+  - Session passes through ANTHROPIC_API_KEY and CLAUDE_CODE_OAUTH_TOKEN to CLI process
+
 ### Fixed
 - Fix CLI streaming by adding explicit output-format support ([3a1c772])
 
