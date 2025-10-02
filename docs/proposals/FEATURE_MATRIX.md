@@ -2,7 +2,7 @@
 
 ## Current State (Phase 4 Complete)
 
-**20 features implemented** | **4 features to build for v1.0** | **8 features killed**
+**23 features implemented** | **3 features to build for v1.0** | **7 features killed**
 
 ---
 
@@ -63,8 +63,8 @@
 | Feature | SDK Option | Status | Notes |
 |---------|------------|--------|-------|
 | Fallback model | `:fallback_model` | 🔨 BUILD | **P0** - Critical for production resilience |
-| Team settings | `:settings` | 🔨 BUILD | **P1** - Load team configuration |
-| Advanced settings sources | `:setting_sources` | ⏸️ LATER | P3 - Edge case |
+| Team settings | `:settings` | ✅ HAVE | File path, JSON string, or map (auto-encoded) |
+| Settings sources | `:setting_sources` | ✅ HAVE | List of sources: user, project, local |
 
 ---
 
@@ -93,8 +93,8 @@
 
 | Feature | SDK Option | Status | Notes |
 |---------|------------|--------|-------|
-| Custom agents | `:agents` | ⏸️ LATER | P2 - Multi-agent workflows |
-| Legacy system prompt | `:system_prompt` | 🗑️ KILLED | Replaced by --agents |
+| Custom agents | `:agents` | ✅ HAVE | Map of agent name to config (description, prompt, tools, model) |
+| System prompt override | `:system_prompt` | ✅ HAVE | Override default system prompt |
 
 ---
 
@@ -137,9 +137,9 @@ These are CLI configuration commands, not runtime features:
 ### High Priority (P1) - Week 2
 5. 🔨 Add `--include-partial-messages` for LiveView
 6. 🔨 Add `--fork-session` for conversation branching
-7. 🔨 Add `--settings` for team configuration
+7. ✅ ~~Add `--settings` for team configuration~~
 
-**Effort**: ~8 hours
+**Effort**: ~3 hours remaining
 
 ### v1.0 Release Criteria
 - All P0 + P1 features complete ✅
@@ -154,11 +154,9 @@ These are CLI configuration commands, not runtime features:
 | Feature | Priority | Reason |
 |---------|----------|--------|
 | Streaming input | P2 | Complex implementation, low demand |
-| Custom agents | P2 | Advanced use case, small audience |
 | Strict MCP config | P3 | Edge case |
-| Setting sources | P3 | Advanced configuration |
 
-**Total deferred effort**: ~12 hours (not blocking v1.0)
+**Total deferred effort**: ~6 hours (not blocking v1.0)
 
 ---
 
@@ -172,12 +170,13 @@ These are CLI configuration commands, not runtime features:
 | Tool control | ✅ | ✅ | ✅ |
 | Session management | ✅ | ✅ | ✅ |
 | Streaming output | ✅ | ✅ | ✅ |
+| Custom agents | ✅ | ✅ | ✅ |
+| Team settings | ✅ | ✅ | ✅ |
 | Partial messages | ✅ | ❌ | ✅ |
 | Fallback model | ✅ | ❌ | ✅ |
 | Session forking | ✅ | ❌ | ✅ |
-| Team settings | ✅ | ❌ | ✅ |
 
-**Coverage**: 83% now → **100% at v1.0** (for 95% of use cases)
+**Coverage**: 88% now → **100% at v1.0** (for 95% of use cases)
 
 ---
 
@@ -185,13 +184,13 @@ These are CLI configuration commands, not runtime features:
 
 ```
 Current State:
-  ✅ HAVE:    20 features (83% of relevant features)
+  ✅ HAVE:    23 features (88% of relevant features)
   ⚠️ BROKEN:   0 features
 
 v1.0 Plan:
-  🔨 BUILD:    4 features (P0-P1)
-  ⏸️ LATER:    4 features (v1.1+)
-  🗑️ KILLED:   8 features (out of scope)
+  🔨 BUILD:    3 features (P0-P1)
+  ⏸️ LATER:    2 features (v1.1+)
+  🗑️ KILLED:   7 features (out of scope)
 
 Total Coverage: 28 features categorized (100%)
 ```
