@@ -431,7 +431,7 @@ defmodule ClaudeCode.OptionsTest do
       Application.put_env(:claude_code, :timeout, 180_000)
 
       try do
-        result = Options.apply_app_config_defaults([timeout: 60_000])
+        result = Options.apply_app_config_defaults(timeout: 60_000)
         assert result[:model] == "opus"
         assert result[:timeout] == 60_000
       after
@@ -441,7 +441,7 @@ defmodule ClaudeCode.OptionsTest do
     end
 
     test "returns session opts when no app config" do
-      result = Options.apply_app_config_defaults([model: "sonnet"])
+      result = Options.apply_app_config_defaults(model: "sonnet")
       assert result[:model] == "sonnet"
     end
   end
