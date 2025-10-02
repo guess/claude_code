@@ -2,7 +2,7 @@
 
 ## Current State (Phase 4 Complete)
 
-**18 features implemented** | **6 features to build for v1.0** | **8 features killed**
+**20 features implemented** | **4 features to build for v1.0** | **8 features killed**
 
 ---
 
@@ -43,8 +43,8 @@
 
 | Feature | SDK Option | Status | Notes |
 |---------|------------|--------|-------|
-| Allowed tools list | `:allowed_tools` | ⚠️ BROKEN | **P0** - Format bug, needs test + fix |
-| Disallowed tools list | `:disallowed_tools` | ⚠️ BROKEN | **P0** - Format bug, needs test + fix |
+| Allowed tools list | `:allowed_tools` | ✅ HAVE | |
+| Disallowed tools list | `:disallowed_tools` | ✅ HAVE | |
 | Additional directories | `:add_dir` | ✅ HAVE | |
 
 ---
@@ -127,12 +127,12 @@ These are CLI configuration commands, not runtime features:
 ## v1.0 Roadmap
 
 ### Critical (P0) - Week 1
-1. ⚠️ Fix `--allowedTools` format bug
-2. ⚠️ Fix `--disallowedTools` format bug
+1. ✅ ~~Fix `--allowedTools` format bug~~
+2. ✅ ~~Fix `--disallowedTools` format bug~~
 3. 🔨 Add `--fallback-model` support
 4. ✅ Verify `--permission-prompt-tool` implementation
 
-**Effort**: ~9 hours
+**Effort**: ~5 hours remaining
 
 ### High Priority (P1) - Week 2
 5. 🔨 Add `--include-partial-messages` for LiveView
@@ -169,7 +169,7 @@ These are CLI configuration commands, not runtime features:
 | Capability | TypeScript | Elixir (Now) | Elixir (v1.0) |
 |------------|-----------|--------------|---------------|
 | Model selection | ✅ | ✅ | ✅ |
-| Tool control | ✅ | ⚠️ | ✅ |
+| Tool control | ✅ | ✅ | ✅ |
 | Session management | ✅ | ✅ | ✅ |
 | Streaming output | ✅ | ✅ | ✅ |
 | Partial messages | ✅ | ❌ | ✅ |
@@ -177,7 +177,7 @@ These are CLI configuration commands, not runtime features:
 | Session forking | ✅ | ❌ | ✅ |
 | Team settings | ✅ | ❌ | ✅ |
 
-**Coverage**: 75% now → **100% at v1.0** (for 95% of use cases)
+**Coverage**: 83% now → **100% at v1.0** (for 95% of use cases)
 
 ---
 
@@ -185,8 +185,8 @@ These are CLI configuration commands, not runtime features:
 
 ```
 Current State:
-  ✅ HAVE:    18 features (75% of relevant features)
-  ⚠️ BROKEN:   2 features (need fixes)
+  ✅ HAVE:    20 features (83% of relevant features)
+  ⚠️ BROKEN:   0 features
 
 v1.0 Plan:
   🔨 BUILD:    4 features (P0-P1)

@@ -47,7 +47,7 @@ Key CLI flags used:
 
 ## Current Implementation Status
 
-**18 features implemented** (75% of relevant features) - See `docs/proposals/FEATURE_MATRIX.md`
+**20 features implemented** (83% of relevant features) - See `docs/proposals/FEATURE_MATRIX.md`
 
 Core capabilities:
 - Session management with GenServer
@@ -57,13 +57,9 @@ Core capabilities:
 - Content blocks (Text, ToolUse, ToolResult)
 - Options API with NimbleOptions validation
 - Model selection, system prompts, turn limiting
-- Tool control (allowed/disallowed tools, additional directories)
+- Tool control (allowed/disallowed tools, additional directories) ✅
 - Permission modes and MCP integration
 - Session tracking and auto-resume
-
-Known issues (⚠️):
-- `--allowedTools` format bug (needs fix)
-- `--disallowedTools` format bug (needs fix)
 
 Planned for v1.0 (🔨):
 - Fallback model support (P0 - production resilience)

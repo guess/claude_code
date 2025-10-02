@@ -1,8 +1,8 @@
 # P0: Tool Control Fixes
 
-**Status**: Critical - Blocking v1.0
-**Effort**: ~4 hours
-**Priority**: Must complete in Week 1
+**Status**: ✅ COMPLETE
+**Completed**: 2025-10-02
+**Original Effort**: ~4 hours
 
 ## Objective
 
@@ -53,11 +53,15 @@ end
 
 ## Success Criteria
 
-- [ ] CLI format documented with examples
-- [ ] Test suite passes with real CLI
-- [ ] Tool restrictions actually work (verified manually)
-- [ ] Test coverage >95% for options.ex
-- [ ] Documentation updated with working examples
+- [x] CLI format documented with examples
+- [x] Test suite passes with real CLI
+- [x] Tool restrictions actually work (verified manually)
+- [x] Test coverage >95% for options.ex
+- [x] Documentation updated with working examples
+
+## Resolution
+
+The tool control features (`--allowedTools` and `--disallowedTools`) were tested with the real CLI and confirmed to work correctly with the existing CSV format implementation. No bugs were found - the implementation is working as expected.
 
 ## Files to Modify
 
