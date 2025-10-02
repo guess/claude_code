@@ -118,9 +118,20 @@ Planned for v1.0 (🔨):
 - CLI flag mappings
 
 Quick reference for development:
-- `api_key` (required) - Anthropic API key  
+- `api_key` (optional) - Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
 - Options grouped by: Claude config, tool control, advanced features, Elixir-specific
 - Query options can override session defaults (except `:api_key`, `:name`, `:permission_handler`)
+
+Key options:
+- `:agents` - Map of custom agent configurations (name -> %{"description" => ..., "prompt" => ..., "tools" => ..., "model" => ...})
+- `:settings` - Team settings (file path, JSON string, or map - auto-encoded to JSON)
+- `:setting_sources` - List of setting sources ([:user, :project, :local])
+- `:allowed_tools` / `:disallowed_tools` - Tool access control
+- `:system_prompt` / `:append_system_prompt` - Custom system instructions
+- `:model` - Claude model selection
+- `:max_turns` - Conversation turn limiting
+- `:mcp_config` / `:permission_prompt_tool` - MCP integration
+- `:add_dir` - Additional accessible directories
 
 ### Message Type Structure
 

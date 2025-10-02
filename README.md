@@ -21,8 +21,8 @@ The most ergonomic way to integrate Claude AI into your Elixir applications.
 ## 🎯 30-Second Demo
 
 ```elixir
-# Start a session and query Claude
-{:ok, session} = ClaudeCode.start_link(api_key: "your-key")
+# Start a session and query Claude (uses ANTHROPIC_API_KEY from env)
+{:ok, session} = ClaudeCode.start_link()
 
 # Real-time streaming responses
 session
@@ -56,9 +56,12 @@ mix deps.get
 claude --version  # Verify installation
 ```
 
-**Step 4:** Configure your API key
-```elixir
-# config/config.exs
+**Step 4:** Set your API key
+```bash
+# The SDK uses ANTHROPIC_API_KEY from your environment
+export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+
+# Or configure in config/config.exs (optional)
 config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 ```
 
@@ -67,7 +70,7 @@ config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 ## ⚡ Quick Examples
 
 ```elixir
-# Basic usage
+# Basic usage (uses ANTHROPIC_API_KEY from environment)
 {:ok, session} = ClaudeCode.start_link()
 {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
 
@@ -111,8 +114,8 @@ def start(_type, _args) do
   children = [
     MyAppWeb.Endpoint,
     {ClaudeCode.Supervisor, [
-      [name: :code_reviewer, api_key: api_key, system_prompt: "You review code"],
-      [name: :general_assistant, api_key: api_key]
+      [name: :code_reviewer, system_prompt: "You review code"],
+      [name: :general_assistant]
     ]}
   ]
   Supervisor.start_link(children, strategy: :one_for_one)

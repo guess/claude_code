@@ -38,7 +38,6 @@ defmodule CodeAssistant do
 
   defp setup_session do
     ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: """
       You are an expert Elixir developer assistant. Help with:
       - Code review and suggestions
@@ -202,7 +201,6 @@ defmodule MyApp.ClaudeService do
 
   defp start_claude_session(opts) do
     claude_opts = [
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: "You are a helpful assistant for a web application",
       allowed_tools: ["View"],
       timeout: 180_000
@@ -428,7 +426,6 @@ defmodule FileAnalyzer do
     1..count
     |> Enum.map(fn _i ->
       {:ok, session} = ClaudeCode.start_link(
-        api_key: System.get_env("ANTHROPIC_API_KEY"),
         system_prompt: """
         You are a code analysis expert. Analyze Elixir files and provide:
         1. Code quality assessment
@@ -538,7 +535,6 @@ defmodule DependencyAnalyzer do
     lock_file = Path.join(project_path, "mix.lock")
 
     {:ok, session} = ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: """
       You are an Elixir dependency expert. Analyze mix.exs and mix.lock files to provide:
       1. Dependency security assessment
@@ -577,7 +573,6 @@ defmodule DependencyAnalyzer do
 
   def compare_with_alternatives(dependency_name) do
     {:ok, session} = ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: "You are an Elixir ecosystem expert.",
       timeout: 120_000
     )
@@ -619,7 +614,6 @@ defmodule TestGenerator do
 
   def generate_tests_for_module(module_file) do
     {:ok, session} = ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: """
       You are an Elixir testing expert. Generate comprehensive ExUnit tests including:
       1. Happy path tests
@@ -661,7 +655,6 @@ defmodule TestGenerator do
 
   def improve_existing_tests(test_file) do
     {:ok, session} = ClaudeCode.start_link(
-      api_key: System.get_env("ANTHROPIC_API_KEY"),
       system_prompt: """
       You are an Elixir testing expert. Improve existing test files by:
       1. Adding missing test cases

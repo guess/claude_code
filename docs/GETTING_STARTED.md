@@ -58,17 +58,22 @@ mix deps.get
 
 ## Configuration
 
-First, configure your API key. Choose one of these methods:
+The SDK uses the `ANTHROPIC_API_KEY` environment variable by default. Choose one of these methods:
 
-**Method 1: Application Configuration (Recommended)**
-```elixir
-# config/config.exs
-config :claude_code, api_key: "sk-ant-your-api-key-here"
-```
-
-**Method 2: Environment Variable**
+**Method 1: Environment Variable (Recommended)**
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+```
+
+**Method 2: Application Configuration (Optional)**
+```elixir
+# config/config.exs
+config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
+```
+
+**Method 3: Pass Explicitly When Starting Session**
+```elixir
+{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-your-api-key-here")
 ```
 
 ## Your First Query
@@ -79,13 +84,8 @@ Let's start with a simple example:
 # Start an interactive Elixir session
 iex -S mix
 
-# Start a ClaudeCode session (using app config)
+# Start a ClaudeCode session (uses ANTHROPIC_API_KEY from environment)
 {:ok, session} = ClaudeCode.start_link()
-
-# Or with explicit API key
-{:ok, session} = ClaudeCode.start_link(
-  api_key: System.get_env("ANTHROPIC_API_KEY")
-)
 
 # Send your first query
 {:ok, response} = ClaudeCode.query(session, "Hello! What's 2 + 2?")
@@ -166,13 +166,13 @@ For production applications, configure defaults in your app config:
 ```elixir
 # config/config.exs
 config :claude_code,
-  api_key: "sk-ant-your-api-key-here",
+  api_key: System.get_env("ANTHROPIC_API_KEY"),
   model: "claude-3-5-sonnet-20241022",
   timeout: 180_000,
   system_prompt: "You are a helpful assistant for our Elixir application",
   allowed_tools: ["View"]
 
-# Now sessions use these defaults
+# Now sessions use these defaults (or ANTHROPIC_API_KEY from environment)
 {:ok, session} = ClaudeCode.start_link()
   # All options inherited from config
 ```
