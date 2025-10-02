@@ -24,7 +24,8 @@ This command will:
    - The gitmoji and/or conventional commit type (feat, fix, chore, etc.)
    - The commit description
    - The commit hash (short form)
-5. Group commits by type into changelog sections:
+5. **Filter commits** to include ONLY user-facing changes (see filtering rules below)
+6. Group commits by type into changelog sections:
    - ✨ feat → Added
    - 🐛 fix, 🚑️ hotfix → Fixed
    - ♻️ refactor, 🎨 style → Changed
@@ -32,8 +33,37 @@ This command will:
    - 🔥 remove → Removed
    - 🔒️ security → Security
    - All other types → Other Changes
-6. Add entries to the "Unreleased" section at the top of the changelog
-7. Format entries as: `- Description ([commit-hash])`
+7. Add entries to the "Unreleased" section at the top of the changelog
+8. Format entries as: `- Description ([commit-hash])`
+
+## What to Include vs Exclude
+
+**IMPORTANT**: The changelog is for library USERS, not developers. Only document changes that affect how users interact with or use the library.
+
+### ✅ SHOULD Include
+
+Changes that affect library users:
+- **New features** - New public APIs, functions, modules, options
+- **Bug fixes** - Fixes to public API behavior or user-facing issues
+- **Breaking changes** - Changes to public APIs, function signatures, behavior
+- **Deprecations** - Deprecated public APIs or features
+- **Performance improvements** - User-visible performance changes
+- **Documentation** - Updates to README, guides, or public API docs that help users
+- **Dependencies** - Changes to runtime dependencies that users need to know about
+
+### ❌ SHOULD NOT Include
+
+Internal changes that don't affect library users:
+- **Internal tooling** - Changes to `.claude/` configs, slash commands, AI prompts
+- **Development infrastructure** - CI/CD configs, test scripts, build tools
+- **Internal refactoring** - Code reorganization without API changes
+- **Development dependencies** - Changes to dev/test-only dependencies
+- **Proposals and planning** - Design docs, proposals, roadmaps in `docs/`
+- **Internal documentation** - CLAUDE.md, development notes, architecture docs for contributors
+- **Code style/formatting** - Formatting changes, linting fixes without functional changes
+- **Test code** - Test additions or changes (unless they reveal new features)
+
+**Rule of thumb**: If a library user updates to the new version, would they notice this change? If no, exclude it from the changelog.
 
 ## Changelog Format
 
@@ -71,12 +101,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - Extract conventional commit type if present (feat, fix, chore, etc.)
    - Get commit description (remove gitmoji and type prefix)
    - Get short commit hash
-5. **Group commits** by their type into appropriate changelog sections
-6. **Update Unreleased section**:
+5. **Filter commits** - CRITICALLY IMPORTANT:
+   - Exclude commits that only affect internal tooling (`.claude/`, CI configs, etc.)
+   - Exclude commits for proposals, planning docs, internal documentation
+   - Exclude pure test changes, dev dependency updates, formatting-only changes
+   - Keep only commits that affect the public API, features, behavior, or user-facing documentation
+   - When in doubt, ask: "Would a library user care about this change?"
+6. **Group commits** by their type into appropriate changelog sections
+7. **Update Unreleased section**:
    - Find or create the "## [Unreleased]" section
    - Add subsections (### Added, ### Fixed, etc.) as needed
    - Add commit entries in the format: `- Description ([hash])`
-7. **Write updated CHANGELOG.md**
+8. **Write updated CHANGELOG.md**
 
 ## Notes
 
@@ -85,3 +121,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Commits are processed in chronological order (oldest to newest)
 - Merge commits and commits without meaningful messages may be filtered out
 - The command is idempotent - running it multiple times will only add new commits
+- **CRITICAL**: Always review commits and exclude internal tooling changes (`.claude/` configs, proposals, dev tools, etc.)
+- Focus on what library users need to know, not internal development changes
