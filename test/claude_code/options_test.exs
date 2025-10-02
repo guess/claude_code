@@ -264,6 +264,68 @@ defmodule ClaudeCode.OptionsTest do
       assert "--output-format" in args
       assert "json" in args
     end
+
+    test "converts settings string to --settings" do
+      opts = [settings: "/path/to/settings.json"]
+
+      args = Options.to_cli_args(opts)
+      assert "--settings" in args
+      assert "/path/to/settings.json" in args
+    end
+
+    test "converts settings map to JSON-encoded --settings" do
+      opts = [settings: %{"feature" => true, "timeout" => 5000}]
+
+      args = Options.to_cli_args(opts)
+      assert "--settings" in args
+
+      # Find the JSON value
+      settings_index = Enum.find_index(args, &(&1 == "--settings"))
+      json_value = Enum.at(args, settings_index + 1)
+
+      # Decode and verify
+      decoded = Jason.decode!(json_value)
+      assert decoded["feature"] == true
+      assert decoded["timeout"] == 5000
+    end
+
+    test "converts settings with nested map to JSON" do
+      opts = [settings: %{"nested" => %{"key" => "value"}, "list" => [1, 2, 3]}]
+
+      args = Options.to_cli_args(opts)
+      assert "--settings" in args
+
+      settings_index = Enum.find_index(args, &(&1 == "--settings"))
+      json_value = Enum.at(args, settings_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["nested"]["key"] == "value"
+      assert decoded["list"] == [1, 2, 3]
+    end
+
+    test "converts setting_sources to --setting-sources as CSV" do
+      opts = [setting_sources: ["user", "project", "local"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--setting-sources" in args
+      assert "user,project,local" in args
+    end
+
+    test "converts single setting_source to --setting-sources" do
+      opts = [setting_sources: ["user"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--setting-sources" in args
+      assert "user" in args
+    end
+
+    test "handles empty setting_sources list" do
+      opts = [setting_sources: []]
+
+      args = Options.to_cli_args(opts)
+      assert "--setting-sources" in args
+      assert "" in args
+    end
   end
 
   describe "merge_options/2" do

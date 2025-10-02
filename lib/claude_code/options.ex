@@ -35,6 +35,12 @@ defmodule ClaudeCode.Options do
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
   - `:output_format` - Output format (string, optional)
     Options: `"text"`, `"json"`, `"stream-json"`
+  - `:settings` - Settings configuration (string or map, optional)
+    Can be a file path, JSON string, or map that will be JSON encoded
+    Example: `%{"feature" => true}` or `"/path/to/settings.json"`
+  - `:setting_sources` - List of setting sources to load (list of strings, optional)
+    Valid sources: `"user"`, `"project"`, `"local"`
+    Example: `["user", "project", "local"]`
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
@@ -118,7 +124,15 @@ defmodule ClaudeCode.Options do
       doc: "Permission handling mode"
     ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
-    output_format: [type: :string, doc: "Output format (text, json, stream-json)"]
+    output_format: [type: :string, doc: "Output format (text, json, stream-json)"],
+    settings: [
+      type: {:or, [:string, :map]},
+      doc: "Settings as file path, JSON string, or map to be JSON encoded"
+    ],
+    setting_sources: [
+      type: {:list, :string},
+      doc: "List of setting sources to load (user, project, local)"
+    ]
   ]
 
   @query_opts_schema [
@@ -135,7 +149,15 @@ defmodule ClaudeCode.Options do
       doc: "Override permission mode for this query"
     ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
-    output_format: [type: :string, doc: "Override output format for this query"]
+    output_format: [type: :string, doc: "Override output format for this query"],
+    settings: [
+      type: {:or, [:string, :map]},
+      doc: "Override settings for this query (file path, JSON string, or map)"
+    ],
+    setting_sources: [
+      type: {:list, :string},
+      doc: "Override setting sources for this query (user, project, local)"
+    ]
   ]
 
   # App config uses same option names directly - no mapping needed
@@ -348,6 +370,20 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:output_format, value) do
     {"--output-format", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:settings, value) when is_map(value) do
+    json_string = Jason.encode!(value)
+    {"--settings", json_string}
+  end
+
+  defp convert_option_to_cli_flag(:settings, value) do
+    {"--settings", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:setting_sources, value) when is_list(value) do
+    sources_csv = Enum.join(value, ",")
+    {"--setting-sources", sources_csv}
   end
 
   defp convert_option_to_cli_flag(key, value) do
