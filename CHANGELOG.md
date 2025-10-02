@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-10-02
+
 ### Added
 - Add custom agents support ([2a9dce0])
   - `:agents` option accepts map of agent name to configuration
