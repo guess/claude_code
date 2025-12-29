@@ -49,6 +49,8 @@ defmodule ClaudeCode.Options do
   - `:name` - GenServer process name (atom, optional)
   - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
   - `:permission_handler` - Custom permission handler module (atom, optional)
+  - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
+    Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
   - `:cwd` - Current working directory (string, optional)
 
   ## Query Options
@@ -110,6 +112,27 @@ defmodule ClaudeCode.Options do
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
     permission_handler: [type: :atom, doc: "Custom permission handler module"],
+    tool_callback: [
+      type: {:fun, 1},
+      doc: """
+      Optional callback invoked after each tool execution.
+
+      Receives a map with:
+      - `:name` - Tool name (string)
+      - `:input` - Tool input (map)
+      - `:result` - Tool result (string)
+      - `:is_error` - Whether the tool errored (boolean)
+      - `:tool_use_id` - Unique ID for correlation (string)
+      - `:timestamp` - When the result was received (DateTime)
+
+      The callback is invoked asynchronously and should not block.
+
+      Example:
+          tool_callback: fn event ->
+            Logger.info("Tool \#{event.name} executed")
+          end
+      """
+    ],
 
     # CLI options (aligned with TypeScript SDK)
     model: [type: :string, doc: "Model to use"],
@@ -295,6 +318,7 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:name, _value), do: nil
   defp convert_option_to_cli_flag(:permission_handler, _value), do: nil
   defp convert_option_to_cli_flag(:timeout, _value), do: nil
+  defp convert_option_to_cli_flag(:tool_callback, _value), do: nil
   defp convert_option_to_cli_flag(_key, nil), do: nil
 
   # TypeScript SDK aligned options

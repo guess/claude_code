@@ -102,4 +102,45 @@ defmodule ClaudeCode.Test.MessageFixtures do
       is_error: is_error
     }
   end
+
+  @doc """
+  Creates an assistant message containing a tool use block.
+  """
+  def assistant_message_with_tool_use(opts \\ []) do
+    tool_id = Keyword.get(opts, :tool_id, "tool_#{:rand.uniform(10_000)}")
+    tool_name = Keyword.get(opts, :tool_name, "Read")
+    tool_input = Keyword.get(opts, :tool_input, %{"path" => "/tmp/test.txt"})
+    text = Keyword.get(opts, :text)
+
+    content =
+      if text do
+        [text_content(text), tool_use_content(tool_name, tool_input, tool_id)]
+      else
+        [tool_use_content(tool_name, tool_input, tool_id)]
+      end
+
+    assistant_message(
+      message: %{
+        id: Keyword.get(opts, :message_id, "msg_#{:rand.uniform(10_000)}"),
+        content: content,
+        stop_reason: :tool_use
+      }
+    )
+  end
+
+  @doc """
+  Creates a user message containing a tool result block.
+  """
+  def user_message_with_tool_result(opts \\ []) do
+    tool_use_id = Keyword.get(opts, :tool_use_id, "tool_#{:rand.uniform(10_000)}")
+    content = Keyword.get(opts, :content, "file contents here")
+    is_error = Keyword.get(opts, :is_error, false)
+
+    user_message(
+      message: %{
+        id: Keyword.get(opts, :message_id, "msg_#{:rand.uniform(10_000)}"),
+        content: [tool_result_content(content, tool_use_id, is_error)]
+      }
+    )
+  end
 end
