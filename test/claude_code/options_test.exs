@@ -41,6 +41,22 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:model] == "opus"
     end
 
+    test "validates include_partial_messages option" do
+      opts = [include_partial_messages: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:include_partial_messages] == true
+
+      opts = [include_partial_messages: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:include_partial_messages] == false
+    end
+
+    test "defaults include_partial_messages to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:include_partial_messages] == false
+    end
+
     test "accepts explicit api_key when provided" do
       opts = [api_key: "explicit-key", model: "opus"]
       assert {:ok, validated} = Options.validate_session_options(opts)
@@ -83,6 +99,12 @@ defmodule ClaudeCode.OptionsTest do
 
     test "accepts empty options" do
       assert {:ok, []} = Options.validate_query_options([])
+    end
+
+    test "validates include_partial_messages in query options" do
+      opts = [include_partial_messages: true]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:include_partial_messages] == true
     end
 
     test "rejects invalid options" do
@@ -345,6 +367,37 @@ defmodule ClaudeCode.OptionsTest do
       assert Map.has_key?(decoded, "code-reviewer")
       assert Map.has_key?(decoded, "debugger")
       assert decoded["debugger"]["tools"] == ["Read", "Bash"]
+    end
+
+    test "converts include_partial_messages true to --include-partial-messages" do
+      opts = [include_partial_messages: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--include-partial-messages" in args
+      # Boolean flag should not have a value
+      refute "true" in args
+    end
+
+    test "does not add flag when include_partial_messages is false" do
+      opts = [include_partial_messages: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--include-partial-messages" in args
+    end
+
+    test "combines include_partial_messages with other options" do
+      opts = [
+        include_partial_messages: true,
+        model: "opus",
+        max_turns: 10
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--include-partial-messages" in args
+      assert "--model" in args
+      assert "opus" in args
+      assert "--max-turns" in args
+      assert "10" in args
     end
   end
 

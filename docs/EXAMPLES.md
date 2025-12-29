@@ -4,12 +4,595 @@ This document provides real-world examples of using ClaudeCode in different scen
 
 ## Table of Contents
 
+- [Character-Level Streaming](#character-level-streaming)
+- [Tool Callbacks](#tool-callbacks)
+- [MCP Integration](#mcp-integration)
 - [CLI Applications](#cli-applications)
 - [Web Applications](#web-applications)
 - [Phoenix LiveView Integration](#phoenix-liveview-integration)
 - [Batch Processing](#batch-processing)
 - [Code Analysis Tools](#code-analysis-tools)
 - [Testing Applications](#testing-applications)
+
+## Character-Level Streaming
+
+Character-level streaming enables real-time, token-by-token output from Claude - essential for building responsive chat interfaces and LiveView applications.
+
+### Basic Character Streaming
+
+Use `include_partial_messages: true` to receive text as it's generated:
+
+```elixir
+# Character-by-character streaming
+session
+|> ClaudeCode.query_stream("Tell me a story", include_partial_messages: true)
+|> ClaudeCode.Stream.text_deltas()
+|> Enum.each(&IO.write/1)
+```
+
+### Comparing Streaming Modes
+
+```elixir
+# Default: Complete message streaming
+# Each element is a full message chunk
+session
+|> ClaudeCode.query_stream("Hello")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(fn chunk ->
+  IO.puts("Complete chunk: #{inspect(chunk)}")
+end)
+# Output: Complete chunk: "Hello! How can I help you today?"
+
+# Partial message streaming
+# Each element is a small text delta (often a word or few characters)
+session
+|> ClaudeCode.query_stream("Hello", include_partial_messages: true)
+|> ClaudeCode.Stream.text_deltas()
+|> Enum.each(fn delta ->
+  IO.puts("Delta: #{inspect(delta)}")
+end)
+# Output:
+# Delta: "Hello"
+# Delta: "!"
+# Delta: " How"
+# Delta: " can"
+# Delta: " I"
+# Delta: " help"
+# ...
+```
+
+### Stream Utilities for Partial Messages
+
+```elixir
+alias ClaudeCode.Stream
+alias ClaudeCode.Message.StreamEvent
+
+# Extract only text deltas (most common use case)
+stream
+|> Stream.text_deltas()
+|> Enum.each(&IO.write/1)
+
+# Extract all content deltas (text + tool input JSON)
+stream
+|> Stream.content_deltas()
+|> Enum.each(fn delta ->
+  case delta.type do
+    :text_delta -> IO.write(delta.text)
+    :input_json_delta -> handle_tool_json(delta.partial_json)
+    :thinking_delta -> IO.write("[thinking] #{delta.thinking}")
+  end
+end)
+
+# Filter by specific stream event types
+stream
+|> Stream.filter_event_type(:content_block_delta)
+|> Enum.each(&process_delta/1)
+
+# Filter to only stream events (excluding System, Assistant, Result messages)
+stream
+|> Stream.filter_type(:stream_event)
+|> Enum.to_list()
+```
+
+### Phoenix LiveView Real-time Chat
+
+```elixir
+defmodule MyAppWeb.ChatLive do
+  use MyAppWeb, :live_view
+
+  def mount(_params, _session, socket) do
+    {:ok, claude} = ClaudeCode.start_link()
+    {:ok, assign(socket, claude: claude, response: "", streaming: false)}
+  end
+
+  def handle_event("send", %{"message" => message}, socket) do
+    # Start streaming in a task
+    parent = self()
+
+    Task.start(fn ->
+      socket.assigns.claude
+      |> ClaudeCode.query_stream(message, include_partial_messages: true)
+      |> ClaudeCode.Stream.text_deltas()
+      |> Enum.each(fn chunk ->
+        send(parent, {:text_chunk, chunk})
+      end)
+
+      send(parent, :stream_complete)
+    end)
+
+    {:noreply, assign(socket, streaming: true, response: "")}
+  end
+
+  def handle_info({:text_chunk, chunk}, socket) do
+    # Update the UI in real-time as each chunk arrives
+    {:noreply, assign(socket, response: socket.assigns.response <> chunk)}
+  end
+
+  def handle_info(:stream_complete, socket) do
+    {:noreply, assign(socket, streaming: false)}
+  end
+end
+```
+
+### Phoenix PubSub Broadcasting
+
+For multi-user applications where multiple clients need to see the same response:
+
+```elixir
+defmodule MyApp.ClaudeStreamer do
+  def stream_to_topic(session, prompt, topic) do
+    Task.start(fn ->
+      session
+      |> ClaudeCode.query_stream(prompt, include_partial_messages: true)
+      |> ClaudeCode.Stream.text_deltas()
+      |> Enum.each(fn chunk ->
+        Phoenix.PubSub.broadcast(MyApp.PubSub, topic, {:claude_chunk, chunk})
+      end)
+
+      Phoenix.PubSub.broadcast(MyApp.PubSub, topic, :claude_complete)
+    end)
+  end
+end
+
+# In your LiveView:
+def mount(_params, _session, socket) do
+  Phoenix.PubSub.subscribe(MyApp.PubSub, "chat:#{socket.assigns.room_id}")
+  {:ok, socket}
+end
+
+def handle_info({:claude_chunk, chunk}, socket) do
+  {:noreply, assign(socket, response: socket.assigns.response <> chunk)}
+end
+```
+
+### Metrics and Timing
+
+Track streaming performance metrics:
+
+```elixir
+defmodule StreamMetrics do
+  def measure_ttft(session, prompt) do
+    start = System.monotonic_time(:millisecond)
+
+    {first_chunk_time, chunks} =
+      session
+      |> ClaudeCode.query_stream(prompt, include_partial_messages: true)
+      |> ClaudeCode.Stream.text_deltas()
+      |> Stream.with_index()
+      |> Enum.reduce({nil, []}, fn {chunk, idx}, {ttft, acc} ->
+        now = System.monotonic_time(:millisecond)
+        ttft = if idx == 0, do: now - start, else: ttft
+        {ttft, [chunk | acc]}
+      end)
+
+    total_time = System.monotonic_time(:millisecond) - start
+    text = chunks |> Enum.reverse() |> Enum.join()
+
+    %{
+      time_to_first_token_ms: first_chunk_time,
+      total_time_ms: total_time,
+      chunk_count: length(chunks),
+      character_count: String.length(text),
+      chars_per_second: String.length(text) / (total_time / 1000)
+    }
+  end
+end
+```
+
+### Working with Stream Events Directly
+
+For advanced use cases, work with raw `StreamEvent` structs:
+
+```elixir
+alias ClaudeCode.Message.StreamEvent
+
+session
+|> ClaudeCode.query_stream("Hello", include_partial_messages: true)
+|> Stream.each(fn
+  %StreamEvent{event: %{type: :message_start}} ->
+    IO.puts("Message started")
+
+  %StreamEvent{event: %{type: :content_block_start, index: idx}} ->
+    IO.puts("Content block #{idx} started")
+
+  %StreamEvent{} = event when StreamEvent.text_delta?(event) ->
+    IO.write(StreamEvent.get_text(event))
+
+  %StreamEvent{event: %{type: :content_block_stop}} ->
+    IO.puts("\nContent block complete")
+
+  %StreamEvent{event: %{type: :message_stop}} ->
+    IO.puts("Message complete")
+
+  _other ->
+    :ok
+end)
+|> Stream.run()
+```
+
+## Tool Callbacks
+
+Tool callbacks allow you to monitor, log, and audit all tool executions during a ClaudeCode session. The callback is invoked asynchronously after each tool completes.
+
+### Basic Logging
+
+```elixir
+defmodule ToolLogger do
+  require Logger
+
+  def start_session do
+    callback = fn event ->
+      Logger.info("Tool executed",
+        tool: event.name,
+        input: event.input,
+        success: not event.is_error,
+        timestamp: event.timestamp
+      )
+    end
+
+    ClaudeCode.start_link(tool_callback: callback)
+  end
+end
+```
+
+### Audit Trail with Telemetry
+
+```elixir
+defmodule ToolAuditor do
+  @moduledoc """
+  Emit telemetry events for tool executions.
+  """
+
+  def start_session(opts \\ []) do
+    callback = fn event ->
+      :telemetry.execute(
+        [:claude_code, :tool, :executed],
+        %{duration_ms: 0},  # Duration not available in post-execution callback
+        %{
+          tool_name: event.name,
+          tool_use_id: event.tool_use_id,
+          is_error: event.is_error,
+          input_keys: Map.keys(event.input),
+          result_length: String.length(event.result || "")
+        }
+      )
+    end
+
+    ClaudeCode.start_link([tool_callback: callback] ++ opts)
+  end
+end
+
+# In your application, attach a telemetry handler:
+:telemetry.attach(
+  "tool-auditor",
+  [:claude_code, :tool, :executed],
+  fn _event, measurements, metadata, _config ->
+    IO.puts("Tool #{metadata.tool_name} executed, error: #{metadata.is_error}")
+  end,
+  nil
+)
+```
+
+### Security Monitoring
+
+```elixir
+defmodule SecurityMonitor do
+  @moduledoc """
+  Monitor tool usage for security-sensitive operations.
+  """
+
+  @sensitive_tools ["Edit", "Write", "Bash"]
+  @sensitive_paths ["/etc", "/usr", "~/.ssh"]
+
+  def start_monitored_session(opts \\ []) do
+    callback = fn event ->
+      if sensitive_operation?(event) do
+        alert_security_team(event)
+      end
+    end
+
+    ClaudeCode.start_link([tool_callback: callback] ++ opts)
+  end
+
+  defp sensitive_operation?(event) do
+    event.name in @sensitive_tools and
+      path_is_sensitive?(event.input["path"] || event.input["file_path"])
+  end
+
+  defp path_is_sensitive?(nil), do: false
+  defp path_is_sensitive?(path) do
+    Enum.any?(@sensitive_paths, &String.starts_with?(path, &1))
+  end
+
+  defp alert_security_team(event) do
+    # Send to security monitoring system
+    IO.puts("[SECURITY ALERT] Sensitive operation: #{event.name} on #{inspect(event.input)}")
+  end
+end
+```
+
+### Analytics Dashboard
+
+```elixir
+defmodule ToolAnalytics do
+  use GenServer
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  def get_stats, do: GenServer.call(__MODULE__, :get_stats)
+
+  def start_session(session_opts \\ []) do
+    callback = fn event ->
+      GenServer.cast(__MODULE__, {:record, event})
+    end
+
+    ClaudeCode.start_link([tool_callback: callback] ++ session_opts)
+  end
+
+  # GenServer callbacks
+
+  def init(_opts) do
+    {:ok, %{tool_counts: %{}, error_counts: %{}, total: 0}}
+  end
+
+  def handle_cast({:record, event}, state) do
+    new_state = state
+    |> Map.update!(:total, &(&1 + 1))
+    |> update_in([:tool_counts, event.name], &((&1 || 0) + 1))
+    |> then(fn s ->
+      if event.is_error do
+        update_in(s, [:error_counts, event.name], &((&1 || 0) + 1))
+      else
+        s
+      end
+    end)
+
+    {:noreply, new_state}
+  end
+
+  def handle_call(:get_stats, _from, state) do
+    {:reply, state, state}
+  end
+end
+
+# Usage:
+# {:ok, _} = ToolAnalytics.start_link()
+# {:ok, session} = ToolAnalytics.start_session()
+# ... use session ...
+# stats = ToolAnalytics.get_stats()
+# IO.inspect(stats)
+```
+
+## MCP Integration
+
+The Model Context Protocol (MCP) allows you to expose custom Elixir tools to Claude. This requires the optional `hermes_mcp` dependency.
+
+### Installation
+
+Add Hermes MCP to your dependencies:
+
+```elixir
+# mix.exs
+def deps do
+  [
+    {:claude_code, "~> 0.4"},
+    {:hermes_mcp, "~> 0.14"}
+  ]
+end
+```
+
+### Defining Tools with Hermes
+
+```elixir
+defmodule MyApp.Tools.Calculator do
+  @moduledoc "A calculator tool for Claude"
+  use Hermes.Server.Component, type: :tool
+
+  @impl true
+  def definition do
+    %{
+      name: "calculator",
+      description: "Perform mathematical calculations",
+      inputSchema: %{
+        type: "object",
+        properties: %{
+          operation: %{
+            type: "string",
+            enum: ["add", "subtract", "multiply", "divide"],
+            description: "The operation to perform"
+          },
+          a: %{type: "number", description: "First operand"},
+          b: %{type: "number", description: "Second operand"}
+        },
+        required: ["operation", "a", "b"]
+      }
+    }
+  end
+
+  @impl true
+  def execute(%{"operation" => op, "a" => a, "b" => b}, _frame) do
+    result = case op do
+      "add" -> a + b
+      "subtract" -> a - b
+      "multiply" -> a * b
+      "divide" when b != 0 -> a / b
+      "divide" -> {:error, "Division by zero"}
+    end
+
+    case result do
+      {:error, msg} -> {:error, msg}
+      value -> {:ok, [%{type: "text", text: "Result: #{value}"}]}
+    end
+  end
+end
+
+defmodule MyApp.Tools.DatabaseQuery do
+  @moduledoc "Query the application database"
+  use Hermes.Server.Component, type: :tool
+
+  @impl true
+  def definition do
+    %{
+      name: "query_users",
+      description: "Search for users in the database",
+      inputSchema: %{
+        type: "object",
+        properties: %{
+          email: %{type: "string", description: "Email to search for"},
+          limit: %{type: "integer", description: "Max results", default: 10}
+        },
+        required: ["email"]
+      }
+    }
+  end
+
+  @impl true
+  def execute(%{"email" => email} = params, _frame) do
+    limit = Map.get(params, "limit", 10)
+
+    users = MyApp.Repo.all(
+      from u in MyApp.User,
+      where: ilike(u.email, ^"%#{email}%"),
+      limit: ^limit,
+      select: %{id: u.id, email: u.email, name: u.name}
+    )
+
+    {:ok, [%{type: "text", text: Jason.encode!(users, pretty: true)}]}
+  end
+end
+```
+
+### Creating the MCP Server
+
+```elixir
+defmodule MyApp.MCPServer do
+  use Hermes.Server,
+    name: "myapp-tools",
+    version: "1.0.0"
+
+  tool MyApp.Tools.Calculator
+  tool MyApp.Tools.DatabaseQuery
+end
+```
+
+### Starting the Server with ClaudeCode
+
+```elixir
+defmodule MyApp.ClaudeWithMCP do
+  @moduledoc """
+  Start a ClaudeCode session with custom MCP tools.
+  """
+
+  def start_session(opts \\ []) do
+    # Check if Hermes is available
+    unless ClaudeCode.MCP.available?() do
+      raise "hermes_mcp dependency is required for MCP integration"
+    end
+
+    # Start the MCP server
+    {:ok, config_path} = ClaudeCode.MCP.Server.start_link(
+      server: MyApp.MCPServer,
+      port: Keyword.get(opts, :mcp_port, 9001)
+    )
+
+    # Start ClaudeCode with MCP config
+    ClaudeCode.start_link([mcp_config: config_path] ++ opts)
+  end
+end
+
+# Usage:
+# {:ok, session} = MyApp.ClaudeWithMCP.start_session()
+# {:ok, response} = ClaudeCode.query(session, "Calculate 15 * 7")
+# => Claude uses the calculator tool and returns "Result: 105"
+```
+
+### Multiple MCP Servers
+
+```elixir
+defmodule MyApp.MultiMCP do
+  alias ClaudeCode.MCP.Config
+
+  def start_with_multiple_servers do
+    # Generate configs for multiple servers
+    calc_config = Config.http_config("calculator", port: 9001)
+    db_config = Config.http_config("database", port: 9002)
+
+    # Merge configs
+    merged = Config.merge_configs([calc_config, db_config])
+
+    # Write to temp file
+    {:ok, config_path} = Config.write_temp_config(merged)
+
+    # Start ClaudeCode with all servers
+    ClaudeCode.start_link(mcp_config: config_path)
+  end
+end
+```
+
+### Production Supervision
+
+```elixir
+defmodule MyApp.Application do
+  use Application
+
+  def start(_type, _args) do
+    children = [
+      # Start MCP server under supervision
+      {ClaudeCode.MCP.Server, server: MyApp.MCPServer, port: 9001, name: :mcp_server},
+
+      # Other children...
+      MyAppWeb.Endpoint
+    ]
+
+    opts = [strategy: :one_for_one, name: MyApp.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
+
+### Stdio Transport for CLI Tools
+
+For command-line MCP tools, use stdio transport:
+
+```elixir
+defmodule MyApp.StdioMCP do
+  alias ClaudeCode.MCP.Config
+
+  def generate_config do
+    # For a mix-based Elixir MCP server
+    stdio_config = Config.stdio_config("elixir-tools",
+      command: "mix",
+      args: ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"],
+      env: %{"MIX_ENV" => "prod"}
+    )
+
+    {:ok, path} = Config.write_temp_config(stdio_config)
+    path
+  end
+end
+```
 
 ## CLI Applications
 

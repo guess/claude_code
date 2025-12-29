@@ -5,6 +5,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
 
   alias ClaudeCode.Content
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.StreamEvent
 
   def system_message(attrs \\ %{}) do
     defaults = %{
@@ -101,5 +102,189 @@ defmodule ClaudeCode.Test.MessageFixtures do
       content: content,
       is_error: is_error
     }
+  end
+
+  @doc """
+  Creates an assistant message containing a tool use block.
+  """
+  def assistant_message_with_tool_use(opts \\ []) do
+    tool_id = Keyword.get(opts, :tool_id, "tool_#{:rand.uniform(10_000)}")
+    tool_name = Keyword.get(opts, :tool_name, "Read")
+    tool_input = Keyword.get(opts, :tool_input, %{"path" => "/tmp/test.txt"})
+    text = Keyword.get(opts, :text)
+
+    content =
+      if text do
+        [text_content(text), tool_use_content(tool_name, tool_input, tool_id)]
+      else
+        [tool_use_content(tool_name, tool_input, tool_id)]
+      end
+
+    assistant_message(
+      message: %{
+        id: Keyword.get(opts, :message_id, "msg_#{:rand.uniform(10_000)}"),
+        content: content,
+        stop_reason: :tool_use
+      }
+    )
+  end
+
+  @doc """
+  Creates a user message containing a tool result block.
+  """
+  def user_message_with_tool_result(opts \\ []) do
+    tool_use_id = Keyword.get(opts, :tool_use_id, "tool_#{:rand.uniform(10_000)}")
+    content = Keyword.get(opts, :content, "file contents here")
+    is_error = Keyword.get(opts, :is_error, false)
+
+    user_message(
+      message: %{
+        id: Keyword.get(opts, :message_id, "msg_#{:rand.uniform(10_000)}"),
+        content: [tool_result_content(content, tool_use_id, is_error)]
+      }
+    )
+  end
+
+  # Stream event fixtures for partial message streaming
+
+  @doc """
+  Creates a message_start stream event.
+  """
+  def stream_event_message_start(attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :message_start,
+        message: Map.get(attrs, :message, %{})
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a content_block_start stream event.
+  """
+  def stream_event_content_block_start(attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :content_block_start,
+        index: Map.get(attrs, :index, 0),
+        content_block: Map.get(attrs, :content_block, %{type: :text, text: ""})
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a text delta stream event.
+  """
+  def stream_event_text_delta(text, attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :content_block_delta,
+        index: Map.get(attrs, :index, 0),
+        delta: %{type: :text_delta, text: text}
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates an input_json_delta stream event for tool use streaming.
+  """
+  def stream_event_input_json_delta(partial_json, attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :content_block_delta,
+        index: Map.get(attrs, :index, 0),
+        delta: %{type: :input_json_delta, partial_json: partial_json}
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a content_block_stop stream event.
+  """
+  def stream_event_content_block_stop(attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :content_block_stop,
+        index: Map.get(attrs, :index, 0)
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a message_delta stream event.
+  """
+  def stream_event_message_delta(attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :message_delta,
+        delta: Map.get(attrs, :delta, %{stop_reason: "end_turn"}),
+        usage: Map.get(attrs, :usage, %{})
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a message_stop stream event.
+  """
+  def stream_event_message_stop(attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{type: :message_stop},
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a complete sequence of stream events simulating a text response.
+  """
+  def stream_event_sequence(text_chunks) when is_list(text_chunks) do
+    text_deltas = Enum.map(text_chunks, &stream_event_text_delta/1)
+
+    [stream_event_message_start()] ++
+      [stream_event_content_block_start()] ++
+      text_deltas ++
+      [stream_event_content_block_stop()] ++
+      [stream_event_message_delta()] ++
+      [stream_event_message_stop()]
   end
 end

@@ -2,7 +2,7 @@
 
 ## Current State (Phase 4 Complete)
 
-**23 features implemented** | **3 features to build for v1.0** | **7 features killed**
+**24 features implemented** | **2 features to build for v1.0** | **7 features killed**
 
 ---
 
@@ -73,7 +73,7 @@
 | Feature | SDK Option | Status | Notes |
 |---------|------------|--------|-------|
 | Current streaming | Built-in | ✅ HAVE | Stream complete messages |
-| Partial message streaming | `:include_partial_messages` | 🔨 BUILD | **P1** - LiveView real-time updates |
+| Partial message streaming | `:include_partial_messages` | ✅ HAVE | Character-level streaming for LiveView |
 | Streaming input | `:input_format` | ⏸️ LATER | P2 - Complex, low ROI |
 | Replay user messages | N/A | 🗑️ KILLED | Only relevant with streaming input |
 
@@ -135,7 +135,7 @@ These are CLI configuration commands, not runtime features:
 **Effort**: ~5 hours remaining
 
 ### High Priority (P1) - Week 2
-5. 🔨 Add `--include-partial-messages` for LiveView
+5. ✅ ~~Add `--include-partial-messages` for LiveView~~
 6. 🔨 Add `--fork-session` for conversation branching
 7. ✅ ~~Add `--settings` for team configuration~~
 
@@ -172,11 +172,11 @@ These are CLI configuration commands, not runtime features:
 | Streaming output | ✅ | ✅ | ✅ |
 | Custom agents | ✅ | ✅ | ✅ |
 | Team settings | ✅ | ✅ | ✅ |
-| Partial messages | ✅ | ❌ | ✅ |
+| Partial messages | ✅ | ✅ | ✅ |
 | Fallback model | ✅ | ❌ | ✅ |
 | Session forking | ✅ | ❌ | ✅ |
 
-**Coverage**: 88% now → **100% at v1.0** (for 95% of use cases)
+**Coverage**: 92% now → **100% at v1.0** (for 95% of use cases)
 
 ---
 
@@ -184,11 +184,11 @@ These are CLI configuration commands, not runtime features:
 
 ```
 Current State:
-  ✅ HAVE:    23 features (88% of relevant features)
+  ✅ HAVE:    24 features (92% of relevant features)
   ⚠️ BROKEN:   0 features
 
 v1.0 Plan:
-  🔨 BUILD:    3 features (P0-P1)
+  🔨 BUILD:    2 features (P0-P1)
   ⏸️ LATER:    2 features (v1.1+)
   🗑️ KILLED:   7 features (out of scope)
 
@@ -197,5 +197,5 @@ Total Coverage: 28 features categorized (100%)
 
 ---
 
-**Last Updated**: 2025-10-02
-**Next Action**: Create project folders for P0 + P1 work
+**Last Updated**: 2025-12-29
+**Next Action**: Add fallback model and session forking support

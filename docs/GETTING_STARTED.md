@@ -205,7 +205,9 @@ Now that you have ClaudeCode working:
 
 1. **Explore Examples** - Check out [examples](EXAMPLES.md) for real-world usage patterns
 2. **Configure for Production** - Learn about advanced options in the main [README](../README.md)
-3. **Troubleshooting** - If you run into issues, see [Troubleshooting](TROUBLESHOOTING.md)
+3. **Tool Callbacks** - Monitor tool executions for logging and auditing
+4. **MCP Integration** - Expose your own Elixir tools to Claude via Hermes MCP
+5. **Troubleshooting** - If you run into issues, see [Troubleshooting](TROUBLESHOOTING.md)
 
 ## Common First Steps
 

@@ -11,11 +11,13 @@ defmodule ClaudeCode.Session do
 
   alias ClaudeCode.CLI
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.StreamEvent
   alias ClaudeCode.Options
+  alias ClaudeCode.ToolCallback
 
   require Logger
 
-  defstruct [:api_key, :model, :active_requests, :session_options, :session_id]
+  defstruct [:api_key, :model, :active_requests, :session_options, :session_id, :tool_callback, :pending_tool_uses]
 
   @request_timeout 300_000
 
@@ -76,7 +78,9 @@ defmodule ClaudeCode.Session do
       model: Keyword.get(validated_opts, :model),
       session_options: validated_opts,
       active_requests: %{},
-      session_id: nil
+      session_id: nil,
+      tool_callback: Keyword.get(validated_opts, :tool_callback),
+      pending_tool_uses: %{}
     }
 
     {:ok, state}
@@ -303,22 +307,23 @@ defmodule ClaudeCode.Session do
     {lines, remaining_buffer} = extract_lines(buffer)
 
     # Process each complete line for this request
-    {updated_request, should_complete, new_session_id} =
-      Enum.reduce(lines, {request, false, state.session_id}, fn line, {req, complete, session_id} ->
-        case process_json_line_for_request(line, req) do
-          {:ok, updated_req, :result} ->
+    # Thread state through to handle tool callback updates
+    {updated_request, should_complete, new_session_id, updated_state} =
+      Enum.reduce(lines, {request, false, state.session_id, state}, fn line, {req, complete, session_id, st} ->
+        case process_json_line_for_request(line, req, st) do
+          {:ok, updated_req, :result, new_st} ->
             # Extract session ID from result message if available
             result_session_id = extract_session_id_from_request(updated_req)
-            {updated_req, true, result_session_id || session_id}
+            {updated_req, true, result_session_id || session_id, new_st}
 
-          {:ok, updated_req, _message_type} ->
+          {:ok, updated_req, _message_type, new_st} ->
             # Extract session ID from any message type
             msg_session_id = extract_session_id_from_request(updated_req)
-            {updated_req, complete, msg_session_id || session_id}
+            {updated_req, complete, msg_session_id || session_id, new_st}
 
           {:error, _reason} ->
             # Skip invalid JSON lines
-            {req, complete, session_id}
+            {req, complete, session_id, st}
         end
       end)
 
@@ -327,8 +332,8 @@ defmodule ClaudeCode.Session do
 
     # Update state with new session ID and request
     new_state = %{
-      state
-      | active_requests: Map.put(state.active_requests, request_id, updated_request),
+      updated_state
+      | active_requests: Map.put(updated_state.active_requests, request_id, updated_request),
         session_id: new_session_id
     }
 
@@ -349,16 +354,16 @@ defmodule ClaudeCode.Session do
     end
   end
 
-  defp process_json_line_for_request("", _request), do: {:error, :empty_line}
+  defp process_json_line_for_request("", _request, _state), do: {:error, :empty_line}
 
-  defp process_json_line_for_request(line, request) do
+  defp process_json_line_for_request(line, request, state) do
     case Jason.decode(line) do
       {:ok, json} ->
         case Message.parse(json) do
           {:ok, message} ->
-            updated_request = process_message_for_request(message, request)
+            {updated_request, updated_state} = process_message_for_request(message, request, state)
             message_type = determine_message_type(message)
-            {:ok, updated_request, message_type}
+            {:ok, updated_request, message_type, updated_state}
 
           {:error, error} ->
             Logger.debug("Failed to parse message: #{inspect(error)}")
@@ -375,10 +380,17 @@ defmodule ClaudeCode.Session do
   defp determine_message_type(%Message.Assistant{}), do: :assistant
   defp determine_message_type(%Message.User{}), do: :user
   defp determine_message_type(%Message.Result{}), do: :result
+  defp determine_message_type(%StreamEvent{}), do: :stream_event
 
-  defp process_message_for_request(message, request) do
+  defp process_message_for_request(message, request, state) do
     # Store message
     updated_request = %{request | messages: request.messages ++ [message]}
+
+    # Process tool callback
+    {new_pending_tools, _events} =
+      ToolCallback.process_message(message, state.pending_tool_uses, state.tool_callback)
+
+    updated_state = %{state | pending_tool_uses: new_pending_tools}
 
     # Send to subscribers if streaming
     case request.type do
@@ -392,7 +404,7 @@ defmodule ClaudeCode.Session do
         nil
     end
 
-    updated_request
+    {updated_request, updated_state}
   end
 
   defp complete_request(request_id, request, state) do

@@ -53,6 +53,9 @@ defmodule ClaudeCode.MixProject do
       {:nimble_options, "~> 1.0"},
       {:telemetry, "~> 1.2"},
 
+      # Optional dependencies
+      {:hermes_mcp, "~> 0.14", optional: true},
+
       # Development and test dependencies
       {:styler, "~> 1.0", only: [:dev, :test], runtime: false},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -136,6 +139,10 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Message,
           ClaudeCode.Content
         ],
+        Callbacks: [
+          ClaudeCode.ToolCallback
+        ],
+        "MCP Integration": ~r/ClaudeCode.MCP/,
         Messages: ~r/ClaudeCode.Message/,
         "Content Blocks": ~r/ClaudeCode.Content/
       ]
