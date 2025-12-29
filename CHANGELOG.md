@@ -14,11 +14,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables real-time character-by-character streaming for LiveView applications
   - Supports text deltas, input JSON deltas (for tool use), and thinking deltas
   - Maps to CLI `--include-partial-messages` flag
+- **Post-execution tool callback** for logging and auditing tool usage
+  - New `:tool_callback` session option accepts a function that receives tool execution events
+  - Event includes: `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
+  - Callbacks invoked asynchronously via `Task.start` to avoid blocking
+  - New `ClaudeCode.ToolCallback` module handles correlation between ToolUse and ToolResult
+- **Hermes MCP integration** for exposing Elixir tools to Claude
+  - New optional dependency: `{:hermes_mcp, "~> 0.14", optional: true}`
+  - `ClaudeCode.MCP` module with `available?/0` and `require_hermes!/0` helpers
+  - `ClaudeCode.MCP.Config` for generating MCP configuration JSON files
+    - `http_config/2` for HTTP/SSE transport configuration
+    - `stdio_config/2` for stdio transport configuration
+    - `merge_configs/1` to combine multiple server configs
+    - `write_temp_config/2` to write config to temp file for CLI
+  - `ClaudeCode.MCP.Server` for starting Hermes MCP servers
+    - `start_link/1` starts an MCP server and returns config path
+    - `stdio_command/1` generates stdio command configuration
+  - Enables Elixir applications to expose custom tools to Claude via MCP protocol
 
 ### Changed
 - Updated `ClaudeCode.Message.parse/1` to handle `stream_event` message type
 - Updated `ClaudeCode.Session` to process `StreamEvent` messages
 - Extended `ClaudeCode.Stream.filter_type/2` to support `:stream_event` and `:text_delta` filters
+- Session struct now includes `:tool_callback` and `:pending_tool_uses` for callback state management
 
 ## [0.4.0] - 2025-10-02
 

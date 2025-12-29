@@ -104,6 +104,8 @@ ClaudeCode.query(:assistant, "Help with this task")
 - **🏭 Production Ready**: Fault-tolerant supervision with automatic restarts
 - **⚡ High Performance**: Concurrent sessions for parallel processing
 - **🔧 Phoenix Integration**: Drop-in compatibility with LiveView and Phoenix apps
+- **📊 Tool Callbacks**: Monitor and log all tool executions for auditing
+- **🔌 MCP Integration**: Expose Elixir tools to Claude via Model Context Protocol
 
 ## 🏭 Production Usage
 
@@ -150,6 +152,37 @@ case ClaudeCode.query(session, "Hello") do
   {:error, {:cli_not_found, msg}} -> IO.puts("CLI error: #{msg}")
   {:error, {:claude_error, msg}} -> IO.puts("Claude error: #{msg}")
 end
+```
+
+### Tool Callbacks
+Monitor tool executions for logging, auditing, or analytics:
+```elixir
+callback = fn event ->
+  Logger.info("Tool #{event.name} executed",
+    input: event.input,
+    result: event.result,
+    is_error: event.is_error
+  )
+end
+
+{:ok, session} = ClaudeCode.start_link(tool_callback: callback)
+```
+
+### MCP Integration (Optional)
+Expose Elixir tools to Claude using Hermes MCP:
+```elixir
+# Add {:hermes_mcp, "~> 0.14"} to your deps
+
+# Start MCP server with your tools
+{:ok, config_path} = ClaudeCode.MCP.Server.start_link(
+  server: MyApp.MCPServer,
+  port: 9001
+)
+
+# Connect ClaudeCode to MCP server
+{:ok, session} = ClaudeCode.start_link(mcp_config: config_path)
+
+# Claude can now use your custom tools!
 ```
 
 ## 📚 Documentation

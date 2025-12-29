@@ -5,6 +5,8 @@ This document provides real-world examples of using ClaudeCode in different scen
 ## Table of Contents
 
 - [Character-Level Streaming](#character-level-streaming)
+- [Tool Callbacks](#tool-callbacks)
+- [MCP Integration](#mcp-integration)
 - [CLI Applications](#cli-applications)
 - [Web Applications](#web-applications)
 - [Phoenix LiveView Integration](#phoenix-liveview-integration)
