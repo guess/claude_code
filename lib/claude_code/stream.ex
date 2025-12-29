@@ -17,6 +17,7 @@ defmodule ClaudeCode.Stream do
 
   alias ClaudeCode.Content
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.StreamEvent
 
   @doc """
   Creates a stream of messages from a Claude Code query.
@@ -81,6 +82,85 @@ defmodule ClaudeCode.Stream do
       message.content
       |> Enum.filter(&match?(%Content.Text{}, &1))
       |> Enum.map(& &1.text)
+    end)
+  end
+
+  @doc """
+  Extracts text deltas from a partial message stream.
+
+  This enables character-by-character streaming from Claude's responses.
+  Use with `include_partial_messages: true` option.
+
+  ## Examples
+
+      # Real-time character streaming for LiveView
+      ClaudeCode.query_stream(session, "Tell a story", include_partial_messages: true)
+      |> ClaudeCode.Stream.text_deltas()
+      |> Enum.each(fn chunk ->
+        Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:123", {:text_chunk, chunk})
+      end)
+
+      # Simple console output
+      session
+      |> ClaudeCode.query_stream("Hello", include_partial_messages: true)
+      |> ClaudeCode.Stream.text_deltas()
+      |> Enum.each(&IO.write/1)
+  """
+  @spec text_deltas(Enumerable.t()) :: Enumerable.t()
+  def text_deltas(stream) do
+    stream
+    |> Stream.filter(&StreamEvent.text_delta?/1)
+    |> Stream.map(&StreamEvent.get_text/1)
+  end
+
+  @doc """
+  Extracts all content deltas from a partial message stream.
+
+  Returns a stream of delta maps, useful for tracking both text
+  and tool use input as it arrives. Each element contains:
+  - `type`: `:text_delta`, `:input_json_delta`, or `:thinking_delta`
+  - `index`: The content block index
+  - Content-specific fields (`text`, `partial_json`, or `thinking`)
+
+  ## Examples
+
+      ClaudeCode.query_stream(session, "Create a file", include_partial_messages: true)
+      |> ClaudeCode.Stream.content_deltas()
+      |> Enum.each(fn delta ->
+        case delta.type do
+          :text_delta -> IO.write(delta.text)
+          :input_json_delta -> handle_tool_json(delta.partial_json)
+          _ -> :ok
+        end
+      end)
+  """
+  @spec content_deltas(Enumerable.t()) :: Enumerable.t()
+  def content_deltas(stream) do
+    stream
+    |> Stream.filter(&match?(%StreamEvent{event: %{type: :content_block_delta}}, &1))
+    |> Stream.map(fn %StreamEvent{event: %{delta: delta, index: index}} ->
+      Map.put(delta, :index, index)
+    end)
+  end
+
+  @doc """
+  Filters stream to only stream events of a specific event type.
+
+  Valid event types: `:message_start`, `:content_block_start`,
+  `:content_block_delta`, `:content_block_stop`, `:message_delta`, `:message_stop`
+
+  ## Examples
+
+      # Only content block deltas
+      stream
+      |> ClaudeCode.Stream.filter_event_type(:content_block_delta)
+      |> Enum.each(&process_delta/1)
+  """
+  @spec filter_event_type(Enumerable.t(), StreamEvent.event_type()) :: Enumerable.t()
+  def filter_event_type(stream, event_type) do
+    Stream.filter(stream, fn
+      %StreamEvent{event: %{type: ^event_type}} -> true
+      _ -> false
     end)
   end
 
@@ -245,9 +325,15 @@ defmodule ClaudeCode.Stream do
   defp message_type_matches?(%Message.Result{}, :result), do: true
   defp message_type_matches?(%Message.System{}, :system), do: true
   defp message_type_matches?(%Message.User{}, :user), do: true
+  defp message_type_matches?(%StreamEvent{}, :stream_event), do: true
 
   defp message_type_matches?(%Message.Assistant{message: message}, :tool_use) do
     Enum.any?(message.content, &match?(%Content.ToolUse{}, &1))
+  end
+
+  # Match text delta stream events when filtering for :text_delta
+  defp message_type_matches?(%StreamEvent{} = event, :text_delta) do
+    StreamEvent.text_delta?(event)
   end
 
   defp message_type_matches?(_, _), do: false

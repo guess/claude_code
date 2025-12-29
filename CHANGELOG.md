@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Character-level streaming support with `include_partial_messages: true` option
+  - New `ClaudeCode.Message.StreamEvent` module for handling partial message events
+  - New stream utilities: `Stream.text_deltas/1`, `Stream.content_deltas/1`, `Stream.filter_event_type/2`
+  - Enables real-time character-by-character streaming for LiveView applications
+  - Supports text deltas, input JSON deltas (for tool use), and thinking deltas
+  - Maps to CLI `--include-partial-messages` flag
+
+### Changed
+- Updated `ClaudeCode.Message.parse/1` to handle `stream_event` message type
+- Updated `ClaudeCode.Session` to process `StreamEvent` messages
+- Extended `ClaudeCode.Stream.filter_type/2` to support `:stream_event` and `:text_delta` filters
+
 ## [0.4.0] - 2025-10-02
 
 ### Added

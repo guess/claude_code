@@ -4,6 +4,7 @@ defmodule ClaudeCode.StreamTest do
   import ClaudeCode.Test.MessageFixtures
 
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.StreamEvent
   alias ClaudeCode.Stream
 
   describe "text_content/1" do
@@ -219,6 +220,176 @@ defmodule ClaudeCode.StreamTest do
 
       buffered = messages |> Stream.buffered_text() |> Enum.to_list()
       assert buffered == ["First. Second. "]
+    end
+  end
+
+  describe "text_deltas/1" do
+    test "extracts text from text_delta stream events" do
+      events = [
+        stream_event_message_start(),
+        stream_event_content_block_start(),
+        stream_event_text_delta("Hello"),
+        stream_event_text_delta(" "),
+        stream_event_text_delta("World!"),
+        stream_event_content_block_stop(),
+        stream_event_message_stop()
+      ]
+
+      text_chunks = events |> Stream.text_deltas() |> Enum.to_list()
+      assert text_chunks == ["Hello", " ", "World!"]
+    end
+
+    test "ignores non-text-delta events" do
+      events = [
+        stream_event_message_start(),
+        stream_event_content_block_start(),
+        stream_event_text_delta("Hello"),
+        stream_event_input_json_delta("{\"path\":"),
+        stream_event_text_delta(" World"),
+        stream_event_content_block_stop()
+      ]
+
+      text_chunks = events |> Stream.text_deltas() |> Enum.to_list()
+      assert text_chunks == ["Hello", " World"]
+    end
+
+    test "handles empty stream" do
+      text_chunks = [] |> Stream.text_deltas() |> Enum.to_list()
+      assert text_chunks == []
+    end
+
+    test "filters out non-stream-event messages" do
+      events = [
+        system_message(),
+        stream_event_text_delta("Hello"),
+        assistant_message(message: %{content: [text_content("world")]}),
+        stream_event_text_delta(" there")
+      ]
+
+      text_chunks = events |> Stream.text_deltas() |> Enum.to_list()
+      assert text_chunks == ["Hello", " there"]
+    end
+  end
+
+  describe "content_deltas/1" do
+    test "extracts all content deltas with index" do
+      events = [
+        stream_event_content_block_start(%{index: 0}),
+        stream_event_text_delta("Hello", %{index: 0}),
+        stream_event_text_delta(" World", %{index: 0}),
+        stream_event_content_block_stop(%{index: 0})
+      ]
+
+      deltas = events |> Stream.content_deltas() |> Enum.to_list()
+
+      assert length(deltas) == 2
+      assert Enum.at(deltas, 0) == %{type: :text_delta, text: "Hello", index: 0}
+      assert Enum.at(deltas, 1) == %{type: :text_delta, text: " World", index: 0}
+    end
+
+    test "handles mixed content types" do
+      events = [
+        stream_event_text_delta("I'll read the file", %{index: 0}),
+        stream_event_input_json_delta("{\"path\":", %{index: 1}),
+        stream_event_input_json_delta("\"/test.txt\"}", %{index: 1})
+      ]
+
+      deltas = events |> Stream.content_deltas() |> Enum.to_list()
+
+      assert length(deltas) == 3
+      assert Enum.at(deltas, 0).type == :text_delta
+      assert Enum.at(deltas, 0).index == 0
+      assert Enum.at(deltas, 1).type == :input_json_delta
+      assert Enum.at(deltas, 1).index == 1
+      assert Enum.at(deltas, 2).type == :input_json_delta
+    end
+
+    test "ignores non-delta events" do
+      events = [
+        stream_event_message_start(),
+        stream_event_content_block_start(),
+        stream_event_text_delta("Hello"),
+        stream_event_content_block_stop(),
+        stream_event_message_stop()
+      ]
+
+      deltas = events |> Stream.content_deltas() |> Enum.to_list()
+
+      assert length(deltas) == 1
+      assert hd(deltas).text == "Hello"
+    end
+  end
+
+  describe "filter_event_type/2" do
+    test "filters by stream event type" do
+      events = [
+        stream_event_message_start(),
+        stream_event_content_block_start(),
+        stream_event_text_delta("Hello"),
+        stream_event_content_block_stop(),
+        stream_event_message_stop()
+      ]
+
+      starts = events |> Stream.filter_event_type(:content_block_start) |> Enum.to_list()
+      assert length(starts) == 1
+      assert match?(%StreamEvent{event: %{type: :content_block_start}}, hd(starts))
+
+      deltas = events |> Stream.filter_event_type(:content_block_delta) |> Enum.to_list()
+      assert length(deltas) == 1
+    end
+
+    test "handles mixed message types" do
+      events = [
+        system_message(),
+        stream_event_text_delta("Hello"),
+        assistant_message(),
+        stream_event_message_stop()
+      ]
+
+      stops = events |> Stream.filter_event_type(:message_stop) |> Enum.to_list()
+      assert length(stops) == 1
+    end
+  end
+
+  describe "filter_type/2 with stream events" do
+    test "filters stream_event type" do
+      events = [
+        system_message(),
+        stream_event_text_delta("Hello"),
+        assistant_message(),
+        stream_event_message_stop(),
+        result_message()
+      ]
+
+      stream_events = events |> Stream.filter_type(:stream_event) |> Enum.to_list()
+      assert length(stream_events) == 2
+      assert Enum.all?(stream_events, &match?(%StreamEvent{}, &1))
+    end
+
+    test "filters text_delta pseudo-type" do
+      events = [
+        stream_event_message_start(),
+        stream_event_text_delta("Hello"),
+        stream_event_input_json_delta("{}"),
+        stream_event_text_delta(" World"),
+        stream_event_message_stop()
+      ]
+
+      text_deltas = events |> Stream.filter_type(:text_delta) |> Enum.to_list()
+      assert length(text_deltas) == 2
+      assert Enum.all?(text_deltas, &StreamEvent.text_delta?/1)
+    end
+  end
+
+  describe "stream_event_sequence/1 fixture" do
+    test "creates a complete event sequence" do
+      sequence = stream_event_sequence(["Hello", " ", "World!"])
+
+      # message_start, block_start, 3 deltas, block_stop, message_delta, message_stop
+      assert length(sequence) == 8
+
+      text_chunks = sequence |> Stream.text_deltas() |> Enum.to_list()
+      assert text_chunks == ["Hello", " ", "World!"]
     end
   end
 end

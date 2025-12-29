@@ -9,10 +9,11 @@ defmodule ClaudeCode.Message do
 
   alias ClaudeCode.Message.Assistant
   alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.StreamEvent
   alias ClaudeCode.Message.System
   alias ClaudeCode.Message.User
 
-  @type t :: System.t() | Assistant.t() | User.t() | Result.t()
+  @type t :: System.t() | Assistant.t() | User.t() | Result.t() | StreamEvent.t()
 
   @doc """
   Parses a message from JSON data based on its type.
@@ -32,6 +33,7 @@ defmodule ClaudeCode.Message do
       "assistant" -> Assistant.new(data)
       "user" -> User.new(data)
       "result" -> Result.new(data)
+      "stream_event" -> StreamEvent.new(data)
       other -> {:error, {:unknown_message_type, other}}
     end
   end
@@ -96,14 +98,16 @@ defmodule ClaudeCode.Message do
   def message?(%Assistant{}), do: true
   def message?(%User{}), do: true
   def message?(%Result{}), do: true
+  def message?(%StreamEvent{}), do: true
   def message?(_), do: false
 
   @doc """
   Returns the type of a message.
   """
-  @spec message_type(t()) :: :system | :assistant | :user | :result
+  @spec message_type(t()) :: :system | :assistant | :user | :result | :stream_event
   def message_type(%System{type: type}), do: type
   def message_type(%Assistant{type: type}), do: type
   def message_type(%User{type: type}), do: type
   def message_type(%Result{type: type}), do: type
+  def message_type(%StreamEvent{type: type}), do: type
 end

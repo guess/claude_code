@@ -163,6 +163,11 @@ defmodule ClaudeCode.Options do
     setting_sources: [
       type: {:list, :string},
       doc: "List of setting sources to load (user, project, local)"
+    ],
+    include_partial_messages: [
+      type: :boolean,
+      default: false,
+      doc: "Include partial message chunks as they arrive for character-level streaming"
     ]
   ]
 
@@ -192,6 +197,10 @@ defmodule ClaudeCode.Options do
     setting_sources: [
       type: {:list, :string},
       doc: "Override setting sources for this query (user, project, local)"
+    ],
+    include_partial_messages: [
+      type: :boolean,
+      doc: "Include partial message chunks as they arrive for character-level streaming"
     ]
   ]
 
@@ -403,6 +412,13 @@ defmodule ClaudeCode.Options do
     json_string = Jason.encode!(value)
     {"--agents", json_string}
   end
+
+  defp convert_option_to_cli_flag(:include_partial_messages, true) do
+    # Boolean flag without value - return as list to be flattened
+    ["--include-partial-messages"]
+  end
+
+  defp convert_option_to_cli_flag(:include_partial_messages, false), do: nil
 
   defp convert_option_to_cli_flag(key, value) do
     # Convert unknown keys to kebab-case flags

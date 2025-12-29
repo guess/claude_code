@@ -11,6 +11,7 @@ defmodule ClaudeCode.Session do
 
   alias ClaudeCode.CLI
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.StreamEvent
   alias ClaudeCode.Options
   alias ClaudeCode.ToolCallback
 
@@ -379,6 +380,7 @@ defmodule ClaudeCode.Session do
   defp determine_message_type(%Message.Assistant{}), do: :assistant
   defp determine_message_type(%Message.User{}), do: :user
   defp determine_message_type(%Message.Result{}), do: :result
+  defp determine_message_type(%StreamEvent{}), do: :stream_event
 
   defp process_message_for_request(message, request, state) do
     # Store message
