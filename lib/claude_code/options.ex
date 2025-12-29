@@ -33,6 +33,9 @@ defmodule ClaudeCode.Options do
     Map of agent name to agent configuration. Each agent must have `description` and `prompt`.
     Example: `%{"code-reviewer" => %{"description" => "Reviews code", "prompt" => "You are a code reviewer", "tools" => ["Read", "Edit"], "model" => "sonnet"}}`
   - `:mcp_config` - Path to MCP servers JSON config file (string, optional)
+  - `:mcp_servers` - MCP server configurations as a map (map, optional)
+    Values can be a Hermes MCP module (atom) or a command config map.
+    Example: `%{"my-tools" => MyApp.MCPServer, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}}`
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
@@ -96,6 +99,16 @@ defmodule ClaudeCode.Options do
         timeout: 120_000,
         allowed_tools: ["View", "Edit"]
 
+      # Session with MCP servers configured inline
+      {:ok, session} = ClaudeCode.start_link(
+        mcp_servers: %{
+          # Hermes MCP server module - auto-generates stdio config
+          "my-tools" => MyApp.MCPServer,
+          # Explicit command config for external MCP servers
+          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
+        }
+      )
+
   ## Security Considerations
 
   - **`:permission_mode`**: Controls permission handling behavior.
@@ -148,6 +161,11 @@ defmodule ClaudeCode.Options do
         "Custom agent definitions. Map of agent name to config with 'description', 'prompt', 'tools' (optional), 'model' (optional)"
     ],
     mcp_config: [type: :string, doc: "Path to MCP servers JSON config file"],
+    mcp_servers: [
+      type: {:map, :string, {:or, [:atom, :map]}},
+      doc:
+        ~s(MCP server configurations. Values can be a Hermes module atom or a config map. Example: %{"my-tools" => MyApp.MCPServer, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}})
+    ],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
     permission_mode: [
       type: {:in, [:default, :accept_edits, :bypass_permissions]},
@@ -181,6 +199,10 @@ defmodule ClaudeCode.Options do
     agents: [
       type: {:map, :string, :map},
       doc: "Override agent definitions for this query"
+    ],
+    mcp_servers: [
+      type: {:map, :string, {:or, [:atom, :map]}},
+      doc: "Override MCP server configurations for this query"
     ],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
@@ -413,6 +435,21 @@ defmodule ClaudeCode.Options do
     {"--agents", json_string}
   end
 
+  defp convert_option_to_cli_flag(:mcp_servers, value) when is_map(value) do
+    # Expand any module atoms to their stdio command config
+    expanded =
+      Map.new(value, fn
+        {name, module} when is_atom(module) ->
+          {name, expand_hermes_module(module)}
+
+        {name, config} when is_map(config) ->
+          {name, config}
+      end)
+
+    json_string = Jason.encode!(expanded)
+    {"--mcp-servers", json_string}
+  end
+
   defp convert_option_to_cli_flag(:include_partial_messages, true) do
     # Boolean flag without value - return as list to be flattened
     ["--include-partial-messages"]
@@ -424,5 +461,19 @@ defmodule ClaudeCode.Options do
     # Convert unknown keys to kebab-case flags
     flag_name = "--" <> (key |> to_string() |> String.replace("_", "-"))
     {flag_name, to_string(value)}
+  end
+
+  # Private helpers
+
+  defp expand_hermes_module(module) do
+    # Generate stdio command config for a Hermes MCP server module
+    # This allows the CLI to spawn the Elixir app with the MCP server
+    startup_code = "#{inspect(module)}.start_link(transport: :stdio)"
+
+    %{
+      command: "mix",
+      args: ["run", "--no-halt", "-e", startup_code],
+      env: %{"MIX_ENV" => "prod"}
+    }
   end
 end

@@ -57,6 +57,43 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:include_partial_messages] == false
     end
 
+    test "validates mcp_servers option as a map" do
+      opts = [
+        mcp_servers: %{
+          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]},
+          "filesystem" => %{command: "npx", args: ["-y", "@anthropic/mcp-filesystem"]}
+        }
+      ]
+
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:mcp_servers]["playwright"][:command] == "npx"
+      assert validated[:mcp_servers]["filesystem"][:args] == ["-y", "@anthropic/mcp-filesystem"]
+    end
+
+    test "validates mcp_servers with module atoms" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => MyApp.MCPServer
+        }
+      ]
+
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:mcp_servers]["my-tools"] == MyApp.MCPServer
+    end
+
+    test "validates mcp_servers with mixed modules and maps" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => MyApp.MCPServer,
+          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
+        }
+      ]
+
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:mcp_servers]["my-tools"] == MyApp.MCPServer
+      assert validated[:mcp_servers]["playwright"][:command] == "npx"
+    end
+
     test "accepts explicit api_key when provided" do
       opts = [api_key: "explicit-key", model: "opus"]
       assert {:ok, validated} = Options.validate_session_options(opts)
@@ -105,6 +142,17 @@ defmodule ClaudeCode.OptionsTest do
       opts = [include_partial_messages: true]
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:include_partial_messages] == true
+    end
+
+    test "validates mcp_servers in query options" do
+      opts = [
+        mcp_servers: %{
+          "custom-server" => %{command: "node", args: ["server.js"]}
+        }
+      ]
+
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:mcp_servers]["custom-server"][:command] == "node"
     end
 
     test "rejects invalid options" do
@@ -367,6 +415,94 @@ defmodule ClaudeCode.OptionsTest do
       assert Map.has_key?(decoded, "code-reviewer")
       assert Map.has_key?(decoded, "debugger")
       assert decoded["debugger"]["tools"] == ["Read", "Bash"]
+    end
+
+    test "converts mcp_servers map to JSON-encoded --mcp-servers" do
+      opts = [
+        mcp_servers: %{
+          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--mcp-servers" in args
+
+      # Find the JSON value
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      # Decode and verify
+      decoded = Jason.decode!(json_value)
+      assert decoded["playwright"]["command"] == "npx"
+      assert decoded["playwright"]["args"] == ["@playwright/mcp@latest"]
+    end
+
+    test "converts multiple mcp_servers to JSON" do
+      opts = [
+        mcp_servers: %{
+          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]},
+          "filesystem" => %{
+            command: "npx",
+            args: ["-y", "@anthropic/mcp-filesystem"],
+            env: %{"HOME" => "/tmp"}
+          }
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--mcp-servers" in args
+
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert Map.has_key?(decoded, "playwright")
+      assert Map.has_key?(decoded, "filesystem")
+      assert decoded["filesystem"]["env"]["HOME"] == "/tmp"
+    end
+
+    test "expands module atoms in mcp_servers to stdio command config" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => MyApp.MCPServer
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--mcp-servers" in args
+
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["my-tools"]["command"] == "mix"
+      assert decoded["my-tools"]["args"] == ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"]
+      assert decoded["my-tools"]["env"]["MIX_ENV"] == "prod"
+    end
+
+    test "expands mixed modules and maps in mcp_servers" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => MyApp.MCPServer,
+          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--mcp-servers" in args
+
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+
+      # Module was expanded
+      assert decoded["my-tools"]["command"] == "mix"
+      assert decoded["my-tools"]["args"] == ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"]
+
+      # Map config was preserved
+      assert decoded["playwright"]["command"] == "npx"
+      assert decoded["playwright"]["args"] == ["@playwright/mcp@latest"]
     end
 
     test "converts include_partial_messages true to --include-partial-messages" do
