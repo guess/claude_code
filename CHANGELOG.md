@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **ThinkingBlock content type** for extended thinking support
+  - New `ClaudeCode.Content.Thinking` module for parsing thinking blocks
+  - Thinking blocks contain `thinking` (reasoning text) and `signature` fields
+  - New stream utilities: `Stream.thinking_content/1`, `Stream.thinking_deltas/1`
+  - New `StreamEvent` helpers: `thinking_delta?/1`, `get_thinking/1`
+  - Enables real-time streaming of Claude's extended reasoning
+- **MCP servers map option** - `:mcp_servers` now accepts a map of server configurations ([4237686])
+  - Supports `stdio`, `sse`, and `http` transport types
+  - Each server config can include command, args, env, url, and headers
+  - Alternative to file-based MCP configuration
 - Character-level streaming support with `include_partial_messages: true` option
   - New `ClaudeCode.Message.StreamEvent` module for handling partial message events
   - New stream utilities: `Stream.text_deltas/1`, `Stream.content_deltas/1`, `Stream.filter_event_type/2`
@@ -33,10 +43,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables Elixir applications to expose custom tools to Claude via MCP protocol
 
 ### Changed
+- **Minimum Elixir version raised to 1.18** ([89e4a40])
 - Updated `ClaudeCode.Message.parse/1` to handle `stream_event` message type
 - Updated `ClaudeCode.Session` to process `StreamEvent` messages
 - Extended `ClaudeCode.Stream.filter_type/2` to support `:stream_event` and `:text_delta` filters
 - Session struct now includes `:tool_callback` and `:pending_tool_uses` for callback state management
+- Updated `ClaudeCode.Content` to include `Thinking.t()` in the content type union
 
 ## [0.4.0] - 2025-10-02
 

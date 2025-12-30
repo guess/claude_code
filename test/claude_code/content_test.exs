@@ -3,6 +3,7 @@ defmodule ClaudeCode.ContentTest do
 
   alias ClaudeCode.Content
   alias ClaudeCode.Content.Text
+  alias ClaudeCode.Content.Thinking
   alias ClaudeCode.Content.ToolResult
   alias ClaudeCode.Content.ToolUse
 
@@ -11,6 +12,29 @@ defmodule ClaudeCode.ContentTest do
       data = %{"type" => "text", "text" => "Hello!"}
 
       assert {:ok, %Text{text: "Hello!"}} = Content.parse(data)
+    end
+
+    test "parses thinking content blocks" do
+      data = %{
+        "type" => "thinking",
+        "thinking" => "Let me reason through this...",
+        "signature" => "sig_abc123"
+      }
+
+      assert {:ok, %Thinking{thinking: "Let me reason through this...", signature: "sig_abc123"}} =
+               Content.parse(data)
+    end
+
+    test "returns error for thinking block missing signature" do
+      data = %{"type" => "thinking", "thinking" => "Some reasoning"}
+
+      assert {:error, {:missing_fields, [:signature]}} = Content.parse(data)
+    end
+
+    test "returns error for thinking block missing thinking field" do
+      data = %{"type" => "thinking", "signature" => "sig_123"}
+
+      assert {:error, {:missing_fields, [:thinking]}} = Content.parse(data)
     end
 
     test "parses tool use content blocks" do
@@ -79,10 +103,15 @@ defmodule ClaudeCode.ContentTest do
   describe "type detection" do
     test "content?/1 returns true for any content type" do
       {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
+
+      {:ok, thinking} =
+        Thinking.new(%{"type" => "thinking", "thinking" => "reasoning", "signature" => "sig_1"})
+
       {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
       {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
 
       assert Content.content?(text)
+      assert Content.content?(thinking)
       assert Content.content?(tool)
       assert Content.content?(result)
     end
@@ -98,10 +127,15 @@ defmodule ClaudeCode.ContentTest do
   describe "content type helpers" do
     test "content_type/1 returns the type of content" do
       {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
+
+      {:ok, thinking} =
+        Thinking.new(%{"type" => "thinking", "thinking" => "reasoning", "signature" => "sig_1"})
+
       {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
       {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
 
       assert Content.content_type(text) == :text
+      assert Content.content_type(thinking) == :thinking
       assert Content.content_type(tool) == :tool_use
       assert Content.content_type(result) == :tool_result
     end

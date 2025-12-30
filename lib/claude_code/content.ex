@@ -2,15 +2,16 @@ defmodule ClaudeCode.Content do
   @moduledoc """
   Utilities for working with content blocks in Claude messages.
 
-  Content blocks can be text, tool use requests, or tool results.
+  Content blocks can be text, thinking, tool use requests, or tool results.
   This module provides functions to parse and work with any content type.
   """
 
   alias ClaudeCode.Content.Text
+  alias ClaudeCode.Content.Thinking
   alias ClaudeCode.Content.ToolResult
   alias ClaudeCode.Content.ToolUse
 
-  @type t :: Text.t() | ToolUse.t() | ToolResult.t()
+  @type t :: Text.t() | Thinking.t() | ToolUse.t() | ToolResult.t()
 
   @doc """
   Parses a content block from JSON data based on its type.
@@ -27,6 +28,7 @@ defmodule ClaudeCode.Content do
   def parse(%{"type" => type} = data) do
     case type do
       "text" -> Text.new(data)
+      "thinking" -> Thinking.new(data)
       "tool_use" -> ToolUse.new(data)
       "tool_result" -> ToolResult.new(data)
       other -> {:error, {:unknown_content_type, other}}
@@ -62,6 +64,7 @@ defmodule ClaudeCode.Content do
   """
   @spec content?(any()) :: boolean()
   def content?(%Text{}), do: true
+  def content?(%Thinking{}), do: true
   def content?(%ToolUse{}), do: true
   def content?(%ToolResult{}), do: true
   def content?(_), do: false
@@ -69,8 +72,9 @@ defmodule ClaudeCode.Content do
   @doc """
   Returns the type of a content block.
   """
-  @spec content_type(t()) :: :text | :tool_use | :tool_result
+  @spec content_type(t()) :: :text | :thinking | :tool_use | :tool_result
   def content_type(%Text{type: type}), do: type
+  def content_type(%Thinking{type: type}), do: type
   def content_type(%ToolUse{type: type}), do: type
   def content_type(%ToolResult{type: type}), do: type
 end

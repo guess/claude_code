@@ -104,6 +104,14 @@ defmodule ClaudeCode.Test.MessageFixtures do
     }
   end
 
+  def thinking_content(thinking, signature \\ nil) do
+    %Content.Thinking{
+      type: :thinking,
+      thinking: thinking,
+      signature: signature || "sig_#{:rand.uniform(10_000)}"
+    }
+  end
+
   @doc """
   Creates an assistant message containing a tool use block.
   """
@@ -141,6 +149,29 @@ defmodule ClaudeCode.Test.MessageFixtures do
       message: %{
         id: Keyword.get(opts, :message_id, "msg_#{:rand.uniform(10_000)}"),
         content: [tool_result_content(content, tool_use_id, is_error)]
+      }
+    )
+  end
+
+  @doc """
+  Creates an assistant message containing a thinking block.
+  """
+  def assistant_message_with_thinking(opts \\ []) do
+    thinking_text = Keyword.get(opts, :thinking, "I'm reasoning through this...")
+    signature = Keyword.get(opts, :signature, "sig_test")
+    text = Keyword.get(opts, :text)
+
+    content =
+      if text do
+        [thinking_content(thinking_text, signature), text_content(text)]
+      else
+        [thinking_content(thinking_text, signature)]
+      end
+
+    assistant_message(
+      message: %{
+        id: Keyword.get(opts, :message_id, "msg_#{:rand.uniform(10_000)}"),
+        content: content
       }
     )
   end
@@ -213,6 +244,25 @@ defmodule ClaudeCode.Test.MessageFixtures do
         type: :content_block_delta,
         index: Map.get(attrs, :index, 0),
         delta: %{type: :input_json_delta, partial_json: partial_json}
+      },
+      session_id: Map.get(attrs, :session_id, "test-123"),
+      parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),
+      uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
+    }
+
+    struct!(StreamEvent, defaults)
+  end
+
+  @doc """
+  Creates a thinking_delta stream event for extended thinking streaming.
+  """
+  def stream_event_thinking_delta(thinking, attrs \\ %{}) do
+    defaults = %{
+      type: :stream_event,
+      event: %{
+        type: :content_block_delta,
+        index: Map.get(attrs, :index, 0),
+        delta: %{type: :thinking_delta, thinking: thinking}
       },
       session_id: Map.get(attrs, :session_id, "test-123"),
       parent_tool_use_id: Map.get(attrs, :parent_tool_use_id),

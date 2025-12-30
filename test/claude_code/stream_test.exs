@@ -58,6 +58,70 @@ defmodule ClaudeCode.StreamTest do
     end
   end
 
+  describe "thinking_content/1" do
+    test "extracts thinking from assistant messages" do
+      messages = [
+        system_message(),
+        assistant_message(
+          message: %{
+            content: [
+              thinking_content("First reasoning step"),
+              thinking_content("Second reasoning step")
+            ]
+          }
+        ),
+        assistant_message(
+          message: %{
+            content: [thinking_content("Third step")]
+          }
+        ),
+        result_message()
+      ]
+
+      thinking_stream = Stream.thinking_content(messages)
+      assert Enum.to_list(thinking_stream) == ["First reasoning step", "Second reasoning step", "Third step"]
+    end
+
+    test "ignores non-thinking content" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              thinking_content("I'm reasoning..."),
+              text_content("Here's my answer"),
+              tool_use_content("write_file", %{path: "test.txt", content: "data"})
+            ]
+          }
+        )
+      ]
+
+      thinking_stream = Stream.thinking_content(messages)
+      assert Enum.to_list(thinking_stream) == ["I'm reasoning..."]
+    end
+
+    test "handles empty content" do
+      messages = [
+        assistant_message(message: %{content: []})
+      ]
+
+      thinking_stream = Stream.thinking_content(messages)
+      assert Enum.to_list(thinking_stream) == []
+    end
+
+    test "handles messages with no thinking content" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [text_content("Just text, no thinking")]
+          }
+        )
+      ]
+
+      thinking_stream = Stream.thinking_content(messages)
+      assert Enum.to_list(thinking_stream) == []
+    end
+  end
+
   describe "tool_uses/1" do
     test "extracts tool use blocks" do
       messages = [
@@ -268,6 +332,54 @@ defmodule ClaudeCode.StreamTest do
 
       text_chunks = events |> Stream.text_deltas() |> Enum.to_list()
       assert text_chunks == ["Hello", " there"]
+    end
+  end
+
+  describe "thinking_deltas/1" do
+    test "extracts thinking from thinking_delta stream events" do
+      events = [
+        stream_event_message_start(),
+        stream_event_content_block_start(),
+        stream_event_thinking_delta("Let me "),
+        stream_event_thinking_delta("reason through "),
+        stream_event_thinking_delta("this..."),
+        stream_event_content_block_stop(),
+        stream_event_message_stop()
+      ]
+
+      thinking_chunks = events |> Stream.thinking_deltas() |> Enum.to_list()
+      assert thinking_chunks == ["Let me ", "reason through ", "this..."]
+    end
+
+    test "ignores non-thinking-delta events" do
+      events = [
+        stream_event_message_start(),
+        stream_event_content_block_start(),
+        stream_event_thinking_delta("Reasoning..."),
+        stream_event_text_delta("Hello"),
+        stream_event_thinking_delta(" more reasoning"),
+        stream_event_content_block_stop()
+      ]
+
+      thinking_chunks = events |> Stream.thinking_deltas() |> Enum.to_list()
+      assert thinking_chunks == ["Reasoning...", " more reasoning"]
+    end
+
+    test "handles empty stream" do
+      thinking_chunks = [] |> Stream.thinking_deltas() |> Enum.to_list()
+      assert thinking_chunks == []
+    end
+
+    test "filters out non-stream-event messages" do
+      events = [
+        system_message(),
+        stream_event_thinking_delta("Reasoning"),
+        assistant_message(message: %{content: [text_content("response")]}),
+        stream_event_thinking_delta(" more")
+      ]
+
+      thinking_chunks = events |> Stream.thinking_deltas() |> Enum.to_list()
+      assert thinking_chunks == ["Reasoning", " more"]
     end
   end
 

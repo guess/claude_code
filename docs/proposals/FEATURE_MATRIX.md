@@ -317,7 +317,7 @@ These are CLI configuration commands, not runtime features:
 | `create_sdk_mcp_server()` | In-process MCP server | Hermes modules |
 | `ClaudeSDKClient` context manager | `async with` cleanup | GenServer supervision |
 | `AsyncIterable` input | Streaming prompts | Not planned |
-| `ThinkingBlock` content | Extended thinking | Not yet supported |
+| `ThinkingBlock` content | Extended thinking | `Content.Thinking` |
 
 ### TypeScript SDK Unique Features
 
@@ -388,10 +388,10 @@ SDK Parity:
 | Text | ✅ | `TextBlock` | `Content.Text` | Text content |
 | ToolUse | ✅ | `ToolUseBlock` | `Content.ToolUse` | Tool invocations |
 | ToolResult | ✅ | `ToolResultBlock` | `Content.ToolResult` | Tool results |
-| Thinking | ✅ | `ThinkingBlock` | ❌ | Extended thinking |
+| Thinking | ✅ | `ThinkingBlock` | `Content.Thinking` | Extended thinking |
 
 ---
 
-**Last Updated**: 2025-12-29
+**Last Updated**: 2025-12-30
 **Reference**: TypeScript SDK v1 & Python SDK Documentation
 **Next Action**: Add fallback model and session forking support

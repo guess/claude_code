@@ -86,6 +86,30 @@ defmodule ClaudeCode.Stream do
   end
 
   @doc """
+  Extracts thinking content from a message stream.
+
+  Filters the stream to only emit thinking content from assistant messages,
+  making it easy to collect Claude's extended reasoning.
+
+  ## Examples
+
+      thinking = session
+      |> ClaudeCode.query("Complex problem")
+      |> ClaudeCode.Stream.thinking_content()
+      |> Enum.join()
+  """
+  @spec thinking_content(Enumerable.t()) :: Enumerable.t()
+  def thinking_content(stream) do
+    stream
+    |> Stream.filter(&match?(%Message.Assistant{}, &1))
+    |> Stream.flat_map(fn %Message.Assistant{message: message} ->
+      message.content
+      |> Enum.filter(&match?(%Content.Thinking{}, &1))
+      |> Enum.map(& &1.thinking)
+    end)
+  end
+
+  @doc """
   Extracts text deltas from a partial message stream.
 
   This enables character-by-character streaming from Claude's responses.
@@ -111,6 +135,27 @@ defmodule ClaudeCode.Stream do
     stream
     |> Stream.filter(&StreamEvent.text_delta?/1)
     |> Stream.map(&StreamEvent.get_text/1)
+  end
+
+  @doc """
+  Extracts thinking deltas from a partial message stream.
+
+  This enables streaming of Claude's extended reasoning as it arrives.
+  Use with `include_partial_messages: true` option.
+
+  ## Examples
+
+      # Stream thinking content in real-time
+      session
+      |> ClaudeCode.query_stream("Complex problem", include_partial_messages: true)
+      |> ClaudeCode.Stream.thinking_deltas()
+      |> Enum.each(&IO.write/1)
+  """
+  @spec thinking_deltas(Enumerable.t()) :: Enumerable.t()
+  def thinking_deltas(stream) do
+    stream
+    |> Stream.filter(&StreamEvent.thinking_delta?/1)
+    |> Stream.map(&StreamEvent.get_thinking/1)
   end
 
   @doc """

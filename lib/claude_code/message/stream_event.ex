@@ -139,6 +139,25 @@ defmodule ClaudeCode.Message.StreamEvent do
   def get_text(_), do: nil
 
   @doc """
+  Checks if this stream event is a thinking delta.
+  """
+  @spec thinking_delta?(t()) :: boolean()
+  def thinking_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :thinking_delta}}}), do: true
+
+  def thinking_delta?(_), do: false
+
+  @doc """
+  Extracts thinking from a thinking_delta event.
+
+  Returns nil if not a thinking delta event.
+  """
+  @spec get_thinking(t()) :: String.t() | nil
+  def get_thinking(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :thinking_delta, thinking: thinking}}}),
+    do: thinking
+
+  def get_thinking(_), do: nil
+
+  @doc """
   Checks if this stream event is an input JSON delta (for tool use).
   """
   @spec input_json_delta?(t()) :: boolean()

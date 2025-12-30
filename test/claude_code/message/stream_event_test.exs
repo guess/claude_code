@@ -76,6 +76,22 @@ defmodule ClaudeCode.Message.StreamEventTest do
       assert event.event.delta.partial_json == "{\"path\":"
     end
 
+    test "parses a thinking_delta stream event" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{"type" => "thinking_delta", "thinking" => "Let me reason through this..."}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = StreamEvent.new(json)
+      assert event.event.delta.type == :thinking_delta
+      assert event.event.delta.thinking == "Let me reason through this..."
+    end
+
     test "parses a content_block_stop stream event" do
       json = %{
         "type" => "stream_event",
@@ -202,6 +218,26 @@ defmodule ClaudeCode.Message.StreamEventTest do
     test "get_text/1 returns nil for non-text delta" do
       event = build_event(:message_start, nil)
       assert StreamEvent.get_text(event) == nil
+    end
+
+    test "thinking_delta?/1 returns true for thinking deltas" do
+      event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "reasoning"})
+      assert StreamEvent.thinking_delta?(event)
+    end
+
+    test "thinking_delta?/1 returns false for non-thinking deltas" do
+      event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
+      refute StreamEvent.thinking_delta?(event)
+    end
+
+    test "get_thinking/1 extracts thinking from thinking delta" do
+      event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "Let me think..."})
+      assert StreamEvent.get_thinking(event) == "Let me think..."
+    end
+
+    test "get_thinking/1 returns nil for non-thinking delta" do
+      event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
+      assert StreamEvent.get_thinking(event) == nil
     end
 
     test "input_json_delta?/1 detects input_json_delta events" do
