@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **`:permission_handler` option** - Removed unimplemented option from session schema
+  - This option was documented but never functional (no code used it)
+  - Custom permission callbacks may be added in a future release as a P2 feature
+
 ### Added
 - **ThinkingBlock content type** for extended thinking support
   - New `ClaudeCode.Content.Thinking` module for parsing thinking blocks

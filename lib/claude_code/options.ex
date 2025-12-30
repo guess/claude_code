@@ -51,7 +51,6 @@ defmodule ClaudeCode.Options do
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
   - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
-  - `:permission_handler` - Custom permission handler module (atom, optional)
   - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
     Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
   - `:cwd` - Current working directory (string, optional)
@@ -59,8 +58,7 @@ defmodule ClaudeCode.Options do
   ## Query Options
 
   Query options can override session defaults for individual queries.
-  All session options except `:api_key`, `:name`, and `:permission_handler`
-  can be used as query options.
+  All session options except `:api_key` and `:name` can be used as query options.
 
   ## Option Precedence
 
@@ -124,7 +122,6 @@ defmodule ClaudeCode.Options do
     api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
-    permission_handler: [type: :atom, doc: "Custom permission handler module"],
     tool_callback: [
       type: {:fun, 1},
       doc: """
@@ -281,7 +278,7 @@ defmodule ClaudeCode.Options do
   @doc """
   Converts Elixir options to CLI arguments.
 
-  Ignores internal options like :api_key, :name, :timeout, and :permission_handler that are not CLI flags.
+  Ignores internal options like :api_key, :name, and :timeout that are not CLI flags.
 
   ## Examples
 
@@ -347,7 +344,6 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:api_key, _value), do: nil
   defp convert_option_to_cli_flag(:name, _value), do: nil
-  defp convert_option_to_cli_flag(:permission_handler, _value), do: nil
   defp convert_option_to_cli_flag(:timeout, _value), do: nil
   defp convert_option_to_cli_flag(:tool_callback, _value), do: nil
   defp convert_option_to_cli_flag(_key, nil), do: nil

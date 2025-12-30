@@ -2,7 +2,7 @@
 
 ## Current State (Phase 4 Complete)
 
-**24 features implemented** | **2 features to build for v1.0** | **20+ features deferred** | **12 features killed**
+**23 features implemented** | **2 features to build for v1.0** | **21+ features deferred** | **12 features killed**
 
 ---
 
@@ -63,7 +63,7 @@
 |---------|--------|------------|------------|--------|-------|
 | Permission mode | `permissionMode` | `permission_mode` | `:permission_mode` | ✅ HAVE | default/acceptEdits/bypassPermissions/plan |
 | MCP permission tool | `permissionPromptToolName` | `permission_prompt_tool_name` | `:permission_prompt_tool` | ✅ HAVE | |
-| Custom permission function | `canUseTool` | `can_use_tool` | `:permission_handler` | ✅ HAVE | Module-based handler (Elixir) |
+| Custom permission function | `canUseTool` | `can_use_tool` | N/A | ⏸️ LATER | P2 - Interactive permission callbacks |
 | Bypass permissions flag | `allowDangerouslySkipPermissions` | N/A | N/A | ⏸️ LATER | P3 - Safety flag |
 
 ---
@@ -336,7 +336,6 @@ These are CLI configuration commands, not runtime features:
 | GenServer process naming | `:name` | ✅ HAVE | OTP integration |
 | Query timeout | `:timeout` | ✅ HAVE | Per-request timeout control |
 | Tool callback | `:tool_callback` | ✅ HAVE | Post-execution monitoring |
-| Permission handler module | `:permission_handler` | ✅ HAVE | Module-based (vs function) |
 | Hermes MCP integration | `:mcp_servers` | ✅ HAVE | Native Hermes module support |
 | Stream utilities | `ClaudeCode.Stream` | ✅ HAVE | Rich stream processing |
 | Text delta extraction | `text_deltas/1` | ✅ HAVE | |
@@ -352,19 +351,19 @@ These are CLI configuration commands, not runtime features:
 
 ```
 Current State:
-  ✅ HAVE:    24 core features (92% of core functionality)
+  ✅ HAVE:    23 core features (88% of core functionality)
   ⚠️ BROKEN:   0 features
 
 v1.0 Plan:
   🔨 BUILD:    2 features (P0-P1)
 
 Deferred:
-  ⏸️ LATER:   20+ features (v1.1+)
+  ⏸️ LATER:   21+ features (v1.1+)
   🗑️ KILLED:  12 features (out of scope or N/A)
 
 SDK Parity:
-  vs TypeScript: Core 92% → 100% at v1.0, Full ~65% → ~90% at v1.1
-  vs Python:     Core 92% → 100% at v1.0, Full ~70% → ~90% at v1.1
+  vs TypeScript: Core 88% → 100% at v1.0, Full ~65% → ~90% at v1.1
+  vs Python:     Core 88% → 100% at v1.0, Full ~70% → ~90% at v1.1
 ```
 
 ---

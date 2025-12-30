@@ -8,7 +8,7 @@ An idiomatic Elixir SDK for Claude Code that leverages OTP patterns, functional 
 - 🌊 **Native Streaming** - Built on Elixir's Stream module for efficient, lazy evaluation
 - ⚙️ **Flattened Configuration** - Clean, intuitive options API with NimbleOptions validation
 - 📊 **Option Precedence** - Query > Session > App Config > Defaults hierarchy
-- 🛡️ **Behaviour-based Permissions** - Extensible permission system using Elixir behaviours
+- 🛡️ **Permission Modes** - Built-in permission modes (default, acceptEdits, bypassPermissions)
 - 📊 **Telemetry Integration** - First-class observability with :telemetry
 - 🔄 **Async & Sync APIs** - Choose between async streaming or synchronous responses
 - ⚡ **LiveView Ready** - Designed for real-time Phoenix applications
@@ -143,54 +143,6 @@ defp handle_assistant_blocks(blocks) do
       Logger.debug("Tool result for #{id}: #{output}")
   end)
 end
-```
-
-### Permission Handling
-
-Define custom permission handlers using Elixir behaviours:
-
-```elixir
-defmodule MyApp.PermissionHandler do
-  @behaviour ClaudeCode.PermissionHandler
-
-  @impl true
-  def handle_permission(:write, %{path: path}, _context) do
-    cond do
-      String.contains?(path, ".env") ->
-        {:deny, "Cannot modify environment files"}
-
-      String.starts_with?(path, "/tmp") ->
-        :allow
-
-      true ->
-        {:confirm, "Allow writing to #{path}?"}
-    end
-  end
-
-  @impl true
-  def handle_permission(:bash, %{command: command}, _context) do
-    if safe_command?(command) do
-      :allow
-    else
-      {:confirm, "Execute command: #{command}?"}
-    end
-  end
-
-  @impl true
-  def handle_permission(_, _, _), do: :allow
-
-  defp safe_command?(cmd) do
-    safe_commands = ~w[ls pwd echo date whoami]
-    first_word = cmd |> String.split() |> List.first()
-    first_word in safe_commands
-  end
-end
-
-# Use the custom handler
-{:ok, session} = ClaudeCode.start_link(
-  api_key: api_key,
-  permission_handler: MyApp.PermissionHandler
-)
 ```
 
 ### Permission Modes
@@ -471,17 +423,6 @@ defmodule MyApp.ClaudeTest do
     assert {:ok, _} = Code.string_to_quoted(code)
   end
 
-  test "respects permission handler" do
-    session = mock_session([],
-      permission_handler: fn
-        :write, %{path: "/etc/passwd"}, _ -> {:deny, "Nope!"}
-        _, _, _ -> :allow
-      end
-    )
-
-    assert {:error, %{reason: "Nope!"}} =
-      ClaudeCode.query(session, "Write to /etc/passwd")
-  end
 end
 ```
 

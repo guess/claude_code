@@ -120,7 +120,7 @@ Planned for v1.0 (🔨):
 Quick reference for development:
 - `api_key` (optional) - Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
 - Options grouped by: Claude config, tool control, advanced features, Elixir-specific
-- Query options can override session defaults (except `:api_key`, `:name`, `:permission_handler`)
+- Query options can override session defaults (except `:api_key` and `:name`)
 
 Key options:
 - `:agents` - Map of custom agent configurations (name -> %{"description" => ..., "prompt" => ..., "tools" => ..., "model" => ...})
