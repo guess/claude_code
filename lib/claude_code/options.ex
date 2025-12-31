@@ -17,6 +17,7 @@ defmodule ClaudeCode.Options do
 
   ### Claude Configuration
   - `:model` - Claude model to use (string, optional - CLI uses its default)
+  - `:fallback_model` - Fallback model if primary fails (string, optional)
   - `:system_prompt` - Override system prompt (string, optional)
   - `:append_system_prompt` - Append to system prompt (string, optional)
   - `:max_turns` - Limit agentic turns in non-interactive mode (integer, optional)
@@ -76,6 +77,7 @@ defmodule ClaudeCode.Options do
       {:ok, session} = ClaudeCode.start_link(
         api_key: "sk-ant-...",
         model: "opus",
+        fallback_model: "sonnet",
         system_prompt: "You are an Elixir expert",
         allowed_tools: ["View", "Edit", "Bash(git:*)"],
         add_dir: ["/tmp", "/var/log"],
@@ -148,6 +150,7 @@ defmodule ClaudeCode.Options do
 
     # CLI options (aligned with TypeScript SDK)
     model: [type: :string, doc: "Model to use"],
+    fallback_model: [type: :string, doc: "Fallback model to use if primary model fails"],
     cwd: [type: :string, doc: "Current working directory"],
     system_prompt: [type: :string, doc: "Override system prompt"],
     append_system_prompt: [type: :string, doc: "Append to system prompt"],
@@ -194,6 +197,8 @@ defmodule ClaudeCode.Options do
 
   @query_opts_schema [
     # Query-level overrides for CLI options
+    model: [type: :string, doc: "Override model for this query"],
+    fallback_model: [type: :string, doc: "Override fallback model for this query"],
     system_prompt: [type: :string, doc: "Override system prompt for this query"],
     append_system_prompt: [type: :string, doc: "Append to system prompt for this query"],
     max_turns: [type: :integer, doc: "Override max turns for this query"],
@@ -398,6 +403,10 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:model, value) do
     {"--model", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:fallback_model, value) do
+    {"--fallback-model", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:permission_mode, :default), do: nil

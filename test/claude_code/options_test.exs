@@ -101,6 +101,13 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:model] == "opus"
     end
 
+    test "validates fallback_model option" do
+      opts = [model: "opus", fallback_model: "sonnet"]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:model] == "opus"
+      assert validated[:fallback_model] == "sonnet"
+    end
+
     test "rejects invalid timeout type" do
       opts = [api_key: "sk-ant-test", timeout: "not_a_number"]
 
@@ -155,6 +162,13 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:mcp_servers]["custom-server"][:command] == "node"
     end
 
+    test "validates model and fallback_model in query options" do
+      opts = [model: "opus", fallback_model: "sonnet"]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:model] == "opus"
+      assert validated[:fallback_model] == "sonnet"
+    end
+
     test "rejects invalid options" do
       opts = [invalid_option: "value"]
 
@@ -185,6 +199,24 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       assert "--max-turns" in args
       assert "20" in args
+    end
+
+    test "converts fallback_model to --fallback-model" do
+      opts = [fallback_model: "sonnet"]
+
+      args = Options.to_cli_args(opts)
+      assert "--fallback-model" in args
+      assert "sonnet" in args
+    end
+
+    test "converts model and fallback_model together" do
+      opts = [model: "opus", fallback_model: "sonnet"]
+
+      args = Options.to_cli_args(opts)
+      assert "--model" in args
+      assert "opus" in args
+      assert "--fallback-model" in args
+      assert "sonnet" in args
     end
 
     test "cwd option is not converted to CLI flag" do
