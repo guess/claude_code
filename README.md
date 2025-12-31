@@ -1,10 +1,10 @@
 # 🤖 Claude Code SDK for Elixir
 
-The most ergonomic way to integrate Claude AI into your Elixir applications.
+The idiomatic way to integrate Claude AI into your Elixir applications.
 
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
-- **💬 Automatic Conversation Continuity**: Claude remembers context across queries
-- **🔁 Bidirectional Streaming**: V2-style API for multi-turn conversations without restarts
+- **💬 Conversation Continuity**: Automatic context retention across queries
+- **🔁 Bidirectional Streaming**: Multi-turn conversations over a single connection
 - **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
 - **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
 - **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
@@ -29,7 +29,7 @@ The most ergonomic way to integrate Claude AI into your Elixir applications.
 session
 |> ClaudeCode.query_stream("Explain Elixir GenServers")
 |> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)  # Watch Claude type in real-time! 🎬
+|> Enum.each(&IO.write/1)  # Stream Claude's response character by character
 
 # Conversation continuity - Claude remembers context
 ClaudeCode.query(session, "My favorite language is Elixir")
@@ -53,7 +53,7 @@ mix deps.get
 
 **Step 3:** Get the Claude CLI
 ```bash
-# Install from claude.ai/code
+# Install the Claude Code CLI: https://docs.anthropic.com/en/docs/claude-code
 claude --version  # Verify installation
 ```
 
@@ -95,19 +95,7 @@ agents = %{
 ClaudeCode.query(:assistant, "Help with this task")
 ```
 
-📖 **[Complete Getting Started Guide →](docs/GETTING_STARTED.md)**
-
-## 🚀 Key Features
-
-- **💬 Conversation Continuity**: Claude remembers context across queries automatically
-- **🔄 Real-time Streaming**: Watch responses appear in real-time with Elixir Streams
-- **🔁 Bidirectional Streaming**: V2-style API for efficient multi-turn conversations
-- **🛠️ File Operations**: Built-in tools for reading, editing, and analyzing files
-- **🏭 Production Ready**: Fault-tolerant supervision with automatic restarts
-- **⚡ High Performance**: Concurrent sessions for parallel processing
-- **🔧 Phoenix Integration**: Drop-in compatibility with LiveView and Phoenix apps
-- **📊 Tool Callbacks**: Monitor and log all tool executions for auditing
-- **🔌 MCP Integration**: Expose Elixir tools to Claude via Model Context Protocol
+📖 **[Complete Getting Started Guide →](docs/guides/getting-started.md)**
 
 ## 🏭 Production Usage
 
@@ -219,11 +207,12 @@ Expose Elixir tools to Claude using Hermes MCP:
 
 ## 📚 Documentation
 
-- 🚀 **[Getting Started](docs/GETTING_STARTED.md)** - Step-by-step tutorial for new users
-- 🏭 **[Production Guide](docs/SUPERVISION.md)** - Fault-tolerant production deployments
-- 💻 **[Examples](docs/EXAMPLES.md)** - Real-world usage patterns and code samples
+- 🚀 **[Getting Started](docs/guides/getting-started.md)** - Step-by-step tutorial for new users
+- 📖 **[Documentation Hub](docs/README.md)** - All guides and references
+- 🏭 **[Production Guide](docs/advanced/supervision.md)** - Fault-tolerant production deployments
+- 💻 **[Examples](docs/reference/examples.md)** - Real-world usage patterns and code samples
 - 📖 **[API Reference](https://hexdocs.pm/claude_code)** - Complete API documentation
-- 🔧 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- 🔧 **[Troubleshooting](docs/reference/troubleshooting.md)** - Common issues and solutions
 
 ## 🤝 Contributing
 
@@ -255,6 +244,4 @@ MIT License - see [LICENSE](https://github.com/guess/claude_code/blob/main/LICEN
 
 ---
 
-**Built on top of the [Claude Code CLI](https://github.com/anthropics/claude-code) and designed for the Elixir community.**
-
-*Made with ❤️ for Elixir developers who want the best AI integration experience.*
+**Built for Elixir developers on top of the [Claude Code CLI](https://github.com/anthropics/claude-code).**

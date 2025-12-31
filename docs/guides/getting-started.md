@@ -26,7 +26,6 @@ The SDK requires the Claude Code CLI to be installed on your system.
 3. Verify installation:
    ```bash
    claude --version
-   # => claude 2.0.1
    ```
 
 ### 3. Anthropic API Key
@@ -65,26 +64,24 @@ The SDK uses the `ANTHROPIC_API_KEY` environment variable by default. Choose one
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 ```
 
-**Method 2: Application Configuration (Optional)**
+**Method 2: Application Configuration**
 ```elixir
 # config/config.exs
 config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 ```
 
-**Method 3: Pass Explicitly When Starting Session**
+**Method 3: Pass Explicitly**
 ```elixir
 {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-your-api-key-here")
 ```
 
 ## Your First Query
 
-Let's start with a simple example:
-
 ```elixir
 # Start an interactive Elixir session
 iex -S mix
 
-# Start a ClaudeCode session (uses ANTHROPIC_API_KEY from environment)
+# Start a ClaudeCode session
 {:ok, session} = ClaudeCode.start_link()
 
 # Send your first query
@@ -96,18 +93,6 @@ IO.puts(response)
 ClaudeCode.stop(session)
 ```
 
-## Basic Configuration
-
-Configure your session with common options:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  model: "sonnet",  # Use a specific model
-  system_prompt: "You are a helpful Elixir programming assistant",
-  timeout: 120_000  # 2 minute timeout
-)
-```
-
 ## Streaming Responses
 
 For real-time responses, use streaming:
@@ -115,7 +100,6 @@ For real-time responses, use streaming:
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
 
-# Stream the response as it arrives
 session
 |> ClaudeCode.query_stream("Explain how GenServers work in Elixir")
 |> ClaudeCode.Stream.text_content()
@@ -124,13 +108,15 @@ session
 ClaudeCode.stop(session)
 ```
 
+See the [Streaming Guide](streaming.md) for more details.
+
 ## Working with Files
 
 Claude can read and analyze files in your project:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  allowed_tools: ["View", "Edit"]  # Allow file operations
+  allowed_tools: ["View", "Edit"]
 )
 
 {:ok, response} = ClaudeCode.query(session,
@@ -159,23 +145,7 @@ IO.puts(response)
 ClaudeCode.stop(session)
 ```
 
-## Application Configuration
-
-For production applications, configure defaults in your app config:
-
-```elixir
-# config/config.exs
-config :claude_code,
-  api_key: System.get_env("ANTHROPIC_API_KEY"),
-  model: "sonnet",
-  timeout: 180_000,
-  system_prompt: "You are a helpful assistant for our Elixir application",
-  allowed_tools: ["View"]
-
-# Now sessions use these defaults (or ANTHROPIC_API_KEY from environment)
-{:ok, session} = ClaudeCode.start_link()
-  # All options inherited from config
-```
+See the [Sessions Guide](sessions.md) for more on multi-turn conversations.
 
 ## Error Handling
 
@@ -201,61 +171,8 @@ end
 
 ## Next Steps
 
-Now that you have ClaudeCode working:
-
-1. **Explore Examples** - Check out [examples](EXAMPLES.md) for real-world usage patterns
-2. **Configure for Production** - Learn about advanced options in the main [README](../README.md)
-3. **Tool Callbacks** - Monitor tool executions for logging and auditing
-4. **MCP Integration** - Expose your own Elixir tools to Claude via Hermes MCP
-5. **Troubleshooting** - If you run into issues, see [Troubleshooting](TROUBLESHOOTING.md)
-
-## Common First Steps
-
-### For CLI Applications
-```elixir
-defmodule MyCLI do
-  def run(args) do
-    {:ok, session} = ClaudeCode.start_link(
-      allowed_tools: ["View", "Edit", "Bash"]
-    )
-
-    prompt = Enum.join(args, " ")
-
-    session
-    |> ClaudeCode.query_stream(prompt)
-    |> ClaudeCode.Stream.text_content()
-    |> Enum.each(&IO.write/1)
-
-    ClaudeCode.stop(session)
-  end
-end
-```
-
-### For Web Applications
-```elixir
-defmodule MyApp.ClaudeService do
-  use GenServer
-
-  def start_link(_) do
-    GenServer.start_link(__MODULE__, [], name: __MODULE__)
-  end
-
-  def ask_claude(prompt) do
-    GenServer.call(__MODULE__, {:query, prompt})
-  end
-
-  def init(_) do
-    {:ok, session} = ClaudeCode.start_link()
-    {:ok, %{session: session}}
-  end
-
-  def handle_call({:query, prompt}, _from, %{session: session} = state) do
-    case ClaudeCode.query(session, prompt) do
-      {:ok, response} -> {:reply, {:ok, response}, state}
-      error -> {:reply, error, state}
-    end
-  end
-end
-```
-
-You're now ready to start building with ClaudeCode! 🚀
+- [Sessions Guide](sessions.md) - Multi-turn conversations and session management
+- [Streaming Guide](streaming.md) - Real-time response streaming
+- [Configuration Guide](../advanced/configuration.md) - All configuration options
+- [Supervision Guide](../advanced/supervision.md) - Production-ready supervision
+- [Troubleshooting](../reference/troubleshooting.md) - Common issues and solutions
