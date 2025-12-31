@@ -17,12 +17,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `:resume` option in `start_link/1` for resuming sessions
   - New `ClaudeCode.get_session_id/1` and `ClaudeCode.Input` module
 - **Extended thinking support** - `ClaudeCode.Content.Thinking` for reasoning blocks
-  - Stream utilities: `Stream.thinking_content/1`, `Stream.thinking_deltas/1`
+  - Stream utilities: `ClaudeCode.Stream.thinking_content/1`, `ClaudeCode.Stream.thinking_deltas/1`
   - `StreamEvent` helpers: `thinking_delta?/1`, `get_thinking/1`
 - **MCP servers map option** - `:mcp_servers` accepts inline server configurations
   - Supports `stdio`, `sse`, and `http` transport types
 - **Character-level streaming** - `include_partial_messages: true` option
-  - Stream utilities: `Stream.text_deltas/1`, `Stream.content_deltas/1`
+  - Stream utilities: `ClaudeCode.Stream.text_deltas/1`, `ClaudeCode.Stream.content_deltas/1`
   - Enables real-time streaming for LiveView applications
 - **Tool callback** - `:tool_callback` option for logging/auditing tool usage
   - `ClaudeCode.ToolCallback` module for correlating tool use and results
