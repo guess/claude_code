@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`:json_schema` option** - JSON Schema for structured output validation ([485513f])
+  - Accepts a map (auto-encoded to JSON) or pre-encoded JSON string
+  - Maps to `--json-schema` CLI flag
+- **`:max_budget_usd` option** - Maximum dollar amount to spend on API calls ([5bf996a])
+  - Accepts float or integer values
+  - Maps to `--max-budget-usd` CLI flag
+- **`:tools` option** - Specify available tools from the built-in set ([5bf996a])
+  - Use `:default` for all tools, `[]` to disable all, or a list of tool names
+  - Maps to `--tools` CLI flag
+- **`:agent` option** - Agent name for the session ([5bf996a])
+  - Different from `:agents` which defines custom agent configurations
+  - Maps to `--agent` CLI flag
+- **`:betas` option** - Beta headers to include in API requests ([5bf996a])
+  - Accepts a list of beta feature names
+  - Maps to `--betas` CLI flag
+
 ## [0.5.0] - 2025-12-30
 
 ### Removed
