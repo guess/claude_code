@@ -133,6 +133,48 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       assert validated[:json_schema] == schema
     end
+
+    test "validates max_budget_usd as float" do
+      opts = [max_budget_usd: 10.50]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:max_budget_usd] == 10.50
+    end
+
+    test "validates max_budget_usd as integer" do
+      opts = [max_budget_usd: 25]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:max_budget_usd] == 25
+    end
+
+    test "validates agent option" do
+      opts = [agent: "code-reviewer"]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:agent] == "code-reviewer"
+    end
+
+    test "validates betas option" do
+      opts = [betas: ["feature-x", "feature-y"]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:betas] == ["feature-x", "feature-y"]
+    end
+
+    test "validates tools option as list" do
+      opts = [tools: ["Bash", "Edit", "Read"]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:tools] == ["Bash", "Edit", "Read"]
+    end
+
+    test "validates tools option with empty list to disable all" do
+      opts = [tools: []]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:tools] == []
+    end
+
+    test "validates tools option with :default atom" do
+      opts = [tools: :default]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:tools] == :default
+    end
   end
 
   describe "validate_query_options/1" do
@@ -195,6 +237,30 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:json_schema] == schema
     end
+
+    test "validates max_budget_usd in query options" do
+      opts = [max_budget_usd: 5.00]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:max_budget_usd] == 5.00
+    end
+
+    test "validates agent in query options" do
+      opts = [agent: "debugger"]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:agent] == "debugger"
+    end
+
+    test "validates betas in query options" do
+      opts = [betas: ["beta-feature"]]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:betas] == ["beta-feature"]
+    end
+
+    test "validates tools in query options" do
+      opts = [tools: ["Read", "Write"]]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:tools] == ["Read", "Write"]
+    end
   end
 
   describe "to_cli_args/1" do
@@ -220,6 +286,73 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       assert "--max-turns" in args
       assert "20" in args
+    end
+
+    test "converts max_budget_usd to --max-budget-usd" do
+      opts = [max_budget_usd: 10.50]
+
+      args = Options.to_cli_args(opts)
+      assert "--max-budget-usd" in args
+      assert "10.5" in args
+    end
+
+    test "converts max_budget_usd integer to --max-budget-usd" do
+      opts = [max_budget_usd: 25]
+
+      args = Options.to_cli_args(opts)
+      assert "--max-budget-usd" in args
+      assert "25" in args
+    end
+
+    test "converts agent to --agent" do
+      opts = [agent: "code-reviewer"]
+
+      args = Options.to_cli_args(opts)
+      assert "--agent" in args
+      assert "code-reviewer" in args
+    end
+
+    test "converts betas to multiple --betas flags" do
+      opts = [betas: ["feature-x", "feature-y"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--betas" in args
+      assert "feature-x" in args
+      assert "feature-y" in args
+      # Should have multiple --betas flags
+      betas_count = Enum.count(args, &(&1 == "--betas"))
+      assert betas_count == 2
+    end
+
+    test "handles empty betas list" do
+      opts = [betas: []]
+
+      args = Options.to_cli_args(opts)
+      refute "--betas" in args
+    end
+
+    test "converts tools to --tools as CSV" do
+      opts = [tools: ["Bash", "Edit", "Read"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--tools" in args
+      assert "Bash,Edit,Read" in args
+    end
+
+    test "converts empty tools list to disable all tools" do
+      opts = [tools: []]
+
+      args = Options.to_cli_args(opts)
+      assert "--tools" in args
+      assert "" in args
+    end
+
+    test "converts tools :default to --tools default" do
+      opts = [tools: :default]
+
+      args = Options.to_cli_args(opts)
+      assert "--tools" in args
+      assert "default" in args
     end
 
     test "converts fallback_model to --fallback-model" do

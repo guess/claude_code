@@ -21,8 +21,16 @@ defmodule ClaudeCode.Options do
   - `:system_prompt` - Override system prompt (string, optional)
   - `:append_system_prompt` - Append to system prompt (string, optional)
   - `:max_turns` - Limit agentic turns in non-interactive mode (integer, optional)
+  - `:max_budget_usd` - Maximum dollar amount to spend on API calls (number, optional)
+  - `:agent` - Agent name for the session (string, optional)
+    Overrides the 'agent' setting. Different from `:agents` which defines custom agents.
+  - `:betas` - Beta headers to include in API requests (list of strings, optional)
+    Example: `["feature-x", "feature-y"]`
 
   ### Tool Control
+  - `:tools` - Specify the list of available tools from the built-in set (optional)
+    Use `:default` for all tools, `[]` to disable all, or a list of tool names.
+    Example: `tools: :default` or `tools: ["Bash", "Edit", "Read"]`
   - `:allowed_tools` - List of allowed tools (list of strings, optional)
     Example: `["View", "Bash(git:*)"]`
   - `:disallowed_tools` - List of denied tools (list of strings, optional)
@@ -158,6 +166,13 @@ defmodule ClaudeCode.Options do
     system_prompt: [type: :string, doc: "Override system prompt"],
     append_system_prompt: [type: :string, doc: "Append to system prompt"],
     max_turns: [type: :integer, doc: "Limit agentic turns in non-interactive mode"],
+    max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Maximum dollar amount to spend on API calls"],
+    agent: [type: :string, doc: "Agent name for the session (overrides 'agent' setting)"],
+    betas: [type: {:list, :string}, doc: "Beta headers to include in API requests"],
+    tools: [
+      type: {:or, [{:in, [:default]}, {:list, :string}]},
+      doc: "Available tools: :default for all, [] for none, or list of tool names"
+    ],
     allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
     agents: [
@@ -209,6 +224,13 @@ defmodule ClaudeCode.Options do
     system_prompt: [type: :string, doc: "Override system prompt for this query"],
     append_system_prompt: [type: :string, doc: "Append to system prompt for this query"],
     max_turns: [type: :integer, doc: "Override max turns for this query"],
+    max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Override max budget for this query"],
+    agent: [type: :string, doc: "Override agent for this query"],
+    betas: [type: {:list, :string}, doc: "Override beta headers for this query"],
+    tools: [
+      type: {:or, [{:in, [:default]}, {:list, :string}]},
+      doc: "Override available tools: :default for all, [] for none, or list"
+    ],
     allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     agents: [
@@ -386,6 +408,31 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:max_turns, value) do
     {"--max-turns", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:max_budget_usd, value) do
+    {"--max-budget-usd", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:agent, value) do
+    {"--agent", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:betas, value) when is_list(value) do
+    if value == [] do
+      nil
+    else
+      Enum.flat_map(value, fn beta -> ["--betas", to_string(beta)] end)
+    end
+  end
+
+  defp convert_option_to_cli_flag(:tools, :default) do
+    {"--tools", "default"}
+  end
+
+  defp convert_option_to_cli_flag(:tools, value) when is_list(value) do
+    tools_csv = Enum.join(value, ",")
+    {"--tools", tools_csv}
   end
 
   defp convert_option_to_cli_flag(:allowed_tools, value) when is_list(value) do

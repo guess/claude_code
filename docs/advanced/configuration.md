@@ -42,6 +42,9 @@ All options for `ClaudeCode.start_link/1`:
 | `system_prompt` | string | - | Override system prompt |
 | `append_system_prompt` | string | - | Append to default system prompt |
 | `max_turns` | integer | - | Limit conversation turns |
+| `max_budget_usd` | number | - | Maximum dollar amount to spend on API calls |
+| `agent` | string | - | Agent name for the session |
+| `betas` | list | - | Beta headers for API requests |
 
 ### Timeouts
 
@@ -53,6 +56,7 @@ All options for `ClaudeCode.start_link/1`:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `tools` | atom/list | - | Available tools: `:default`, `[]`, or list of names |
 | `allowed_tools` | list | - | Tools Claude can use |
 | `disallowed_tools` | list | - | Tools Claude cannot use |
 | `add_dir` | list | - | Additional accessible directories |
@@ -69,6 +73,8 @@ All options for `ClaudeCode.start_link/1`:
 | `setting_sources` | list | - | Setting source priority |
 | `tool_callback` | function | - | Called after tool executions |
 | `include_partial_messages` | boolean | false | Enable character-level streaming |
+| `output_format` | string | - | Output format (`"text"`, `"json"`, `"stream-json"`) |
+| `json_schema` | map/string | - | JSON Schema for structured output validation |
 
 ## Query Options
 
@@ -80,6 +86,13 @@ Options that can be passed to `query/3` or `query_stream/3`:
 | `system_prompt` | string | Override system prompt for this query |
 | `append_system_prompt` | string | Append to system prompt |
 | `max_turns` | integer | Limit turns for this query |
+| `max_budget_usd` | number | Maximum dollar amount for this query |
+| `agent` | string | Agent to use for this query |
+| `betas` | list | Beta headers for this query |
+| `tools` | list | Available tools for this query |
+| `allowed_tools` | list | Allowed tools for this query |
+| `disallowed_tools` | list | Disallowed tools for this query |
+| `json_schema` | map/string | JSON Schema for structured output |
 | `include_partial_messages` | boolean | Enable deltas for this query |
 
 Note: `api_key` and `name` cannot be overridden at query time.
@@ -145,10 +158,55 @@ Available models: `"sonnet"`, `"opus"`, `"haiku"`, or full model IDs.
 )
 ```
 
+## Cost Control
+
+```elixir
+# Limit spending per query
+ClaudeCode.query(session, "Complex analysis task",
+  max_budget_usd: 5.00
+)
+
+# Set a session-wide budget limit
+{:ok, session} = ClaudeCode.start_link(
+  max_budget_usd: 25.00
+)
+```
+
+## Structured Outputs
+
+Use JSON Schema to get validated structured responses:
+
+```elixir
+schema = %{
+  "type" => "object",
+  "properties" => %{
+    "name" => %{"type" => "string"},
+    "age" => %{"type" => "integer"},
+    "skills" => %{"type" => "array", "items" => %{"type" => "string"}}
+  },
+  "required" => ["name", "age"]
+}
+
+ClaudeCode.query(session, "Extract person info from: John is 30 and knows Elixir",
+  json_schema: schema
+)
+```
+
 ## Tool Configuration
 
 ```elixir
-# Allow specific tools
+# Use all default tools
+{:ok, session} = ClaudeCode.start_link(tools: :default)
+
+# Specify available tools (subset of built-in)
+{:ok, session} = ClaudeCode.start_link(
+  tools: ["Bash", "Edit", "Read"]
+)
+
+# Disable all tools
+{:ok, session} = ClaudeCode.start_link(tools: [])
+
+# Allow specific tools with patterns
 {:ok, session} = ClaudeCode.start_link(
   allowed_tools: ["View", "Edit", "Bash(git:*)"]
 )
