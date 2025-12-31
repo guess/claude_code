@@ -4,14 +4,22 @@ defmodule ClaudeCode do
 
   This module provides the main interface for interacting with Claude Code
   through the command-line interface. It manages sessions as GenServer processes
-  that communicate with the Claude CLI via JSON streaming over stdout.
+  that maintain persistent CLI subprocesses for efficient bidirectional communication.
 
   ## Quick Start
 
-      # Start a single session
+      # Start a single session (auto-connects to CLI)
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
       {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
       IO.puts(response)
+
+  ## Session Lifecycle
+
+  Sessions automatically connect to the Claude CLI on startup and disconnect on stop.
+  The persistent connection enables:
+  - Efficient multi-turn conversations without CLI restart overhead
+  - Automatic session continuity via session IDs
+  - Real-time streaming of responses
 
   ## Supervision for Production
 
@@ -30,6 +38,18 @@ defmodule ClaudeCode do
 
       # Access supervised sessions from anywhere
       {:ok, response} = ClaudeCode.query(:code_reviewer, "Review this function")
+
+  ## Resume Previous Conversations
+
+      # Get session ID from a previous interaction
+      {:ok, session_id} = ClaudeCode.get_session_id(session)
+
+      # Later: resume the conversation
+      {:ok, new_session} = ClaudeCode.start_link(
+        api_key: "sk-ant-...",
+        resume: session_id
+      )
+      {:ok, response} = ClaudeCode.query(new_session, "Continue where we left off")
 
   ## Session Management Patterns
 
@@ -71,16 +91,19 @@ defmodule ClaudeCode do
   @doc """
   Starts a new Claude Code session.
 
+  The session automatically connects to a persistent CLI subprocess on startup.
+  This enables efficient multi-turn conversations without CLI restart overhead.
+
   ## Options
 
   For complete option documentation including types, validation rules, and examples,
   see `ClaudeCode.Options.session_schema/0` and the `ClaudeCode.Options` module.
 
-  The `api_key` option is required and can be provided either:
-  - As a session option: `ClaudeCode.start_link(api_key: "sk-ant-...")`
-  - Via application configuration: `config :claude_code, api_key: "sk-ant-..."`
-
-  Session options take precedence over application configuration.
+  Key options:
+  - `:api_key` - Anthropic API key (or set ANTHROPIC_API_KEY env var)
+  - `:resume` - Session ID to resume a previous conversation
+  - `:model` - Claude model to use
+  - `:system_prompt` - Custom system prompt
 
   ## Examples
 
@@ -89,6 +112,12 @@ defmodule ClaudeCode do
 
       # Start with application config (if api_key is configured)
       {:ok, session} = ClaudeCode.start_link()
+
+      # Resume a previous conversation
+      {:ok, session} = ClaudeCode.start_link(
+        api_key: "sk-ant-...",
+        resume: "previous-session-id"
+      )
 
       # Start with custom options
       {:ok, session} = ClaudeCode.start_link(
@@ -195,8 +224,17 @@ defmodule ClaudeCode do
 
       # Receive messages for this request
       receive do
+        {:claude_stream_started, ^request_ref} ->
+          IO.puts("Started!")
+
         {:claude_message, ^request_ref, message} ->
           IO.inspect(message)
+
+        {:claude_stream_end, ^request_ref} ->
+          IO.puts("Done!")
+
+        {:claude_stream_error, ^request_ref, error} ->
+          IO.puts("Error: \#{inspect(error)}")
       end
   """
   @spec query_async(session(), String.t(), keyword()) :: {:ok, reference()} | {:error, term()}
@@ -206,6 +244,8 @@ defmodule ClaudeCode do
 
   @doc """
   Stops a Claude Code session.
+
+  This closes the CLI subprocess and cleans up resources.
 
   ## Examples
 
@@ -242,6 +282,9 @@ defmodule ClaudeCode do
   context. This ID is automatically captured from CLI responses and used
   for subsequent queries to continue the conversation.
 
+  You can use this session ID with the `:resume` option when starting a
+  new session to continue the conversation later.
+
   ## Examples
 
       {:ok, session_id} = ClaudeCode.get_session_id(session)
@@ -249,6 +292,9 @@ defmodule ClaudeCode do
 
       # For a new session with no queries yet
       {:ok, nil} = ClaudeCode.get_session_id(session)
+
+      # Resume later
+      {:ok, new_session} = ClaudeCode.start_link(resume: session_id)
   """
   @spec get_session_id(session()) :: {:ok, String.t() | nil}
   def get_session_id(session) do
@@ -275,78 +321,23 @@ defmodule ClaudeCode do
   end
 
   # ==========================================================================
-  # Streaming Mode API (V2-style bidirectional I/O)
+  # Advanced Streaming API
   # ==========================================================================
-
-  @doc """
-  Connects the session in streaming mode for bidirectional communication.
-
-  This spawns a long-running CLI subprocess with `--input-format stream-json`
-  that accepts messages via stdin and returns responses via stdout. This enables
-  multi-turn conversations without restarting the CLI for each query.
-
-  ## Options
-
-    * `:resume` - Session ID to resume a previous conversation
-
-  ## Examples
-
-      {:ok, session} = ClaudeCode.start_link(model: "claude-sonnet-4-5-20250929")
-
-      # Connect in streaming mode
-      :ok = ClaudeCode.connect(session)
-
-      # Send messages and receive responses
-      {:ok, req_ref} = ClaudeCode.stream_query(session, "Hello!")
-      session |> ClaudeCode.receive_response(req_ref) |> Enum.each(&handle/1)
-
-      # Clean up
-      :ok = ClaudeCode.disconnect(session)
-
-  ## Resume Example
-
-      # Get session ID from previous interaction
-      {:ok, session_id} = ClaudeCode.get_session_id(session)
-
-      # Later: resume the conversation
-      {:ok, new_session} = ClaudeCode.start_link(model: "claude-sonnet-4-5-20250929")
-      :ok = ClaudeCode.connect(new_session, resume: session_id)
-
-  """
-  @spec connect(session(), keyword()) :: :ok | {:error, term()}
-  defdelegate connect(session, opts \\ []), to: Session
-
-  @doc """
-  Sends a query to the connected streaming session.
-
-  Returns a request reference that can be used with `receive_messages/2` or
-  `receive_response/2` to get the response.
-
-  ## Examples
-
-      {:ok, req_ref} = ClaudeCode.stream_query(session, "What's the capital of France?")
-
-      session
-      |> ClaudeCode.receive_response(req_ref)
-      |> Stream.filter(&match?(%Message.Assistant{}, &1))
-      |> Enum.each(&process_response/1)
-
-  """
-  @spec stream_query(session(), String.t()) :: {:ok, reference()} | {:error, term()}
-  defdelegate stream_query(session, prompt), to: Session
 
   @doc """
   Returns a Stream of all messages for a streaming request.
 
-  The stream yields messages as they arrive from the CLI.
+  Use this with `query_stream/3` when you need fine-grained control over
+  message consumption. The stream yields messages as they arrive from the CLI.
 
   ## Examples
 
+      {:ok, ref} = GenServer.call(session, {:query_stream, "Hello", []})
+
       session
-      |> ClaudeCode.receive_messages(req_ref)
+      |> ClaudeCode.receive_messages(ref)
       |> Stream.each(&IO.inspect/1)
       |> Stream.run()
-
   """
   @spec receive_messages(session(), reference()) :: Enumerable.t()
   defdelegate receive_messages(session, req_ref), to: Session
@@ -359,43 +350,29 @@ defmodule ClaudeCode do
 
   ## Examples
 
+      {:ok, ref} = GenServer.call(session, {:query_stream, "Hello", []})
+
       session
-      |> ClaudeCode.receive_response(req_ref)
+      |> ClaudeCode.receive_response(ref)
       |> Stream.filter(&match?(%Message.Assistant{}, &1))
       |> Enum.each(&process_response/1)
-
   """
   @spec receive_response(session(), reference()) :: Enumerable.t()
   defdelegate receive_response(session, req_ref), to: Session
 
   @doc """
-  Interrupts an in-progress streaming request.
+  Interrupts an in-progress request.
+
+  Sends a SIGINT (Ctrl+C) to the CLI to interrupt the current operation.
 
   ## Examples
 
-      {:ok, req_ref} = ClaudeCode.stream_query(session, "Count to 1000 slowly")
+      {:ok, ref} = ClaudeCode.query_async(session, "Count to 1000 slowly")
 
       # Interrupt after some time
       Process.sleep(2000)
-      :ok = ClaudeCode.interrupt(session, req_ref)
-
-      # Send a new command
-      {:ok, req_ref2} = ClaudeCode.stream_query(session, "Just say hello")
-
+      :ok = ClaudeCode.interrupt(session, ref)
   """
   @spec interrupt(session(), reference()) :: :ok | {:error, term()}
   defdelegate interrupt(session, req_ref), to: Session
-
-  @doc """
-  Disconnects the streaming session.
-
-  This closes the CLI subprocess stdin and waits for it to exit.
-
-  ## Examples
-
-      :ok = ClaudeCode.disconnect(session)
-
-  """
-  @spec disconnect(session()) :: :ok | {:error, term()}
-  defdelegate disconnect(session), to: Session
 end

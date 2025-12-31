@@ -8,19 +8,20 @@ The ClaudeCode Elixir SDK communicates with the Claude Code CLI (`claude` comman
 
 ### 1. CLI Communication
 
-The SDK spawns the `claude` command as a subprocess using a shell wrapper to prevent hanging:
+The SDK spawns the `claude` command as a subprocess with bidirectional streaming:
 
 ```bash
-(/bin/sh -c "(ANTHROPIC_API_KEY='...' claude --output-format stream-json --verbose --print 'your prompt here'
-) </dev/null")
+(/bin/sh -c "(ANTHROPIC_API_KEY='...' claude --input-format stream-json --output-format stream-json --verbose)")
 ```
 
-This approach ensures proper TTY handling and prevents the CLI from buffering output.
+The CLI uses bidirectional streaming mode where:
+- Queries are sent via stdin as JSON messages
+- Responses come back via stdout as newline-delimited JSON
 
 Key CLI flags we use:
+- `--input-format stream-json`: Bidirectional streaming mode (reads queries from stdin)
 - `--output-format stream-json`: Outputs JSON messages line by line
 - `--verbose`: Includes all message types in output
-- `--print`: Non-interactive mode, exits after completion
 - `--system-prompt`: Sets the system prompt
 - `--allowed-tools`: Comma-separated list of allowed tools (e.g. "View,Bash(git:*)")
 - `--model`: Specifies the model to use
@@ -33,16 +34,17 @@ Key CLI flags we use:
 ### 2. Message Flow
 
 ```
-Elixir SDK -> Spawns CLI subprocess -> CLI talks to Anthropic API
-     ^                                           |
-     |                                           v
-     +------ JSON messages over stdout ----------+
+Elixir SDK <-> Persistent CLI subprocess <-> Anthropic API
+     ^                   ^                          |
+     |    stdin (query)  |                          v
+     +--- stdout (JSON messages) ------------------+
 ```
 
-The CLI outputs newline-delimited JSON messages to stdout:
-- Each line is a complete JSON object
-- Three main message types in a typical query:
-  - `system` (type: "system") - Initialization info with tools and session ID
+The SDK maintains a persistent CLI subprocess with bidirectional I/O:
+- Queries are written to stdin as JSON messages
+- Responses come via stdout as newline-delimited JSON
+- Three main message types in a typical response:
+  - `system` (type: "system") - Initialization info with tools and session ID (on connect)
   - `assistant` (type: "assistant") - Streaming response chunks
   - `result` (type: "result") - Final complete response with metadata
 - The SDK parses these and extracts the final response from the result message
@@ -55,17 +57,19 @@ defmodule ClaudeCode.Session do
   use GenServer
 
   # State includes:
-  # - active_requests: Map of request_id => RequestInfo
+  # - port: Persistent CLI subprocess (nil until first query)
+  # - buffer: JSON parsing buffer for stdout data
+  # - requests: Map of request_ref => Request struct
+  # - query_queue: Queue of pending queries (for serial execution)
   # - api_key: Authentication key
-  # - model: Model to use for queries
+  # - session_id: Claude session ID for conversation continuity
   # - session_options: Validated session-level options
 
-  # Each RequestInfo tracks:
-  # - port: Dedicated CLI subprocess
-  # - buffer: Request-specific JSON buffer
-  # - type: :sync or :stream
-  # - subscribers: PIDs receiving stream messages
-  # - messages: Accumulated messages
+  # Each Request tracks:
+  # - type: :sync | :async | :stream
+  # - caller_pid: PID to notify for async/stream
+  # - from: GenServer reply target (sync only)
+  # - status: :active | :completed
 end
 ```
 
@@ -80,7 +84,7 @@ defmodule ClaudeCode.Options do
 end
 ```
 
-The Session GenServer supports multiple concurrent queries, with each query spawning its own CLI subprocess. This design ensures true concurrency without race conditions.
+The Session GenServer uses a persistent CLI subprocess with a query queue for serial execution. This ensures efficient multi-turn conversations while maintaining conversation context.
 
 #### CLI Module (`ClaudeCode.CLI`)
 ```elixir
@@ -203,32 +207,27 @@ The Options module converts Elixir-style options to CLI flags:
 
 ## Implementation Details
 
-### Concurrent Query Support
+### Session Architecture
 
-The Session GenServer is designed to handle multiple concurrent queries efficiently:
+The Session GenServer uses a persistent CLI subprocess with serial query execution:
 
 ```elixir
-# Each request gets a unique ID and dedicated resources
-defmodule RequestInfo do
+# Each request gets a unique reference
+defmodule Request do
   defstruct [
-    :id,           # Unique request reference
-    :type,         # :sync | :stream
-    :port,         # Dedicated CLI subprocess
-    :buffer,       # Request-specific JSON buffer
+    :type,         # :sync | :async | :stream
+    :caller_pid,   # PID for async/stream notifications
     :from,         # GenServer.reply target (sync only)
-    :subscribers,  # PIDs receiving messages (stream only)
-    :messages,     # Accumulated messages
-    :status,       # :active | :completed
-    :created_at    # For timeout tracking
+    :status        # :active | :completed
   ]
 end
 ```
 
 Key design decisions:
-- **Port Isolation**: Each request owns its CLI subprocess
-- **Message Routing**: Port messages are routed by looking up the port in active requests
-- **Buffer Isolation**: Each request has its own JSON parsing buffer
-- **Cleanup**: Requests are automatically cleaned up on completion or timeout
+- **Persistent Connection**: Single CLI subprocess for all queries (auto-connects on first query)
+- **Query Queue**: Queries are executed serially to maintain conversation context
+- **Automatic Reconnection**: CLI is restarted if it exits unexpectedly
+- **Session Continuity**: Session ID is captured and used for conversation context
 
 ### Process Management
 
@@ -325,21 +324,22 @@ Options are validated early to provide immediate feedback on configuration error
 1. **Query starts**:
    - Validate query-level options using NimbleOptions
    - Merge session and query options (query takes precedence)
-   - Convert merged options to CLI flags
-   - Generate unique request ID
-   - Spawn dedicated CLI subprocess with prompt and flags
-   - Register request in `active_requests` map
+   - Ensure CLI subprocess is connected (lazy connect on first query)
+   - Generate unique request reference
+   - Queue query if another is in progress, otherwise execute immediately
+   - Write query JSON to CLI stdin
+   - Register request in `requests` map
 2. **Stream messages**:
-   - Route port messages to correct request via port lookup
-   - Parse JSON lines with request-specific buffer
-   - Send messages only to request's subscribers
+   - Parse JSON lines from stdout buffer
+   - Route messages to current active request
+   - Capture session ID from messages
 3. **Query ends**:
    - Extract result from final message
-   - CLI process exits, cleanup port
-   - Remove request from `active_requests`
+   - Reply to caller or notify subscribers
+   - Process next queued query if any
 4. **Session continues**:
-   - GenServer stays alive for next query
-   - Multiple queries can run concurrently
+   - GenServer and CLI subprocess stay alive
+   - Session ID enables conversation continuity
 
 ### Session Continuity
 
@@ -405,10 +405,10 @@ echo '{"type": "done"}'
 
 ## Performance Considerations
 
-1. **Concurrent Queries**: Each Session can handle multiple concurrent queries
-2. **Request Isolation**: Each query has its own port and buffer - no contention
-3. **Message Routing**: O(1) port-to-request lookup for efficient message delivery
-4. **Automatic Cleanup**: Requests timeout after 5 minutes to prevent resource leaks
+1. **Persistent Connection**: Single CLI subprocess avoids spawn overhead between queries
+2. **Serial Execution**: Query queue ensures conversation context is maintained
+3. **Lazy Connect**: CLI is only spawned on first query (not on session start)
+4. **Auto-Reconnect**: CLI is automatically restarted if it exits unexpectedly
 5. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
 
 ## Security

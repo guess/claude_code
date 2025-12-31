@@ -13,17 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom permission callbacks may be added in a future release as a P2 feature
 
 ### Added
-- **Streaming input mode (V2-style API)** - Bidirectional communication with Claude CLI
-  - New `ClaudeCode.connect/2` - Connect session in streaming mode for multi-turn conversations
-  - New `ClaudeCode.stream_query/2` - Send query to connected streaming session
-  - New `ClaudeCode.receive_messages/2` - Stream of all messages for a request
-  - New `ClaudeCode.receive_response/2` - Stream until result message is received
-  - New `ClaudeCode.interrupt/2` - Cancel in-progress streaming request
-  - New `ClaudeCode.disconnect/1` - Close streaming connection
+- **Persistent streaming mode** - Bidirectional communication with Claude CLI
+  - Sessions now use a persistent CLI subprocess with stdin/stdout streaming
+  - Auto-connect on first query, auto-disconnect on session stop
+  - New `:resume` option in `start_link/1` for resuming previous sessions
+  - New `ClaudeCode.get_session_id/1` to retrieve current session ID
   - New `ClaudeCode.Input` module - Builds NDJSON messages for stream-json input format
-  - New `:input_format` option - Set to `:stream_json` for streaming mode
-  - Supports conversation resumption via `resume: session_id` option in `connect/2`
   - Enables multi-turn conversations without subprocess restarts
+  - Lower latency between queries (no startup overhead)
 - **ThinkingBlock content type** for extended thinking support
   - New `ClaudeCode.Content.Thinking` module for parsing thinking blocks
   - Thinking blocks contain `thinking` (reasoning text) and `signature` fields
@@ -59,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables Elixir applications to expose custom tools to Claude via MCP protocol
 
 ### Changed
+- **Session architecture simplified** - All queries now use persistent streaming connection
+  - Removed one-shot mode (spawning new CLI per query)
+  - Removed `connect/2`, `disconnect/1`, `stream_query/2` functions (auto-managed now)
+  - Moved `:resume` option from `connect/2` to `start_link/1`
+  - Query queue ensures serial execution while maintaining conversation context
 - **Minimum Elixir version raised to 1.18** ([89e4a40])
 - Updated `ClaudeCode.Message.parse/1` to handle `stream_event` message type
 - Updated `ClaudeCode.Session` to process `StreamEvent` messages

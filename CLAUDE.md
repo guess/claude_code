@@ -41,9 +41,9 @@ The SDK works by spawning the Claude Code CLI (`claude` command) as a subprocess
 4. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
 
 Key CLI flags used:
+- `--input-format stream-json` - Bidirectional streaming mode (reads from stdin)
 - `--output-format stream-json` - Get structured JSON output
 - `--verbose` - Include all message types
-- `--print` - Non-interactive mode
 
 ## Current Implementation Status
 
@@ -77,11 +77,12 @@ Planned for v1.0 (🔨):
 ## Important Implementation Notes
 
 - The SDK does NOT make direct API calls - all API communication is handled by the CLI
-- Each query spawns a new CLI subprocess (the CLI exits after each query)
+- Sessions use a persistent CLI subprocess with bidirectional streaming (stdin/stdout)
+- The CLI auto-connects on first query and auto-disconnects on session stop
 - API keys are passed via environment variables, never in command arguments
-- CLI requires shell wrapper with stdin redirect to prevent hanging
 - Response content comes from the "result" message, not "assistant" messages
 - Uses `/bin/sh -c` with proper shell escaping for special characters
+- Multi-turn conversations are supported via persistent connection (no subprocess restart between queries)
 
 ## File Structure
 
@@ -123,6 +124,7 @@ Quick reference for development:
 - Query options can override session defaults (except `:api_key` and `:name`)
 
 Key options:
+- `:resume` - Session ID to resume a previous conversation (passed to `start_link/1`)
 - `:agents` - Map of custom agent configurations (name -> %{"description" => ..., "prompt" => ..., "tools" => ..., "model" => ...})
 - `:settings` - Team settings (file path, JSON string, or map - auto-encoded to JSON)
 - `:setting_sources` - List of setting sources ([:user, :project, :local])

@@ -156,42 +156,35 @@ case ClaudeCode.query(session, "Hello") do
 end
 ```
 
-### Streaming Mode (V2-style API)
-For efficient multi-turn conversations without subprocess restarts:
+### Multi-turn Conversations
+Sessions automatically maintain context across queries:
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
 
-# Connect in streaming mode
-:ok = ClaudeCode.connect(session)
-
 # First turn
-{:ok, ref1} = ClaudeCode.stream_query(session, "What's the capital of France?")
-session
-|> ClaudeCode.receive_response(ref1)
-|> Stream.filter(&match?(%ClaudeCode.Message.Result{}, &1))
-|> Enum.each(fn result -> IO.puts(result.result) end)
+{:ok, response1} = ClaudeCode.query(session, "What's the capital of France?")
+IO.puts(response1)  # Paris
 
-# Second turn (same connection, conversation continues)
-{:ok, ref2} = ClaudeCode.stream_query(session, "What about Germany?")
-session
-|> ClaudeCode.receive_response(ref2)
-|> Stream.filter(&match?(%ClaudeCode.Message.Result{}, &1))
-|> Enum.each(fn result -> IO.puts(result.result) end)
+# Second turn - context is preserved automatically
+{:ok, response2} = ClaudeCode.query(session, "What about Germany?")
+IO.puts(response2)  # Berlin
 
-# Interrupt long-running queries
-{:ok, ref3} = ClaudeCode.stream_query(session, "Count to 1000 slowly")
-Process.sleep(1000)
-:ok = ClaudeCode.interrupt(session, ref3)
+# Get session ID for later resume
+{:ok, session_id} = ClaudeCode.get_session_id(session)
 
-# Disconnect when done
-:ok = ClaudeCode.disconnect(session)
+ClaudeCode.stop(session)
+
+# Resume later with the same context
+{:ok, new_session} = ClaudeCode.start_link(resume: session_id)
+{:ok, response3} = ClaudeCode.query(new_session, "What was the first capital I asked about?")
+IO.puts(response3)  # Paris
 ```
 
 **Benefits:**
-- ✅ **No subprocess restart** - Single CLI process handles all queries
-- ✅ **Lower latency** - No startup overhead between turns
-- ✅ **Interruptible** - Cancel in-progress queries
+- ✅ **Persistent connection** - Single CLI process handles all queries
+- ✅ **Auto-connect/disconnect** - No manual lifecycle management
 - ✅ **Resume support** - Continue previous conversations with `resume: session_id`
+- ✅ **Lower latency** - No startup overhead between turns
 
 ### Tool Callbacks
 Monitor tool executions for logging, auditing, or analytics:

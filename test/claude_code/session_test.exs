@@ -135,7 +135,7 @@ defmodule ClaudeCode.SessionTest do
 
       # Check that request exists
       state = :sys.get_state(session)
-      assert map_size(state.active_requests) > 0
+      assert map_size(state.requests) > 0
 
       # Send cleanup
       GenServer.cast(session, {:stream_cleanup, ref})
@@ -143,7 +143,7 @@ defmodule ClaudeCode.SessionTest do
 
       # Check that request is removed
       state = :sys.get_state(session)
-      assert map_size(state.active_requests) == 0
+      assert map_size(state.requests) == 0
 
       GenServer.stop(session)
     end
@@ -178,7 +178,7 @@ defmodule ClaudeCode.SessionTest do
 
   describe "session ID storage and continuity" do
     setup do
-      # Script that outputs a session ID and checks for --resume flag
+      # Script that outputs a session ID and checks for --resume flag (streaming-aware)
       MockCLI.setup_with_script("""
       #!/bin/bash
 
@@ -199,14 +199,17 @@ defmodule ClaudeCode.SessionTest do
         esac
       done
 
-      # Output system init message with session ID
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+      # Streaming mode: read from stdin and output messages for each input
+      while IFS= read -r line; do
+        # Output system init message with session ID
+        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
 
-      # Output assistant message with session ID
-      echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+        # Output assistant message with session ID
+        echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
 
-      # Output result message with session ID
-      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello from session '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+        # Output result message with session ID
+        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello from session '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+      done
 
       exit 0
       """)
@@ -298,7 +301,7 @@ defmodule ClaudeCode.SessionTest do
 
   describe "session management API" do
     setup do
-      # Create mock CLI that respects --resume flag
+      # Create mock CLI that respects --resume flag (streaming-aware)
       MockCLI.setup_with_script("""
       #!/bin/bash
 
@@ -320,9 +323,12 @@ defmodule ClaudeCode.SessionTest do
         prev_arg="$arg"
       done
 
-      # Output messages with appropriate session ID
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+      # Streaming mode: read from stdin and output messages for each input
+      while IFS= read -r line; do
+        # Output messages with appropriate session ID
+        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+      done
 
       exit 0
       """)
@@ -384,16 +390,19 @@ defmodule ClaudeCode.SessionTest do
 
   describe "session persistence" do
     setup do
-      # Simple mock CLI that outputs session info
+      # Simple mock CLI that outputs session info (streaming-aware)
       MockCLI.setup_with_script("""
       #!/bin/bash
 
       # Default session ID
       session_id="persistent-session-789"
 
-      # Output messages with session ID
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Success with session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+      # Streaming mode: read from stdin and output messages for each input
+      while IFS= read -r line; do
+        # Output messages with session ID
+        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Success with session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+      done
 
       exit 0
       """)
@@ -423,39 +432,37 @@ defmodule ClaudeCode.SessionTest do
 
   describe "concurrent query handling" do
     setup do
-      # Script that outputs different responses based on the prompt
+      # Script that outputs different responses based on the prompt (streaming-aware)
+      # Note: With streaming mode, queries are serialized (queued), not truly concurrent
       MockCLI.setup_with_script("""
       #!/bin/bash
-      # Get the last argument as the prompt (after all the flags)
-      for arg in "$@"; do
-        prompt="$arg"
+      session_id="test-$$"
+
+      # Streaming mode: read from stdin and output messages for each input
+      while IFS= read -r line; do
+        # Output system init message
+        echo '{"type":"system","subtype":"init","model":"claude-3","session_id":"'$session_id'","cwd":"/tmp","tools":[],"mcp_servers":[],"permissionMode":"allow","apiKeySource":"env"}'
+
+        # Parse the prompt from the JSON input
+        # The input is like: {"type":"user","message":{"role":"user","content":"query1"},...}
+        case "$line" in
+          *"query1"*)
+            echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 1"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Response 1","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+            ;;
+          *"query2"*)
+            echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 2"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":120,"num_turns":1,"result":"Response 2","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+            ;;
+          *"query3"*)
+            echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 3"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":200,"duration_api_ms":160,"num_turns":1,"result":"Response 3","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+            ;;
+          *)
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Unknown query","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+            ;;
+        esac
       done
-
-      # Output system init message
-      echo '{"type":"system","subtype":"init","model":"claude-3","session_id":"test-'$$'","cwd":"/tmp","tools":[],"mcp_servers":[],"permissionMode":"allow","apiKeySource":"env"}'
-      sleep 0.05
-
-      # Output different responses based on prompt
-      case "$prompt" in
-        *"query1"*)
-          echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 1"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-'$$'"}'
-          sleep 0.05
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Response 1","session_id":"test-'$$'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-          ;;
-        *"query2"*)
-          echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 2"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-'$$'"}'
-          sleep 0.05
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":120,"num_turns":1,"result":"Response 2","session_id":"test-'$$'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-          ;;
-        *"query3"*)
-          echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 3"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-'$$'"}'
-          sleep 0.05
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":200,"duration_api_ms":160,"num_turns":1,"result":"Response 3","session_id":"test-'$$'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-          ;;
-        *)
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Unknown query","session_id":"test-'$$'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-          ;;
-      esac
       exit 0
       """)
     end
@@ -493,7 +500,7 @@ defmodule ClaudeCode.SessionTest do
 
       # Verify all requests are cleaned up
       state = :sys.get_state(session)
-      assert map_size(state.active_requests) == 0
+      assert map_size(state.requests) == 0
 
       GenServer.stop(session)
     end
@@ -540,7 +547,7 @@ defmodule ClaudeCode.SessionTest do
       # Verify cleanup
       Process.sleep(100)
       state = :sys.get_state(session)
-      assert map_size(state.active_requests) == 0
+      assert map_size(state.requests) == 0
 
       GenServer.stop(session)
     end

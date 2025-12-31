@@ -192,20 +192,29 @@ defmodule MockCLI do
   # Private helpers
 
   defp build_script(messages, sleep) do
+    # Build a streaming-aware script that:
+    # 1. Reads input from stdin (newline-delimited JSON)
+    # 2. For each input, outputs the configured messages
+    # 3. Keeps running until stdin is closed
     message_lines =
       Enum.map_join(messages, "\n", fn msg ->
         json = encode_json(msg)
+        # Escape single quotes for shell
+        escaped_json = String.replace(json, "'", "'\\''")
 
         if sleep > 0 do
-          "echo '#{json}'\nsleep #{sleep}"
+          "echo '#{escaped_json}'\nsleep #{sleep}"
         else
-          "echo '#{json}'"
+          "echo '#{escaped_json}'"
         end
       end)
 
     """
     #!/bin/bash
-    #{message_lines}
+    # Streaming mode: read from stdin and output messages for each input
+    while IFS= read -r line; do
+      #{message_lines}
+    done
     exit 0
     """
   end

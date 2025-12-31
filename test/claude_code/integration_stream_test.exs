@@ -12,21 +12,28 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       mock_script = Path.join(mock_dir, "claude")
 
-      # Write a more sophisticated mock that simulates streaming
+      # Write a streaming-aware mock that simulates streaming
       File.write!(mock_script, """
       #!/bin/bash
-      # Simulate streaming response
+
+      # Output system init message immediately
       echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"stream-test","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Once upon a time"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":", there was a developer"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":" who loved Elixir. "}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_4","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"The end."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-      sleep 0.05
-      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":250,"duration_api_ms":200,"num_turns":1,"result":"Once upon a time, there was a developer who loved Elixir. The end.","session_id":"stream-test","total_cost_usd":0.001,"usage":{}}'
+
+      # Read from stdin and respond to each query
+      while IFS= read -r line; do
+        # Simulate streaming response with multiple chunks
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Once upon a time"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":", there was a developer"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":" who loved Elixir. "}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_4","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"The end."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
+        sleep 0.02
+        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":250,"duration_api_ms":200,"num_turns":1,"result":"Once upon a time, there was a developer who loved Elixir. The end.","session_id":"stream-test","total_cost_usd":0.001,"usage":{}}'
+      done
+
       exit 0
       """)
 
@@ -202,18 +209,25 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       mock_script = Path.join(mock_dir, "claude")
 
-      # Write a mock that includes tool use
+      # Write a streaming-aware mock that includes tool use
       File.write!(mock_script, """
       #!/bin/bash
+
+      # Output system init message immediately
       echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"tool-test","tools":["write_file","read_file"],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"I'"'"'ll create a file for you."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"tool_use","id":"tool_1","name":"write_file","input":{"path":"test.txt","content":"Hello from Claude!"}}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
-      sleep 0.05
-      echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"File created successfully!"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
-      sleep 0.05
-      echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":100,"num_turns":1,"result":"Created test.txt","session_id":"tool-test","total_cost_usd":0.001,"usage":{}}'
+
+      # Read from stdin and respond to each query
+      while IFS= read -r line; do
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"I'"'"'ll create a file for you."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"tool_use","id":"tool_1","name":"write_file","input":{"path":"test.txt","content":"Hello from Claude!"}}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
+        sleep 0.02
+        echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"File created successfully!"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
+        sleep 0.02
+        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":100,"num_turns":1,"result":"Created test.txt","session_id":"tool-test","total_cost_usd":0.001,"usage":{}}'
+      done
+
       exit 0
       """)
 
