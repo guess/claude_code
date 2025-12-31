@@ -152,6 +152,30 @@ defmodule StreamMetrics do
 end
 ```
 
+## Async Queries (Message-Based)
+
+For event-driven architectures like Phoenix LiveView, use `query_async/3` instead of streams:
+
+```elixir
+# Returns immediately with a reference
+{:ok, ref} = ClaudeCode.query_async(session, "Tell me a story")
+
+# Messages are sent to your process
+receive do
+  {:claude_stream_started, ^ref} -> IO.puts("Started!")
+  {:claude_message, ^ref, message} -> IO.inspect(message)
+  {:claude_stream_end, ^ref} -> IO.puts("Done!")
+  {:claude_stream_error, ^ref, error} -> IO.puts("Error: #{inspect(error)}")
+end
+```
+
+| Approach | Best For |
+|----------|----------|
+| `query_stream/3` | Pipelines, Stream processing, CLI tools |
+| `query_async/3` | LiveView, GenServers, event-driven code |
+
+See [Phoenix Integration](../integration/phoenix.md) for complete LiveView examples.
+
 ## Error Handling
 
 ```elixir

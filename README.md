@@ -125,14 +125,34 @@ end
 
 ### Phoenix Integration
 ```elixir
-# Use in LiveViews and Controllers
-def handle_event("ask_claude", %{"message" => message}, socket) do
-  case ClaudeCode.query(:assistant, message) do
-    {:ok, response} -> {:noreply, assign(socket, response: response)}
-    {:error, _} -> {:noreply, put_flash(socket, :error, "Claude unavailable")}
+# Simple controller usage
+def ask(conn, %{"prompt" => prompt}) do
+  case ClaudeCode.query(:assistant, prompt) do
+    {:ok, response} -> json(conn, %{response: response})
+    {:error, _} -> json(conn, %{error: "Claude unavailable"})
   end
 end
 ```
+
+For LiveView with real-time streaming, use `query_async/3`:
+```elixir
+# LiveView with streaming responses
+def handle_event("send", %{"message" => msg}, socket) do
+  {:ok, ref} = ClaudeCode.query_async(:assistant, msg)
+  {:noreply, assign(socket, request_ref: ref, streaming: true)}
+end
+
+def handle_info({:claude_message, ref, msg}, socket) do
+  # Process streaming messages...
+  {:noreply, socket}
+end
+
+def handle_info({:claude_stream_end, _ref}, socket) do
+  {:noreply, assign(socket, streaming: false)}
+end
+```
+
+📖 **[Full Phoenix Integration Guide →](docs/integration/phoenix.md)**
 
 ### Error Handling
 ```elixir
