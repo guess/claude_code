@@ -29,40 +29,42 @@ Use Hermes to define tools Claude can invoke:
 defmodule MyApp.Tools.Calculator do
   use Hermes.Server.Component, type: :tool
 
-  @impl true
-  def definition do
-    %{
-      name: "calculator",
-      description: "Perform mathematical calculations",
-      inputSchema: %{
-        type: "object",
-        properties: %{
-          operation: %{
-            type: "string",
-            enum: ["add", "subtract", "multiply", "divide"],
-            description: "The operation to perform"
-          },
-          a: %{type: "number", description: "First operand"},
-          b: %{type: "number", description: "Second operand"}
-        },
-        required: ["operation", "a", "b"]
-      }
-    }
+  alias Hermes.Server.Response
+
+  @moduledoc "Perform mathematical calculations"
+
+  schema do
+    field :operation, :string, required: true, description: "The operation: add, subtract, multiply, or divide"
+    field :a, :float, required: true, description: "First operand"
+    field :b, :float, required: true, description: "Second operand"
   end
 
-  @impl true
-  def execute(%{"operation" => op, "a" => a, "b" => b}, _frame) do
+  def execute(params, frame) do
+    case calculate(params.operation, params.a, params.b) do
+      {:ok, value} ->
+        response = Response.text(Response.tool(), "Result: #{value}")
+        {:reply, response, frame}
+
+      {:error, msg} ->
+        response = Response.error(msg)
+        {:reply, response, frame}
+    end
+  end
+
+  defp calculate("divide", _a, 0), do: {:error, "Division by zero"}
+  defp calculate("divide", _a, 0.0), do: {:error, "Division by zero"}
+  defp calculate(op, a, b) do
     result = case op do
       "add" -> a + b
       "subtract" -> a - b
       "multiply" -> a * b
-      "divide" when b != 0 -> a / b
-      "divide" -> {:error, "Division by zero"}
+      "divide" -> a / b
+      _ -> {:error, "Unknown operation"}
     end
 
     case result do
-      {:error, msg} -> {:error, msg}
-      value -> {:ok, [%{type: "text", text: "Result: #{value}"}]}
+      {:error, _} = err -> err
+      value -> {:ok, value}
     end
   end
 end
@@ -74,34 +76,29 @@ end
 defmodule MyApp.Tools.UserSearch do
   use Hermes.Server.Component, type: :tool
 
-  @impl true
-  def definition do
-    %{
-      name: "search_users",
-      description: "Search for users in the database",
-      inputSchema: %{
-        type: "object",
-        properties: %{
-          email: %{type: "string", description: "Email to search for"},
-          limit: %{type: "integer", description: "Max results", default: 10}
-        },
-        required: ["email"]
-      }
-    }
+  alias Hermes.Server.Response
+
+  import Ecto.Query
+
+  @moduledoc "Search for users in the database"
+
+  schema do
+    field :email, :string, required: true, description: "Email to search for"
+    field :limit, :integer, description: "Max results (default: 10)"
   end
 
-  @impl true
-  def execute(%{"email" => email} = params, _frame) do
-    limit = Map.get(params, "limit", 10)
+  def execute(params, frame) do
+    limit = params[:limit] || 10
 
     users = MyApp.Repo.all(
       from u in MyApp.User,
-      where: ilike(u.email, ^"%#{email}%"),
+      where: ilike(u.email, ^"%#{params.email}%"),
       limit: ^limit,
       select: %{id: u.id, email: u.email, name: u.name}
     )
 
-    {:ok, [%{type: "text", text: Jason.encode!(users, pretty: true)}]}
+    response = Response.json(Response.tool(), users)
+    {:reply, response, frame}
   end
 end
 ```
@@ -112,10 +109,11 @@ end
 defmodule MyApp.MCPServer do
   use Hermes.Server,
     name: "myapp-tools",
-    version: "1.0.0"
+    version: "1.0.0",
+    capabilities: [:tools]
 
-  tool MyApp.Tools.Calculator
-  tool MyApp.Tools.UserSearch
+  component MyApp.Tools.Calculator
+  component MyApp.Tools.UserSearch
 end
 ```
 
