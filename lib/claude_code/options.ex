@@ -42,6 +42,9 @@ defmodule ClaudeCode.Options do
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
   - `:output_format` - Output format (string, optional)
     Options: `"text"`, `"json"`, `"stream-json"`
+  - `:json_schema` - JSON Schema for structured output validation (string or map, optional)
+    When provided as a map, it will be JSON encoded automatically.
+    Example: `%{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}`
   - `:settings` - Settings configuration (string or map, optional)
     Can be a file path, JSON string, or map that will be JSON encoded
     Example: `%{"feature" => true}` or `"/path/to/settings.json"`
@@ -176,8 +179,12 @@ defmodule ClaudeCode.Options do
     ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
     output_format: [type: :string, doc: "Output format (text, json, stream-json)"],
+    json_schema: [
+      type: {:or, [:string, {:map, :string, :any}]},
+      doc: "JSON Schema for structured output validation (JSON string or map)"
+    ],
     settings: [
-      type: {:or, [:string, :map]},
+      type: {:or, [:string, {:map, :string, :any}]},
       doc: "Settings as file path, JSON string, or map to be JSON encoded"
     ],
     setting_sources: [
@@ -220,8 +227,12 @@ defmodule ClaudeCode.Options do
     ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
     output_format: [type: :string, doc: "Override output format for this query"],
+    json_schema: [
+      type: {:or, [:string, {:map, :string, :any}]},
+      doc: "JSON Schema for structured output validation (JSON string or map)"
+    ],
     settings: [
-      type: {:or, [:string, :map]},
+      type: {:or, [:string, {:map, :string, :any}]},
       doc: "Override settings for this query (file path, JSON string, or map)"
     ],
     setting_sources: [
@@ -430,6 +441,15 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:output_format, value) do
     {"--output-format", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:json_schema, value) when is_map(value) do
+    json_string = Jason.encode!(value)
+    {"--json-schema", json_string}
+  end
+
+  defp convert_option_to_cli_flag(:json_schema, value) do
+    {"--json-schema", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:settings, value) when is_map(value) do

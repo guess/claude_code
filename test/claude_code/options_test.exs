@@ -119,6 +119,20 @@ defmodule ClaudeCode.OptionsTest do
 
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_session_options(opts)
     end
+
+    test "validates json_schema as a map" do
+      schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}
+      opts = [json_schema: schema]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:json_schema] == schema
+    end
+
+    test "validates json_schema as a string" do
+      schema = ~s({"type":"object","properties":{"name":{"type":"string"}}})
+      opts = [json_schema: schema]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:json_schema] == schema
+    end
   end
 
   describe "validate_query_options/1" do
@@ -173,6 +187,13 @@ defmodule ClaudeCode.OptionsTest do
       opts = [invalid_option: "value"]
 
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_query_options(opts)
+    end
+
+    test "validates json_schema in query options" do
+      schema = %{"type" => "object", "properties" => %{"result" => %{"type" => "number"}}}
+      opts = [json_schema: schema]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:json_schema] == schema
     end
   end
 
@@ -329,6 +350,57 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       assert "--output-format" in args
       assert "json" in args
+    end
+
+    test "converts json_schema map to JSON-encoded --json-schema" do
+      schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}
+      opts = [json_schema: schema]
+
+      args = Options.to_cli_args(opts)
+      assert "--json-schema" in args
+
+      # Find the JSON value
+      schema_index = Enum.find_index(args, &(&1 == "--json-schema"))
+      json_value = Enum.at(args, schema_index + 1)
+
+      # Decode and verify
+      decoded = Jason.decode!(json_value)
+      assert decoded["type"] == "object"
+      assert decoded["properties"]["name"]["type"] == "string"
+      assert decoded["required"] == ["name"]
+    end
+
+    test "converts json_schema string directly to --json-schema" do
+      schema = ~s({"type":"object","properties":{"name":{"type":"string"}}})
+      opts = [json_schema: schema]
+
+      args = Options.to_cli_args(opts)
+      assert "--json-schema" in args
+      assert schema in args
+    end
+
+    test "converts json_schema with nested structures" do
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "users" => %{
+            "type" => "array",
+            "items" => %{"type" => "object", "properties" => %{"id" => %{"type" => "integer"}}}
+          }
+        }
+      }
+
+      opts = [json_schema: schema]
+
+      args = Options.to_cli_args(opts)
+      assert "--json-schema" in args
+
+      schema_index = Enum.find_index(args, &(&1 == "--json-schema"))
+      json_value = Enum.at(args, schema_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["properties"]["users"]["type"] == "array"
+      assert decoded["properties"]["users"]["items"]["properties"]["id"]["type"] == "integer"
     end
 
     test "converts settings string to --settings" do
