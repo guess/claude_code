@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`:mcp_servers` module map format** - Pass Hermes modules with custom environment variables ([63d4b72])
+  - Simple form: `%{"tools" => MyApp.MCPServer}`
+  - Extended form with env: `%{"tools" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}}`
+  - Custom env is merged with defaults (`MIX_ENV: "prod"`), can override MIX_ENV
+  - Updated MCP docs to recommend `mcp_servers` as the primary configuration method
 - **`:json_schema` option** - JSON Schema for structured output validation ([485513f])
   - Accepts a map (auto-encoded to JSON) or pre-encoded JSON string
   - Maps to `--json-schema` CLI flag
