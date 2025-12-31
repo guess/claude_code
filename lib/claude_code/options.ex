@@ -43,8 +43,8 @@ defmodule ClaudeCode.Options do
     Example: `%{"code-reviewer" => %{"description" => "Reviews code", "prompt" => "You are a code reviewer", "tools" => ["Read", "Edit"], "model" => "sonnet"}}`
   - `:mcp_config` - Path to MCP servers JSON config file (string, optional)
   - `:mcp_servers` - MCP server configurations as a map (map, optional)
-    Values can be a Hermes MCP module (atom) or a command config map.
-    Example: `%{"my-tools" => MyApp.MCPServer, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}}`
+    Values can be a Hermes MCP module (atom), a module map with custom env, or a command config map.
+    Example: `%{"my-tools" => MyApp.MCPServer, "custom" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}}`
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
@@ -116,6 +116,8 @@ defmodule ClaudeCode.Options do
         mcp_servers: %{
           # Hermes MCP server module - auto-generates stdio config
           "my-tools" => MyApp.MCPServer,
+          # Hermes module with custom environment variables
+          "my-tools-debug" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}},
           # Explicit command config for external MCP servers
           "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
         }
@@ -523,7 +525,13 @@ defmodule ClaudeCode.Options do
     expanded =
       Map.new(value, fn
         {name, module} when is_atom(module) ->
-          {name, expand_hermes_module(module)}
+          {name, expand_hermes_module(module, %{})}
+
+        {name, %{module: module} = config} when is_atom(module) ->
+          {name, expand_hermes_module(module, config)}
+
+        {name, %{"module" => module} = config} when is_atom(module) ->
+          {name, expand_hermes_module(module, config)}
 
         {name, config} when is_map(config) ->
           {name, config}
@@ -556,15 +564,19 @@ defmodule ClaudeCode.Options do
 
   # Private helpers
 
-  defp expand_hermes_module(module) do
+  defp expand_hermes_module(module, config) do
     # Generate stdio command config for a Hermes MCP server module
     # This allows the CLI to spawn the Elixir app with the MCP server
     startup_code = "#{inspect(module)}.start_link(transport: :stdio)"
 
+    # Extract custom env from config (supports both atom and string keys)
+    custom_env = config[:env] || config["env"] || %{}
+    merged_env = Map.merge(%{"MIX_ENV" => "prod"}, custom_env)
+
     %{
       command: "mix",
       args: ["run", "--no-halt", "-e", startup_code],
-      env: %{"MIX_ENV" => "prod"}
+      env: merged_env
     }
   end
 end

@@ -740,6 +740,60 @@ defmodule ClaudeCode.OptionsTest do
       assert decoded["playwright"]["args"] == ["@playwright/mcp@latest"]
     end
 
+    test "expands module map with custom env in mcp_servers (atom keys)" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1", "LOG_LEVEL" => "debug"}}
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--mcp-servers" in args
+
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["my-tools"]["command"] == "mix"
+      assert decoded["my-tools"]["args"] == ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"]
+      # Custom env merged with defaults
+      assert decoded["my-tools"]["env"]["MIX_ENV"] == "prod"
+      assert decoded["my-tools"]["env"]["DEBUG"] == "1"
+      assert decoded["my-tools"]["env"]["LOG_LEVEL"] == "debug"
+    end
+
+    test "expands module map with custom env in mcp_servers (string keys)" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => %{"module" => MyApp.MCPServer, "env" => %{"DEBUG" => "1"}}
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["my-tools"]["command"] == "mix"
+      assert decoded["my-tools"]["env"]["MIX_ENV"] == "prod"
+      assert decoded["my-tools"]["env"]["DEBUG"] == "1"
+    end
+
+    test "custom env can override MIX_ENV in module map" do
+      opts = [
+        mcp_servers: %{
+          "my-tools" => %{module: MyApp.MCPServer, env: %{"MIX_ENV" => "dev"}}
+        }
+      ]
+
+      args = Options.to_cli_args(opts)
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["my-tools"]["env"]["MIX_ENV"] == "dev"
+    end
+
     test "converts include_partial_messages true to --include-partial-messages" do
       opts = [include_partial_messages: true]
 
