@@ -432,7 +432,7 @@ end
 # config/config.exs
 config :claude_code,
   # Global defaults
-  model: "claude-3-5-sonnet-20241022",
+  model: "sonnet",
   timeout: :timer.minutes(5),
 
   # Telemetry

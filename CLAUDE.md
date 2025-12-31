@@ -47,25 +47,28 @@ Key CLI flags used:
 
 ## Current Implementation Status
 
-**20 features implemented** (83% of relevant features) - See `docs/proposals/FEATURE_MATRIX.md`
+**26 features implemented** (96% of core functionality) - See `docs/proposals/FEATURE_MATRIX.md`
 
 Core capabilities:
 - Session management with GenServer
 - Synchronous and async query interface
 - Streaming support with native Elixir Streams
-- Message parsing (System, Assistant, User, Result)
-- Content blocks (Text, ToolUse, ToolResult)
+- Message parsing (System, Assistant, User, Result, StreamEvent)
+- Content blocks (Text, ToolUse, ToolResult, Thinking)
 - Options API with NimbleOptions validation
-- Model selection, system prompts, turn limiting
-- Tool control (allowed/disallowed tools, additional directories) ✅
+- Model selection with fallback model support
+- System prompts (override and append)
+- Tool control (allowed/disallowed tools, additional directories)
 - Permission modes and MCP integration
+- Custom agents configuration
+- Team settings loading (file path, JSON, or map)
 - Session tracking and auto-resume
+- Partial message streaming (character-level deltas)
+- Stream utilities (text_deltas, thinking_deltas, buffered_text)
+- Interrupt support for in-progress queries
 
 Planned for v1.0 (🔨):
-- Fallback model support (P0 - production resilience)
 - Session forking (P1 - conversation branching)
-- Team settings loading (P1)
-- Partial message streaming (P1 - LiveView real-time updates)
 
 ## Testing Approach
 
@@ -95,7 +98,7 @@ Planned for v1.0 (🔨):
   - `content.ex` - Content block parsing
   - `types.ex` - Type definitions matching SDK schema
   - `message/` - Message type modules (system, assistant, user, result)
-  - `content/` - Content block modules (text, tool_use, tool_result)
+  - `content/` - Content block modules (text, tool_use, tool_result, thinking)
 - `test/` - Test files mirror lib structure
 - `docs/proposals/` - Feature planning and roadmap
 - `examples/` - Working examples
@@ -183,6 +186,12 @@ All message types follow the official Claude SDK schema:
   tool_use_id: "tool_id",
   content: "tool output",
   is_error: false
+}
+
+# Extended thinking
+%ClaudeCode.Content.Thinking{
+  thinking: "reasoning content",
+  signature: "signature_value"
 }
 ```
 

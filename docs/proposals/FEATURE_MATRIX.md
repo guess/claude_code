@@ -2,7 +2,7 @@
 
 ## Current State (Phase 4 Complete)
 
-**25 features implemented** | **2 features to build for v1.0** | **19+ features deferred** | **12 features killed**
+**26 features implemented** | **1 feature to build for v1.0** | **19+ features deferred** | **12 features killed**
 
 ---
 
@@ -72,7 +72,7 @@
 
 | Feature | TS SDK | Python SDK | Elixir SDK | Status | Notes |
 |---------|--------|------------|------------|--------|-------|
-| Fallback model | `fallbackModel` | N/A | `:fallback_model` | 🔨 BUILD | **P0** - Production resilience |
+| Fallback model | `fallbackModel` | N/A | `:fallback_model` | ✅ HAVE | Production resilience |
 | Team settings | `settingSources` | `settings` | `:settings` | ✅ HAVE | File path, JSON string, or map |
 | Settings sources | `settingSources` | `setting_sources` | `:setting_sources` | ✅ HAVE | user, project, local |
 | Budget limiting | `maxBudgetUsd` | N/A | `:max_budget_usd` | ⏸️ LATER | P2 - Cost control |
@@ -223,7 +223,7 @@ These are CLI configuration commands, not runtime features:
 ## v1.0 Roadmap
 
 ### Critical (P0)
-1. 🔨 Add `--fallback-model` support
+1. ✅ Add `--fallback-model` support
 
 ### High Priority (P1)
 2. 🔨 Add `--fork-session` for conversation branching
@@ -280,7 +280,7 @@ These are CLI configuration commands, not runtime features:
 | MCP servers | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Permission modes | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Permission handler | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Fallback model | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Fallback model | ✅ | ❌ | ✅ | ✅ | ✅ |
 | Session forking | ✅ | ✅ | ❌ | ✅ | ✅ |
 | Budget limiting | ✅ | ❌ | ❌ | ❌ | ✅ |
 | Thinking tokens | ✅ | ❌ | ❌ | ❌ | ✅ |
@@ -349,19 +349,19 @@ These are CLI configuration commands, not runtime features:
 
 ```
 Current State:
-  ✅ HAVE:    25 core features (92% of core functionality)
+  ✅ HAVE:    26 core features (96% of core functionality)
   ⚠️ BROKEN:   0 features
 
 v1.0 Plan:
-  🔨 BUILD:    2 features (P0-P1)
+  🔨 BUILD:    1 feature (P1: fork_session)
 
 Deferred:
   ⏸️ LATER:   19+ features (v1.1+)
   🗑️ KILLED:  12 features (out of scope or N/A)
 
 SDK Parity:
-  vs TypeScript: Core 92% → 100% at v1.0, Full ~70% → ~90% at v1.1
-  vs Python:     Core 92% → 100% at v1.0, Full ~75% → ~90% at v1.1
+  vs TypeScript: Core 96% → 100% at v1.0, Full ~72% → ~90% at v1.1
+  vs Python:     Core 96% → 100% at v1.0, Full ~77% → ~90% at v1.1
 ```
 
 ---
@@ -391,4 +391,4 @@ SDK Parity:
 
 **Last Updated**: 2025-12-30
 **Reference**: TypeScript SDK v1 & Python SDK Documentation
-**Next Action**: Add fallback model and session forking support
+**Next Action**: Add session forking support (`:fork_session`)

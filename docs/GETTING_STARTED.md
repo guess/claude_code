@@ -102,7 +102,7 @@ Configure your session with common options:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  model: "claude-3-5-sonnet-20241022",  # Use a specific model
+  model: "sonnet",  # Use a specific model
   system_prompt: "You are a helpful Elixir programming assistant",
   timeout: 120_000  # 2 minute timeout
 )
@@ -167,7 +167,7 @@ For production applications, configure defaults in your app config:
 # config/config.exs
 config :claude_code,
   api_key: System.get_env("ANTHROPIC_API_KEY"),
-  model: "claude-3-5-sonnet-20241022",
+  model: "sonnet",
   timeout: 180_000,
   system_prompt: "You are a helpful assistant for our Elixir application",
   allowed_tools: ["View"]
