@@ -1,4 +1,4 @@
-# ClaudeCode Elixir SDK Architecture
+# Architecture
 
 ## Overview
 
