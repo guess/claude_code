@@ -230,16 +230,30 @@ defmodule ClaudeCode.Message.StreamEvent do
   defp maybe_add_content_block(event, _), do: event
 
   defp maybe_add_message(event, %{"message" => message}) do
-    Map.put(event, :message, message)
+    Map.put(event, :message, atomize_keys(message))
   end
 
   defp maybe_add_message(event, _), do: event
 
   defp maybe_add_usage(event, %{"usage" => usage}) do
-    Map.put(event, :usage, usage)
+    Map.put(event, :usage, atomize_keys(usage))
   end
 
   defp maybe_add_usage(event, _), do: event
+
+  # Recursively converts string keys to atoms in maps
+  defp atomize_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_binary(key) -> {String.to_atom(key), atomize_keys(value)}
+      {key, value} -> {key, atomize_keys(value)}
+    end)
+  end
+
+  defp atomize_keys(list) when is_list(list) do
+    Enum.map(list, &atomize_keys/1)
+  end
+
+  defp atomize_keys(value), do: value
 
   defp parse_delta(%{"type" => "text_delta", "text" => text}) do
     %{type: :text_delta, text: text}

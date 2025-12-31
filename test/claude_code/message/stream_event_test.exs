@@ -40,7 +40,8 @@ defmodule ClaudeCode.Message.StreamEventTest do
 
       assert {:ok, event} = StreamEvent.new(json)
       assert event.event.type == :message_start
-      assert event.event.message["model"] == "claude-3"
+      assert event.event.message.model == "claude-3"
+      assert event.event.message.id == "msg_123"
     end
 
     test "parses a content_block_start stream event" do
@@ -120,7 +121,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
 
       assert {:ok, event} = StreamEvent.new(json)
       assert event.event.type == :message_delta
-      assert event.event.usage["output_tokens"] == 50
+      assert event.event.usage.output_tokens == 50
     end
 
     test "parses a message_stop stream event" do
