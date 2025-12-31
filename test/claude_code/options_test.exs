@@ -57,6 +57,22 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:include_partial_messages] == false
     end
 
+    test "validates strict_mcp_config option" do
+      opts = [strict_mcp_config: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:strict_mcp_config] == true
+
+      opts = [strict_mcp_config: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:strict_mcp_config] == false
+    end
+
+    test "defaults strict_mcp_config to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:strict_mcp_config] == false
+    end
+
     test "validates mcp_servers option as a map" do
       opts = [
         mcp_servers: %{
@@ -799,6 +815,22 @@ defmodule ClaudeCode.OptionsTest do
       assert "opus" in args
       assert "--max-turns" in args
       assert "10" in args
+    end
+
+    test "converts strict_mcp_config true to --strict-mcp-config" do
+      opts = [strict_mcp_config: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--strict-mcp-config" in args
+      # Boolean flag should not have a value
+      refute "true" in args
+    end
+
+    test "does not add flag when strict_mcp_config is false" do
+      opts = [strict_mcp_config: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--strict-mcp-config" in args
     end
   end
 

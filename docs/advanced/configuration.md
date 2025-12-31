@@ -68,6 +68,7 @@ All options for `ClaudeCode.start_link/1`:
 |--------|------|---------|-------------|
 | `resume` | string | - | Session ID to resume |
 | `mcp_config` | string | - | Path to MCP config file |
+| `strict_mcp_config` | boolean | false | Only use MCP servers from explicit config |
 | `agents` | map | - | Custom agent configurations |
 | `settings` | map/string | - | Team settings |
 | `setting_sources` | list | - | Setting source priority |
@@ -218,6 +219,53 @@ ClaudeCode.query(session, "Extract person info from: John is 30 and knows Elixir
 # Additional directories
 {:ok, session} = ClaudeCode.start_link(
   add_dir: ["/app/lib", "/app/test"]
+)
+```
+
+## MCP Server Control
+
+Claude Code can connect to MCP (Model Context Protocol) servers for additional tools. By default, it uses globally configured MCP servers. Use `strict_mcp_config` to control this:
+
+```elixir
+# No tools at all (no built-in tools, no MCP servers)
+{:ok, session} = ClaudeCode.start_link(
+  tools: [],
+  strict_mcp_config: true
+)
+# tools: [], mcp_servers: []
+
+# Built-in tools only (ignore global MCP servers)
+{:ok, session} = ClaudeCode.start_link(
+  tools: :default,
+  strict_mcp_config: true
+)
+# tools: ["Task", "Bash", "Read", "Edit", ...], mcp_servers: []
+
+# Default behavior (built-in tools + global MCP servers)
+{:ok, session} = ClaudeCode.start_link()
+# tools: ["Task", "Bash", ..., "mcp__memory__*", "mcp__github__*", ...]
+# mcp_servers: [%{name: "memory", ...}, %{name: "github", ...}]
+
+# Specific MCP servers only (no global config)
+{:ok, session} = ClaudeCode.start_link(
+  strict_mcp_config: true,
+  mcp_servers: %{
+    "my-tools" => %{command: "npx", args: ["my-mcp-server"]}
+  }
+)
+```
+
+### Using Hermes MCP Modules
+
+You can use Elixir-based MCP servers built with [Hermes MCP](https://hex.pm/packages/hermes_mcp):
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  strict_mcp_config: true,
+  mcp_servers: %{
+    "my-tools" => MyApp.MCPServer,
+    "custom" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}
+  }
 )
 ```
 

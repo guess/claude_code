@@ -45,6 +45,8 @@ defmodule ClaudeCode.Options do
   - `:mcp_servers` - MCP server configurations as a map (map, optional)
     Values can be a Hermes MCP module (atom), a module map with custom env, or a command config map.
     Example: `%{"my-tools" => MyApp.MCPServer, "custom" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}}`
+  - `:strict_mcp_config` - Only use MCP servers from mcp_config/mcp_servers (boolean, default: false)
+    When true, ignores all global MCP configurations and only uses explicitly provided MCP config.
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
@@ -186,6 +188,11 @@ defmodule ClaudeCode.Options do
       doc:
         ~s(MCP server configurations. Values can be a Hermes module atom or a config map. Example: %{"my-tools" => MyApp.MCPServer, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}})
     ],
+    strict_mcp_config: [
+      type: :boolean,
+      default: false,
+      doc: "Only use MCP servers from mcp_config/mcp_servers, ignoring global MCP configurations"
+    ],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
     permission_mode: [
       type: {:in, [:default, :accept_edits, :bypass_permissions]},
@@ -235,6 +242,10 @@ defmodule ClaudeCode.Options do
     mcp_servers: [
       type: {:map, :string, {:or, [:atom, :map]}},
       doc: "Override MCP server configurations for this query"
+    ],
+    strict_mcp_config: [
+      type: :boolean,
+      doc: "Only use MCP servers from mcp_config/mcp_servers, ignoring global MCP configurations"
     ],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
@@ -536,6 +547,13 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:include_partial_messages, false), do: nil
+
+  defp convert_option_to_cli_flag(:strict_mcp_config, true) do
+    # Boolean flag without value - return as list to be flattened
+    ["--strict-mcp-config"]
+  end
+
+  defp convert_option_to_cli_flag(:strict_mcp_config, false), do: nil
 
   defp convert_option_to_cli_flag(:input_format, :text) do
     {"--input-format", "text"}
