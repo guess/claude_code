@@ -5,6 +5,7 @@ This document provides real-world examples of using ClaudeCode in different scen
 ## Table of Contents
 
 - [Character-Level Streaming](#character-level-streaming)
+- [Streaming Mode (V2-style API)](#streaming-mode-v2-style-api)
 - [Tool Callbacks](#tool-callbacks)
 - [MCP Integration](#mcp-integration)
 - [CLI Applications](#cli-applications)
@@ -229,6 +230,207 @@ session
 end)
 |> Stream.run()
 ```
+
+## Streaming Mode (V2-style API)
+
+Streaming mode enables efficient multi-turn conversations by keeping a single CLI subprocess alive and sending queries via stdin. This eliminates subprocess startup overhead between turns and supports interrupting in-progress queries.
+
+### Basic Streaming Mode Usage
+
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+
+# Connect in streaming mode
+:ok = ClaudeCode.connect(session)
+
+# Send a query and get the response
+{:ok, ref} = ClaudeCode.stream_query(session, "What is the capital of France?")
+
+# Receive all messages until the result
+session
+|> ClaudeCode.receive_response(ref)
+|> Enum.each(fn
+  %ClaudeCode.Message.Assistant{} = msg ->
+    IO.puts("Assistant: #{inspect(msg)}")
+  %ClaudeCode.Message.Result{result: result} ->
+    IO.puts("Final answer: #{result}")
+  _ ->
+    :ok
+end)
+
+# Disconnect when done
+:ok = ClaudeCode.disconnect(session)
+```
+
+### Multi-turn Conversations
+
+The main benefit of streaming mode is efficient multi-turn conversations:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+:ok = ClaudeCode.connect(session)
+
+# First turn
+{:ok, ref1} = ClaudeCode.stream_query(session, "My name is Alice")
+session |> ClaudeCode.receive_response(ref1) |> Stream.run()
+
+# Second turn - conversation context is preserved
+{:ok, ref2} = ClaudeCode.stream_query(session, "What is my name?")
+session
+|> ClaudeCode.receive_response(ref2)
+|> Stream.filter(&match?(%ClaudeCode.Message.Result{}, &1))
+|> Enum.each(fn result -> IO.puts(result.result) end)
+# => "Your name is Alice"
+
+# Third turn
+{:ok, ref3} = ClaudeCode.stream_query(session, "Tell me a joke about my name")
+session |> ClaudeCode.receive_response(ref3) |> Stream.run()
+
+:ok = ClaudeCode.disconnect(session)
+```
+
+### Interrupting Long-Running Queries
+
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+:ok = ClaudeCode.connect(session)
+
+# Start a potentially long query
+{:ok, ref} = ClaudeCode.stream_query(session, "Count from 1 to 1000, very slowly")
+
+# Process messages for a while
+Task.start(fn ->
+  session
+  |> ClaudeCode.receive_messages(ref)
+  |> Enum.each(&IO.inspect/1)
+end)
+
+# Interrupt after 2 seconds
+Process.sleep(2000)
+:ok = ClaudeCode.interrupt(session, ref)
+
+# Can immediately send a new query
+{:ok, ref2} = ClaudeCode.stream_query(session, "Just say hello")
+session |> ClaudeCode.receive_response(ref2) |> Stream.run()
+
+:ok = ClaudeCode.disconnect(session)
+```
+
+### Resuming Previous Conversations
+
+You can resume a previous conversation by passing the session ID:
+
+```elixir
+# First session
+{:ok, session1} = ClaudeCode.start_link()
+:ok = ClaudeCode.connect(session1)
+
+{:ok, ref} = ClaudeCode.stream_query(session1, "Remember: the secret code is 12345")
+session1 |> ClaudeCode.receive_response(ref) |> Stream.run()
+
+# Get the session ID
+{:ok, session_id} = ClaudeCode.get_session_id(session1)
+:ok = ClaudeCode.disconnect(session1)
+ClaudeCode.stop(session1)
+
+# Later: resume the conversation
+{:ok, session2} = ClaudeCode.start_link()
+:ok = ClaudeCode.connect(session2, resume: session_id)
+
+{:ok, ref2} = ClaudeCode.stream_query(session2, "What was the secret code?")
+session2
+|> ClaudeCode.receive_response(ref2)
+|> Stream.filter(&match?(%ClaudeCode.Message.Result{}, &1))
+|> Enum.each(fn result -> IO.puts(result.result) end)
+# => The secret code is 12345
+
+:ok = ClaudeCode.disconnect(session2)
+```
+
+### Streaming Mode in a GenServer
+
+For production use, wrap streaming mode in a GenServer:
+
+```elixir
+defmodule ChatAgent do
+  use GenServer
+  require Logger
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  end
+
+  def chat(message) do
+    GenServer.call(__MODULE__, {:chat, message}, 60_000)
+  end
+
+  def disconnect do
+    GenServer.call(__MODULE__, :disconnect)
+  end
+
+  # GenServer callbacks
+
+  def init(opts) do
+    {:ok, session} = ClaudeCode.start_link(opts)
+
+    case ClaudeCode.connect(session) do
+      :ok ->
+        Logger.info("ChatAgent connected in streaming mode")
+        {:ok, %{session: session, connected: true}}
+
+      {:error, reason} ->
+        Logger.error("Failed to connect: #{inspect(reason)}")
+        {:stop, reason}
+    end
+  end
+
+  def handle_call({:chat, message}, _from, %{session: session} = state) do
+    case ClaudeCode.stream_query(session, message) do
+      {:ok, ref} ->
+        result =
+          session
+          |> ClaudeCode.receive_response(ref)
+          |> Enum.reduce("", fn
+            %ClaudeCode.Message.Result{result: text}, _acc -> text
+            _, acc -> acc
+          end)
+
+        {:reply, {:ok, result}, state}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call(:disconnect, _from, %{session: session} = state) do
+    ClaudeCode.disconnect(session)
+    {:reply, :ok, %{state | connected: false}}
+  end
+
+  def terminate(_reason, %{session: session, connected: true}) do
+    ClaudeCode.disconnect(session)
+    ClaudeCode.stop(session)
+  end
+
+  def terminate(_reason, _state), do: :ok
+end
+
+# Usage:
+# {:ok, _} = ChatAgent.start_link()
+# {:ok, response} = ChatAgent.chat("Hello!")
+# {:ok, response2} = ChatAgent.chat("What did I just say?")
+# :ok = ChatAgent.disconnect()
+```
+
+### Comparing One-Shot vs Streaming Mode
+
+| Feature | One-Shot (`query/3`) | Streaming Mode (`connect/stream_query`) |
+|---------|---------------------|----------------------------------------|
+| Subprocess | New process per query | Single long-lived process |
+| Startup latency | Higher | Lower after connect |
+| Multi-turn | Via `--resume` flag | Native, same process |
+| Interrupt | Kill subprocess | `interrupt/2` function |
+| Best for | Single queries | Conversations, agents |
 
 ## Tool Callbacks
 

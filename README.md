@@ -4,6 +4,7 @@ The most ergonomic way to integrate Claude AI into your Elixir applications.
 
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
 - **💬 Automatic Conversation Continuity**: Claude remembers context across queries
+- **🔁 Bidirectional Streaming**: V2-style API for multi-turn conversations without restarts
 - **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
 - **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
 - **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
@@ -100,6 +101,7 @@ ClaudeCode.query(:assistant, "Help with this task")
 
 - **💬 Conversation Continuity**: Claude remembers context across queries automatically
 - **🔄 Real-time Streaming**: Watch responses appear in real-time with Elixir Streams
+- **🔁 Bidirectional Streaming**: V2-style API for efficient multi-turn conversations
 - **🛠️ File Operations**: Built-in tools for reading, editing, and analyzing files
 - **🏭 Production Ready**: Fault-tolerant supervision with automatic restarts
 - **⚡ High Performance**: Concurrent sessions for parallel processing
@@ -153,6 +155,43 @@ case ClaudeCode.query(session, "Hello") do
   {:error, {:claude_error, msg}} -> IO.puts("Claude error: #{msg}")
 end
 ```
+
+### Streaming Mode (V2-style API)
+For efficient multi-turn conversations without subprocess restarts:
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+
+# Connect in streaming mode
+:ok = ClaudeCode.connect(session)
+
+# First turn
+{:ok, ref1} = ClaudeCode.stream_query(session, "What's the capital of France?")
+session
+|> ClaudeCode.receive_response(ref1)
+|> Stream.filter(&match?(%ClaudeCode.Message.Result{}, &1))
+|> Enum.each(fn result -> IO.puts(result.result) end)
+
+# Second turn (same connection, conversation continues)
+{:ok, ref2} = ClaudeCode.stream_query(session, "What about Germany?")
+session
+|> ClaudeCode.receive_response(ref2)
+|> Stream.filter(&match?(%ClaudeCode.Message.Result{}, &1))
+|> Enum.each(fn result -> IO.puts(result.result) end)
+
+# Interrupt long-running queries
+{:ok, ref3} = ClaudeCode.stream_query(session, "Count to 1000 slowly")
+Process.sleep(1000)
+:ok = ClaudeCode.interrupt(session, ref3)
+
+# Disconnect when done
+:ok = ClaudeCode.disconnect(session)
+```
+
+**Benefits:**
+- ✅ **No subprocess restart** - Single CLI process handles all queries
+- ✅ **Lower latency** - No startup overhead between turns
+- ✅ **Interruptible** - Cancel in-progress queries
+- ✅ **Resume support** - Continue previous conversations with `resume: session_id`
 
 ### Tool Callbacks
 Monitor tool executions for logging, auditing, or analytics:
