@@ -8,12 +8,12 @@ Before you begin, make sure you have:
 
 ### 1. Elixir and Mix
 
-ClaudeCode requires Elixir 1.16+ and OTP 26+.
+ClaudeCode requires Elixir 1.18+ and OTP 27+.
 
 ```bash
 # Check your versions
 elixir --version
-# => Elixir 1.16.0 (compiled with Erlang/OTP 26)
+# => Elixir 1.18.0 (compiled with Erlang/OTP 27)
 ```
 
 ### 2. Claude Code CLI

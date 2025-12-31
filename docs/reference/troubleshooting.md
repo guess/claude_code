@@ -47,7 +47,7 @@ end
 
 **Solution:**
 ```bash
-# Check your Elixir version (requires 1.16+)
+# Check your Elixir version (requires 1.18+)
 elixir --version
 
 # Clean and reinstall dependencies

@@ -23,7 +23,7 @@ We love contributions from the community! Whether you're fixing bugs, adding fea
 
 ### Setting up Your Environment
 
-1. **Elixir Version**: This project requires Elixir >= 1.14
+1. **Elixir Version**: This project requires Elixir >= 1.18
 2. **Claude CLI**: Install the Claude Code CLI from [claude.ai/code](https://claude.ai/code)
 3. **API Key**: You'll need an Anthropic API key for integration tests
 

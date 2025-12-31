@@ -13,7 +13,7 @@ The idiomatic way to integrate Claude AI into your Elixir applications.
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/guess/claude_code/blob/main/LICENSE)
-[![Elixir](https://img.shields.io/badge/elixir-%3E%3D1.14-purple.svg)](https://elixir-lang.org)
+[![Elixir](https://img.shields.io/badge/elixir-%3E%3D1.18-purple.svg)](https://elixir-lang.org)
 
 <div align="center">
     <img src="https://github.com/guess/claude_code/raw/main/docs/claudecode.png" alt="ClaudeCode" width="200">
