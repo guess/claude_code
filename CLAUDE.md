@@ -134,9 +134,11 @@ Key options:
 - `:allowed_tools` / `:disallowed_tools` - Tool access control
 - `:system_prompt` / `:append_system_prompt` - Custom system instructions
 - `:model` - Claude model selection
+- `:fallback_model` - Fallback model if primary fails
 - `:max_turns` - Conversation turn limiting
 - `:mcp_config` / `:permission_prompt_tool` - MCP integration
 - `:add_dir` - Additional accessible directories
+- `:include_partial_messages` - Enable character-level streaming
 
 ### Message Type Structure
 
@@ -201,6 +203,9 @@ All message types follow the official Claude SDK schema:
 # Extract only text content from assistant messages
 ClaudeCode.Stream.text_content(stream)
 
+# Extract only thinking content from assistant messages
+ClaudeCode.Stream.thinking_content(stream)
+
 # Extract only tool usage blocks
 ClaudeCode.Stream.tool_uses(stream)
 
@@ -212,6 +217,11 @@ ClaudeCode.Stream.buffered_text(stream)
 
 # Take messages until result is received
 ClaudeCode.Stream.until_result(stream)
+
+# Character-level streaming (requires include_partial_messages: true)
+ClaudeCode.Stream.text_deltas(stream)      # Text character deltas
+ClaudeCode.Stream.thinking_deltas(stream)  # Thinking character deltas
+ClaudeCode.Stream.content_deltas(stream)   # All delta types with index
 ```
 
 ### Error Types
