@@ -45,7 +45,7 @@ Add ClaudeCode to your project dependencies:
 # mix.exs
 def deps do
   [
-    {:claude_code, "~> 0.5.0"}
+    {:claude_code, "~> 0.6.0"}
   ]
 end
 ```
