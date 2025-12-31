@@ -24,17 +24,13 @@ The idiomatic way to integrate Claude AI into your Elixir applications.
 ```elixir
 # Start a session and query Claude (uses ANTHROPIC_API_KEY from env)
 {:ok, session} = ClaudeCode.start_link()
-
-# Real-time streaming responses
-session
-|> ClaudeCode.query_stream("Explain Elixir GenServers")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)  # Stream Claude's response character by character
+{:ok, response} = ClaudeCode.query(session, "Explain Elixir GenServers in one sentence")
+IO.puts(response)
 
 # Conversation continuity - Claude remembers context
 ClaudeCode.query(session, "My favorite language is Elixir")
-ClaudeCode.query(session, "What's my favorite language?")
-# => "Your favorite language is Elixir!"
+{:ok, answer} = ClaudeCode.query(session, "What's my favorite language?")
+IO.puts(answer)  # => "Your favorite language is Elixir!"
 ```
 
 ## 📦 Installation

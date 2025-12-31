@@ -184,8 +184,7 @@ defmodule ClaudeCode.OptionsTest do
         timeout: 120_000,
         allowed_tools: ["Bash(git:*)"],
         permission_mode: :bypass_permissions,
-        add_dir: ["/home/user/docs"],
-        output_format: "stream-json"
+        add_dir: ["/home/user/docs"]
       ]
 
       assert {:ok, validated} = Options.validate_query_options(opts)
@@ -194,7 +193,6 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:allowed_tools] == ["Bash(git:*)"]
       assert validated[:permission_mode] == :bypass_permissions
       assert validated[:add_dir] == ["/home/user/docs"]
-      assert validated[:output_format] == "stream-json"
     end
 
     test "accepts empty options" do
@@ -461,28 +459,6 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       assert "--add-dir" in args
       assert "/single/path" in args
-    end
-
-    test "converts output_format to --output-format" do
-      opts = [output_format: "stream-json"]
-
-      args = Options.to_cli_args(opts)
-      assert "--output-format" in args
-      assert "stream-json" in args
-    end
-
-    test "converts output_format with different values" do
-      # Test text format
-      opts = [output_format: "text"]
-      args = Options.to_cli_args(opts)
-      assert "--output-format" in args
-      assert "text" in args
-
-      # Test json format
-      opts = [output_format: "json"]
-      args = Options.to_cli_args(opts)
-      assert "--output-format" in args
-      assert "json" in args
     end
 
     test "converts json_schema map to JSON-encoded --json-schema" do

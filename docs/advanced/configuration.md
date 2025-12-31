@@ -73,7 +73,6 @@ All options for `ClaudeCode.start_link/1`:
 | `setting_sources` | list | - | Setting source priority |
 | `tool_callback` | function | - | Called after tool executions |
 | `include_partial_messages` | boolean | false | Enable character-level streaming |
-| `output_format` | string | - | Output format (`"text"`, `"json"`, `"stream-json"`) |
 | `json_schema` | map/string | - | JSON Schema for structured output validation |
 
 ## Query Options

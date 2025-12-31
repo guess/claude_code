@@ -48,8 +48,6 @@ defmodule ClaudeCode.Options do
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`
-  - `:output_format` - Output format (string, optional)
-    Options: `"text"`, `"json"`, `"stream-json"`
   - `:json_schema` - JSON Schema for structured output validation (string or map, optional)
     When provided as a map, it will be JSON encoded automatically.
     Example: `%{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}`
@@ -195,7 +193,6 @@ defmodule ClaudeCode.Options do
       doc: "Permission handling mode"
     ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
-    output_format: [type: :string, doc: "Output format (text, json, stream-json)"],
     json_schema: [
       type: {:or, [:string, {:map, :string, :any}]},
       doc: "JSON Schema for structured output validation (JSON string or map)"
@@ -212,10 +209,6 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
-    ],
-    input_format: [
-      type: {:in, [:text, :stream_json]},
-      doc: "Input format for streaming mode (:text or :stream_json)"
     ]
   ]
 
@@ -250,7 +243,6 @@ defmodule ClaudeCode.Options do
       doc: "Override permission mode for this query"
     ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
-    output_format: [type: :string, doc: "Override output format for this query"],
     json_schema: [
       type: {:or, [:string, {:map, :string, :any}]},
       doc: "JSON Schema for structured output validation (JSON string or map)"
@@ -266,10 +258,6 @@ defmodule ClaudeCode.Options do
     include_partial_messages: [
       type: :boolean,
       doc: "Include partial message chunks as they arrive for character-level streaming"
-    ],
-    input_format: [
-      type: {:in, [:text, :stream_json]},
-      doc: "Override input format for this query (:text or :stream_json)"
     ]
   ]
 
@@ -432,6 +420,11 @@ defmodule ClaudeCode.Options do
     {"--tools", "default"}
   end
 
+  defp convert_option_to_cli_flag(:tools, []) do
+    # Empty list means no built-in tools - CLI accepts "" to disable all
+    {"--tools", ""}
+  end
+
   defp convert_option_to_cli_flag(:tools, value) when is_list(value) do
     tools_csv = Enum.join(value, ",")
     {"--tools", tools_csv}
@@ -486,10 +479,6 @@ defmodule ClaudeCode.Options do
       # Return a flat list of alternating flags and values
       Enum.flat_map(value, fn dir -> ["--add-dir", to_string(dir)] end)
     end
-  end
-
-  defp convert_option_to_cli_flag(:output_format, value) do
-    {"--output-format", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:json_schema, value) when is_map(value) do

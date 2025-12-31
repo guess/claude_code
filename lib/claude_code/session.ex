@@ -538,7 +538,8 @@ defmodule ClaudeCode.Session do
   defp maybe_put_api_override(env, _state), do: env
 
   defp shell_escape(str) when is_binary(str) do
-    if String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n"]) do
+    # Always quote empty strings or strings with special characters
+    if str == "" or String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n"]) do
       "'" <> String.replace(str, "'", "'\\''") <> "'"
     else
       str
