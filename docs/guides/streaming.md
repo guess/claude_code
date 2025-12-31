@@ -152,27 +152,30 @@ defmodule StreamMetrics do
 end
 ```
 
-## Async Queries (Message-Based)
+## Push-Based Streaming for LiveView
 
-For event-driven architectures like Phoenix LiveView, use `query_async/3` instead of streams:
+For event-driven architectures like Phoenix LiveView, wrap `query_stream/3` in a Task:
 
 ```elixir
-# Returns immediately with a reference
-{:ok, ref} = ClaudeCode.query_async(session, "Tell me a story")
+# Start streaming in a Task and forward messages
+parent = self()
+Task.start(fn ->
+  session
+  |> ClaudeCode.query_stream("Tell me a story", include_partial_messages: true)
+  |> ClaudeCode.Stream.text_deltas()
+  |> Enum.each(&send(parent, {:chunk, &1}))
+  send(parent, :complete)
+end)
 
-# Messages are sent to your process
-receive do
-  {:claude_stream_started, ^ref} -> IO.puts("Started!")
-  {:claude_message, ^ref, message} -> IO.inspect(message)
-  {:claude_stream_end, ^ref} -> IO.puts("Done!")
-  {:claude_stream_error, ^ref, error} -> IO.puts("Error: #{inspect(error)}")
+# Handle messages in your LiveView/GenServer
+def handle_info({:chunk, chunk}, socket) do
+  {:noreply, assign(socket, response: socket.assigns.response <> chunk)}
+end
+
+def handle_info(:complete, socket) do
+  {:noreply, assign(socket, streaming: false)}
 end
 ```
-
-| Approach | Best For |
-|----------|----------|
-| `query_stream/3` | Pipelines, Stream processing, CLI tools |
-| `query_async/3` | LiveView, GenServers, event-driven code |
 
 See [Phoenix Integration](../integration/phoenix.md) for complete LiveView examples.
 

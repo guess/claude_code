@@ -24,6 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Accepts a list of beta feature names
   - Maps to `--betas` CLI flag
 
+### Removed
+- **`query_async/3`** - Removed push-based async API in favor of `query_stream/3`
+  - `query_stream/3` provides a more idiomatic Elixir Stream-based API
+  - For push-based messaging (LiveView, GenServers), wrap `query_stream/3` in a Task
+  - See Phoenix integration guide for migration examples
+- **Advanced Streaming API** - Removed low-level streaming functions
+  - `receive_messages/2` - Use `query_stream/3` instead
+  - `receive_response/2` - Use `query_stream/3 |> ClaudeCode.Stream.until_result()` instead
+  - `interrupt/2` - To cancel, use `Task.shutdown/2` on the consuming task
+
+### Changed
+- **`ClaudeCode.Stream`** - Now uses pull-based messaging internally instead of process mailbox
+
 ## [0.5.0] - 2025-12-30
 
 ### Removed

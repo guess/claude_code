@@ -103,28 +103,6 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
 
-    test "query_async sends messages to caller", %{mock_dir: _mock_dir} do
-      {:ok, session} = Session.start_link(api_key: "test-key")
-
-      {:ok, ref} = GenServer.call(session, {:query_async, "test", []})
-
-      # Collect messages
-      case collect_stream_messages(ref, 1000) do
-        {:error, reason} ->
-          flunk("Failed to collect messages: #{inspect(reason)}")
-
-        messages ->
-          # Should receive assistant messages and result (no system message)
-          assert length(messages) >= 2
-
-          # Check message types
-          assert Enum.any?(messages, &match?(%ClaudeCode.Message.Assistant{}, &1))
-          assert Enum.any?(messages, &match?(%Result{}, &1))
-      end
-
-      GenServer.stop(session)
-    end
-
     test "stream cleanup removes request", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
@@ -146,33 +124,6 @@ defmodule ClaudeCode.SessionTest do
       assert map_size(state.requests) == 0
 
       GenServer.stop(session)
-    end
-
-    defp collect_stream_messages(ref, timeout) do
-      # First wait for stream to start
-      receive do
-        {:claude_stream_started, ^ref} ->
-          collect_stream_messages_loop(ref, timeout, [])
-
-        {:claude_stream_error, ^ref, error} ->
-          {:error, error}
-      after
-        timeout ->
-          {:error, :timeout}
-      end
-    end
-
-    defp collect_stream_messages_loop(ref, timeout, acc) do
-      receive do
-        {:claude_message, ^ref, message} ->
-          collect_stream_messages_loop(ref, timeout, [message | acc])
-
-        {:claude_stream_end, ^ref} ->
-          Enum.reverse(acc)
-      after
-        timeout ->
-          Enum.reverse(acc)
-      end
     end
   end
 
@@ -281,19 +232,15 @@ defmodule ClaudeCode.SessionTest do
     test "session ID is captured during streaming queries", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Start streaming query
-      {:ok, ref} = GenServer.call(session, {:query_async, "streaming test", []})
+      # Start streaming query using query_stream
+      _messages =
+        session
+        |> ClaudeCode.query_stream("streaming test")
+        |> Enum.to_list()
 
-      # Collect messages
-      case collect_stream_messages(ref, 1000) do
-        {:error, reason} ->
-          flunk("Stream collection failed: #{inspect(reason)}")
-
-        _messages ->
-          # Session ID should be captured even during streaming
-          state = :sys.get_state(session)
-          assert state.session_id == "test-session-123"
-      end
+      # Session ID should be captured during streaming
+      state = :sys.get_state(session)
+      assert state.session_id == "test-session-123"
 
       GenServer.stop(session)
     end
@@ -505,44 +452,37 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
 
-    test "handles concurrent streaming queries", %{mock_dir: _mock_dir} do
+    test "handles sequential streaming queries", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Start multiple streaming queries
-      {:ok, ref1} = GenServer.call(session, {:query_async, "query1", []})
-      {:ok, ref2} = GenServer.call(session, {:query_async, "query2", []})
-      {:ok, ref3} = GenServer.call(session, {:query_async, "query3", []})
+      # Run multiple streaming queries sequentially (they are serialized internally)
+      messages1 =
+        session
+        |> ClaudeCode.query_stream("query1")
+        |> Enum.to_list()
 
-      # Collect messages for each stream
-      results = {
-        collect_stream_messages(ref1, 2000),
-        collect_stream_messages(ref2, 2000),
-        collect_stream_messages(ref3, 2000)
-      }
+      messages2 =
+        session
+        |> ClaudeCode.query_stream("query2")
+        |> Enum.to_list()
 
-      case results do
-        {{:error, r1}, {:error, r2}, {:error, r3}} ->
-          flunk("All streams failed: #{inspect({r1, r2, r3})}")
+      messages3 =
+        session
+        |> ClaudeCode.query_stream("query3")
+        |> Enum.to_list()
 
-        {messages1, messages2, messages3} ->
-          # Handle possible errors
-          messages1 = if is_list(messages1), do: messages1, else: []
-          messages2 = if is_list(messages2), do: messages2, else: []
-          messages3 = if is_list(messages3), do: messages3, else: []
+      # Verify each stream got its messages
+      result1 = Enum.find(messages1, &match?(%Result{}, &1))
+      result2 = Enum.find(messages2, &match?(%Result{}, &1))
+      result3 = Enum.find(messages3, &match?(%Result{}, &1))
 
-          # Verify each stream got its messages
-          result1 = Enum.find(messages1, &match?(%Result{}, &1))
-          result2 = Enum.find(messages2, &match?(%Result{}, &1))
-          result3 = Enum.find(messages3, &match?(%Result{}, &1))
+      assert result1 != nil, "No result found for stream 1"
+      assert result2 != nil, "No result found for stream 2"
+      assert result3 != nil, "No result found for stream 3"
 
-          assert result1 != nil, "No result found for stream 1"
-          assert result2 != nil, "No result found for stream 2"
-          assert result3 != nil, "No result found for stream 3"
-
-          assert result1.result == "Response 1"
-          assert result2.result == "Response 2"
-          assert result3.result == "Response 3"
-      end
+      assert result1.result == "Response 1"
+      assert result2.result == "Response 2"
+      assert result3.result == "Response 3"
 
       # Verify cleanup
       Process.sleep(100)
@@ -555,31 +495,20 @@ defmodule ClaudeCode.SessionTest do
     test "handles mixed sync and streaming queries", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Start mixed query types
-      sync_task =
-        Task.async(fn ->
-          GenServer.call(session, {:query, "query1", []}, 5000)
-        end)
+      # First run a sync query
+      sync_result = GenServer.call(session, {:query, "query1", []}, 5000)
+      assert sync_result == {:ok, "Response 1"}
 
-      {:ok, stream_ref} = GenServer.call(session, {:query_async, "query2", []})
+      # Then run a streaming query
+      stream_messages =
+        session
+        |> ClaudeCode.query_stream("query2")
+        |> Enum.to_list()
 
-      # Get results
-      sync_result = Task.await(sync_task)
-
-      # Collect stream messages
-      case collect_stream_messages(stream_ref, 1000) do
-        {:error, reason} ->
-          flunk("Stream collection failed: #{inspect(reason)}")
-
-        stream_messages ->
-          # Verify sync result
-          assert sync_result == {:ok, "Response 1"}
-
-          # Verify stream result
-          result_msg = Enum.find(stream_messages, &match?(%Result{}, &1))
-          assert result_msg != nil, "No result message found in stream"
-          assert result_msg.result == "Response 2"
-      end
+      # Verify stream result
+      result_msg = Enum.find(stream_messages, &match?(%Result{}, &1))
+      assert result_msg != nil, "No result message found in stream"
+      assert result_msg.result == "Response 2"
 
       GenServer.stop(session)
     end

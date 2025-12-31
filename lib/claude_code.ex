@@ -213,36 +213,6 @@ defmodule ClaudeCode do
   end
 
   @doc """
-  Sends a query to Claude asynchronously and returns a request ID.
-
-  This function returns immediately with a request reference that can be used to
-  track the query. Messages will be sent to the calling process as they arrive.
-
-  ## Examples
-
-      {:ok, request_ref} = ClaudeCode.query_async(session, "Complex task")
-
-      # Receive messages for this request
-      receive do
-        {:claude_stream_started, ^request_ref} ->
-          IO.puts("Started!")
-
-        {:claude_message, ^request_ref, message} ->
-          IO.inspect(message)
-
-        {:claude_stream_end, ^request_ref} ->
-          IO.puts("Done!")
-
-        {:claude_stream_error, ^request_ref, error} ->
-          IO.puts("Error: \#{inspect(error)}")
-      end
-  """
-  @spec query_async(session(), String.t(), keyword()) :: {:ok, reference()} | {:error, term()}
-  def query_async(session, prompt, opts \\ []) do
-    GenServer.call(session, {:query_async, prompt, opts})
-  end
-
-  @doc """
   Stops a Claude Code session.
 
   This closes the CLI subprocess and cleans up resources.
@@ -319,60 +289,4 @@ defmodule ClaudeCode do
   def clear(session) do
     GenServer.call(session, :clear_session)
   end
-
-  # ==========================================================================
-  # Advanced Streaming API
-  # ==========================================================================
-
-  @doc """
-  Returns a Stream of all messages for a streaming request.
-
-  Use this with `query_stream/3` when you need fine-grained control over
-  message consumption. The stream yields messages as they arrive from the CLI.
-
-  ## Examples
-
-      {:ok, ref} = GenServer.call(session, {:query_stream, "Hello", []})
-
-      session
-      |> ClaudeCode.receive_messages(ref)
-      |> Stream.each(&IO.inspect/1)
-      |> Stream.run()
-  """
-  @spec receive_messages(session(), reference()) :: Enumerable.t()
-  defdelegate receive_messages(session, req_ref), to: Session
-
-  @doc """
-  Returns a Stream of messages until a Result message is received.
-
-  This is useful when you want to process all messages for a single turn
-  and stop when Claude finishes responding.
-
-  ## Examples
-
-      {:ok, ref} = GenServer.call(session, {:query_stream, "Hello", []})
-
-      session
-      |> ClaudeCode.receive_response(ref)
-      |> Stream.filter(&match?(%Message.Assistant{}, &1))
-      |> Enum.each(&process_response/1)
-  """
-  @spec receive_response(session(), reference()) :: Enumerable.t()
-  defdelegate receive_response(session, req_ref), to: Session
-
-  @doc """
-  Interrupts an in-progress request.
-
-  Sends a SIGINT (Ctrl+C) to the CLI to interrupt the current operation.
-
-  ## Examples
-
-      {:ok, ref} = ClaudeCode.query_async(session, "Count to 1000 slowly")
-
-      # Interrupt after some time
-      Process.sleep(2000)
-      :ok = ClaudeCode.interrupt(session, ref)
-  """
-  @spec interrupt(session(), reference()) :: :ok | {:error, term()}
-  defdelegate interrupt(session, req_ref), to: Session
 end

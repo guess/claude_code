@@ -41,11 +41,11 @@ defmodule ClaudeCode.Session do
     @moduledoc false
     defstruct [
       :id,
-      # :sync | :stream | :async
+      # :sync | :stream
       :type,
       # For sync requests - GenServer.from()
       :from,
-      # For async/stream requests - list of subscriber pids
+      # For stream requests - list of waiting subscribers (GenServer.from())
       :subscribers,
       # Collected messages for sync requests
       :messages,
@@ -135,20 +135,6 @@ defmodule ClaudeCode.Session do
     {:reply, {:ok, request.id}, new_state}
   end
 
-  def handle_call({:query_async, prompt, opts}, {pid, _tag}, state) do
-    request = %Request{
-      id: make_ref(),
-      type: :async,
-      subscribers: [pid],
-      messages: [],
-      status: :active,
-      created_at: System.monotonic_time()
-    }
-
-    new_state = enqueue_or_execute(request, prompt, opts, state)
-    {:reply, {:ok, request.id}, new_state}
-  end
-
   def handle_call({:receive_next, req_ref}, from, state) do
     case Map.get(state.requests, req_ref) do
       nil ->
@@ -176,16 +162,6 @@ defmodule ClaudeCode.Session do
 
   def handle_call(:clear_session, _from, state) do
     {:reply, :ok, %{state | session_id: nil}}
-  end
-
-  def handle_call({:interrupt, _req_ref}, _from, state) do
-    if is_nil(state.port) do
-      {:reply, {:error, :not_connected}, state}
-    else
-      # Send interrupt signal (Ctrl+C)
-      Port.command(state.port, "\x03")
-      {:reply, :ok, state}
-    end
   end
 
   @impl true
@@ -283,62 +259,6 @@ defmodule ClaudeCode.Session do
     ArgumentError -> :ok
   end
 
-  # Public Streaming API
-
-  @doc """
-  Returns a Stream of all messages for a request.
-  """
-  @spec receive_messages(GenServer.server(), reference()) :: Enumerable.t()
-  def receive_messages(session, req_ref) do
-    Stream.resource(
-      fn -> {:ok, session, req_ref} end,
-      fn
-        {:ok, session, req_ref} ->
-          case GenServer.call(session, {:receive_next, req_ref}, :infinity) do
-            {:message, message} ->
-              {[message], {:ok, session, req_ref}}
-
-            :done ->
-              {:halt, :done}
-
-            {:error, reason} ->
-              {:halt, {:error, reason}}
-          end
-
-        state ->
-          {:halt, state}
-      end,
-      fn _state -> :ok end
-    )
-  end
-
-  @doc """
-  Returns a Stream of messages until a Result message is received.
-  """
-  @spec receive_response(GenServer.server(), reference()) :: Enumerable.t()
-  def receive_response(session, req_ref) do
-    session
-    |> receive_messages(req_ref)
-    |> Stream.transform(:continue, fn
-      %Message.Result{} = msg, :continue ->
-        {[msg], :done}
-
-      msg, :continue ->
-        {[msg], :continue}
-
-      _msg, :done ->
-        {:halt, :done}
-    end)
-  end
-
-  @doc """
-  Interrupts an in-progress request.
-  """
-  @spec interrupt(GenServer.server(), reference()) :: :ok | {:error, term()}
-  def interrupt(session, req_ref) do
-    GenServer.call(session, {:interrupt, req_ref})
-  end
-
   # Private Functions
 
   defp enqueue_or_execute(request, prompt, opts, state) do
@@ -391,13 +311,6 @@ defmodule ClaudeCode.Session do
       # Send the query to CLI
       message = ClaudeCode.Input.user_message(prompt, state.session_id || "default")
       Port.command(state.port, message <> "\n")
-
-      # Notify async subscribers that streaming has started
-      if request.type == :async do
-        Enum.each(request.subscribers, fn pid ->
-          send(pid, {:claude_stream_started, request.id})
-        end)
-      end
 
       # Register the request and schedule timeout
       schedule_request_timeout(request.id)
@@ -476,14 +389,6 @@ defmodule ClaudeCode.Session do
         # Store message for sync collection
         %{request | messages: request.messages ++ [message]}
 
-      :async ->
-        # Send to async subscribers
-        Enum.each(request.subscribers, fn pid ->
-          send(pid, {:claude_message, request.id, message})
-        end)
-
-        request
-
       :stream ->
         # For stream requests, either deliver to waiting subscriber or queue
         case request.subscribers do
@@ -502,11 +407,6 @@ defmodule ClaudeCode.Session do
       :sync ->
         result = extract_result(request.messages)
         GenServer.reply(request.from, result)
-
-      :async ->
-        Enum.each(request.subscribers, fn pid ->
-          send(pid, {:claude_stream_end, request.id})
-        end)
 
       :stream ->
         # Notify any waiting subscribers that we're done
@@ -550,11 +450,6 @@ defmodule ClaudeCode.Session do
     case request.type do
       :sync ->
         GenServer.reply(request.from, {:error, error})
-
-      :async ->
-        Enum.each(request.subscribers, fn pid ->
-          send(pid, {:claude_stream_error, request.id, error})
-        end)
 
       :stream ->
         Enum.each(request.subscribers, fn subscriber ->

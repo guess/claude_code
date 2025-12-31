@@ -134,20 +134,26 @@ def ask(conn, %{"prompt" => prompt}) do
 end
 ```
 
-For LiveView with real-time streaming, use `query_async/3`:
+For LiveView with real-time streaming, use `query_stream/3` with a Task:
 ```elixir
 # LiveView with streaming responses
 def handle_event("send", %{"message" => msg}, socket) do
-  {:ok, ref} = ClaudeCode.query_async(:assistant, msg)
-  {:noreply, assign(socket, request_ref: ref, streaming: true)}
+  parent = self()
+  Task.start(fn ->
+    :assistant
+    |> ClaudeCode.query_stream(msg, include_partial_messages: true)
+    |> ClaudeCode.Stream.text_deltas()
+    |> Enum.each(&send(parent, {:chunk, &1}))
+    send(parent, :complete)
+  end)
+  {:noreply, assign(socket, streaming: true)}
 end
 
-def handle_info({:claude_message, ref, msg}, socket) do
-  # Process streaming messages...
-  {:noreply, socket}
+def handle_info({:chunk, chunk}, socket) do
+  {:noreply, assign(socket, response: socket.assigns.response <> chunk)}
 end
 
-def handle_info({:claude_stream_end, _ref}, socket) do
+def handle_info(:complete, socket) do
   {:noreply, assign(socket, streaming: false)}
 end
 ```

@@ -168,37 +168,6 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       ClaudeCode.stop(session)
     end
-
-    test "query_async/3 works correctly", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-
-      {:ok, request_id} = ClaudeCode.query_async(session, "Tell me a story")
-
-      # Collect messages manually
-      messages = collect_messages(request_id, 1000)
-
-      assert length(messages) >= 5
-      assert Enum.any?(messages, &match?(%Result{}, &1))
-
-      ClaudeCode.stop(session)
-    end
-
-    defp collect_messages(request_id, timeout) do
-      collect_messages(request_id, timeout, [])
-    end
-
-    defp collect_messages(request_id, timeout, acc) do
-      receive do
-        {:claude_message, ^request_id, message} ->
-          collect_messages(request_id, timeout, [message | acc])
-
-        {:claude_stream_end, ^request_id} ->
-          Enum.reverse(acc)
-      after
-        timeout ->
-          Enum.reverse(acc)
-      end
-    end
   end
 
   describe "streaming with tool use mock" do

@@ -1,7 +1,6 @@
 defmodule ClaudeCode.SessionStreamingTest do
   use ExUnit.Case
 
-  alias ClaudeCode.Message.Assistant
   alias ClaudeCode.Message.Result
 
   describe "streaming mode - auto-connect behavior" do
@@ -83,100 +82,17 @@ defmodule ClaudeCode.SessionStreamingTest do
       GenServer.stop(session)
     end
 
-    test "query_async sends messages to caller process", %{mock_dir: _mock_dir} do
+    test "query_stream returns messages via Stream", %{mock_dir: _mock_dir} do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
-      {:ok, ref} = ClaudeCode.query_async(session, "Test")
-
-      # Wait for started message
-      assert_receive {:claude_stream_started, ^ref}, 1000
-
-      # Collect all messages
-      messages = collect_async_messages(ref, [])
+      messages =
+        session
+        |> ClaudeCode.query_stream("Test")
+        |> Enum.to_list()
 
       # Should have received messages
       assert length(messages) >= 1
       assert Enum.any?(messages, &match?(%Result{}, &1))
-
-      GenServer.stop(session)
-    end
-  end
-
-  describe "streaming mode - receive_messages/2" do
-    setup do
-      MockCLI.setup_with_script("""
-      #!/bin/bash
-
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"recv-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
-      while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
-          echo '{"type":"assistant","message":{"id":"msg_r1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Message 1"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"recv-session"}'
-          sleep 0.02
-          echo '{"type":"assistant","message":{"id":"msg_r2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Message 2"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"recv-session"}'
-          sleep 0.02
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Complete","session_id":"recv-session","total_cost_usd":0.001,"usage":{}}'
-        fi
-      done
-
-      exit 0
-      """)
-    end
-
-    test "receive_messages returns stream of all messages", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-
-      {:ok, req_ref} = GenServer.call(session, {:query_stream, "Test", []})
-
-      messages =
-        session
-        |> ClaudeCode.receive_messages(req_ref)
-        |> Stream.take_while(fn msg ->
-          not match?(%Result{}, msg)
-        end)
-        |> Enum.to_list()
-
-      # Should receive assistant messages
-      assistant_messages = Enum.filter(messages, &match?(%Assistant{}, &1))
-      assert length(assistant_messages) >= 1
-
-      GenServer.stop(session)
-    end
-  end
-
-  describe "streaming mode - receive_response/2" do
-    setup do
-      MockCLI.setup_with_script("""
-      #!/bin/bash
-
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"resp-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
-      while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
-          echo '{"type":"assistant","message":{"id":"msg_resp1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response text"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"resp-session"}'
-          sleep 0.02
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Response text","session_id":"resp-session","total_cost_usd":0.001,"usage":{}}'
-        fi
-      done
-
-      exit 0
-      """)
-    end
-
-    test "receive_response stops at result message", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-
-      {:ok, req_ref} = GenServer.call(session, {:query_stream, "Test", []})
-
-      messages =
-        session
-        |> ClaudeCode.receive_response(req_ref)
-        |> Enum.to_list()
-
-      # Should include the result message
-      result = Enum.find(messages, &match?(%Result{}, &1))
-      assert result != nil
-      assert result.result == "Response text"
 
       GenServer.stop(session)
     end
@@ -301,67 +217,6 @@ defmodule ClaudeCode.SessionStreamingTest do
       assert result == "Resumed session: previous-session-xyz"
 
       GenServer.stop(session)
-    end
-  end
-
-  describe "streaming mode - interrupt/2" do
-    setup do
-      MockCLI.setup_with_script("""
-      #!/bin/bash
-
-      # Handle SIGINT for interrupt
-      trap 'echo "interrupted"; exit 0' INT
-
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"interrupt-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
-      while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
-          # Simulate slow response
-          for i in 1 2 3 4 5; do
-            echo '{"type":"assistant","message":{"id":"msg_slow_'$i'","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Chunk '$i'"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"interrupt-session"}'
-            sleep 0.1
-          done
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":500,"duration_api_ms":400,"num_turns":1,"result":"Completed","session_id":"interrupt-session","total_cost_usd":0.001,"usage":{}}'
-        fi
-      done
-
-      exit 0
-      """)
-    end
-
-    test "interrupt sends signal to CLI", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-
-      {:ok, req_ref} = ClaudeCode.query_async(session, "Long task")
-
-      # Wait for started
-      assert_receive {:claude_stream_started, ^req_ref}, 1000
-
-      # Let some messages come in
-      Process.sleep(150)
-
-      # Interrupt should return :ok
-      assert :ok = ClaudeCode.interrupt(session, req_ref)
-
-      GenServer.stop(session)
-    end
-  end
-
-  # Helper functions
-
-  defp collect_async_messages(ref, acc) do
-    receive do
-      {:claude_message, ^ref, message} ->
-        collect_async_messages(ref, [message | acc])
-
-      {:claude_stream_end, ^ref} ->
-        Enum.reverse(acc)
-
-      {:claude_stream_error, ^ref, _error} ->
-        Enum.reverse(acc)
-    after
-      1000 ->
-        Enum.reverse(acc)
     end
   end
 end

@@ -313,7 +313,7 @@ defmodule ClaudeCode.Stream do
 
   defp next_message(%{initialized: false} = state) do
     # Initialize the stream on first message request
-    case GenServer.call(state.session, {:query_async, state.prompt, state.opts}) do
+    case GenServer.call(state.session, {:query_stream, state.prompt, state.opts}) do
       {:ok, request_ref} ->
         new_state = %{state | initialized: true, request_ref: request_ref}
         next_message(new_state)
@@ -324,12 +324,9 @@ defmodule ClaudeCode.Stream do
   end
 
   defp next_message(state) do
-    receive do
-      {:claude_stream_started, ref} when ref == state.request_ref ->
-        # CLI has started, continue waiting for messages
-        next_message(state)
-
-      {:claude_message, ref, message} when ref == state.request_ref ->
+    # Use receive_next to get messages from the session (pull-based)
+    case GenServer.call(state.session, {:receive_next, state.request_ref}, state.timeout) do
+      {:message, message} ->
         if should_emit?(message, state.filter) do
           case message do
             %Message.Result{} ->
@@ -342,15 +339,15 @@ defmodule ClaudeCode.Stream do
           next_message(state)
         end
 
-      {:claude_stream_end, ref} when ref == state.request_ref ->
+      :done ->
         {:halt, %{state | done: true}}
 
-      {:claude_stream_error, ref, error} when ref == state.request_ref ->
-        throw({:stream_error, error})
-    after
-      state.timeout ->
-        throw({:stream_timeout, state.request_ref})
+      {:error, reason} ->
+        throw({:stream_error, reason})
     end
+  catch
+    :exit, {:timeout, _} ->
+      throw({:stream_timeout, state.request_ref})
   end
 
   defp cleanup_stream(state) do
