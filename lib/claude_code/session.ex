@@ -17,7 +17,20 @@ defmodule ClaudeCode.Session do
 
   require Logger
 
-  defstruct [:api_key, :model, :active_requests, :session_options, :session_id, :tool_callback, :pending_tool_uses]
+  defstruct [
+    :api_key,
+    :model,
+    :active_requests,
+    :session_options,
+    :session_id,
+    :tool_callback,
+    :pending_tool_uses,
+    # Streaming mode fields (for bidirectional I/O with --input-format stream-json)
+    :streaming_port,
+    :streaming_session_id,
+    :streaming_requests,
+    :streaming_buffer
+  ]
 
   @request_timeout 300_000
 
@@ -80,7 +93,12 @@ defmodule ClaudeCode.Session do
       active_requests: %{},
       session_id: nil,
       tool_callback: Keyword.get(validated_opts, :tool_callback),
-      pending_tool_uses: %{}
+      pending_tool_uses: %{},
+      # Streaming mode - initialized to nil/empty until connect/1 is called
+      streaming_port: nil,
+      streaming_session_id: nil,
+      streaming_requests: %{},
+      streaming_buffer: ""
     }
 
     {:ok, state}
@@ -144,6 +162,106 @@ defmodule ClaudeCode.Session do
 
   def handle_call(:clear_session, _from, state) do
     {:reply, :ok, %{state | session_id: nil}}
+  end
+
+  # Streaming Mode handle_call clauses
+
+  def handle_call({:connect, opts}, _from, state) do
+    if state.streaming_port do
+      {:reply, {:error, :already_connected}, state}
+    else
+      case start_streaming_cli_process(state, opts) do
+        {:ok, port} ->
+          new_state = %{
+            state
+            | streaming_port: port,
+              streaming_session_id: Keyword.get(opts, :resume, "default"),
+              streaming_requests: %{},
+              streaming_buffer: ""
+          }
+
+          {:reply, :ok, new_state}
+
+        {:error, reason} ->
+          {:reply, {:error, reason}, state}
+      end
+    end
+  end
+
+  def handle_call({:stream_query, prompt}, _from, state) do
+    if is_nil(state.streaming_port) do
+      {:reply, {:error, :not_connected}, state}
+    else
+      # Build and send the message
+      message = ClaudeCode.Input.user_message(prompt, state.streaming_session_id)
+      Port.command(state.streaming_port, message <> "\n")
+
+      # Create request ref and track it
+      req_ref = make_ref()
+
+      new_requests =
+        Map.put(state.streaming_requests, req_ref, %{
+          messages: [],
+          subscribers: [],
+          status: :active
+        })
+
+      new_state = %{state | streaming_requests: new_requests}
+      {:reply, {:ok, req_ref}, new_state}
+    end
+  end
+
+  def handle_call({:receive_next, req_ref}, from, state) do
+    case Map.get(state.streaming_requests, req_ref) do
+      nil ->
+        {:reply, {:error, :unknown_request}, state}
+
+      %{messages: [msg | rest]} = request ->
+        # Return first message from queue
+        updated_request = %{request | messages: rest}
+        new_requests = Map.put(state.streaming_requests, req_ref, updated_request)
+        {:reply, {:message, msg}, %{state | streaming_requests: new_requests}}
+
+      %{status: :completed, messages: []} ->
+        # No more messages and request is done
+        new_requests = Map.delete(state.streaming_requests, req_ref)
+        {:reply, :done, %{state | streaming_requests: new_requests}}
+
+      %{status: :active, messages: []} = request ->
+        # No messages yet, subscribe for next one
+        updated_request = %{request | subscribers: [from | request.subscribers]}
+        new_requests = Map.put(state.streaming_requests, req_ref, updated_request)
+        {:noreply, %{state | streaming_requests: new_requests}}
+    end
+  end
+
+  def handle_call({:interrupt, _req_ref}, _from, state) do
+    if is_nil(state.streaming_port) do
+      {:reply, {:error, :not_connected}, state}
+    else
+      # Send interrupt signal - this is platform-specific
+      # On Unix, we can send SIGINT to the port
+      Port.command(state.streaming_port, "\x03")
+      {:reply, :ok, state}
+    end
+  end
+
+  def handle_call(:disconnect, _from, state) do
+    if is_nil(state.streaming_port) do
+      {:reply, {:error, :not_connected}, state}
+    else
+      safe_close_port(state.streaming_port)
+
+      new_state = %{
+        state
+        | streaming_port: nil,
+          streaming_session_id: nil,
+          streaming_requests: %{},
+          streaming_buffer: ""
+      }
+
+      {:reply, :ok, new_state}
+    end
   end
 
   @impl true
@@ -212,30 +330,68 @@ defmodule ClaudeCode.Session do
 
   @impl true
   def handle_info({port, {:data, data}}, state) when is_port(port) do
-    # Find the request associated with this port
-    case find_request_by_port(port, state.active_requests) do
-      {request_id, request} ->
-        # Process data for this specific request
-        new_state = process_cli_output_for_request(data, request_id, request, state)
-        {:noreply, new_state}
+    # Check if this is the streaming port
+    if port == state.streaming_port do
+      # Handle streaming port data
+      buffer = state.streaming_buffer <> data
+      {lines, remaining_buffer} = extract_lines(buffer)
 
-      nil ->
-        Logger.warning("Received data from unknown port: #{inspect(port)}")
-        {:noreply, state}
+      new_state =
+        Enum.reduce(lines, %{state | streaming_buffer: remaining_buffer}, fn line, acc_state ->
+          process_streaming_line(line, acc_state)
+        end)
+
+      {:noreply, new_state}
+    else
+      # Otherwise, check active requests
+      case find_request_by_port(port, state.active_requests) do
+        {request_id, request} ->
+          new_state = process_cli_output_for_request(data, request_id, request, state)
+          {:noreply, new_state}
+
+        nil ->
+          Logger.warning("Received data from unknown port: #{inspect(port)}")
+          {:noreply, state}
+      end
     end
   end
 
   def handle_info({port, {:exit_status, status}}, state) when is_port(port) do
-    # Find the request associated with this port
-    case find_request_by_port(port, state.active_requests) do
-      {request_id, request} ->
-        # Handle exit for this specific request
-        new_state = handle_request_exit(request_id, request, status, state)
-        {:noreply, new_state}
+    # Check if this is the streaming port
+    if port == state.streaming_port do
+      Logger.debug("Streaming CLI exited with status #{status}")
 
-      nil ->
-        Logger.warning("Received exit status from unknown port: #{inspect(port)}")
-        {:noreply, state}
+      # Mark all active streaming requests as completed
+      new_requests =
+        Map.new(state.streaming_requests, fn {ref, request} ->
+          {ref, %{request | status: :completed}}
+        end)
+
+      # Notify all waiting subscribers
+      for {_ref, %{subscribers: subscribers}} <- new_requests do
+        for subscriber <- subscribers do
+          GenServer.reply(subscriber, :done)
+        end
+      end
+
+      new_state = %{
+        state
+        | streaming_port: nil,
+          streaming_requests: new_requests
+      }
+
+      {:noreply, new_state}
+    else
+      # Otherwise, check active requests
+      case find_request_by_port(port, state.active_requests) do
+        {request_id, request} ->
+          new_state = handle_request_exit(request_id, request, status, state)
+          {:noreply, new_state}
+
+        nil ->
+          Logger.warning("Received exit status from unknown port: #{inspect(port)}")
+          {:noreply, state}
+      end
     end
   end
 
@@ -492,64 +648,16 @@ defmodule ClaudeCode.Session do
   end
 
   defp start_cli_process(prompt, state, query_opts) do
-    # Validate query options
-    case Options.validate_query_options(query_opts) do
-      {:ok, validated_query_opts} ->
-        # Merge session and query options with query taking precedence
-        final_opts = Options.merge_options(state.session_options, validated_query_opts)
+    with {:ok, validated_query_opts} <- Options.validate_query_options(query_opts),
+         final_opts = Options.merge_options(state.session_options, validated_query_opts),
+         {:ok, {executable, args}} <- CLI.build_command(prompt, state.api_key, final_opts, state.session_id) do
+      open_cli_port(executable, args, state, final_opts, redirect_stdin: true)
+    else
+      {:error, %NimbleOptions.ValidationError{} = error} ->
+        {:error, {:invalid_query_options, error}}
 
-        # Build the command with session ID for automatic resume
-        case CLI.build_command(prompt, state.api_key, final_opts, state.session_id) do
-          {:ok, {executable, args}} ->
-            # Start the CLI subprocess
-            # Environment variables need to be in the format [{key, value}] where both are charlists
-            env_vars = prepare_env(state)
-
-            try do
-              # Use the exact same approach as System.shell
-              shell_path = :os.find_executable(~c"sh") || raise "sh not found"
-
-              # Build the command string with proper escaping
-              cmd_parts = [executable | args]
-              cmd_string = Enum.map_join(cmd_parts, " ", &shell_escape/1)
-
-              # Add environment variables to the command
-              env_prefix =
-                Enum.map_join(env_vars, " ", fn {key, value} ->
-                  "#{key}=#{shell_escape(to_string(value))}"
-                end)
-
-              # Add cd command if cwd is specified
-              cwd_prefix =
-                case Keyword.get(final_opts, :cwd) do
-                  nil -> ""
-                  cwd_path -> "cd #{shell_escape(cwd_path)} && "
-                end
-
-              # Build the full command exactly like System.shell does
-              # Wrap in parentheses, add newline, and redirect stdin from /dev/null
-              full_command = "(#{cwd_prefix}#{env_prefix} #{cmd_string}\n) </dev/null"
-
-              port_opts = [
-                {:args, ["-c", full_command]},
-                :binary,
-                :exit_status,
-                :stderr_to_stdout
-              ]
-
-              port = Port.open({:spawn_executable, shell_path}, port_opts)
-              {:ok, port}
-            rescue
-              e ->
-                {:error, {:port_open_failed, e}}
-            end
-
-          {:error, reason} ->
-            {:error, reason}
-        end
-
-      {:error, validation_error} ->
-        {:error, {:invalid_query_options, validation_error}}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -593,5 +701,259 @@ defmodule ClaudeCode.Session do
       _ ->
         nil
     end
+  end
+
+  # ==========================================================================
+  # Streaming Mode API (V2-style bidirectional I/O)
+  # ==========================================================================
+
+  @doc """
+  Connects the session in streaming mode for bidirectional communication.
+
+  This spawns a long-running CLI subprocess with `--input-format stream-json`
+  that accepts messages via stdin and returns responses via stdout.
+
+  ## Options
+
+    * `:resume` - Session ID to resume a previous conversation
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.connect(session)
+
+      # Resume a previous session
+      :ok = ClaudeCode.Session.connect(session, resume: "session-123")
+
+  """
+  @spec connect(GenServer.server(), keyword()) :: :ok | {:error, term()}
+  def connect(session, opts \\ []) do
+    GenServer.call(session, {:connect, opts})
+  end
+
+  @doc """
+  Sends a query to the connected streaming session.
+
+  Returns a request reference that can be used with `receive_messages/2` or
+  `receive_response/2` to get the response.
+
+  ## Examples
+
+      {:ok, req_ref} = ClaudeCode.Session.stream_query(session, "Hello!")
+
+  """
+  @spec stream_query(GenServer.server(), String.t()) :: {:ok, reference()} | {:error, term()}
+  def stream_query(session, prompt) do
+    GenServer.call(session, {:stream_query, prompt})
+  end
+
+  @doc """
+  Returns a Stream of all messages for a streaming request.
+
+  The stream yields messages as they arrive from the CLI.
+
+  ## Examples
+
+      session
+      |> ClaudeCode.Session.receive_messages(req_ref)
+      |> Stream.each(&IO.inspect/1)
+      |> Stream.run()
+
+  """
+  @spec receive_messages(GenServer.server(), reference()) :: Enumerable.t()
+  def receive_messages(session, req_ref) do
+    Stream.resource(
+      fn -> {:ok, session, req_ref} end,
+      fn
+        {:ok, session, req_ref} ->
+          case GenServer.call(session, {:receive_next, req_ref}, :infinity) do
+            {:message, message} ->
+              {[message], {:ok, session, req_ref}}
+
+            :done ->
+              {:halt, :done}
+
+            {:error, reason} ->
+              {:halt, {:error, reason}}
+          end
+
+        state ->
+          {:halt, state}
+      end,
+      fn _state -> :ok end
+    )
+  end
+
+  @doc """
+  Returns a Stream of messages until a Result message is received.
+
+  This is useful when you want to process all messages for a single turn
+  and stop when Claude finishes responding.
+
+  ## Examples
+
+      session
+      |> ClaudeCode.Session.receive_response(req_ref)
+      |> Stream.filter(&match?(%Message.Assistant{}, &1))
+      |> Enum.each(&process_response/1)
+
+  """
+  @spec receive_response(GenServer.server(), reference()) :: Enumerable.t()
+  def receive_response(session, req_ref) do
+    session
+    |> receive_messages(req_ref)
+    |> Stream.transform(:continue, fn
+      %Message.Result{} = msg, :continue ->
+        {[msg], :done}
+
+      msg, :continue ->
+        {[msg], :continue}
+
+      _msg, :done ->
+        {:halt, :done}
+    end)
+  end
+
+  @doc """
+  Interrupts an in-progress streaming request.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.interrupt(session, req_ref)
+
+  """
+  @spec interrupt(GenServer.server(), reference()) :: :ok | {:error, term()}
+  def interrupt(session, req_ref) do
+    GenServer.call(session, {:interrupt, req_ref})
+  end
+
+  @doc """
+  Disconnects the streaming session.
+
+  This closes the CLI subprocess stdin and waits for it to exit.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.disconnect(session)
+
+  """
+  @spec disconnect(GenServer.server()) :: :ok | {:error, term()}
+  def disconnect(session) do
+    GenServer.call(session, :disconnect)
+  end
+
+  defp process_streaming_line("", state), do: state
+
+  defp process_streaming_line(line, state) do
+    with {:ok, json} <- Jason.decode(line),
+         {:ok, message} <- Message.parse(json) do
+      deliver_streaming_message(message, state)
+    else
+      {:error, _} ->
+        Logger.debug("Failed to parse streaming line: #{line}")
+        state
+    end
+  end
+
+  defp deliver_streaming_message(message, state) do
+    new_session_id = extract_session_id(message) || state.streaming_session_id
+
+    case find_active_streaming_request(state.streaming_requests) do
+      {req_ref, request} ->
+        updated_request = dispatch_to_request(message, request)
+        new_requests = Map.put(state.streaming_requests, req_ref, updated_request)
+        %{state | streaming_requests: new_requests, streaming_session_id: new_session_id}
+
+      nil ->
+        %{state | streaming_session_id: new_session_id}
+    end
+  end
+
+  defp dispatch_to_request(message, request) do
+    case request.subscribers do
+      [subscriber | rest] ->
+        GenServer.reply(subscriber, {:message, message})
+        request = %{request | subscribers: rest}
+        mark_completed_if_result(request, message)
+
+      [] ->
+        request = %{request | messages: request.messages ++ [message]}
+        mark_completed_if_result(request, message)
+    end
+  end
+
+  defp mark_completed_if_result(request, %Message.Result{}) do
+    %{request | status: :completed}
+  end
+
+  defp mark_completed_if_result(request, _message), do: request
+
+  defp find_active_streaming_request(requests) do
+    # Find the most recently added active request
+    requests
+    |> Enum.filter(fn {_ref, req} -> req.status == :active end)
+    |> List.last()
+  end
+
+  defp extract_session_id(%Message.System{session_id: sid}) when not is_nil(sid), do: sid
+  defp extract_session_id(%Message.Assistant{session_id: sid}) when not is_nil(sid), do: sid
+  defp extract_session_id(%Message.Result{session_id: sid}) when not is_nil(sid), do: sid
+  defp extract_session_id(_), do: nil
+
+  defp start_streaming_cli_process(state, opts) do
+    streaming_opts = Keyword.put(state.session_options, :input_format, :stream_json)
+    resume_session_id = Keyword.get(opts, :resume)
+
+    case CLI.build_command("", state.api_key, streaming_opts, resume_session_id) do
+      {:ok, {executable, args}} ->
+        # Remove empty prompt that build_command adds as last argument
+        args_without_prompt = List.delete_at(args, -1)
+        open_cli_port(executable, args_without_prompt, state, streaming_opts, redirect_stdin: false)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Common port opening logic for both one-shot and streaming modes
+  defp open_cli_port(executable, args, state, opts, port_opts) do
+    redirect_stdin = Keyword.get(port_opts, :redirect_stdin, true)
+
+    try do
+      shell_path = :os.find_executable(~c"sh") || raise "sh not found"
+
+      cmd_string = build_shell_command(executable, args, state, opts)
+      full_command = if redirect_stdin, do: "(#{cmd_string}\n) </dev/null", else: "(#{cmd_string}\n)"
+
+      port =
+        Port.open({:spawn_executable, shell_path}, [
+          {:args, ["-c", full_command]},
+          :binary,
+          :exit_status,
+          :stderr_to_stdout
+        ])
+
+      {:ok, port}
+    rescue
+      e -> {:error, {:port_open_failed, e}}
+    end
+  end
+
+  defp build_shell_command(executable, args, state, opts) do
+    env_vars = prepare_env(state)
+
+    env_prefix =
+      Enum.map_join(env_vars, " ", fn {key, value} ->
+        "#{key}=#{shell_escape(to_string(value))}"
+      end)
+
+    cwd_prefix =
+      case Keyword.get(opts, :cwd) do
+        nil -> ""
+        cwd_path -> "cd #{shell_escape(cwd_path)} && "
+      end
+
+    cmd_string = Enum.map_join([executable | args], " ", &shell_escape/1)
+
+    "#{cwd_prefix}#{env_prefix} #{cmd_string}"
   end
 end

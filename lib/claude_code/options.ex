@@ -183,6 +183,10 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
+    ],
+    input_format: [
+      type: {:in, [:text, :stream_json]},
+      doc: "Input format for streaming mode (:text or :stream_json)"
     ]
   ]
 
@@ -220,6 +224,10 @@ defmodule ClaudeCode.Options do
     include_partial_messages: [
       type: :boolean,
       doc: "Include partial message chunks as they arrive for character-level streaming"
+    ],
+    input_format: [
+      type: {:in, [:text, :stream_json]},
+      doc: "Override input format for this query (:text or :stream_json)"
     ]
   ]
 
@@ -452,6 +460,14 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:include_partial_messages, false), do: nil
+
+  defp convert_option_to_cli_flag(:input_format, :text) do
+    {"--input-format", "text"}
+  end
+
+  defp convert_option_to_cli_flag(:input_format, :stream_json) do
+    {"--input-format", "stream-json"}
+  end
 
   defp convert_option_to_cli_flag(key, value) do
     # Convert unknown keys to kebab-case flags

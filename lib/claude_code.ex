@@ -273,4 +273,129 @@ defmodule ClaudeCode do
   def clear(session) do
     GenServer.call(session, :clear_session)
   end
+
+  # ==========================================================================
+  # Streaming Mode API (V2-style bidirectional I/O)
+  # ==========================================================================
+
+  @doc """
+  Connects the session in streaming mode for bidirectional communication.
+
+  This spawns a long-running CLI subprocess with `--input-format stream-json`
+  that accepts messages via stdin and returns responses via stdout. This enables
+  multi-turn conversations without restarting the CLI for each query.
+
+  ## Options
+
+    * `:resume` - Session ID to resume a previous conversation
+
+  ## Examples
+
+      {:ok, session} = ClaudeCode.start_link(model: "claude-sonnet-4-5-20250929")
+
+      # Connect in streaming mode
+      :ok = ClaudeCode.connect(session)
+
+      # Send messages and receive responses
+      {:ok, req_ref} = ClaudeCode.stream_query(session, "Hello!")
+      session |> ClaudeCode.receive_response(req_ref) |> Enum.each(&handle/1)
+
+      # Clean up
+      :ok = ClaudeCode.disconnect(session)
+
+  ## Resume Example
+
+      # Get session ID from previous interaction
+      {:ok, session_id} = ClaudeCode.get_session_id(session)
+
+      # Later: resume the conversation
+      {:ok, new_session} = ClaudeCode.start_link(model: "claude-sonnet-4-5-20250929")
+      :ok = ClaudeCode.connect(new_session, resume: session_id)
+
+  """
+  @spec connect(session(), keyword()) :: :ok | {:error, term()}
+  defdelegate connect(session, opts \\ []), to: Session
+
+  @doc """
+  Sends a query to the connected streaming session.
+
+  Returns a request reference that can be used with `receive_messages/2` or
+  `receive_response/2` to get the response.
+
+  ## Examples
+
+      {:ok, req_ref} = ClaudeCode.stream_query(session, "What's the capital of France?")
+
+      session
+      |> ClaudeCode.receive_response(req_ref)
+      |> Stream.filter(&match?(%Message.Assistant{}, &1))
+      |> Enum.each(&process_response/1)
+
+  """
+  @spec stream_query(session(), String.t()) :: {:ok, reference()} | {:error, term()}
+  defdelegate stream_query(session, prompt), to: Session
+
+  @doc """
+  Returns a Stream of all messages for a streaming request.
+
+  The stream yields messages as they arrive from the CLI.
+
+  ## Examples
+
+      session
+      |> ClaudeCode.receive_messages(req_ref)
+      |> Stream.each(&IO.inspect/1)
+      |> Stream.run()
+
+  """
+  @spec receive_messages(session(), reference()) :: Enumerable.t()
+  defdelegate receive_messages(session, req_ref), to: Session
+
+  @doc """
+  Returns a Stream of messages until a Result message is received.
+
+  This is useful when you want to process all messages for a single turn
+  and stop when Claude finishes responding.
+
+  ## Examples
+
+      session
+      |> ClaudeCode.receive_response(req_ref)
+      |> Stream.filter(&match?(%Message.Assistant{}, &1))
+      |> Enum.each(&process_response/1)
+
+  """
+  @spec receive_response(session(), reference()) :: Enumerable.t()
+  defdelegate receive_response(session, req_ref), to: Session
+
+  @doc """
+  Interrupts an in-progress streaming request.
+
+  ## Examples
+
+      {:ok, req_ref} = ClaudeCode.stream_query(session, "Count to 1000 slowly")
+
+      # Interrupt after some time
+      Process.sleep(2000)
+      :ok = ClaudeCode.interrupt(session, req_ref)
+
+      # Send a new command
+      {:ok, req_ref2} = ClaudeCode.stream_query(session, "Just say hello")
+
+  """
+  @spec interrupt(session(), reference()) :: :ok | {:error, term()}
+  defdelegate interrupt(session, req_ref), to: Session
+
+  @doc """
+  Disconnects the streaming session.
+
+  This closes the CLI subprocess stdin and waits for it to exit.
+
+  ## Examples
+
+      :ok = ClaudeCode.disconnect(session)
+
+  """
+  @spec disconnect(session()) :: :ok | {:error, term()}
+  defdelegate disconnect(session), to: Session
 end

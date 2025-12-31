@@ -2,7 +2,7 @@
 
 ## Current State (Phase 4 Complete)
 
-**23 features implemented** | **2 features to build for v1.0** | **21+ features deferred** | **12 features killed**
+**25 features implemented** | **2 features to build for v1.0** | **19+ features deferred** | **12 features killed**
 
 ---
 
@@ -91,7 +91,7 @@
 | Text delta extraction | N/A | N/A | `Stream.text_deltas/1` | ✅ HAVE | Elixir stream utility |
 | Content delta extraction | N/A | N/A | `Stream.content_deltas/1` | ✅ HAVE | All delta types |
 | Buffered text streaming | N/A | N/A | `Stream.buffered_text/1` | ✅ HAVE | Sentence boundaries |
-| Streaming input | `AsyncIterable` | `AsyncIterable` | N/A | ⏸️ LATER | P2 - Complex |
+| Streaming input | `AsyncIterable` | `ClaudeSDKClient` | `connect/stream_query` | ✅ HAVE | V2-style API |
 | Receive until result | N/A | `receive_response()` | `Stream.until_result/1` | ✅ HAVE | |
 
 ---
@@ -133,7 +133,7 @@
 
 | Feature | TS SDK | Python SDK | Elixir SDK | Status | Notes |
 |---------|--------|------------|------------|--------|-------|
-| Interrupt query | `interrupt()` | `interrupt()` | N/A | ⏸️ LATER | P2 - Streaming input only |
+| Interrupt query | `interrupt()` | `interrupt()` | `interrupt/2` | ✅ HAVE | Via streaming mode |
 | Rewind files | `rewindFiles()` | `rewind_files()` | N/A | ⏸️ LATER | P3 - File checkpointing |
 | Set permission mode | `setPermissionMode()` | N/A | N/A | ⏸️ LATER | P3 - Streaming input only |
 | Set model | `setModel()` | N/A | N/A | ⏸️ LATER | P3 - Streaming input only |
@@ -143,7 +143,7 @@
 | Get account info | `accountInfo()` | N/A | N/A | ⏸️ LATER | P3 - Account information |
 | Get session ID | N/A | (via ResultMessage) | `get_session_id/1` | ✅ HAVE | |
 | Clear session | N/A | N/A | `clear/1` | ✅ HAVE | Elixir-specific |
-| Connect/disconnect | N/A | `connect()`/`disconnect()` | `start_link()`/`stop()` | ✅ HAVE | Session lifecycle |
+| Connect/disconnect | N/A | `connect()`/`disconnect()` | `connect/1`/`disconnect/1` | ✅ HAVE | Streaming mode lifecycle |
 
 ---
 
@@ -246,8 +246,6 @@ These are CLI configuration commands, not runtime features:
 | `betas` | Beta feature enablement |
 | `outputFormat` | Structured JSON outputs |
 | `hooks` | Event hooks (PreToolUse, etc.) |
-| `interrupt()` | Query cancellation |
-| Streaming input | Complex, requires V2-style API |
 | Custom tools (`@tool`) | In-process tool definitions |
 | In-process MCP server | SDK-managed MCP servers |
 
@@ -289,11 +287,11 @@ These are CLI configuration commands, not runtime features:
 | Structured outputs | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Hooks | ✅ | ✅ | ❌ | ❌ | ✅ |
 | Sandbox | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Streaming input | ✅ | ✅ | ❌ | ❌ | ⏸️ |
+| Streaming input | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Custom tools (`@tool`) | ❌ | ✅ | ❌ | ❌ | ⏸️ |
 | In-process MCP server | ❌ | ✅ | ✅* | ✅* | ✅* |
 | File checkpointing | ✅ | ✅ | ❌ | ❌ | ⏸️ |
-| Interrupt support | ✅ | ✅ | ❌ | ❌ | ⏸️ |
+| Interrupt support | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 *Elixir uses Hermes MCP modules natively
 
@@ -351,19 +349,19 @@ These are CLI configuration commands, not runtime features:
 
 ```
 Current State:
-  ✅ HAVE:    23 core features (88% of core functionality)
+  ✅ HAVE:    25 core features (92% of core functionality)
   ⚠️ BROKEN:   0 features
 
 v1.0 Plan:
   🔨 BUILD:    2 features (P0-P1)
 
 Deferred:
-  ⏸️ LATER:   21+ features (v1.1+)
+  ⏸️ LATER:   19+ features (v1.1+)
   🗑️ KILLED:  12 features (out of scope or N/A)
 
 SDK Parity:
-  vs TypeScript: Core 88% → 100% at v1.0, Full ~65% → ~90% at v1.1
-  vs Python:     Core 88% → 100% at v1.0, Full ~70% → ~90% at v1.1
+  vs TypeScript: Core 92% → 100% at v1.0, Full ~70% → ~90% at v1.1
+  vs Python:     Core 92% → 100% at v1.0, Full ~75% → ~90% at v1.1
 ```
 
 ---

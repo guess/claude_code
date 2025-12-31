@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom permission callbacks may be added in a future release as a P2 feature
 
 ### Added
+- **Streaming input mode (V2-style API)** - Bidirectional communication with Claude CLI
+  - New `ClaudeCode.connect/2` - Connect session in streaming mode for multi-turn conversations
+  - New `ClaudeCode.stream_query/2` - Send query to connected streaming session
+  - New `ClaudeCode.receive_messages/2` - Stream of all messages for a request
+  - New `ClaudeCode.receive_response/2` - Stream until result message is received
+  - New `ClaudeCode.interrupt/2` - Cancel in-progress streaming request
+  - New `ClaudeCode.disconnect/1` - Close streaming connection
+  - New `ClaudeCode.Input` module - Builds NDJSON messages for stream-json input format
+  - New `:input_format` option - Set to `:stream_json` for streaming mode
+  - Supports conversation resumption via `resume: session_id` option in `connect/2`
+  - Enables multi-turn conversations without subprocess restarts
 - **ThinkingBlock content type** for extended thinking support
   - New `ClaudeCode.Content.Thinking` module for parsing thinking blocks
   - Thinking blocks contain `thinking` (reasoning text) and `signature` fields
