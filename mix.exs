@@ -102,23 +102,49 @@ defmodule ClaudeCode.MixProject do
       source_url: @source_url,
       extras: [
         "README.md",
-        "docs/GETTING_STARTED.md",
-        "docs/SUPERVISION.md",
-        "docs/EXAMPLES.md",
-        "docs/TROUBLESHOOTING.md",
-        "CHANGELOG.md"
+        "CHANGELOG.md",
+        # Guides
+        "docs/guides/getting-started.md",
+        "docs/guides/streaming.md",
+        "docs/guides/sessions.md",
+        "docs/guides/permissions.md",
+        # Integration
+        "docs/integration/phoenix.md",
+        "docs/integration/mcp.md",
+        "docs/integration/tool-callbacks.md",
+        # Advanced
+        "docs/advanced/configuration.md",
+        "docs/advanced/supervision.md",
+        "docs/advanced/agents.md",
+        # Reference
+        "docs/reference/examples.md",
+        "docs/reference/architecture.md",
+        "docs/reference/troubleshooting.md"
       ],
       groups_for_extras: [
         Introduction: [
           "README.md",
-          "docs/GETTING_STARTED.md"
+          "docs/guides/getting-started.md"
         ],
-        "Production Guide": [
-          "docs/SUPERVISION.md"
+        Guides: [
+          "docs/guides/streaming.md",
+          "docs/guides/sessions.md",
+          "docs/guides/permissions.md"
+        ],
+        Integration: [
+          "docs/integration/phoenix.md",
+          "docs/integration/mcp.md",
+          "docs/integration/tool-callbacks.md"
+        ],
+        Advanced: [
+          "docs/advanced/configuration.md",
+          "docs/advanced/supervision.md",
+          "docs/advanced/agents.md"
         ],
         Reference: [
-          "docs/EXAMPLES.md",
-          "docs/TROUBLESHOOTING.md"
+          "docs/reference/examples.md",
+          "docs/reference/architecture.md",
+          "docs/reference/troubleshooting.md"
         ]
       ],
       groups_for_modules: [
@@ -127,9 +153,8 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Session,
           ClaudeCode.Supervisor
         ],
-        "Configuration & Options": [
-          ClaudeCode.Options,
-          ClaudeCode.CLI
+        Configuration: [
+          ClaudeCode.Options
         ],
         Streaming: [
           ClaudeCode.Stream
@@ -144,7 +169,11 @@ defmodule ClaudeCode.MixProject do
         ],
         "MCP Integration": ~r/ClaudeCode.MCP/,
         Messages: ~r/ClaudeCode.Message/,
-        "Content Blocks": ~r/ClaudeCode.Content/
+        "Content Blocks": ~r/ClaudeCode.Content/,
+        Internal: [
+          ClaudeCode.CLI,
+          ClaudeCode.Input
+        ]
       ]
     ]
   end
