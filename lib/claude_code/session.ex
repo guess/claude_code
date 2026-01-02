@@ -435,10 +435,10 @@ defmodule ClaudeCode.Session do
 
   defp extract_result(messages) do
     case Enum.find(messages, &match?(%Message.Result{}, &1)) do
-      %Message.Result{is_error: true, result: error} ->
-        {:error, {:claude_error, error}}
+      %Message.Result{is_error: true} = result ->
+        {:error, result}
 
-      %Message.Result{is_error: false, result: result} ->
+      %Message.Result{} = result ->
         {:ok, result}
 
       nil ->

@@ -5,6 +5,14 @@ defmodule ClaudeCode.Message.Result do
   Result messages are the final message in a conversation, containing
   the final response, timing information, token usage, and cost.
 
+  ## String.Chars Protocol
+
+  `Result` implements `String.Chars`, so you can use it directly with
+  `IO.puts/1` or string interpolation:
+
+      {:ok, result} = ClaudeCode.query(session, "Hello")
+      IO.puts(result)  # prints just the result text
+
   Matches the official SDK schema for successful results:
   ```
   {
@@ -161,4 +169,8 @@ defmodule ClaudeCode.Message.Result do
 
   defp parse_server_tool_use(%{"web_search_requests" => count}), do: %{web_search_requests: count}
   defp parse_server_tool_use(_), do: %{web_search_requests: 0}
+end
+
+defimpl String.Chars, for: ClaudeCode.Message.Result do
+  def to_string(%{result: result}), do: result
 end

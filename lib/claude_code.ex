@@ -10,8 +10,8 @@ defmodule ClaudeCode do
 
       # Start a single session (auto-connects to CLI)
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
-      {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
-      IO.puts(response)
+      {:ok, result} = ClaudeCode.query(session, "Hello, Claude!")
+      IO.puts(result)  # Result implements String.Chars
 
   ## Session Lifecycle
 
@@ -82,10 +82,12 @@ defmodule ClaudeCode do
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
 
+  alias ClaudeCode.Message.Result
   alias ClaudeCode.Session
 
   @type session :: pid() | atom() | {:via, module(), any()}
-  @type query_response :: {:ok, String.t()} | {:error, term()}
+  @type query_response ::
+          {:ok, Result.t()} | {:error, Result.t() | term()}
   @type message_stream :: Enumerable.t(ClaudeCode.Message.t())
 
   @doc """
@@ -149,16 +151,25 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, response} = ClaudeCode.query(session, "What is 2 + 2?")
-      IO.puts(response)
+      {:ok, result} = ClaudeCode.query(session, "What is 2 + 2?")
+      IO.puts(result)  # Result implements String.Chars
       # => "4"
 
       # With option overrides
-      {:ok, response} = ClaudeCode.query(session, "Complex query",
+      {:ok, result} = ClaudeCode.query(session, "Complex query",
         system_prompt: "Focus on performance optimization",
         allowed_tools: ["View"],
         timeout: 120_000
       )
+
+      # Handle errors
+      case ClaudeCode.query(session, "Do something risky") do
+        {:ok, result} -> IO.puts(result.result)
+        {:error, %ClaudeCode.Message.Result{is_error: true} = result} ->
+          IO.puts("Claude error: \#{result.result}")
+        {:error, :timeout} -> IO.puts("Request timed out")
+        {:error, reason} -> IO.puts("Error: \#{inspect(reason)}")
+      end
   """
   @spec query(session(), String.t(), keyword()) :: query_response()
   def query(session, prompt, opts \\ []) do

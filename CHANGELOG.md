@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Useful for disabling all MCP tools: `tools: [], strict_mcp_config: true`
   - Or using only built-in tools: `tools: :default, strict_mcp_config: true`
 
+### Changed
+- **BREAKING: `ClaudeCode.query/3` now returns full `%Result{}` struct** instead of just text
+  - Before: `{:ok, "response text"}` or `{:error, {:claude_error, "message"}}`
+  - After: `{:ok, %ClaudeCode.Message.Result{result: "response text", ...}}` or `{:error, %ClaudeCode.Message.Result{is_error: true, ...}}`
+  - Provides access to metadata: `session_id`, `is_error`, `subtype`, `duration_ms`, `usage`, etc.
+  - Migration: Change `{:ok, text}` to `{:ok, result}` and use `result.result` to access the response text
+  - `Result` implements `String.Chars`, so `IO.puts(result)` prints just the text
+
 ### Removed
 - **`:input_format` option** - No longer exposed in public API ([c7ebab2])
 - **`:output_format` option** - No longer exposed in public API ([c7ebab2])

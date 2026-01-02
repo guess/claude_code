@@ -1,6 +1,8 @@
 defmodule ClaudeCode.IntegrationTest do
   use ExUnit.Case
 
+  alias ClaudeCode.Message.Result
+
   @moduletag :integration
 
   describe "full query flow with mock CLI" do
@@ -76,9 +78,9 @@ defmodule ClaudeCode.IntegrationTest do
     test "successful query returns response" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
+      {:ok, result} = ClaudeCode.query(session, "Hello, Claude!")
 
-      assert response == "Mock response to: Hello, Claude!"
+      assert %Result{result: "Mock response to: Hello, Claude!"} = result
 
       ClaudeCode.stop(session)
     end
@@ -86,9 +88,9 @@ defmodule ClaudeCode.IntegrationTest do
     test "error in prompt returns error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:error, {:claude_error, message}} = ClaudeCode.query(session, "Please error")
+      {:error, result} = ClaudeCode.query(session, "Please error")
 
-      assert message == "Simulated error response"
+      assert %Result{is_error: true, result: "Simulated error response"} = result
 
       ClaudeCode.stop(session)
     end
@@ -96,9 +98,9 @@ defmodule ClaudeCode.IntegrationTest do
     test "missing API key returns authentication error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "")
 
-      {:error, {:claude_error, message}} = ClaudeCode.query(session, "Hello")
+      {:error, result} = ClaudeCode.query(session, "Hello")
 
-      assert message == "Authentication failed: Missing API key"
+      assert %Result{is_error: true, result: "Authentication failed: Missing API key"} = result
 
       ClaudeCode.stop(session)
     end
@@ -116,11 +118,11 @@ defmodule ClaudeCode.IntegrationTest do
       {:ok, _session1} = ClaudeCode.start_link(api_key: "key1", name: :session1)
       {:ok, _session2} = ClaudeCode.start_link(api_key: "key2", name: :session2)
 
-      {:ok, response1} = ClaudeCode.query(:session1, "From session 1")
-      {:ok, response2} = ClaudeCode.query(:session2, "From session 2")
+      {:ok, result1} = ClaudeCode.query(:session1, "From session 1")
+      {:ok, result2} = ClaudeCode.query(:session2, "From session 2")
 
-      assert response1 == "Mock response to: From session 1"
-      assert response2 == "Mock response to: From session 2"
+      assert %Result{result: "Mock response to: From session 1"} = result1
+      assert %Result{result: "Mock response to: From session 2"} = result2
 
       ClaudeCode.stop(:session1)
       ClaudeCode.stop(:session2)

@@ -1,6 +1,7 @@
 defmodule ClaudeCode.SessionShellTest do
   use ExUnit.Case
 
+  alias ClaudeCode.Message.Result
   alias ClaudeCode.Session
 
   describe "shell command building" do
@@ -43,7 +44,7 @@ defmodule ClaudeCode.SessionShellTest do
 
       response = GenServer.call(session, {:query, "Hello Claude", []}, 5000)
 
-      assert {:ok, "Hello from Claude Code CLI!"} = response
+      assert {:ok, %Result{result: "Hello from Claude Code CLI!"}} = response
 
       GenServer.stop(session)
     end
@@ -53,7 +54,7 @@ defmodule ClaudeCode.SessionShellTest do
 
       response = GenServer.call(session, {:query, "Hello 'Claude' with \"quotes\"", []}, 5000)
 
-      assert {:ok, "Hello from Claude Code CLI!"} = response
+      assert {:ok, %Result{result: "Hello from Claude Code CLI!"}} = response
 
       GenServer.stop(session)
     end
@@ -64,7 +65,7 @@ defmodule ClaudeCode.SessionShellTest do
       prompt = "Line 1\nLine 2\nLine 3"
       response = GenServer.call(session, {:query, prompt, []}, 5000)
 
-      assert {:ok, "Hello from Claude Code CLI!"} = response
+      assert {:ok, %Result{result: "Hello from Claude Code CLI!"}} = response
 
       GenServer.stop(session)
     end

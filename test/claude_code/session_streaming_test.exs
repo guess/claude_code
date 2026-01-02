@@ -35,7 +35,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       # First query triggers connection
       {:ok, result} = ClaudeCode.query(session, "Hello")
-      assert result == "Streaming response"
+      assert %Result{result: "Streaming response"} = result
 
       # Port should now be set
       state = :sys.get_state(session)
@@ -125,11 +125,11 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       # First query
       {:ok, result1} = ClaudeCode.query(session, "First question")
-      assert result1 == "Turn 1 response"
+      assert %Result{result: "Turn 1 response"} = result1
 
       # Second query on same session
       {:ok, result2} = ClaudeCode.query(session, "Second question")
-      assert result2 == "Turn 2 response"
+      assert %Result{result: "Turn 2 response"} = result2
 
       GenServer.stop(session)
     end
@@ -214,7 +214,7 @@ defmodule ClaudeCode.SessionStreamingTest do
         )
 
       {:ok, result} = ClaudeCode.query(session, "Hello")
-      assert result == "Resumed session: previous-session-xyz"
+      assert %Result{result: "Resumed session: previous-session-xyz"} = result
 
       GenServer.stop(session)
     end
