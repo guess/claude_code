@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-01-02
+
 ### Added
 - **`:strict_mcp_config` option** - Control MCP server loading behavior ([a095516])
   - When `true`, ignores global MCP server configurations

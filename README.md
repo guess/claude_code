@@ -38,7 +38,7 @@ IO.puts(answer)  # => "Your favorite language is Elixir!"
 **Step 1:** Add to your `mix.exs`
 ```elixir
 def deps do
-  [{:claude_code, "~> 0.6.0"}]
+  [{:claude_code, "~> 0.7.0"}]
 end
 ```
 
