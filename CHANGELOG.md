@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`:strict_mcp_config` option** - Control MCP server loading behavior ([a095516])
+  - When `true`, ignores global MCP server configurations
+  - Useful for disabling all MCP tools: `tools: [], strict_mcp_config: true`
+  - Or using only built-in tools: `tools: :default, strict_mcp_config: true`
+
+### Removed
+- **`:input_format` option** - No longer exposed in public API ([c7ebab2])
+- **`:output_format` option** - No longer exposed in public API ([c7ebab2])
+
 ## [0.6.0] - 2025-12-31
 
 ### Added
