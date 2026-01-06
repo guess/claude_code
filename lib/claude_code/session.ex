@@ -12,7 +12,9 @@ defmodule ClaudeCode.Session do
   use GenServer
 
   alias ClaudeCode.CLI
-  alias ClaudeCode.Message
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage
   alias ClaudeCode.Options
   alias ClaudeCode.ToolCallback
 
@@ -288,7 +290,7 @@ defmodule ClaudeCode.Session do
   defp ensure_connected(%{port: nil} = state) do
     case spawn_cli(state) do
       {:ok, port} ->
-        Logger.debug("Reconnected to CLI")
+        # Logger.debug("Reconnected to CLI")
         {:ok, %{state | port: port, buffer: ""}}
 
       {:error, reason} ->
@@ -346,7 +348,7 @@ defmodule ClaudeCode.Session do
 
   defp process_line(line, state) do
     with {:ok, json} <- Jason.decode(line),
-         {:ok, message} <- Message.parse(json) do
+         {:ok, message} <- ClaudeCode.Message.parse(json) do
       handle_message(message, state)
     else
       {:error, _} ->
@@ -434,11 +436,11 @@ defmodule ClaudeCode.Session do
   end
 
   defp extract_result(messages) do
-    case Enum.find(messages, &match?(%Message.Result{}, &1)) do
-      %Message.Result{is_error: true} = result ->
+    case Enum.find(messages, &match?(%ResultMessage{}, &1)) do
+      %ResultMessage{is_error: true} = result ->
         {:error, result}
 
-      %Message.Result{} = result ->
+      %ResultMessage{} = result ->
         {:ok, result}
 
       nil ->
@@ -462,12 +464,12 @@ defmodule ClaudeCode.Session do
     Enum.find(requests, fn {_ref, req} -> req.status == :active end)
   end
 
-  defp result_message?(%Message.Result{}), do: true
+  defp result_message?(%ResultMessage{}), do: true
   defp result_message?(_), do: false
 
-  defp extract_session_id(%Message.System{session_id: sid}) when not is_nil(sid), do: sid
-  defp extract_session_id(%Message.Assistant{session_id: sid}) when not is_nil(sid), do: sid
-  defp extract_session_id(%Message.Result{session_id: sid}) when not is_nil(sid), do: sid
+  defp extract_session_id(%SystemMessage{session_id: sid}) when not is_nil(sid), do: sid
+  defp extract_session_id(%AssistantMessage{session_id: sid}) when not is_nil(sid), do: sid
+  defp extract_session_id(%ResultMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(_), do: nil
 
   defp spawn_cli(state) do

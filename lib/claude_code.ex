@@ -82,12 +82,12 @@ defmodule ClaudeCode do
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
 
-  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
 
   @type session :: pid() | atom() | {:via, module(), any()}
   @type query_response ::
-          {:ok, Result.t()} | {:error, Result.t() | term()}
+          {:ok, ResultMessage.t()} | {:error, ResultMessage.t() | term()}
   @type message_stream :: Enumerable.t(ClaudeCode.Message.t())
 
   @doc """
@@ -165,7 +165,7 @@ defmodule ClaudeCode do
       # Handle errors
       case ClaudeCode.query(session, "Do something risky") do
         {:ok, result} -> IO.puts(result.result)
-        {:error, %ClaudeCode.Message.Result{is_error: true} = result} ->
+        {:error, %ClaudeCode.Message.ResultMessage{is_error: true} = result} ->
           IO.puts("Claude error: \#{result.result}")
         {:error, :timeout} -> IO.puts("Request timed out")
         {:error, reason} -> IO.puts("Error: \#{inspect(reason)}")

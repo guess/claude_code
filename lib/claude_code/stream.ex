@@ -17,7 +17,7 @@ defmodule ClaudeCode.Stream do
 
   alias ClaudeCode.Content
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEvent
+  alias ClaudeCode.Message.StreamEventMessage
 
   @doc """
   Creates a stream of messages from a Claude Code query.
@@ -77,8 +77,8 @@ defmodule ClaudeCode.Stream do
   @spec text_content(Enumerable.t()) :: Enumerable.t()
   def text_content(stream) do
     stream
-    |> Stream.filter(&match?(%Message.Assistant{}, &1))
-    |> Stream.flat_map(fn %Message.Assistant{message: message} ->
+    |> Stream.filter(&match?(%Message.AssistantMessage{}, &1))
+    |> Stream.flat_map(fn %Message.AssistantMessage{message: message} ->
       message.content
       |> Enum.filter(&match?(%Content.Text{}, &1))
       |> Enum.map(& &1.text)
@@ -101,8 +101,8 @@ defmodule ClaudeCode.Stream do
   @spec thinking_content(Enumerable.t()) :: Enumerable.t()
   def thinking_content(stream) do
     stream
-    |> Stream.filter(&match?(%Message.Assistant{}, &1))
-    |> Stream.flat_map(fn %Message.Assistant{message: message} ->
+    |> Stream.filter(&match?(%Message.AssistantMessage{}, &1))
+    |> Stream.flat_map(fn %Message.AssistantMessage{message: message} ->
       message.content
       |> Enum.filter(&match?(%Content.Thinking{}, &1))
       |> Enum.map(& &1.thinking)
@@ -133,8 +133,8 @@ defmodule ClaudeCode.Stream do
   @spec text_deltas(Enumerable.t()) :: Enumerable.t()
   def text_deltas(stream) do
     stream
-    |> Stream.filter(&StreamEvent.text_delta?/1)
-    |> Stream.map(&StreamEvent.get_text/1)
+    |> Stream.filter(&StreamEventMessage.text_delta?/1)
+    |> Stream.map(&StreamEventMessage.get_text/1)
   end
 
   @doc """
@@ -154,8 +154,8 @@ defmodule ClaudeCode.Stream do
   @spec thinking_deltas(Enumerable.t()) :: Enumerable.t()
   def thinking_deltas(stream) do
     stream
-    |> Stream.filter(&StreamEvent.thinking_delta?/1)
-    |> Stream.map(&StreamEvent.get_thinking/1)
+    |> Stream.filter(&StreamEventMessage.thinking_delta?/1)
+    |> Stream.map(&StreamEventMessage.get_thinking/1)
   end
 
   @doc """
@@ -182,8 +182,8 @@ defmodule ClaudeCode.Stream do
   @spec content_deltas(Enumerable.t()) :: Enumerable.t()
   def content_deltas(stream) do
     stream
-    |> Stream.filter(&match?(%StreamEvent{event: %{type: :content_block_delta}}, &1))
-    |> Stream.map(fn %StreamEvent{event: %{delta: delta, index: index}} ->
+    |> Stream.filter(&match?(%StreamEventMessage{event: %{type: :content_block_delta}}, &1))
+    |> Stream.map(fn %StreamEventMessage{event: %{delta: delta, index: index}} ->
       Map.put(delta, :index, index)
     end)
   end
@@ -201,10 +201,10 @@ defmodule ClaudeCode.Stream do
       |> ClaudeCode.Stream.filter_event_type(:content_block_delta)
       |> Enum.each(&process_delta/1)
   """
-  @spec filter_event_type(Enumerable.t(), StreamEvent.event_type()) :: Enumerable.t()
+  @spec filter_event_type(Enumerable.t(), StreamEventMessage.event_type()) :: Enumerable.t()
   def filter_event_type(stream, event_type) do
     Stream.filter(stream, fn
-      %StreamEvent{event: %{type: ^event_type}} -> true
+      %StreamEventMessage{event: %{type: ^event_type}} -> true
       _ -> false
     end)
   end
@@ -225,8 +225,8 @@ defmodule ClaudeCode.Stream do
   @spec tool_uses(Enumerable.t()) :: Enumerable.t()
   def tool_uses(stream) do
     stream
-    |> Stream.filter(&match?(%Message.Assistant{}, &1))
-    |> Stream.flat_map(fn %Message.Assistant{message: message} ->
+    |> Stream.filter(&match?(%Message.AssistantMessage{}, &1))
+    |> Stream.flat_map(fn %Message.AssistantMessage{message: message} ->
       Enum.filter(message.content, &match?(%Content.ToolUse{}, &1))
     end)
   end
@@ -264,7 +264,7 @@ defmodule ClaudeCode.Stream do
   def until_result(stream) do
     Stream.transform(stream, false, fn
       _message, true -> {:halt, true}
-      %Message.Result{} = result, false -> {[result], true}
+      %Message.ResultMessage{} = result, false -> {[result], true}
       message, false -> {[message], false}
     end)
   end
@@ -285,7 +285,7 @@ defmodule ClaudeCode.Stream do
   @spec buffered_text(Enumerable.t()) :: Enumerable.t()
   def buffered_text(stream) do
     Stream.transform(stream, "", fn
-      %Message.Assistant{} = msg, buffer ->
+      %Message.AssistantMessage{} = msg, buffer ->
         text = extract_text(msg)
         full_text = buffer <> text
 
@@ -295,7 +295,7 @@ defmodule ClaudeCode.Stream do
           {[], full_text}
         end
 
-      %Message.Result{}, buffer ->
+      %Message.ResultMessage{}, buffer ->
         if buffer == "", do: {[], ""}, else: {[buffer], ""}
 
       _other, buffer ->
@@ -329,7 +329,7 @@ defmodule ClaudeCode.Stream do
       {:message, message} ->
         if should_emit?(message, state.filter) do
           case message do
-            %Message.Result{} ->
+            %Message.ResultMessage{} ->
               {[message], %{state | done: true}}
 
             _ ->
@@ -363,24 +363,24 @@ defmodule ClaudeCode.Stream do
     message_type_matches?(message, filter)
   end
 
-  defp message_type_matches?(%Message.Assistant{}, :assistant), do: true
-  defp message_type_matches?(%Message.Result{}, :result), do: true
-  defp message_type_matches?(%Message.System{}, :system), do: true
-  defp message_type_matches?(%Message.User{}, :user), do: true
-  defp message_type_matches?(%StreamEvent{}, :stream_event), do: true
+  defp message_type_matches?(%Message.AssistantMessage{}, :assistant), do: true
+  defp message_type_matches?(%Message.ResultMessage{}, :result), do: true
+  defp message_type_matches?(%Message.SystemMessage{}, :system), do: true
+  defp message_type_matches?(%Message.UserMessage{}, :user), do: true
+  defp message_type_matches?(%StreamEventMessage{}, :stream_event), do: true
 
-  defp message_type_matches?(%Message.Assistant{message: message}, :tool_use) do
+  defp message_type_matches?(%Message.AssistantMessage{message: message}, :tool_use) do
     Enum.any?(message.content, &match?(%Content.ToolUse{}, &1))
   end
 
   # Match text delta stream events when filtering for :text_delta
-  defp message_type_matches?(%StreamEvent{} = event, :text_delta) do
-    StreamEvent.text_delta?(event)
+  defp message_type_matches?(%StreamEventMessage{} = event, :text_delta) do
+    StreamEventMessage.text_delta?(event)
   end
 
   defp message_type_matches?(_, _), do: false
 
-  defp extract_text(%Message.Assistant{message: message}) do
+  defp extract_text(%Message.AssistantMessage{message: message}) do
     message.content
     |> Enum.filter(&match?(%Content.Text{}, &1))
     |> Enum.map_join("", & &1.text)

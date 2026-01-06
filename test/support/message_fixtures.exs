@@ -4,8 +4,12 @@ defmodule ClaudeCode.Test.MessageFixtures do
   """
 
   alias ClaudeCode.Content
-  alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEvent
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.StreamEventMessage
+  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.UserMessage
 
   def system_message(attrs \\ %{}) do
     defaults = %{
@@ -20,31 +24,22 @@ defmodule ClaudeCode.Test.MessageFixtures do
       permission_mode: "auto",
       api_key_source: "ANTHROPIC_API_KEY",
       slash_commands: [],
-      output_style: "default",
-      compact_metadata: nil
+      output_style: "default"
     }
 
-    struct!(Message.System, Map.merge(defaults, attrs))
+    struct!(SystemMessage, Map.merge(defaults, attrs))
   end
 
-  def system_message_compact_boundary(attrs \\ %{}) do
+  def compact_boundary_message(attrs \\ %{}) do
     defaults = %{
       type: "system",
       subtype: "compact_boundary",
       uuid: "550e8400-e29b-41d4-a716-446655440000",
       session_id: "test-123",
-      compact_metadata: %{trigger: "manual", pre_tokens: 1000},
-      cwd: nil,
-      tools: nil,
-      mcp_servers: nil,
-      model: nil,
-      permission_mode: nil,
-      api_key_source: nil,
-      slash_commands: nil,
-      output_style: nil
+      compact_metadata: %{trigger: "manual", pre_tokens: 1000}
     }
 
-    struct!(Message.System, Map.merge(defaults, attrs))
+    struct!(CompactBoundaryMessage, Map.merge(defaults, attrs))
   end
 
   def assistant_message(attrs \\ %{}) do
@@ -69,7 +64,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       message: Map.merge(message_defaults, Map.get(attrs, :message, %{}))
     }
 
-    struct!(Message.Assistant, Map.merge(defaults, Map.delete(attrs, :message)))
+    struct!(AssistantMessage, Map.merge(defaults, Map.delete(attrs, :message)))
   end
 
   def user_message(attrs \\ %{}) do
@@ -90,7 +85,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       message: Map.merge(message_defaults, Map.get(attrs, :message, %{}))
     }
 
-    struct!(Message.User, Map.merge(defaults, Map.delete(attrs, :message)))
+    struct!(UserMessage, Map.merge(defaults, Map.delete(attrs, :message)))
   end
 
   def result_message(attrs \\ %{}) do
@@ -112,7 +107,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       errors: nil
     }
 
-    struct!(Message.Result, Map.merge(defaults, attrs))
+    struct!(ResultMessage, Map.merge(defaults, attrs))
   end
 
   def text_content(text) do
@@ -226,7 +221,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -245,7 +240,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -264,7 +259,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -283,7 +278,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -302,7 +297,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -320,7 +315,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -339,7 +334,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """
@@ -354,7 +349,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEvent, defaults)
+    struct!(StreamEventMessage, defaults)
   end
 
   @doc """

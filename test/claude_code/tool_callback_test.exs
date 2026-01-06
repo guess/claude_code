@@ -3,17 +3,17 @@ defmodule ClaudeCode.ToolCallbackTest do
 
   alias ClaudeCode.Content.ToolResult
   alias ClaudeCode.Content.ToolUse
-  alias ClaudeCode.Message.Assistant
-  alias ClaudeCode.Message.Result
-  alias ClaudeCode.Message.System
-  alias ClaudeCode.Message.User
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.UserMessage
   alias ClaudeCode.ToolCallback
 
   describe "process_message/3" do
     test "stores pending tool uses from Assistant messages" do
       tool_use = %ToolUse{type: :tool_use, id: "tool_123", name: "Read", input: %{"path" => "/tmp/file"}}
 
-      message = %Assistant{
+      message = %AssistantMessage{
         type: :assistant,
         session_id: "session_1",
         message: %{content: [tool_use]}
@@ -31,7 +31,7 @@ defmodule ClaudeCode.ToolCallbackTest do
       tool_use1 = %ToolUse{type: :tool_use, id: "tool_1", name: "Read", input: %{"path" => "/a"}}
       tool_use2 = %ToolUse{type: :tool_use, id: "tool_2", name: "Write", input: %{"path" => "/b"}}
 
-      message = %Assistant{
+      message = %AssistantMessage{
         type: :assistant,
         session_id: "session_1",
         message: %{content: [tool_use1, tool_use2]}
@@ -59,7 +59,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         is_error: false
       }
 
-      message = %User{
+      message = %UserMessage{
         type: :user,
         session_id: "session_1",
         message: %{content: [tool_result]}
@@ -99,7 +99,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         is_error: true
       }
 
-      message = %User{
+      message = %UserMessage{
         type: :user,
         session_id: "session_1",
         message: %{content: [tool_result]}
@@ -128,7 +128,7 @@ defmodule ClaudeCode.ToolCallbackTest do
       result1 = %ToolResult{type: :tool_result, tool_use_id: "tool_1", content: "ok1", is_error: false}
       result2 = %ToolResult{type: :tool_result, tool_use_id: "tool_2", content: "ok2", is_error: false}
 
-      message = %User{
+      message = %UserMessage{
         type: :user,
         session_id: "session_1",
         message: %{content: [result1, result2]}
@@ -161,7 +161,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         is_error: false
       }
 
-      message = %User{
+      message = %UserMessage{
         type: :user,
         session_id: "session_1",
         message: %{content: [tool_result]}
@@ -192,7 +192,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         is_error: false
       }
 
-      message = %User{type: :user, session_id: "s1", message: %{content: [tool_result]}}
+      message = %UserMessage{type: :user, session_id: "s1", message: %{content: [tool_result]}}
 
       {new_pending, events} = ToolCallback.process_message(message, pending, nil)
 
@@ -202,7 +202,7 @@ defmodule ClaudeCode.ToolCallbackTest do
     end
 
     test "passes through System messages unchanged" do
-      message = %System{
+      message = %SystemMessage{
         type: :system,
         subtype: "init",
         uuid: "550e8400-e29b-41d4-a716-446655440000",
@@ -228,7 +228,7 @@ defmodule ClaudeCode.ToolCallbackTest do
     end
 
     test "passes through Result messages unchanged" do
-      message = %Result{
+      message = %ResultMessage{
         type: :result,
         subtype: :success,
         is_error: false,
@@ -263,7 +263,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         is_error: false
       }
 
-      message = %User{type: :user, session_id: "s1", message: %{content: [tool_result]}}
+      message = %UserMessage{type: :user, session_id: "s1", message: %{content: [tool_result]}}
 
       test_pid = self()
       callback = fn event -> send(test_pid, {:callback, event}) end

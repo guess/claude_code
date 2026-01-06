@@ -1,7 +1,7 @@
-defmodule ClaudeCode.Message.SystemTest do
+defmodule ClaudeCode.Message.SystemMessageTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Message.System
+  alias ClaudeCode.Message.SystemMessage
 
   describe "new/1" do
     test "parses a valid system init message" do
@@ -23,7 +23,7 @@ defmodule ClaudeCode.Message.SystemTest do
         "outputStyle" => "default"
       }
 
-      assert {:ok, message} = System.new(json)
+      assert {:ok, message} = SystemMessage.new(json)
       assert message.type == :system
       assert message.subtype == :init
       assert message.uuid == "550e8400-e29b-41d4-a716-446655440000"
@@ -55,31 +55,31 @@ defmodule ClaudeCode.Message.SystemTest do
         "outputStyle" => "default"
       }
 
-      assert {:ok, message} = System.new(json)
+      assert {:ok, message} = SystemMessage.new(json)
       assert message.permission_mode == :bypass_permissions
     end
 
     test "returns error for invalid type" do
       json = %{"type" => "assistant"}
-      assert {:error, :invalid_message_type} = System.new(json)
+      assert {:error, :invalid_message_type} = SystemMessage.new(json)
     end
 
     test "returns error for missing required fields" do
       json = %{"type" => "system", "subtype" => "init"}
-      assert {:error, {:missing_fields, _}} = System.new(json)
+      assert {:error, {:missing_fields, _}} = SystemMessage.new(json)
     end
   end
 
   describe "type guards" do
     test "system_message?/1 returns true for system messages" do
-      {:ok, message} = System.new(valid_system_json())
-      assert System.system_message?(message)
+      {:ok, message} = SystemMessage.new(valid_system_json())
+      assert SystemMessage.system_message?(message)
     end
 
     test "system_message?/1 returns false for non-system messages" do
-      refute System.system_message?(%{type: :assistant})
-      refute System.system_message?(nil)
-      refute System.system_message?("not a message")
+      refute SystemMessage.system_message?(%{type: :assistant})
+      refute SystemMessage.system_message?(nil)
+      refute SystemMessage.system_message?("not a message")
     end
   end
 
@@ -93,7 +93,7 @@ defmodule ClaudeCode.Message.SystemTest do
       {:ok, json} = Jason.decode(hd(lines))
 
       assert json["type"] == "system"
-      assert {:ok, message} = System.new(json)
+      assert {:ok, message} = SystemMessage.new(json)
       assert message.type == :system
       assert message.subtype == :init
       assert is_binary(message.session_id)

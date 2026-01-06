@@ -1,8 +1,8 @@
-defmodule ClaudeCode.Message.StreamEventTest do
+defmodule ClaudeCode.Message.StreamEventMessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEvent
+  alias ClaudeCode.Message.StreamEventMessage
 
   describe "new/1" do
     test "parses a text_delta stream event" do
@@ -18,7 +18,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "uuid" => "uuid-456"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.type == :stream_event
       assert event.event.type == :content_block_delta
       assert event.event.index == 0
@@ -38,7 +38,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.type == :message_start
       assert event.event.message.model == "claude-3"
       assert event.event.message.id == "msg_123"
@@ -55,7 +55,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.type == :content_block_start
       assert event.event.index == 0
       assert event.event.content_block.type == :text
@@ -72,7 +72,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.delta.type == :input_json_delta
       assert event.event.delta.partial_json == "{\"path\":"
     end
@@ -88,7 +88,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.delta.type == :thinking_delta
       assert event.event.delta.thinking == "Let me reason through this..."
     end
@@ -103,7 +103,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.type == :content_block_stop
       assert event.event.index == 0
     end
@@ -119,7 +119,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.type == :message_delta
       assert event.event.usage.output_tokens == 50
     end
@@ -131,7 +131,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.type == :message_stop
     end
 
@@ -151,7 +151,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEvent.new(json)
+      assert {:ok, event} = StreamEventMessage.new(json)
       assert event.event.content_block.type == :tool_use
       assert event.event.content_block.name == "read_file"
     end
@@ -162,7 +162,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:error, :missing_event} = StreamEvent.new(json)
+      assert {:error, :missing_event} = StreamEventMessage.new(json)
     end
 
     test "returns error for missing session_id" do
@@ -171,7 +171,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "event" => %{"type" => "message_stop"}
       }
 
-      assert {:error, :missing_session_id} = StreamEvent.new(json)
+      assert {:error, :missing_session_id} = StreamEventMessage.new(json)
     end
 
     test "returns error for wrong type" do
@@ -180,7 +180,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "message" => %{}
       }
 
-      assert {:error, :invalid_message_type} = StreamEvent.new(json)
+      assert {:error, :invalid_message_type} = StreamEventMessage.new(json)
     end
   end
 
@@ -196,75 +196,75 @@ defmodule ClaudeCode.Message.StreamEventTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, %StreamEvent{}} = Message.parse(json)
+      assert {:ok, %StreamEventMessage{}} = Message.parse(json)
     end
   end
 
   describe "helper functions" do
     test "text_delta?/1 returns true for text deltas" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hi"})
-      assert StreamEvent.text_delta?(event)
+      assert StreamEventMessage.text_delta?(event)
     end
 
     test "text_delta?/1 returns false for non-text deltas" do
       event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{}"})
-      refute StreamEvent.text_delta?(event)
+      refute StreamEventMessage.text_delta?(event)
     end
 
     test "get_text/1 extracts text from text delta" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello World"})
-      assert StreamEvent.get_text(event) == "Hello World"
+      assert StreamEventMessage.get_text(event) == "Hello World"
     end
 
     test "get_text/1 returns nil for non-text delta" do
       event = build_event(:message_start, nil)
-      assert StreamEvent.get_text(event) == nil
+      assert StreamEventMessage.get_text(event) == nil
     end
 
     test "thinking_delta?/1 returns true for thinking deltas" do
       event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "reasoning"})
-      assert StreamEvent.thinking_delta?(event)
+      assert StreamEventMessage.thinking_delta?(event)
     end
 
     test "thinking_delta?/1 returns false for non-thinking deltas" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
-      refute StreamEvent.thinking_delta?(event)
+      refute StreamEventMessage.thinking_delta?(event)
     end
 
     test "get_thinking/1 extracts thinking from thinking delta" do
       event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "Let me think..."})
-      assert StreamEvent.get_thinking(event) == "Let me think..."
+      assert StreamEventMessage.get_thinking(event) == "Let me think..."
     end
 
     test "get_thinking/1 returns nil for non-thinking delta" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
-      assert StreamEvent.get_thinking(event) == nil
+      assert StreamEventMessage.get_thinking(event) == nil
     end
 
     test "input_json_delta?/1 detects input_json_delta events" do
       event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{}"})
-      assert StreamEvent.input_json_delta?(event)
+      assert StreamEventMessage.input_json_delta?(event)
     end
 
     test "get_partial_json/1 extracts partial JSON" do
       event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{\"path\":"})
-      assert StreamEvent.get_partial_json(event) == "{\"path\":"
+      assert StreamEventMessage.get_partial_json(event) == "{\"path\":"
     end
 
     test "get_index/1 returns content block index" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hi"}, 2)
-      assert StreamEvent.get_index(event) == 2
+      assert StreamEventMessage.get_index(event) == 2
     end
 
     test "event_type/1 returns the event type" do
       event = build_event(:message_start, nil)
-      assert StreamEvent.event_type(event) == :message_start
+      assert StreamEventMessage.event_type(event) == :message_start
     end
 
     test "stream_event?/1 type guard" do
       event = build_event(:message_start, nil)
-      assert StreamEvent.stream_event?(event)
-      refute StreamEvent.stream_event?(%{type: "other"})
+      assert StreamEventMessage.stream_event?(event)
+      refute StreamEventMessage.stream_event?(%{type: "other"})
     end
   end
 
@@ -282,7 +282,7 @@ defmodule ClaudeCode.Message.StreamEventTest do
           %{type: type}
       end
 
-    %StreamEvent{
+    %StreamEventMessage{
       type: :stream_event,
       event: event,
       session_id: "test-123"

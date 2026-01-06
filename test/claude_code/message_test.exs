@@ -2,13 +2,14 @@ defmodule ClaudeCode.MessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.Assistant
-  alias ClaudeCode.Message.Result
-  alias ClaudeCode.Message.System
-  alias ClaudeCode.Message.User
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.UserMessage
 
   describe "parse/1" do
-    test "parses system messages" do
+    test "parses system init messages" do
       data = %{
         "type" => "system",
         "subtype" => "init",
@@ -24,7 +25,7 @@ defmodule ClaudeCode.MessageTest do
         "outputStyle" => "default"
       }
 
-      assert {:ok, %System{}} = Message.parse(data)
+      assert {:ok, %SystemMessage{}} = Message.parse(data)
     end
 
     test "parses system compact_boundary messages" do
@@ -39,7 +40,7 @@ defmodule ClaudeCode.MessageTest do
         }
       }
 
-      assert {:ok, %System{subtype: :compact_boundary}} = Message.parse(data)
+      assert {:ok, %CompactBoundaryMessage{subtype: :compact_boundary}} = Message.parse(data)
     end
 
     test "parses assistant messages with uuid" do
@@ -66,7 +67,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %Assistant{uuid: "msg-uuid-123"}} = Message.parse(data)
+      assert {:ok, %AssistantMessage{uuid: "msg-uuid-123"}} = Message.parse(data)
     end
 
     test "parses assistant messages without uuid" do
@@ -92,7 +93,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %Assistant{uuid: nil}} = Message.parse(data)
+      assert {:ok, %AssistantMessage{uuid: nil}} = Message.parse(data)
     end
 
     test "parses user messages with uuid and parent_tool_use_id" do
@@ -113,7 +114,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %User{uuid: "user-uuid-456", parent_tool_use_id: "tool-parent-123"}} =
+      assert {:ok, %UserMessage{uuid: "user-uuid-456", parent_tool_use_id: "tool-parent-123"}} =
                Message.parse(data)
     end
 
@@ -155,7 +156,7 @@ defmodule ClaudeCode.MessageTest do
       }
 
       assert {:ok,
-              %Result{
+              %ResultMessage{
                 uuid: "result-uuid-789",
                 model_usage: model_usage,
                 permission_denials: denials,
@@ -189,7 +190,7 @@ defmodule ClaudeCode.MessageTest do
         "errors" => ["Error 1", "Error 2"]
       }
 
-      assert {:ok, %Result{subtype: :error_max_turns, errors: ["Error 1", "Error 2"]}} =
+      assert {:ok, %ResultMessage{subtype: :error_max_turns, errors: ["Error 1", "Error 2"]}} =
                Message.parse(data)
     end
 
@@ -202,10 +203,15 @@ defmodule ClaudeCode.MessageTest do
       data = %{"subtype" => "init"}
       assert {:error, :missing_type} = Message.parse(data)
     end
+
+    test "returns error for invalid system subtype" do
+      data = %{"type" => "system", "subtype" => "invalid"}
+      assert {:error, :invalid_system_subtype} = Message.parse(data)
+    end
   end
 
   describe "parse_all/1" do
-    test "parses a list of messages" do
+    test "parses a list of messages including compact boundary" do
       data = [
         %{
           "type" => "system",
@@ -244,6 +250,13 @@ defmodule ClaudeCode.MessageTest do
           "session_id" => "123"
         },
         %{
+          "type" => "system",
+          "subtype" => "compact_boundary",
+          "uuid" => "compact-uuid",
+          "session_id" => "123",
+          "compact_metadata" => %{"trigger" => "auto", "pre_tokens" => 5000}
+        },
+        %{
           "type" => "result",
           "subtype" => "success",
           "uuid" => "result-uuid",
@@ -264,7 +277,8 @@ defmodule ClaudeCode.MessageTest do
         }
       ]
 
-      assert {:ok, [%System{}, %Assistant{}, %Result{}]} = Message.parse_all(data)
+      assert {:ok, [%SystemMessage{}, %AssistantMessage{}, %CompactBoundaryMessage{}, %ResultMessage{}]} =
+               Message.parse_all(data)
     end
 
     test "returns error if any message fails to parse" do
@@ -283,16 +297,17 @@ defmodule ClaudeCode.MessageTest do
   end
 
   describe "parse_stream/1" do
-    test "parses newline-delimited JSON stream" do
+    test "parses newline-delimited JSON stream with compact boundary" do
       stream = """
       {"type":"system","subtype":"init","uuid":"550e8400-e29b-41d4-a716-446655440000","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env","slashCommands":[],"outputStyle":"default"}
       {"type":"assistant","uuid":"msg-uuid","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"service_tier":"standard"}},"parent_tool_use_id":null,"session_id":"123"}
+      {"type":"system","subtype":"compact_boundary","uuid":"compact-uuid","session_id":"123","compact_metadata":{"trigger":"auto","pre_tokens":5000}}
       {"type":"result","subtype":"success","uuid":"result-uuid","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Hello","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
 
       assert {:ok, messages} = Message.parse_stream(stream)
-      assert length(messages) == 3
-      assert [%System{}, %Assistant{}, %Result{}] = messages
+      assert length(messages) == 4
+      assert [%SystemMessage{}, %AssistantMessage{}, %CompactBoundaryMessage{}, %ResultMessage{}] = messages
     end
 
     test "handles empty lines in stream" do
@@ -319,7 +334,7 @@ defmodule ClaudeCode.MessageTest do
   describe "type detection" do
     test "message?/1 returns true for any message type" do
       {:ok, system} =
-        System.new(%{
+        SystemMessage.new(%{
           "type" => "system",
           "subtype" => "init",
           "uuid" => "550e8400-e29b-41d4-a716-446655440000",
@@ -337,6 +352,19 @@ defmodule ClaudeCode.MessageTest do
       assert Message.message?(system)
     end
 
+    test "message?/1 returns true for compact boundary messages" do
+      {:ok, compact} =
+        CompactBoundaryMessage.new(%{
+          "type" => "system",
+          "subtype" => "compact_boundary",
+          "uuid" => "550e8400-e29b-41d4-a716-446655440000",
+          "session_id" => "1",
+          "compact_metadata" => %{"trigger" => "auto", "pre_tokens" => 5000}
+        })
+
+      assert Message.message?(compact)
+    end
+
     test "message?/1 returns false for non-messages" do
       refute Message.message?(%{})
       refute Message.message?("string")
@@ -345,9 +373,9 @@ defmodule ClaudeCode.MessageTest do
   end
 
   describe "message type helpers" do
-    test "message_type/1 returns the type of message" do
+    test "message_type/1 returns the type of system message" do
       {:ok, system} =
-        System.new(%{
+        SystemMessage.new(%{
           "type" => "system",
           "subtype" => "init",
           "uuid" => "550e8400-e29b-41d4-a716-446655440000",
@@ -364,6 +392,19 @@ defmodule ClaudeCode.MessageTest do
 
       assert Message.message_type(system) == :system
     end
+
+    test "message_type/1 returns the type of compact boundary message" do
+      {:ok, compact} =
+        CompactBoundaryMessage.new(%{
+          "type" => "system",
+          "subtype" => "compact_boundary",
+          "uuid" => "550e8400-e29b-41d4-a716-446655440000",
+          "session_id" => "1",
+          "compact_metadata" => %{"trigger" => "auto", "pre_tokens" => 5000}
+        })
+
+      assert Message.message_type(compact) == :system
+    end
   end
 
   describe "from fixture" do
@@ -374,7 +415,7 @@ defmodule ClaudeCode.MessageTest do
       assert {:ok, messages} = Message.parse_stream(content)
       assert length(messages) == 3
 
-      assert [%System{}, %Assistant{}, %Result{}] = messages
+      assert [%SystemMessage{}, %AssistantMessage{}, %ResultMessage{}] = messages
 
       # Verify session IDs match
       [system, assistant, result] = messages

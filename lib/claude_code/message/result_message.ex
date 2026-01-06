@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Message.Result do
+defmodule ClaudeCode.Message.ResultMessage do
   @moduledoc """
   Represents a result message from the Claude CLI.
 

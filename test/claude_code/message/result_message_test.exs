@@ -1,7 +1,7 @@
-defmodule ClaudeCode.Message.ResultTest do
+defmodule ClaudeCode.Message.ResultMessageTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.ResultMessage
 
   describe "new/1" do
     test "parses a successful result message" do
@@ -26,7 +26,7 @@ defmodule ClaudeCode.Message.ResultTest do
         }
       }
 
-      assert {:ok, message} = Result.new(json)
+      assert {:ok, message} = ResultMessage.new(json)
       assert message.type == :result
       assert message.subtype == :success
       assert message.is_error == false
@@ -64,7 +64,7 @@ defmodule ClaudeCode.Message.ResultTest do
         }
       }
 
-      assert {:ok, message} = Result.new(json)
+      assert {:ok, message} = ResultMessage.new(json)
       assert message.subtype == :error
       assert message.is_error == true
       assert message.result =~ "Error"
@@ -93,10 +93,10 @@ defmodule ClaudeCode.Message.ResultTest do
         }
       end
 
-      {:ok, msg1} = Result.new(base_json.("success"))
+      {:ok, msg1} = ResultMessage.new(base_json.("success"))
       assert msg1.subtype == :success
 
-      {:ok, msg2} = Result.new(base_json.("error"))
+      {:ok, msg2} = ResultMessage.new(base_json.("error"))
       assert msg2.subtype == :error
     end
 
@@ -119,31 +119,31 @@ defmodule ClaudeCode.Message.ResultTest do
         }
       }
 
-      assert {:ok, message} = Result.new(json)
+      assert {:ok, message} = ResultMessage.new(json)
       assert message.usage.server_tool_use.web_search_requests == 0
     end
 
     test "returns error for invalid type" do
       json = %{"type" => "assistant"}
-      assert {:error, :invalid_message_type} = Result.new(json)
+      assert {:error, :invalid_message_type} = ResultMessage.new(json)
     end
 
     test "returns error for missing required fields" do
       json = %{"type" => "result", "subtype" => "success"}
-      assert {:error, {:missing_fields, _}} = Result.new(json)
+      assert {:error, {:missing_fields, _}} = ResultMessage.new(json)
     end
   end
 
   describe "type guards" do
     test "result_message?/1 returns true for result messages" do
-      {:ok, message} = Result.new(valid_result_json())
-      assert Result.result_message?(message)
+      {:ok, message} = ResultMessage.new(valid_result_json())
+      assert ResultMessage.result_message?(message)
     end
 
     test "result_message?/1 returns false for non-result messages" do
-      refute Result.result_message?(%{type: :assistant})
-      refute Result.result_message?(nil)
-      refute Result.result_message?("not a message")
+      refute ResultMessage.result_message?(%{type: :assistant})
+      refute ResultMessage.result_message?(nil)
+      refute ResultMessage.result_message?("not a message")
     end
   end
 
@@ -156,7 +156,7 @@ defmodule ClaudeCode.Message.ResultTest do
       {:ok, json} = Jason.decode(List.last(lines))
 
       assert json["type"] == "result"
-      assert {:ok, message} = Result.new(json)
+      assert {:ok, message} = ResultMessage.new(json)
       assert message.type == :result
       assert message.subtype == :success
       assert message.is_error == false
@@ -181,7 +181,7 @@ defmodule ClaudeCode.Message.ResultTest do
       assert result_line
       {:ok, json} = Jason.decode(result_line)
 
-      assert {:ok, message} = Result.new(json)
+      assert {:ok, message} = ResultMessage.new(json)
       assert message.usage.input_tokens > 0
       assert message.usage.output_tokens > 0
       assert message.total_cost_usd > 0

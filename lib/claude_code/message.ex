@@ -3,17 +3,24 @@ defmodule ClaudeCode.Message do
   Utilities for working with messages from the Claude CLI.
 
   Messages can be system initialization, assistant responses, user tool results,
-  or final result messages. This module provides functions to parse and work with
-  any message type.
+  result messages, stream events, or conversation compaction boundaries.
+  This module provides functions to parse and work with any message type.
   """
 
-  alias ClaudeCode.Message.Assistant
-  alias ClaudeCode.Message.Result
-  alias ClaudeCode.Message.StreamEvent
-  alias ClaudeCode.Message.System
-  alias ClaudeCode.Message.User
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.StreamEventMessage
+  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.UserMessage
 
-  @type t :: System.t() | Assistant.t() | User.t() | Result.t() | StreamEvent.t()
+  @type t ::
+          SystemMessage.t()
+          | CompactBoundaryMessage.t()
+          | AssistantMessage.t()
+          | UserMessage.t()
+          | ResultMessage.t()
+          | StreamEventMessage.t()
 
   @doc """
   Parses a message from JSON data based on its type.
@@ -21,7 +28,7 @@ defmodule ClaudeCode.Message do
   ## Examples
 
       iex> Message.parse(%{"type" => "system", ...})
-      {:ok, %System{...}}
+      {:ok, %SystemMessage{...}}
 
       iex> Message.parse(%{"type" => "unknown"})
       {:error, {:unknown_message_type, "unknown"}}
@@ -29,11 +36,11 @@ defmodule ClaudeCode.Message do
   @spec parse(map()) :: {:ok, t()} | {:error, term()}
   def parse(%{"type" => type} = data) do
     case type do
-      "system" -> System.new(data)
-      "assistant" -> Assistant.new(data)
-      "user" -> User.new(data)
-      "result" -> Result.new(data)
-      "stream_event" -> StreamEvent.new(data)
+      "system" -> parse_system(data)
+      "assistant" -> AssistantMessage.new(data)
+      "user" -> UserMessage.new(data)
+      "result" -> ResultMessage.new(data)
+      "stream_event" -> StreamEventMessage.new(data)
       other -> {:error, {:unknown_message_type, other}}
     end
   end
@@ -94,20 +101,34 @@ defmodule ClaudeCode.Message do
   Checks if a value is any type of message.
   """
   @spec message?(any()) :: boolean()
-  def message?(%System{}), do: true
-  def message?(%Assistant{}), do: true
-  def message?(%User{}), do: true
-  def message?(%Result{}), do: true
-  def message?(%StreamEvent{}), do: true
+  def message?(%SystemMessage{}), do: true
+  def message?(%CompactBoundaryMessage{}), do: true
+  def message?(%AssistantMessage{}), do: true
+  def message?(%UserMessage{}), do: true
+  def message?(%ResultMessage{}), do: true
+  def message?(%StreamEventMessage{}), do: true
   def message?(_), do: false
 
   @doc """
   Returns the type of a message.
   """
   @spec message_type(t()) :: :system | :assistant | :user | :result | :stream_event
-  def message_type(%System{type: type}), do: type
-  def message_type(%Assistant{type: type}), do: type
-  def message_type(%User{type: type}), do: type
-  def message_type(%Result{type: type}), do: type
-  def message_type(%StreamEvent{type: type}), do: type
+  def message_type(%SystemMessage{type: type}), do: type
+  def message_type(%CompactBoundaryMessage{type: type}), do: type
+  def message_type(%AssistantMessage{type: type}), do: type
+  def message_type(%UserMessage{type: type}), do: type
+  def message_type(%ResultMessage{type: type}), do: type
+  def message_type(%StreamEventMessage{type: type}), do: type
+
+  # Private
+
+  defp parse_system(%{"subtype" => "init"} = data) do
+    SystemMessage.new(data)
+  end
+
+  defp parse_system(%{"subtype" => "compact_boundary"} = data) do
+    CompactBoundaryMessage.new(data)
+  end
+
+  defp parse_system(_), do: {:error, :invalid_system_subtype}
 end

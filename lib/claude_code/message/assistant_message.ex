@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Message.Assistant do
+defmodule ClaudeCode.Message.AssistantMessage do
   @moduledoc """
   Represents an assistant message from the Claude CLI.
 
@@ -42,14 +42,14 @@ defmodule ClaudeCode.Message.Assistant do
         }
 
   @doc """
-  Creates a new Assistant message from JSON data.
+  Creates a new AssistantMessage from JSON data.
 
   ## Examples
 
-      iex> Assistant.new(%{"type" => "assistant", "message" => %{...}})
-      {:ok, %Assistant{...}}
+      iex> AssistantMessage.new(%{"type" => "assistant", "message" => %{...}})
+      {:ok, %AssistantMessage{...}}
 
-      iex> Assistant.new(%{"type" => "user"})
+      iex> AssistantMessage.new(%{"type" => "user"})
       {:error, :invalid_message_type}
   """
   @spec new(map()) :: {:ok, t()} | {:error, atom() | tuple()}
@@ -66,7 +66,7 @@ defmodule ClaudeCode.Message.Assistant do
   def new(_), do: {:error, :invalid_message_type}
 
   @doc """
-  Type guard to check if a value is an Assistant message.
+  Type guard to check if a value is an AssistantMessage.
   """
   @spec assistant_message?(any()) :: boolean()
   def assistant_message?(%__MODULE__{type: :assistant}), do: true

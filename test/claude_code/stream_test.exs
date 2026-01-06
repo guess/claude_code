@@ -4,7 +4,7 @@ defmodule ClaudeCode.StreamTest do
   import ClaudeCode.Test.MessageFixtures
 
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEvent
+  alias ClaudeCode.Message.StreamEventMessage
   alias ClaudeCode.Stream
 
   describe "text_content/1" do
@@ -172,11 +172,11 @@ defmodule ClaudeCode.StreamTest do
 
       assistant_only = messages |> Stream.filter_type(:assistant) |> Enum.to_list()
       assert length(assistant_only) == 1
-      assert match?(%Message.Assistant{}, hd(assistant_only))
+      assert match?(%Message.AssistantMessage{}, hd(assistant_only))
 
       result_only = messages |> Stream.filter_type(:result) |> Enum.to_list()
       assert length(result_only) == 1
-      assert match?(%Message.Result{}, hd(result_only))
+      assert match?(%Message.ResultMessage{}, hd(result_only))
     end
 
     test "filters tool_use pseudo-type" do
@@ -214,9 +214,9 @@ defmodule ClaudeCode.StreamTest do
 
       # Should have system, assistant, and result (not the second assistant)
       assert length(truncated) == 3
-      assert match?(%Message.System{}, Enum.at(truncated, 0))
-      assert match?(%Message.Assistant{}, Enum.at(truncated, 1))
-      assert match?(%Message.Result{}, Enum.at(truncated, 2))
+      assert match?(%Message.SystemMessage{}, Enum.at(truncated, 0))
+      assert match?(%Message.AssistantMessage{}, Enum.at(truncated, 1))
+      assert match?(%Message.ResultMessage{}, Enum.at(truncated, 2))
     end
 
     test "includes all messages if no result" do
@@ -444,7 +444,7 @@ defmodule ClaudeCode.StreamTest do
 
       starts = events |> Stream.filter_event_type(:content_block_start) |> Enum.to_list()
       assert length(starts) == 1
-      assert match?(%StreamEvent{event: %{type: :content_block_start}}, hd(starts))
+      assert match?(%StreamEventMessage{event: %{type: :content_block_start}}, hd(starts))
 
       deltas = events |> Stream.filter_event_type(:content_block_delta) |> Enum.to_list()
       assert length(deltas) == 1
@@ -475,7 +475,7 @@ defmodule ClaudeCode.StreamTest do
 
       stream_events = events |> Stream.filter_type(:stream_event) |> Enum.to_list()
       assert length(stream_events) == 2
-      assert Enum.all?(stream_events, &match?(%StreamEvent{}, &1))
+      assert Enum.all?(stream_events, &match?(%StreamEventMessage{}, &1))
     end
 
     test "filters text_delta pseudo-type" do
@@ -489,7 +489,7 @@ defmodule ClaudeCode.StreamTest do
 
       text_deltas = events |> Stream.filter_type(:text_delta) |> Enum.to_list()
       assert length(text_deltas) == 2
-      assert Enum.all?(text_deltas, &StreamEvent.text_delta?/1)
+      assert Enum.all?(text_deltas, &StreamEventMessage.text_delta?/1)
     end
   end
 

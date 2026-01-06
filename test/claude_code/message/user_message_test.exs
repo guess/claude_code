@@ -1,8 +1,8 @@
-defmodule ClaudeCode.Message.UserTest do
+defmodule ClaudeCode.Message.UserMessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Content.ToolResult
-  alias ClaudeCode.Message.User
+  alias ClaudeCode.Message.UserMessage
 
   describe "new/1" do
     test "parses a valid user message with tool result" do
@@ -22,7 +22,7 @@ defmodule ClaudeCode.Message.UserTest do
         "session_id" => "session-123"
       }
 
-      assert {:ok, message} = User.new(json)
+      assert {:ok, message} = UserMessage.new(json)
       assert message.type == :user
       assert message.message.role == :user
       assert message.session_id == "session-123"
@@ -48,7 +48,7 @@ defmodule ClaudeCode.Message.UserTest do
         "session_id" => "session-456"
       }
 
-      assert {:ok, message} = User.new(json)
+      assert {:ok, message} = UserMessage.new(json)
 
       assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.message.content
     end
@@ -75,7 +75,7 @@ defmodule ClaudeCode.Message.UserTest do
         "session_id" => "multi-session"
       }
 
-      assert {:ok, message} = User.new(json)
+      assert {:ok, message} = UserMessage.new(json)
       assert length(message.message.content) == 2
     end
 
@@ -90,18 +90,18 @@ defmodule ClaudeCode.Message.UserTest do
         "session_id" => "empty-session"
       }
 
-      assert {:ok, message} = User.new(json)
+      assert {:ok, message} = UserMessage.new(json)
       assert message.message.content == []
     end
 
     test "returns error for invalid type" do
       json = %{"type" => "assistant"}
-      assert {:error, :invalid_message_type} = User.new(json)
+      assert {:error, :invalid_message_type} = UserMessage.new(json)
     end
 
     test "returns error for missing message wrapper" do
       json = %{"type" => "user"}
-      assert {:error, :missing_message} = User.new(json)
+      assert {:error, :missing_message} = UserMessage.new(json)
     end
 
     test "returns error if content parsing fails" do
@@ -119,20 +119,20 @@ defmodule ClaudeCode.Message.UserTest do
 
       # This should actually succeed since Content.parse supports text blocks
       # But in practice, user messages from CLI only contain tool_result blocks
-      assert {:ok, _} = User.new(json)
+      assert {:ok, _} = UserMessage.new(json)
     end
   end
 
   describe "type guards" do
     test "user_message?/1 returns true for user messages" do
-      {:ok, message} = User.new(valid_user_json())
-      assert User.user_message?(message)
+      {:ok, message} = UserMessage.new(valid_user_json())
+      assert UserMessage.user_message?(message)
     end
 
     test "user_message?/1 returns false for non-user messages" do
-      refute User.user_message?(%{type: :assistant})
-      refute User.user_message?(nil)
-      refute User.user_message?("not a message")
+      refute UserMessage.user_message?(%{type: :assistant})
+      refute UserMessage.user_message?(nil)
+      refute UserMessage.user_message?("not a message")
     end
   end
 
@@ -153,7 +153,7 @@ defmodule ClaudeCode.Message.UserTest do
       assert user_line
       {:ok, json} = Jason.decode(user_line)
 
-      assert {:ok, message} = User.new(json)
+      assert {:ok, message} = UserMessage.new(json)
       assert message.type == :user
       assert [%ToolResult{content: content}] = message.message.content
       assert content =~ "successfully"
@@ -175,7 +175,7 @@ defmodule ClaudeCode.Message.UserTest do
       assert error_user_line
       {:ok, json} = Jason.decode(error_user_line)
 
-      assert {:ok, message} = User.new(json)
+      assert {:ok, message} = UserMessage.new(json)
       assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.message.content
     end
   end

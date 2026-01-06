@@ -1,7 +1,7 @@
 defmodule ClaudeCode.SessionTest do
   use ExUnit.Case
 
-  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
 
   describe "start_link/1" do
@@ -58,7 +58,7 @@ defmodule ClaudeCode.SessionTest do
       # This should use our mock CLI
       response = GenServer.call(session, {:query, "test prompt", []}, 5000)
 
-      assert {:ok, %Result{result: "Hello from mock CLI!"}} = response
+      assert {:ok, %ResultMessage{result: "Hello from mock CLI!"}} = response
 
       GenServer.stop(session)
     end
@@ -202,7 +202,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, result} = GenServer.call(session, {:query, "test prompt", []})
 
       # Result should contain the session ID
-      assert %Result{result: "Hello from session test-session-123"} = result
+      assert %ResultMessage{result: "Hello from session test-session-123"} = result
 
       state = :sys.get_state(session)
       assert state.session_id == "test-session-123"
@@ -321,7 +321,7 @@ defmodule ClaudeCode.SessionTest do
 
       # First query establishes session
       {:ok, result1} = GenServer.call(session, {:query, "first", []})
-      assert %Result{result: "Session: new-session-456"} = result1
+      assert %ResultMessage{result: "Session: new-session-456"} = result1
 
       # Clear session
       :ok = GenServer.call(session, :clear_session)
@@ -329,7 +329,7 @@ defmodule ClaudeCode.SessionTest do
       # Next query starts new session (not using --resume)
       {:ok, result2} = GenServer.call(session, {:query, "second", []})
       # New session gets same ID in mock
-      assert %Result{result: "Session: new-session-456"} = result2
+      assert %ResultMessage{result: "Session: new-session-456"} = result2
 
       GenServer.stop(session)
     end
@@ -360,14 +360,14 @@ defmodule ClaudeCode.SessionTest do
 
       # First query establishes valid session
       {:ok, result1} = GenServer.call(session, {:query, "first query", []})
-      assert %Result{result: "Success with session: persistent-session-789"} = result1
+      assert %ResultMessage{result: "Success with session: persistent-session-789"} = result1
 
       {:ok, session_id1} = GenServer.call(session, :get_session_id)
       assert session_id1 == "persistent-session-789"
 
       # Second query should preserve the valid session
       {:ok, result2} = GenServer.call(session, {:query, "second query", []})
-      assert %Result{result: "Success with session: persistent-session-789"} = result2
+      assert %ResultMessage{result: "Success with session: persistent-session-789"} = result2
 
       {:ok, session_id2} = GenServer.call(session, :get_session_id)
       # Should be the same
@@ -441,7 +441,7 @@ defmodule ClaudeCode.SessionTest do
       ]
 
       # Verify each query got its correct response
-      result_texts = Enum.map(results, fn {:ok, %Result{result: text}} -> text end)
+      result_texts = Enum.map(results, fn {:ok, %ResultMessage{result: text}} -> text end)
       assert "Response 1" in result_texts
       assert "Response 2" in result_texts
       assert "Response 3" in result_texts
@@ -473,9 +473,9 @@ defmodule ClaudeCode.SessionTest do
         |> Enum.to_list()
 
       # Verify each stream got its messages
-      result1 = Enum.find(messages1, &match?(%Result{}, &1))
-      result2 = Enum.find(messages2, &match?(%Result{}, &1))
-      result3 = Enum.find(messages3, &match?(%Result{}, &1))
+      result1 = Enum.find(messages1, &match?(%ResultMessage{}, &1))
+      result2 = Enum.find(messages2, &match?(%ResultMessage{}, &1))
+      result3 = Enum.find(messages3, &match?(%ResultMessage{}, &1))
 
       assert result1 != nil, "No result found for stream 1"
       assert result2 != nil, "No result found for stream 2"
@@ -498,7 +498,7 @@ defmodule ClaudeCode.SessionTest do
 
       # First run a sync query
       sync_result = GenServer.call(session, {:query, "query1", []}, 5000)
-      assert {:ok, %Result{result: "Response 1"}} = sync_result
+      assert {:ok, %ResultMessage{result: "Response 1"}} = sync_result
 
       # Then run a streaming query
       stream_messages =
@@ -507,7 +507,7 @@ defmodule ClaudeCode.SessionTest do
         |> Enum.to_list()
 
       # Verify stream result
-      result_msg = Enum.find(stream_messages, &match?(%Result{}, &1))
+      result_msg = Enum.find(stream_messages, &match?(%ResultMessage{}, &1))
       assert result_msg != nil, "No result message found in stream"
       assert result_msg.result == "Response 2"
 
@@ -537,11 +537,11 @@ defmodule ClaudeCode.SessionTest do
       results = Enum.map(tasks, &Task.await(&1))
 
       # At least 2 should succeed
-      successful = Enum.filter(results, &match?({:ok, %Result{}}, &1))
+      successful = Enum.filter(results, &match?({:ok, %ResultMessage{}}, &1))
       assert length(successful) >= 2
 
       # The expected results should be in there
-      result_texts = Enum.map(successful, fn {:ok, %Result{result: text}} -> text end)
+      result_texts = Enum.map(successful, fn {:ok, %ResultMessage{result: text}} -> text end)
       assert "Response 1" in result_texts
       assert "Response 2" in result_texts
 
@@ -575,7 +575,7 @@ defmodule ClaudeCode.SessionTest do
         end)
 
       # Verify normal query completes
-      assert {:ok, %Result{result: "Response 1"}} = Task.await(task1)
+      assert {:ok, %ResultMessage{result: "Response 1"}} = Task.await(task1)
 
       GenServer.stop(session)
     end

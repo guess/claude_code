@@ -33,8 +33,8 @@ defmodule ClaudeCode.ToolCallback do
 
   alias ClaudeCode.Content.ToolResult
   alias ClaudeCode.Content.ToolUse
-  alias ClaudeCode.Message.Assistant
-  alias ClaudeCode.Message.User
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.UserMessage
 
   @type tool_event :: %{
           name: String.t(),
@@ -64,7 +64,7 @@ defmodule ClaudeCode.ToolCallback do
   def process_message(message, pending_tools, callback)
 
   # When we see an Assistant message with ToolUse, store it for later correlation
-  def process_message(%Assistant{message: %{content: content}}, pending_tools, _callback) when is_list(content) do
+  def process_message(%AssistantMessage{message: %{content: content}}, pending_tools, _callback) when is_list(content) do
     new_pending =
       content
       |> Enum.filter(&match?(%ToolUse{}, &1))
@@ -80,7 +80,7 @@ defmodule ClaudeCode.ToolCallback do
   end
 
   # When we see a User message with ToolResult, correlate and invoke callback
-  def process_message(%User{message: %{content: content}}, pending_tools, callback)
+  def process_message(%UserMessage{message: %{content: content}}, pending_tools, callback)
       when is_list(content) and is_function(callback, 1) do
     {remaining_pending, events} =
       content
@@ -114,7 +114,7 @@ defmodule ClaudeCode.ToolCallback do
   end
 
   # User message with ToolResult but no callback configured
-  def process_message(%User{message: %{content: content}}, pending_tools, nil) when is_list(content) do
+  def process_message(%UserMessage{message: %{content: content}}, pending_tools, nil) when is_list(content) do
     # Still remove from pending to prevent memory leak
     remaining_pending =
       content

@@ -1,7 +1,7 @@
 defmodule ClaudeCode.IntegrationTest do
   use ExUnit.Case
 
-  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.ResultMessage
 
   @moduletag :integration
 
@@ -80,7 +80,7 @@ defmodule ClaudeCode.IntegrationTest do
 
       {:ok, result} = ClaudeCode.query(session, "Hello, Claude!")
 
-      assert %Result{result: "Mock response to: Hello, Claude!"} = result
+      assert %ResultMessage{result: "Mock response to: Hello, Claude!"} = result
 
       ClaudeCode.stop(session)
     end
@@ -90,7 +90,7 @@ defmodule ClaudeCode.IntegrationTest do
 
       {:error, result} = ClaudeCode.query(session, "Please error")
 
-      assert %Result{is_error: true, result: "Simulated error response"} = result
+      assert %ResultMessage{is_error: true, result: "Simulated error response"} = result
 
       ClaudeCode.stop(session)
     end
@@ -100,7 +100,7 @@ defmodule ClaudeCode.IntegrationTest do
 
       {:error, result} = ClaudeCode.query(session, "Hello")
 
-      assert %Result{is_error: true, result: "Authentication failed: Missing API key"} = result
+      assert %ResultMessage{is_error: true, result: "Authentication failed: Missing API key"} = result
 
       ClaudeCode.stop(session)
     end
@@ -121,8 +121,8 @@ defmodule ClaudeCode.IntegrationTest do
       {:ok, result1} = ClaudeCode.query(:session1, "From session 1")
       {:ok, result2} = ClaudeCode.query(:session2, "From session 2")
 
-      assert %Result{result: "Mock response to: From session 1"} = result1
-      assert %Result{result: "Mock response to: From session 2"} = result2
+      assert %ResultMessage{result: "Mock response to: From session 1"} = result1
+      assert %ResultMessage{result: "Mock response to: From session 2"} = result2
 
       ClaudeCode.stop(:session1)
       ClaudeCode.stop(:session2)

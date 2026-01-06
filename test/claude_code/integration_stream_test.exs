@@ -1,8 +1,8 @@
 defmodule ClaudeCode.IntegrationStreamTest do
   use ExUnit.Case
 
-  alias ClaudeCode.Message.Assistant
-  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.ResultMessage
 
   describe "streaming integration with mock CLI" do
     setup do
@@ -64,10 +64,10 @@ defmodule ClaudeCode.IntegrationStreamTest do
       assert length(messages) >= 4
 
       # Verify message types
-      assistant_messages = Enum.filter(messages, &match?(%Assistant{}, &1))
+      assistant_messages = Enum.filter(messages, &match?(%AssistantMessage{}, &1))
       assert length(assistant_messages) >= 3
 
-      result_messages = Enum.filter(messages, &match?(%Result{}, &1))
+      result_messages = Enum.filter(messages, &match?(%ResultMessage{}, &1))
       assert length(result_messages) == 1
 
       ClaudeCode.stop(session)
@@ -102,7 +102,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
         |> ClaudeCode.Stream.filter_type(:assistant)
         |> Enum.to_list()
 
-      assert Enum.all?(assistant_messages, &match?(%Assistant{}, &1))
+      assert Enum.all?(assistant_messages, &match?(%AssistantMessage{}, &1))
       assert length(assistant_messages) >= 3
 
       ClaudeCode.stop(session)
@@ -139,7 +139,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
       assert length(messages) >= 5
 
       # Last message should be result
-      assert match?(%Result{}, List.last(messages))
+      assert match?(%ResultMessage{}, List.last(messages))
 
       ClaudeCode.stop(session)
     end
@@ -243,7 +243,7 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       # Should only include assistant messages that contain tool uses
       assert length(tool_messages) == 1
-      assert match?(%Assistant{}, hd(tool_messages))
+      assert match?(%AssistantMessage{}, hd(tool_messages))
 
       ClaudeCode.stop(session)
     end

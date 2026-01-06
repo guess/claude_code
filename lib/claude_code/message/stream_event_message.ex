@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Message.StreamEvent do
+defmodule ClaudeCode.Message.StreamEventMessage do
   @moduledoc """
   Represents a stream event from the Claude CLI when using partial message streaming.
 

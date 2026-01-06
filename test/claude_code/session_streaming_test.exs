@@ -1,7 +1,7 @@
 defmodule ClaudeCode.SessionStreamingTest do
   use ExUnit.Case
 
-  alias ClaudeCode.Message.Result
+  alias ClaudeCode.Message.ResultMessage
 
   describe "streaming mode - auto-connect behavior" do
     setup do
@@ -35,7 +35,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       # First query triggers connection
       {:ok, result} = ClaudeCode.query(session, "Hello")
-      assert %Result{result: "Streaming response"} = result
+      assert %ResultMessage{result: "Streaming response"} = result
 
       # Port should now be set
       state = :sys.get_state(session)
@@ -75,7 +75,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       # Should have messages including result
       assert length(messages) >= 1
-      result = Enum.find(messages, &match?(%Result{}, &1))
+      result = Enum.find(messages, &match?(%ResultMessage{}, &1))
       assert result != nil
       assert result.result == "Stream query response"
 
@@ -92,7 +92,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       # Should have received messages
       assert length(messages) >= 1
-      assert Enum.any?(messages, &match?(%Result{}, &1))
+      assert Enum.any?(messages, &match?(%ResultMessage{}, &1))
 
       GenServer.stop(session)
     end
@@ -125,11 +125,11 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       # First query
       {:ok, result1} = ClaudeCode.query(session, "First question")
-      assert %Result{result: "Turn 1 response"} = result1
+      assert %ResultMessage{result: "Turn 1 response"} = result1
 
       # Second query on same session
       {:ok, result2} = ClaudeCode.query(session, "Second question")
-      assert %Result{result: "Turn 2 response"} = result2
+      assert %ResultMessage{result: "Turn 2 response"} = result2
 
       GenServer.stop(session)
     end
@@ -214,7 +214,7 @@ defmodule ClaudeCode.SessionStreamingTest do
         )
 
       {:ok, result} = ClaudeCode.query(session, "Hello")
-      assert %Result{result: "Resumed session: previous-session-xyz"} = result
+      assert %ResultMessage{result: "Resumed session: previous-session-xyz"} = result
 
       GenServer.stop(session)
     end

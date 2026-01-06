@@ -1,9 +1,9 @@
-defmodule ClaudeCode.Message.AssistantTest do
+defmodule ClaudeCode.Message.AssistantMessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Content.Text
   alias ClaudeCode.Content.ToolUse
-  alias ClaudeCode.Message.Assistant
+  alias ClaudeCode.Message.AssistantMessage
 
   describe "new/1" do
     test "parses a valid assistant message with text content" do
@@ -31,7 +31,7 @@ defmodule ClaudeCode.Message.AssistantTest do
         "session_id" => "session-123"
       }
 
-      assert {:ok, message} = Assistant.new(json)
+      assert {:ok, message} = AssistantMessage.new(json)
       assert message.type == :assistant
       assert message.message.id == "msg_123"
       assert message.message.role == :assistant
@@ -77,7 +77,7 @@ defmodule ClaudeCode.Message.AssistantTest do
         "session_id" => "session-456"
       }
 
-      assert {:ok, message} = Assistant.new(json)
+      assert {:ok, message} = AssistantMessage.new(json)
       assert message.message.stop_reason == :tool_use
       assert length(message.message.content) == 2
 
@@ -108,7 +108,7 @@ defmodule ClaudeCode.Message.AssistantTest do
         "session_id" => "empty-session"
       }
 
-      assert {:ok, message} = Assistant.new(json)
+      assert {:ok, message} = AssistantMessage.new(json)
       assert message.message.content == []
     end
 
@@ -137,24 +137,24 @@ defmodule ClaudeCode.Message.AssistantTest do
         }
       end
 
-      {:ok, msg1} = Assistant.new(base_json.("tool_use"))
+      {:ok, msg1} = AssistantMessage.new(base_json.("tool_use"))
       assert msg1.message.stop_reason == :tool_use
 
-      {:ok, msg2} = Assistant.new(base_json.("end_turn"))
+      {:ok, msg2} = AssistantMessage.new(base_json.("end_turn"))
       assert msg2.message.stop_reason == :end_turn
 
-      {:ok, msg3} = Assistant.new(base_json.(nil))
+      {:ok, msg3} = AssistantMessage.new(base_json.(nil))
       assert msg3.message.stop_reason == nil
     end
 
     test "returns error for invalid type" do
       json = %{"type" => "user"}
-      assert {:error, :invalid_message_type} = Assistant.new(json)
+      assert {:error, :invalid_message_type} = AssistantMessage.new(json)
     end
 
     test "returns error for missing message wrapper" do
       json = %{"type" => "assistant"}
-      assert {:error, :missing_message} = Assistant.new(json)
+      assert {:error, :missing_message} = AssistantMessage.new(json)
     end
 
     test "returns error if content parsing fails" do
@@ -182,20 +182,20 @@ defmodule ClaudeCode.Message.AssistantTest do
         "session_id" => "bad"
       }
 
-      assert {:error, {:content_parse_error, _}} = Assistant.new(json)
+      assert {:error, {:content_parse_error, _}} = AssistantMessage.new(json)
     end
   end
 
   describe "type guards" do
     test "assistant_message?/1 returns true for assistant messages" do
-      {:ok, message} = Assistant.new(valid_assistant_json())
-      assert Assistant.assistant_message?(message)
+      {:ok, message} = AssistantMessage.new(valid_assistant_json())
+      assert AssistantMessage.assistant_message?(message)
     end
 
     test "assistant_message?/1 returns false for non-assistant messages" do
-      refute Assistant.assistant_message?(%{type: :user})
-      refute Assistant.assistant_message?(nil)
-      refute Assistant.assistant_message?("not a message")
+      refute AssistantMessage.assistant_message?(%{type: :user})
+      refute AssistantMessage.assistant_message?(nil)
+      refute AssistantMessage.assistant_message?("not a message")
     end
   end
 
@@ -208,7 +208,7 @@ defmodule ClaudeCode.Message.AssistantTest do
       {:ok, json} = Jason.decode(Enum.at(lines, 1))
 
       assert json["type"] == "assistant"
-      assert {:ok, message} = Assistant.new(json)
+      assert {:ok, message} = AssistantMessage.new(json)
       assert message.type == :assistant
       assert is_binary(message.message.id)
       assert [%Text{text: text}] = message.message.content
@@ -231,7 +231,7 @@ defmodule ClaudeCode.Message.AssistantTest do
       # Should have at least one assistant message with tool use
       assert Enum.any?(assistant_messages, fn line ->
                {:ok, json} = Jason.decode(line)
-               {:ok, message} = Assistant.new(json)
+               {:ok, message} = AssistantMessage.new(json)
 
                Enum.any?(message.message.content, fn content ->
                  match?(%ToolUse{}, content)

@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Message.User do
+defmodule ClaudeCode.Message.UserMessage do
   @moduledoc """
   Represents a user message from the Claude CLI.
 
@@ -38,14 +38,14 @@ defmodule ClaudeCode.Message.User do
         }
 
   @doc """
-  Creates a new User message from JSON data.
+  Creates a new UserMessage from JSON data.
 
   ## Examples
 
-      iex> User.new(%{"type" => "user", "message" => %{...}})
-      {:ok, %User{...}}
+      iex> UserMessage.new(%{"type" => "user", "message" => %{...}})
+      {:ok, %UserMessage{...}}
 
-      iex> User.new(%{"type" => "assistant"})
+      iex> UserMessage.new(%{"type" => "assistant"})
       {:error, :invalid_message_type}
   """
   @spec new(map()) :: {:ok, t()} | {:error, atom() | tuple()}
@@ -62,7 +62,7 @@ defmodule ClaudeCode.Message.User do
   def new(_), do: {:error, :invalid_message_type}
 
   @doc """
-  Type guard to check if a value is a User message.
+  Type guard to check if a value is a UserMessage.
   """
   @spec user_message?(any()) :: boolean()
   def user_message?(%__MODULE__{type: :user}), do: true
