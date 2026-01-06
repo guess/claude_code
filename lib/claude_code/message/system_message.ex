@@ -31,16 +31,13 @@ defmodule ClaudeCode.Message.SystemMessage do
   @enforce_keys [
     :type,
     :subtype,
-    :uuid,
     :cwd,
     :session_id,
     :tools,
     :mcp_servers,
     :model,
     :permission_mode,
-    :api_key_source,
-    :slash_commands,
-    :output_style
+    :api_key_source
   ]
   defstruct [
     :type,
@@ -53,8 +50,8 @@ defmodule ClaudeCode.Message.SystemMessage do
     :model,
     :permission_mode,
     :api_key_source,
-    :slash_commands,
-    :output_style
+    slash_commands: [],
+    output_style: "default"
   ]
 
   @type t :: %__MODULE__{
@@ -87,16 +84,13 @@ defmodule ClaudeCode.Message.SystemMessage do
   def new(%{"type" => "system", "subtype" => "init"} = json) do
     required_fields = [
       "subtype",
-      "uuid",
       "cwd",
       "session_id",
       "tools",
       "mcp_servers",
       "model",
       "permissionMode",
-      "apiKeySource",
-      "slashCommands",
-      "outputStyle"
+      "apiKeySource"
     ]
 
     missing = Enum.filter(required_fields, &(not Map.has_key?(json, &1)))
@@ -113,8 +107,8 @@ defmodule ClaudeCode.Message.SystemMessage do
         model: json["model"],
         permission_mode: parse_permission_mode(json["permissionMode"]),
         api_key_source: json["apiKeySource"],
-        slash_commands: json["slashCommands"],
-        output_style: json["outputStyle"]
+        slash_commands: json["slashCommands"] || [],
+        output_style: json["outputStyle"] || "default"
       }
 
       {:ok, message}
