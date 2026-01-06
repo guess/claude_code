@@ -537,8 +537,9 @@ defmodule ClaudeCode.Options do
           {name, config}
       end)
 
-    json_string = Jason.encode!(expanded)
-    {"--mcp-servers", json_string}
+    # CLI expects mcpServers wrapper format via --mcp-config flag
+    json_string = Jason.encode!(%{mcpServers: expanded})
+    {"--mcp-config", json_string}
   end
 
   defp convert_option_to_cli_flag(:include_partial_messages, true) do

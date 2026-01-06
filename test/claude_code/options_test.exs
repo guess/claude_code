@@ -644,7 +644,7 @@ defmodule ClaudeCode.OptionsTest do
       assert decoded["debugger"]["tools"] == ["Read", "Bash"]
     end
 
-    test "converts mcp_servers map to JSON-encoded --mcp-servers" do
+    test "converts mcp_servers map to JSON-encoded --mcp-config" do
       opts = [
         mcp_servers: %{
           "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
@@ -652,16 +652,16 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      assert "--mcp-servers" in args
+      assert "--mcp-config" in args
 
       # Find the JSON value
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
-      # Decode and verify
+      # Decode and verify - JSON has mcpServers wrapper
       decoded = Jason.decode!(json_value)
-      assert decoded["playwright"]["command"] == "npx"
-      assert decoded["playwright"]["args"] == ["@playwright/mcp@latest"]
+      assert decoded["mcpServers"]["playwright"]["command"] == "npx"
+      assert decoded["mcpServers"]["playwright"]["args"] == ["@playwright/mcp@latest"]
     end
 
     test "converts multiple mcp_servers to JSON" do
@@ -677,15 +677,15 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      assert "--mcp-servers" in args
+      assert "--mcp-config" in args
 
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert Map.has_key?(decoded, "playwright")
-      assert Map.has_key?(decoded, "filesystem")
-      assert decoded["filesystem"]["env"]["HOME"] == "/tmp"
+      assert Map.has_key?(decoded["mcpServers"], "playwright")
+      assert Map.has_key?(decoded["mcpServers"], "filesystem")
+      assert decoded["mcpServers"]["filesystem"]["env"]["HOME"] == "/tmp"
     end
 
     test "expands module atoms in mcp_servers to stdio command config" do
@@ -696,15 +696,22 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      assert "--mcp-servers" in args
+      assert "--mcp-config" in args
 
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["my-tools"]["command"] == "mix"
-      assert decoded["my-tools"]["args"] == ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"]
-      assert decoded["my-tools"]["env"]["MIX_ENV"] == "prod"
+      assert decoded["mcpServers"]["my-tools"]["command"] == "mix"
+
+      assert decoded["mcpServers"]["my-tools"]["args"] == [
+               "run",
+               "--no-halt",
+               "-e",
+               "MyApp.MCPServer.start_link(transport: :stdio)"
+             ]
+
+      assert decoded["mcpServers"]["my-tools"]["env"]["MIX_ENV"] == "prod"
     end
 
     test "expands mixed modules and maps in mcp_servers" do
@@ -716,20 +723,26 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      assert "--mcp-servers" in args
+      assert "--mcp-config" in args
 
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
       decoded = Jason.decode!(json_value)
 
       # Module was expanded
-      assert decoded["my-tools"]["command"] == "mix"
-      assert decoded["my-tools"]["args"] == ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"]
+      assert decoded["mcpServers"]["my-tools"]["command"] == "mix"
+
+      assert decoded["mcpServers"]["my-tools"]["args"] == [
+               "run",
+               "--no-halt",
+               "-e",
+               "MyApp.MCPServer.start_link(transport: :stdio)"
+             ]
 
       # Map config was preserved
-      assert decoded["playwright"]["command"] == "npx"
-      assert decoded["playwright"]["args"] == ["@playwright/mcp@latest"]
+      assert decoded["mcpServers"]["playwright"]["command"] == "npx"
+      assert decoded["mcpServers"]["playwright"]["args"] == ["@playwright/mcp@latest"]
     end
 
     test "expands module map with custom env in mcp_servers (atom keys)" do
@@ -740,18 +753,25 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      assert "--mcp-servers" in args
+      assert "--mcp-config" in args
 
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["my-tools"]["command"] == "mix"
-      assert decoded["my-tools"]["args"] == ["run", "--no-halt", "-e", "MyApp.MCPServer.start_link(transport: :stdio)"]
+      assert decoded["mcpServers"]["my-tools"]["command"] == "mix"
+
+      assert decoded["mcpServers"]["my-tools"]["args"] == [
+               "run",
+               "--no-halt",
+               "-e",
+               "MyApp.MCPServer.start_link(transport: :stdio)"
+             ]
+
       # Custom env merged with defaults
-      assert decoded["my-tools"]["env"]["MIX_ENV"] == "prod"
-      assert decoded["my-tools"]["env"]["DEBUG"] == "1"
-      assert decoded["my-tools"]["env"]["LOG_LEVEL"] == "debug"
+      assert decoded["mcpServers"]["my-tools"]["env"]["MIX_ENV"] == "prod"
+      assert decoded["mcpServers"]["my-tools"]["env"]["DEBUG"] == "1"
+      assert decoded["mcpServers"]["my-tools"]["env"]["LOG_LEVEL"] == "debug"
     end
 
     test "expands module map with custom env in mcp_servers (string keys)" do
@@ -762,13 +782,13 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["my-tools"]["command"] == "mix"
-      assert decoded["my-tools"]["env"]["MIX_ENV"] == "prod"
-      assert decoded["my-tools"]["env"]["DEBUG"] == "1"
+      assert decoded["mcpServers"]["my-tools"]["command"] == "mix"
+      assert decoded["mcpServers"]["my-tools"]["env"]["MIX_ENV"] == "prod"
+      assert decoded["mcpServers"]["my-tools"]["env"]["DEBUG"] == "1"
     end
 
     test "custom env can override MIX_ENV in module map" do
@@ -779,11 +799,11 @@ defmodule ClaudeCode.OptionsTest do
       ]
 
       args = Options.to_cli_args(opts)
-      mcp_index = Enum.find_index(args, &(&1 == "--mcp-servers"))
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
       json_value = Enum.at(args, mcp_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["my-tools"]["env"]["MIX_ENV"] == "dev"
+      assert decoded["mcpServers"]["my-tools"]["env"]["MIX_ENV"] == "dev"
     end
 
     test "converts include_partial_messages true to --include-partial-messages" do
