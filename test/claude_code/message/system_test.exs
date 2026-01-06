@@ -8,6 +8,7 @@ defmodule ClaudeCode.Message.SystemTest do
       json = %{
         "type" => "system",
         "subtype" => "init",
+        "uuid" => "550e8400-e29b-41d4-a716-446655440000",
         "cwd" => "/Users/test/project",
         "session_id" => "abc-123",
         "tools" => ["Read", "Write", "LS"],
@@ -17,12 +18,15 @@ defmodule ClaudeCode.Message.SystemTest do
         ],
         "model" => "claude-opus-4",
         "permissionMode" => "default",
-        "apiKeySource" => "ANTHROPIC_API_KEY"
+        "apiKeySource" => "ANTHROPIC_API_KEY",
+        "slashCommands" => ["/help", "/clear", "/search"],
+        "outputStyle" => "default"
       }
 
       assert {:ok, message} = System.new(json)
       assert message.type == :system
       assert message.subtype == :init
+      assert message.uuid == "550e8400-e29b-41d4-a716-446655440000"
       assert message.cwd == "/Users/test/project"
       assert message.session_id == "abc-123"
       assert message.tools == ["Read", "Write", "LS"]
@@ -31,19 +35,24 @@ defmodule ClaudeCode.Message.SystemTest do
       assert message.model == "claude-opus-4"
       assert message.permission_mode == :default
       assert message.api_key_source == "ANTHROPIC_API_KEY"
+      assert message.slash_commands == ["/help", "/clear", "/search"]
+      assert message.output_style == "default"
     end
 
     test "parses bypassPermissions mode correctly" do
       json = %{
         "type" => "system",
         "subtype" => "init",
+        "uuid" => "550e8400-e29b-41d4-a716-446655440000",
         "cwd" => "/test",
         "session_id" => "xyz",
         "tools" => [],
         "mcp_servers" => [],
         "model" => "claude",
         "permissionMode" => "bypassPermissions",
-        "apiKeySource" => "env"
+        "apiKeySource" => "env",
+        "slashCommands" => [],
+        "outputStyle" => "default"
       }
 
       assert {:ok, message} = System.new(json)
@@ -97,13 +106,16 @@ defmodule ClaudeCode.Message.SystemTest do
     %{
       "type" => "system",
       "subtype" => "init",
+      "uuid" => "550e8400-e29b-41d4-a716-446655440000",
       "cwd" => "/test",
       "session_id" => "test-123",
       "tools" => [],
       "mcp_servers" => [],
       "model" => "claude",
       "permissionMode" => "default",
-      "apiKeySource" => "env"
+      "apiKeySource" => "env",
+      "slashCommands" => ["/help", "/clear"],
+      "outputStyle" => "default"
     }
   end
 end

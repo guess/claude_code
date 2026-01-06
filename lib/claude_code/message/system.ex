@@ -23,29 +23,48 @@ defmodule ClaudeCode.Message.System do
 
   alias ClaudeCode.Types
 
-  @enforce_keys [:type, :subtype, :cwd, :session_id, :tools, :mcp_servers, :model, :permission_mode, :api_key_source]
-  defstruct [
+  @enforce_keys [
     :type,
     :subtype,
+    :uuid,
     :cwd,
     :session_id,
     :tools,
     :mcp_servers,
     :model,
     :permission_mode,
-    :api_key_source
+    :api_key_source,
+    :slash_commands,
+    :output_style
+  ]
+  defstruct [
+    :type,
+    :subtype,
+    :uuid,
+    :cwd,
+    :session_id,
+    :tools,
+    :mcp_servers,
+    :model,
+    :permission_mode,
+    :api_key_source,
+    :slash_commands,
+    :output_style
   ]
 
   @type t :: %__MODULE__{
           type: :system,
           subtype: :init,
+          uuid: String.t(),
           cwd: String.t(),
           session_id: Types.session_id(),
           tools: [String.t()],
           mcp_servers: [Types.mcp_server()],
           model: Types.model(),
           permission_mode: Types.permission_mode(),
-          api_key_source: String.t()
+          api_key_source: String.t(),
+          slash_commands: [String.t()],
+          output_style: String.t()
         }
 
   @doc """
@@ -61,7 +80,19 @@ defmodule ClaudeCode.Message.System do
   """
   @spec new(map()) :: {:ok, t()} | {:error, :invalid_message_type | {:missing_fields, [atom()]}}
   def new(%{"type" => "system"} = json) do
-    required_fields = ["subtype", "cwd", "session_id", "tools", "mcp_servers", "model", "permissionMode", "apiKeySource"]
+    required_fields = [
+      "subtype",
+      "uuid",
+      "cwd",
+      "session_id",
+      "tools",
+      "mcp_servers",
+      "model",
+      "permissionMode",
+      "apiKeySource",
+      "slashCommands",
+      "outputStyle"
+    ]
 
     missing = Enum.filter(required_fields, &(not Map.has_key?(json, &1)))
 
@@ -69,13 +100,16 @@ defmodule ClaudeCode.Message.System do
       message = %__MODULE__{
         type: :system,
         subtype: String.to_atom(json["subtype"]),
+        uuid: json["uuid"],
         cwd: json["cwd"],
         session_id: json["session_id"],
         tools: json["tools"],
         mcp_servers: parse_mcp_servers(json["mcp_servers"]),
         model: json["model"],
         permission_mode: parse_permission_mode(json["permissionMode"]),
-        api_key_source: json["apiKeySource"]
+        api_key_source: json["apiKeySource"],
+        slash_commands: json["slashCommands"],
+        output_style: json["outputStyle"]
       }
 
       {:ok, message}

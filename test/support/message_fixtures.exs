@@ -11,13 +11,16 @@ defmodule ClaudeCode.Test.MessageFixtures do
     defaults = %{
       type: "system",
       subtype: "init",
+      uuid: "550e8400-e29b-41d4-a716-446655440000",
       model: "claude-3",
       session_id: "test-123",
       cwd: "/test",
       tools: [],
       mcp_servers: [],
       permission_mode: "auto",
-      api_key_source: "ANTHROPIC_API_KEY"
+      api_key_source: "ANTHROPIC_API_KEY",
+      slash_commands: [],
+      output_style: "default"
     }
 
     struct!(Message.System, Map.merge(defaults, attrs))

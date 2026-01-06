@@ -12,13 +12,16 @@ defmodule ClaudeCode.MessageTest do
       data = %{
         "type" => "system",
         "subtype" => "init",
+        "uuid" => "550e8400-e29b-41d4-a716-446655440000",
         "cwd" => "/test",
         "session_id" => "123",
         "tools" => [],
         "mcp_servers" => [],
         "model" => "claude",
         "permissionMode" => "default",
-        "apiKeySource" => "env"
+        "apiKeySource" => "env",
+        "slashCommands" => [],
+        "outputStyle" => "default"
       }
 
       assert {:ok, %System{}} = Message.parse(data)
@@ -110,13 +113,16 @@ defmodule ClaudeCode.MessageTest do
         %{
           "type" => "system",
           "subtype" => "init",
+          "uuid" => "550e8400-e29b-41d4-a716-446655440000",
           "cwd" => "/test",
           "session_id" => "123",
           "tools" => [],
           "mcp_servers" => [],
           "model" => "claude",
           "permissionMode" => "default",
-          "apiKeySource" => "env"
+          "apiKeySource" => "env",
+          "slashCommands" => [],
+          "outputStyle" => "default"
         },
         %{
           "type" => "assistant",
@@ -180,7 +186,7 @@ defmodule ClaudeCode.MessageTest do
   describe "parse_stream/1" do
     test "parses newline-delimited JSON stream" do
       stream = """
-      {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
+      {"type":"system","subtype":"init","uuid":"550e8400-e29b-41d4-a716-446655440000","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env","slashCommands":[],"outputStyle":"default"}
       {"type":"assistant","message":{"id":"msg_123","type":"message","role":"assistant","model":"claude","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"service_tier":"standard"}},"parent_tool_use_id":null,"session_id":"123"}
       {"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Hello","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
@@ -192,7 +198,7 @@ defmodule ClaudeCode.MessageTest do
 
     test "handles empty lines in stream" do
       stream = """
-      {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
+      {"type":"system","subtype":"init","uuid":"550e8400-e29b-41d4-a716-446655440000","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env","slashCommands":[],"outputStyle":"default"}
 
       {"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Done","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
@@ -203,7 +209,7 @@ defmodule ClaudeCode.MessageTest do
 
     test "returns error for invalid JSON in stream" do
       stream = """
-      {"type":"system","subtype":"init","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env"}
+      {"type":"system","subtype":"init","uuid":"550e8400-e29b-41d4-a716-446655440000","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env","slashCommands":[],"outputStyle":"default"}
       {invalid json}
       """
 
@@ -217,13 +223,16 @@ defmodule ClaudeCode.MessageTest do
         System.new(%{
           "type" => "system",
           "subtype" => "init",
+          "uuid" => "550e8400-e29b-41d4-a716-446655440000",
           "cwd" => "/",
           "session_id" => "1",
           "tools" => [],
           "mcp_servers" => [],
           "model" => "claude",
           "permissionMode" => "default",
-          "apiKeySource" => "env"
+          "apiKeySource" => "env",
+          "slashCommands" => [],
+          "outputStyle" => "default"
         })
 
       assert Message.message?(system)
@@ -242,13 +251,16 @@ defmodule ClaudeCode.MessageTest do
         System.new(%{
           "type" => "system",
           "subtype" => "init",
+          "uuid" => "550e8400-e29b-41d4-a716-446655440000",
           "cwd" => "/",
           "session_id" => "1",
           "tools" => [],
           "mcp_servers" => [],
           "model" => "claude",
           "permissionMode" => "default",
-          "apiKeySource" => "env"
+          "apiKeySource" => "env",
+          "slashCommands" => [],
+          "outputStyle" => "default"
         })
 
       assert Message.message_type(system) == :system

@@ -205,13 +205,16 @@ defmodule ClaudeCode.ToolCallbackTest do
       message = %System{
         type: :system,
         subtype: "init",
+        uuid: "550e8400-e29b-41d4-a716-446655440000",
         session_id: "s1",
         model: "claude-3",
         cwd: "/test",
         tools: [],
         mcp_servers: [],
         permission_mode: "auto",
-        api_key_source: "env"
+        api_key_source: "env",
+        slash_commands: [],
+        output_style: "default"
       }
 
       pending = %{"tool_1" => %{name: "Read", input: %{}, started_at: DateTime.utc_now()}}
