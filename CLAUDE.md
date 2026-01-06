@@ -151,14 +151,14 @@ All message types follow the official Claude SDK schema:
 # Assistant messages (nested structure)
 %ClaudeCode.Message.Assistant{
   message: %{
-    content: [%ClaudeCode.Content.Text{text: "..."} | %ClaudeCode.Content.ToolUse{...}]
+    content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolUseBlock{...}]
   }
 }
 
 # User messages (nested structure)
 %ClaudeCode.Message.User{
   message: %{
-    content: [%ClaudeCode.Content.Text{text: "..."} | %ClaudeCode.Content.ToolResult{...}]
+    content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolResultBlock{...}]
   }
 }
 
@@ -174,24 +174,24 @@ All message types follow the official Claude SDK schema:
 
 ```elixir
 # Text content
-%ClaudeCode.Content.Text{text: "response text"}
+%ClaudeCode.Content.TextBlock{text: "response text"}
 
 # Tool usage
-%ClaudeCode.Content.ToolUse{
+%ClaudeCode.Content.ToolUseBlock{
   id: "tool_id",
   name: "tool_name",
   input: %{...}
 }
 
 # Tool results
-%ClaudeCode.Content.ToolResult{
+%ClaudeCode.Content.ToolResultBlock{
   tool_use_id: "tool_id",
   content: "tool output",
   is_error: false
 }
 
 # Extended thinking
-%ClaudeCode.Content.Thinking{
+%ClaudeCode.Content.ThinkingBlock{
   thinking: "reasoning content",
   signature: "signature_value"
 }

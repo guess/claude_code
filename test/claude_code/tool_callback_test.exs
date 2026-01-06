@@ -1,8 +1,8 @@
 defmodule ClaudeCode.ToolCallbackTest do
   use ExUnit.Case
 
-  alias ClaudeCode.Content.ToolResult
-  alias ClaudeCode.Content.ToolUse
+  alias ClaudeCode.Content.ToolResultBlock
+  alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
@@ -11,7 +11,7 @@ defmodule ClaudeCode.ToolCallbackTest do
 
   describe "process_message/3" do
     test "stores pending tool uses from Assistant messages" do
-      tool_use = %ToolUse{type: :tool_use, id: "tool_123", name: "Read", input: %{"path" => "/tmp/file"}}
+      tool_use = %ToolUseBlock{type: :tool_use, id: "tool_123", name: "Read", input: %{"path" => "/tmp/file"}}
 
       message = %AssistantMessage{
         type: :assistant,
@@ -28,8 +28,8 @@ defmodule ClaudeCode.ToolCallbackTest do
     end
 
     test "stores multiple tool uses from single Assistant message" do
-      tool_use1 = %ToolUse{type: :tool_use, id: "tool_1", name: "Read", input: %{"path" => "/a"}}
-      tool_use2 = %ToolUse{type: :tool_use, id: "tool_2", name: "Write", input: %{"path" => "/b"}}
+      tool_use1 = %ToolUseBlock{type: :tool_use, id: "tool_1", name: "Read", input: %{"path" => "/a"}}
+      tool_use2 = %ToolUseBlock{type: :tool_use, id: "tool_2", name: "Write", input: %{"path" => "/b"}}
 
       message = %AssistantMessage{
         type: :assistant,
@@ -52,7 +52,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         "tool_123" => %{name: "Read", input: %{"path" => "/tmp"}, started_at: DateTime.utc_now()}
       }
 
-      tool_result = %ToolResult{
+      tool_result = %ToolResultBlock{
         type: :tool_result,
         tool_use_id: "tool_123",
         content: "file contents",
@@ -92,7 +92,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         "tool_456" => %{name: "Write", input: %{"path" => "/etc/passwd"}, started_at: DateTime.utc_now()}
       }
 
-      tool_result = %ToolResult{
+      tool_result = %ToolResultBlock{
         type: :tool_result,
         tool_use_id: "tool_456",
         content: "Permission denied",
@@ -125,8 +125,8 @@ defmodule ClaudeCode.ToolCallbackTest do
         "tool_2" => %{name: "Write", input: %{"path" => "/b"}, started_at: DateTime.utc_now()}
       }
 
-      result1 = %ToolResult{type: :tool_result, tool_use_id: "tool_1", content: "ok1", is_error: false}
-      result2 = %ToolResult{type: :tool_result, tool_use_id: "tool_2", content: "ok2", is_error: false}
+      result1 = %ToolResultBlock{type: :tool_result, tool_use_id: "tool_1", content: "ok1", is_error: false}
+      result2 = %ToolResultBlock{type: :tool_result, tool_use_id: "tool_2", content: "ok2", is_error: false}
 
       message = %UserMessage{
         type: :user,
@@ -154,7 +154,7 @@ defmodule ClaudeCode.ToolCallbackTest do
       # No pending tools
       pending = %{}
 
-      tool_result = %ToolResult{
+      tool_result = %ToolResultBlock{
         type: :tool_result,
         tool_use_id: "unknown_tool",
         content: "result",
@@ -185,7 +185,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         "tool_123" => %{name: "Read", input: %{}, started_at: DateTime.utc_now()}
       }
 
-      tool_result = %ToolResult{
+      tool_result = %ToolResultBlock{
         type: :tool_result,
         tool_use_id: "tool_123",
         content: "ok",
@@ -256,7 +256,7 @@ defmodule ClaudeCode.ToolCallbackTest do
         "tool_123" => %{name: "Read", input: %{}, started_at: DateTime.utc_now()}
       }
 
-      tool_result = %ToolResult{
+      tool_result = %ToolResultBlock{
         type: :tool_result,
         tool_use_id: "tool_123",
         content: "ok",

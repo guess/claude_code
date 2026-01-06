@@ -1,7 +1,7 @@
-defmodule ClaudeCode.Content.ToolResultTest do
+defmodule ClaudeCode.Content.ToolResultBlockTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Content.ToolResult
+  alias ClaudeCode.Content.ToolResultBlock
 
   describe "new/1" do
     test "creates a successful tool result from valid data" do
@@ -11,7 +11,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
         "content" => "File created successfully"
       }
 
-      assert {:ok, result} = ToolResult.new(data)
+      assert {:ok, result} = ToolResultBlock.new(data)
       assert result.type == :tool_result
       assert result.tool_use_id == "toolu_123"
       assert result.content == "File created successfully"
@@ -26,7 +26,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
         "is_error" => true
       }
 
-      assert {:ok, result} = ToolResult.new(data)
+      assert {:ok, result} = ToolResultBlock.new(data)
       assert result.is_error == true
     end
 
@@ -37,7 +37,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
         "content" => "Success"
       }
 
-      assert {:ok, result} = ToolResult.new(data)
+      assert {:ok, result} = ToolResultBlock.new(data)
       assert result.is_error == false
     end
 
@@ -48,34 +48,34 @@ defmodule ClaudeCode.Content.ToolResultTest do
         "content" => "Hello"
       }
 
-      assert {:error, :invalid_content_type} = ToolResult.new(data)
+      assert {:error, :invalid_content_type} = ToolResultBlock.new(data)
     end
 
     test "returns error for missing required fields" do
       assert {:error, {:missing_fields, [:tool_use_id, :content]}} =
-               ToolResult.new(%{"type" => "tool_result"})
+               ToolResultBlock.new(%{"type" => "tool_result"})
 
       assert {:error, {:missing_fields, [:content]}} =
-               ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "123"})
+               ToolResultBlock.new(%{"type" => "tool_result", "tool_use_id" => "123"})
     end
   end
 
   describe "type guards" do
     test "tool_result_content?/1 returns true for tool result content" do
       {:ok, result} =
-        ToolResult.new(%{
+        ToolResultBlock.new(%{
           "type" => "tool_result",
           "tool_use_id" => "test",
           "content" => "OK"
         })
 
-      assert ToolResult.tool_result_content?(result)
+      assert ToolResultBlock.tool_result_content?(result)
     end
 
     test "tool_result_content?/1 returns false for non-tool-result content" do
-      refute ToolResult.tool_result_content?(%{type: :text})
-      refute ToolResult.tool_result_content?(nil)
-      refute ToolResult.tool_result_content?("not content")
+      refute ToolResultBlock.tool_result_content?(%{type: :text})
+      refute ToolResultBlock.tool_result_content?(nil)
+      refute ToolResultBlock.tool_result_content?("not content")
     end
   end
 
@@ -91,7 +91,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
             tool_result = Enum.find(content, &(&1["type"] == "tool_result"))
 
             if tool_result do
-              assert {:ok, parsed} = ToolResult.new(tool_result)
+              assert {:ok, parsed} = ToolResultBlock.new(tool_result)
               assert parsed.content =~ "successfully"
               assert parsed.is_error == false
             end
@@ -113,7 +113,7 @@ defmodule ClaudeCode.Content.ToolResultTest do
             tool_result = Enum.find(content, &(&1["type"] == "tool_result"))
 
             if tool_result && tool_result["is_error"] do
-              assert {:ok, parsed} = ToolResult.new(tool_result)
+              assert {:ok, parsed} = ToolResultBlock.new(tool_result)
               assert parsed.content == "File does not exist."
               assert parsed.is_error == true
             end

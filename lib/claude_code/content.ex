@@ -6,12 +6,12 @@ defmodule ClaudeCode.Content do
   This module provides functions to parse and work with any content type.
   """
 
-  alias ClaudeCode.Content.Text
-  alias ClaudeCode.Content.Thinking
-  alias ClaudeCode.Content.ToolResult
-  alias ClaudeCode.Content.ToolUse
+  alias ClaudeCode.Content.TextBlock
+  alias ClaudeCode.Content.ThinkingBlock
+  alias ClaudeCode.Content.ToolResultBlock
+  alias ClaudeCode.Content.ToolUseBlock
 
-  @type t :: Text.t() | Thinking.t() | ToolUse.t() | ToolResult.t()
+  @type t :: TextBlock.t() | ThinkingBlock.t() | ToolUseBlock.t() | ToolResultBlock.t()
 
   @doc """
   Parses a content block from JSON data based on its type.
@@ -19,7 +19,7 @@ defmodule ClaudeCode.Content do
   ## Examples
 
       iex> Content.parse(%{"type" => "text", "text" => "Hello"})
-      {:ok, %Text{type: :text, text: "Hello"}}
+      {:ok, %TextBlock{type: :text, text: "Hello"}}
 
       iex> Content.parse(%{"type" => "unknown"})
       {:error, {:unknown_content_type, "unknown"}}
@@ -27,10 +27,10 @@ defmodule ClaudeCode.Content do
   @spec parse(map()) :: {:ok, t()} | {:error, term()}
   def parse(%{"type" => type} = data) do
     case type do
-      "text" -> Text.new(data)
-      "thinking" -> Thinking.new(data)
-      "tool_use" -> ToolUse.new(data)
-      "tool_result" -> ToolResult.new(data)
+      "text" -> TextBlock.new(data)
+      "thinking" -> ThinkingBlock.new(data)
+      "tool_use" -> ToolUseBlock.new(data)
+      "tool_result" -> ToolResultBlock.new(data)
       other -> {:error, {:unknown_content_type, other}}
     end
   end
@@ -63,18 +63,18 @@ defmodule ClaudeCode.Content do
   Checks if a value is any type of content block.
   """
   @spec content?(any()) :: boolean()
-  def content?(%Text{}), do: true
-  def content?(%Thinking{}), do: true
-  def content?(%ToolUse{}), do: true
-  def content?(%ToolResult{}), do: true
+  def content?(%TextBlock{}), do: true
+  def content?(%ThinkingBlock{}), do: true
+  def content?(%ToolUseBlock{}), do: true
+  def content?(%ToolResultBlock{}), do: true
   def content?(_), do: false
 
   @doc """
   Returns the type of a content block.
   """
   @spec content_type(t()) :: :text | :thinking | :tool_use | :tool_result
-  def content_type(%Text{type: type}), do: type
-  def content_type(%Thinking{type: type}), do: type
-  def content_type(%ToolUse{type: type}), do: type
-  def content_type(%ToolResult{type: type}), do: type
+  def content_type(%TextBlock{type: type}), do: type
+  def content_type(%ThinkingBlock{type: type}), do: type
+  def content_type(%ToolUseBlock{type: type}), do: type
+  def content_type(%ToolResultBlock{type: type}), do: type
 end

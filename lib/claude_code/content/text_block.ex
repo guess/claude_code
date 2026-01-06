@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Content.Text do
+defmodule ClaudeCode.Content.TextBlock do
   @moduledoc """
   Represents a text content block within a Claude message.
 

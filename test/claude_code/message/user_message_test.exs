@@ -1,7 +1,7 @@
 defmodule ClaudeCode.Message.UserMessageTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Content.ToolResult
+  alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Message.UserMessage
 
   describe "new/1" do
@@ -27,7 +27,7 @@ defmodule ClaudeCode.Message.UserMessageTest do
       assert message.message.role == :user
       assert message.session_id == "session-123"
 
-      assert [%ToolResult{tool_use_id: "toolu_123", content: "File created successfully"}] = message.message.content
+      assert [%ToolResultBlock{tool_use_id: "toolu_123", content: "File created successfully"}] = message.message.content
     end
 
     test "parses user message with error tool result" do
@@ -50,7 +50,7 @@ defmodule ClaudeCode.Message.UserMessageTest do
 
       assert {:ok, message} = UserMessage.new(json)
 
-      assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.message.content
+      assert [%ToolResultBlock{is_error: true, content: "File does not exist."}] = message.message.content
     end
 
     test "handles multiple tool results" do
@@ -155,7 +155,7 @@ defmodule ClaudeCode.Message.UserMessageTest do
 
       assert {:ok, message} = UserMessage.new(json)
       assert message.type == :user
-      assert [%ToolResult{content: content}] = message.message.content
+      assert [%ToolResultBlock{content: content}] = message.message.content
       assert content =~ "successfully"
     end
 
@@ -176,7 +176,7 @@ defmodule ClaudeCode.Message.UserMessageTest do
       {:ok, json} = Jason.decode(error_user_line)
 
       assert {:ok, message} = UserMessage.new(json)
-      assert [%ToolResult{is_error: true, content: "File does not exist."}] = message.message.content
+      assert [%ToolResultBlock{is_error: true, content: "File does not exist."}] = message.message.content
     end
   end
 

@@ -1,7 +1,7 @@
-defmodule ClaudeCode.Content.ToolUseTest do
+defmodule ClaudeCode.Content.ToolUseBlockTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Content.ToolUse
+  alias ClaudeCode.Content.ToolUseBlock
 
   describe "new/1" do
     test "creates a tool use content block from valid data" do
@@ -12,7 +12,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
         "input" => %{"file_path" => "/test.txt"}
       }
 
-      assert {:ok, content} = ToolUse.new(data)
+      assert {:ok, content} = ToolUseBlock.new(data)
       assert content.type == :tool_use
       assert content.id == "toolu_123"
       assert content.name == "Read"
@@ -27,7 +27,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
         "input" => %{}
       }
 
-      assert {:ok, content} = ToolUse.new(data)
+      assert {:ok, content} = ToolUseBlock.new(data)
       assert content.input == %{}
     end
 
@@ -39,38 +39,38 @@ defmodule ClaudeCode.Content.ToolUseTest do
         "input" => %{}
       }
 
-      assert {:error, :invalid_content_type} = ToolUse.new(data)
+      assert {:error, :invalid_content_type} = ToolUseBlock.new(data)
     end
 
     test "returns error for missing required fields" do
       assert {:error, {:missing_fields, [:id, :name, :input]}} =
-               ToolUse.new(%{"type" => "tool_use"})
+               ToolUseBlock.new(%{"type" => "tool_use"})
 
       assert {:error, {:missing_fields, [:name, :input]}} =
-               ToolUse.new(%{"type" => "tool_use", "id" => "123"})
+               ToolUseBlock.new(%{"type" => "tool_use", "id" => "123"})
 
       assert {:error, {:missing_fields, [:input]}} =
-               ToolUse.new(%{"type" => "tool_use", "id" => "123", "name" => "Read"})
+               ToolUseBlock.new(%{"type" => "tool_use", "id" => "123", "name" => "Read"})
     end
   end
 
   describe "type guards" do
     test "tool_use_content?/1 returns true for tool use content" do
       {:ok, content} =
-        ToolUse.new(%{
+        ToolUseBlock.new(%{
           "type" => "tool_use",
           "id" => "test",
           "name" => "Test",
           "input" => %{}
         })
 
-      assert ToolUse.tool_use_content?(content)
+      assert ToolUseBlock.tool_use_content?(content)
     end
 
     test "tool_use_content?/1 returns false for non-tool-use content" do
-      refute ToolUse.tool_use_content?(%{type: :text})
-      refute ToolUse.tool_use_content?(nil)
-      refute ToolUse.tool_use_content?("not content")
+      refute ToolUseBlock.tool_use_content?(%{type: :text})
+      refute ToolUseBlock.tool_use_content?(nil)
+      refute ToolUseBlock.tool_use_content?("not content")
     end
   end
 
@@ -86,7 +86,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
             tool_use = Enum.find(content, &(&1["type"] == "tool_use"))
 
             if tool_use do
-              assert {:ok, parsed} = ToolUse.new(tool_use)
+              assert {:ok, parsed} = ToolUseBlock.new(tool_use)
               assert parsed.name == "Write"
               assert parsed.input["file_path"] =~ "test.txt"
               assert parsed.input["content"] == "Hello from Claude"
@@ -109,7 +109,7 @@ defmodule ClaudeCode.Content.ToolUseTest do
             tool_use = Enum.find(content, &(&1["type"] == "tool_use"))
 
             if tool_use do
-              assert {:ok, parsed} = ToolUse.new(tool_use)
+              assert {:ok, parsed} = ToolUseBlock.new(tool_use)
               assert parsed.name == "LS"
               assert is_binary(parsed.id)
               assert is_map(parsed.input)

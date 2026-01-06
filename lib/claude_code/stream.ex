@@ -80,7 +80,7 @@ defmodule ClaudeCode.Stream do
     |> Stream.filter(&match?(%Message.AssistantMessage{}, &1))
     |> Stream.flat_map(fn %Message.AssistantMessage{message: message} ->
       message.content
-      |> Enum.filter(&match?(%Content.Text{}, &1))
+      |> Enum.filter(&match?(%Content.TextBlock{}, &1))
       |> Enum.map(& &1.text)
     end)
   end
@@ -104,7 +104,7 @@ defmodule ClaudeCode.Stream do
     |> Stream.filter(&match?(%Message.AssistantMessage{}, &1))
     |> Stream.flat_map(fn %Message.AssistantMessage{message: message} ->
       message.content
-      |> Enum.filter(&match?(%Content.Thinking{}, &1))
+      |> Enum.filter(&match?(%Content.ThinkingBlock{}, &1))
       |> Enum.map(& &1.thinking)
     end)
   end
@@ -227,7 +227,7 @@ defmodule ClaudeCode.Stream do
     stream
     |> Stream.filter(&match?(%Message.AssistantMessage{}, &1))
     |> Stream.flat_map(fn %Message.AssistantMessage{message: message} ->
-      Enum.filter(message.content, &match?(%Content.ToolUse{}, &1))
+      Enum.filter(message.content, &match?(%Content.ToolUseBlock{}, &1))
     end)
   end
 
@@ -370,7 +370,7 @@ defmodule ClaudeCode.Stream do
   defp message_type_matches?(%StreamEventMessage{}, :stream_event), do: true
 
   defp message_type_matches?(%Message.AssistantMessage{message: message}, :tool_use) do
-    Enum.any?(message.content, &match?(%Content.ToolUse{}, &1))
+    Enum.any?(message.content, &match?(%Content.ToolUseBlock{}, &1))
   end
 
   # Match text delta stream events when filtering for :text_delta
@@ -382,7 +382,7 @@ defmodule ClaudeCode.Stream do
 
   defp extract_text(%Message.AssistantMessage{message: message}) do
     message.content
-    |> Enum.filter(&match?(%Content.Text{}, &1))
+    |> Enum.filter(&match?(%Content.TextBlock{}, &1))
     |> Enum.map_join("", & &1.text)
   end
 end

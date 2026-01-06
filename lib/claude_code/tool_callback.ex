@@ -31,8 +31,8 @@ defmodule ClaudeCode.ToolCallback do
   - `:timestamp` - When the result was received (DateTime)
   """
 
-  alias ClaudeCode.Content.ToolResult
-  alias ClaudeCode.Content.ToolUse
+  alias ClaudeCode.Content.ToolResultBlock
+  alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.UserMessage
 
@@ -67,7 +67,7 @@ defmodule ClaudeCode.ToolCallback do
   def process_message(%AssistantMessage{message: %{content: content}}, pending_tools, _callback) when is_list(content) do
     new_pending =
       content
-      |> Enum.filter(&match?(%ToolUse{}, &1))
+      |> Enum.filter(&match?(%ToolUseBlock{}, &1))
       |> Enum.reduce(pending_tools, fn tool_use, acc ->
         Map.put(acc, tool_use.id, %{
           name: tool_use.name,
@@ -84,7 +84,7 @@ defmodule ClaudeCode.ToolCallback do
       when is_list(content) and is_function(callback, 1) do
     {remaining_pending, events} =
       content
-      |> Enum.filter(&match?(%ToolResult{}, &1))
+      |> Enum.filter(&match?(%ToolResultBlock{}, &1))
       |> Enum.reduce({pending_tools, []}, fn tool_result, {pending, events} ->
         case Map.pop(pending, tool_result.tool_use_id) do
           {nil, pending} ->
@@ -118,7 +118,7 @@ defmodule ClaudeCode.ToolCallback do
     # Still remove from pending to prevent memory leak
     remaining_pending =
       content
-      |> Enum.filter(&match?(%ToolResult{}, &1))
+      |> Enum.filter(&match?(%ToolResultBlock{}, &1))
       |> Enum.reduce(pending_tools, fn tool_result, pending ->
         Map.delete(pending, tool_result.tool_use_id)
       end)

@@ -1,13 +1,13 @@
-defmodule ClaudeCode.Content.TextTest do
+defmodule ClaudeCode.Content.TextBlockTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Content.Text
+  alias ClaudeCode.Content.TextBlock
 
   describe "new/1" do
     test "creates a text content block from valid data" do
       data = %{"type" => "text", "text" => "Hello, world!"}
 
-      assert {:ok, content} = Text.new(data)
+      assert {:ok, content} = TextBlock.new(data)
       assert content.type == :text
       assert content.text == "Hello, world!"
     end
@@ -15,39 +15,39 @@ defmodule ClaudeCode.Content.TextTest do
     test "handles empty text" do
       data = %{"type" => "text", "text" => ""}
 
-      assert {:ok, content} = Text.new(data)
+      assert {:ok, content} = TextBlock.new(data)
       assert content.text == ""
     end
 
     test "returns error for invalid type" do
       data = %{"type" => "tool_use", "text" => "Hello"}
 
-      assert {:error, :invalid_content_type} = Text.new(data)
+      assert {:error, :invalid_content_type} = TextBlock.new(data)
     end
 
     test "returns error for missing text field" do
       data = %{"type" => "text"}
 
-      assert {:error, :missing_text} = Text.new(data)
+      assert {:error, :missing_text} = TextBlock.new(data)
     end
 
     test "returns error for non-string text" do
       data = %{"type" => "text", "text" => 123}
 
-      assert {:error, :invalid_text} = Text.new(data)
+      assert {:error, :invalid_text} = TextBlock.new(data)
     end
   end
 
   describe "type guards" do
     test "text_content?/1 returns true for text content" do
-      {:ok, content} = Text.new(%{"type" => "text", "text" => "Hi"})
-      assert Text.text_content?(content)
+      {:ok, content} = TextBlock.new(%{"type" => "text", "text" => "Hi"})
+      assert TextBlock.text_content?(content)
     end
 
     test "text_content?/1 returns false for non-text content" do
-      refute Text.text_content?(%{type: :tool_use})
-      refute Text.text_content?(nil)
-      refute Text.text_content?("not content")
+      refute TextBlock.text_content?(%{type: :tool_use})
+      refute TextBlock.text_content?(nil)
+      refute TextBlock.text_content?("not content")
     end
   end
 
@@ -63,7 +63,7 @@ defmodule ClaudeCode.Content.TextTest do
       assert json["type"] == "assistant"
       content_block = hd(json["message"]["content"])
 
-      assert {:ok, text} = Text.new(content_block)
+      assert {:ok, text} = TextBlock.new(content_block)
       assert text.type == :text
       assert text.text =~ "Hello"
     end

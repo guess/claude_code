@@ -111,11 +111,11 @@ defmodule ClaudeCode.Test.MessageFixtures do
   end
 
   def text_content(text) do
-    %Content.Text{type: "text", text: text}
+    %Content.TextBlock{type: "text", text: text}
   end
 
   def tool_use_content(name, input, id \\ nil) do
-    %Content.ToolUse{
+    %Content.ToolUseBlock{
       type: "tool_use",
       id: id || "tool_#{:rand.uniform(1000)}",
       name: name,
@@ -124,7 +124,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
   end
 
   def tool_result_content(content, tool_use_id \\ nil, is_error \\ false) do
-    %Content.ToolResult{
+    %Content.ToolResultBlock{
       type: :tool_result,
       tool_use_id: tool_use_id || "tool_#{:rand.uniform(1000)}",
       content: content,
@@ -133,7 +133,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
   end
 
   def thinking_content(thinking, signature \\ nil) do
-    %Content.Thinking{
+    %Content.ThinkingBlock{
       type: :thinking,
       thinking: thinking,
       signature: signature || "sig_#{:rand.uniform(10_000)}"

@@ -2,16 +2,16 @@ defmodule ClaudeCode.ContentTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Content
-  alias ClaudeCode.Content.Text
-  alias ClaudeCode.Content.Thinking
-  alias ClaudeCode.Content.ToolResult
-  alias ClaudeCode.Content.ToolUse
+  alias ClaudeCode.Content.TextBlock
+  alias ClaudeCode.Content.ThinkingBlock
+  alias ClaudeCode.Content.ToolResultBlock
+  alias ClaudeCode.Content.ToolUseBlock
 
   describe "parse/1" do
     test "parses text content blocks" do
       data = %{"type" => "text", "text" => "Hello!"}
 
-      assert {:ok, %Text{text: "Hello!"}} = Content.parse(data)
+      assert {:ok, %TextBlock{text: "Hello!"}} = Content.parse(data)
     end
 
     test "parses thinking content blocks" do
@@ -21,7 +21,7 @@ defmodule ClaudeCode.ContentTest do
         "signature" => "sig_abc123"
       }
 
-      assert {:ok, %Thinking{thinking: "Let me reason through this...", signature: "sig_abc123"}} =
+      assert {:ok, %ThinkingBlock{thinking: "Let me reason through this...", signature: "sig_abc123"}} =
                Content.parse(data)
     end
 
@@ -45,7 +45,7 @@ defmodule ClaudeCode.ContentTest do
         "input" => %{"file" => "test.txt"}
       }
 
-      assert {:ok, %ToolUse{id: "toolu_123", name: "Read"}} = Content.parse(data)
+      assert {:ok, %ToolUseBlock{id: "toolu_123", name: "Read"}} = Content.parse(data)
     end
 
     test "parses tool result content blocks" do
@@ -55,7 +55,7 @@ defmodule ClaudeCode.ContentTest do
         "content" => "Success"
       }
 
-      assert {:ok, %ToolResult{tool_use_id: "toolu_123"}} = Content.parse(data)
+      assert {:ok, %ToolResultBlock{tool_use_id: "toolu_123"}} = Content.parse(data)
     end
 
     test "returns error for unknown content type" do
@@ -80,9 +80,9 @@ defmodule ClaudeCode.ContentTest do
       ]
 
       assert {:ok, [text1, tool_use, text2]} = Content.parse_all(data)
-      assert %Text{text: "I'll help you."} = text1
-      assert %ToolUse{name: "Read"} = tool_use
-      assert %Text{text: "Done!"} = text2
+      assert %TextBlock{text: "I'll help you."} = text1
+      assert %ToolUseBlock{name: "Read"} = tool_use
+      assert %TextBlock{text: "Done!"} = text2
     end
 
     test "returns error if any block fails to parse" do
@@ -102,13 +102,13 @@ defmodule ClaudeCode.ContentTest do
 
   describe "type detection" do
     test "content?/1 returns true for any content type" do
-      {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
+      {:ok, text} = TextBlock.new(%{"type" => "text", "text" => "Hi"})
 
       {:ok, thinking} =
-        Thinking.new(%{"type" => "thinking", "thinking" => "reasoning", "signature" => "sig_1"})
+        ThinkingBlock.new(%{"type" => "thinking", "thinking" => "reasoning", "signature" => "sig_1"})
 
-      {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
-      {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
+      {:ok, tool} = ToolUseBlock.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
+      {:ok, result} = ToolResultBlock.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
 
       assert Content.content?(text)
       assert Content.content?(thinking)
@@ -126,13 +126,13 @@ defmodule ClaudeCode.ContentTest do
 
   describe "content type helpers" do
     test "content_type/1 returns the type of content" do
-      {:ok, text} = Text.new(%{"type" => "text", "text" => "Hi"})
+      {:ok, text} = TextBlock.new(%{"type" => "text", "text" => "Hi"})
 
       {:ok, thinking} =
-        Thinking.new(%{"type" => "thinking", "thinking" => "reasoning", "signature" => "sig_1"})
+        ThinkingBlock.new(%{"type" => "thinking", "thinking" => "reasoning", "signature" => "sig_1"})
 
-      {:ok, tool} = ToolUse.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
-      {:ok, result} = ToolResult.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
+      {:ok, tool} = ToolUseBlock.new(%{"type" => "tool_use", "id" => "1", "name" => "X", "input" => %{}})
+      {:ok, result} = ToolResultBlock.new(%{"type" => "tool_result", "tool_use_id" => "1", "content" => "OK"})
 
       assert Content.content_type(text) == :text
       assert Content.content_type(thinking) == :thinking

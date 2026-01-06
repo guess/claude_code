@@ -1,8 +1,8 @@
 defmodule ClaudeCode.Message.AssistantMessageTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Content.Text
-  alias ClaudeCode.Content.ToolUse
+  alias ClaudeCode.Content.TextBlock
+  alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
 
   describe "new/1" do
@@ -40,7 +40,7 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
       assert message.message.stop_reason == nil
       assert message.message.stop_sequence == nil
 
-      assert [%Text{text: "Hello, I can help you!"}] = message.message.content
+      assert [%TextBlock{text: "Hello, I can help you!"}] = message.message.content
 
       assert message.message.usage.input_tokens == 100
       assert message.message.usage.output_tokens == 25
@@ -81,7 +81,7 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
       assert message.message.stop_reason == :tool_use
       assert length(message.message.content) == 2
 
-      assert [%Text{text: "I'll read that file for you."}, %ToolUse{name: "Read", id: "toolu_789"}] =
+      assert [%TextBlock{text: "I'll read that file for you."}, %ToolUseBlock{name: "Read", id: "toolu_789"}] =
                message.message.content
     end
 
@@ -211,7 +211,7 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
       assert {:ok, message} = AssistantMessage.new(json)
       assert message.type == :assistant
       assert is_binary(message.message.id)
-      assert [%Text{text: text}] = message.message.content
+      assert [%TextBlock{text: text}] = message.message.content
       assert text =~ "Hello"
     end
 
@@ -234,7 +234,7 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
                {:ok, message} = AssistantMessage.new(json)
 
                Enum.any?(message.message.content, fn content ->
-                 match?(%ToolUse{}, content)
+                 match?(%ToolUseBlock{}, content)
                end)
              end)
     end

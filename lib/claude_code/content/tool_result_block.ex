@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Content.ToolResult do
+defmodule ClaudeCode.Content.ToolResultBlock do
   @moduledoc """
   Represents a tool result content block within a Claude message.
 

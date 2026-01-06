@@ -25,7 +25,7 @@ session
     %ClaudeCode.Message.Assistant{message: %{content: content}} ->
       # Extract text from content blocks
       Enum.each(content, fn
-        %ClaudeCode.Content.Text{text: text} -> IO.write(text)
+        %ClaudeCode.Content.TextBlock{text: text} -> IO.write(text)
         _ -> :ok
       end)
 

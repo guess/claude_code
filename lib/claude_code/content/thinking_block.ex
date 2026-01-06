@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Content.Thinking do
+defmodule ClaudeCode.Content.ThinkingBlock do
   @moduledoc """
   Represents a thinking content block within a Claude message.
 
