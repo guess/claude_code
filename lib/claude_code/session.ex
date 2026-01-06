@@ -490,8 +490,7 @@ defmodule ClaudeCode.Session do
     shell_path = :os.find_executable(~c"sh") || raise "sh not found"
 
     cmd_string = build_shell_command(executable, args, state, opts)
-    # Don't redirect stdin - we need to write to it
-    full_command = "(#{cmd_string}\n)"
+    full_command = cmd_string
 
     port =
       Port.open({:spawn_executable, shell_path}, [
@@ -522,7 +521,7 @@ defmodule ClaudeCode.Session do
 
     cmd_string = Enum.map_join([executable | args], " ", &shell_escape/1)
 
-    "#{cwd_prefix}#{env_prefix} #{cmd_string}"
+    "#{cwd_prefix}#{env_prefix}exec #{cmd_string}"
   end
 
   defp prepare_env(state) do
