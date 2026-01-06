@@ -89,11 +89,12 @@ defmodule ClaudeCode.Content.ThinkingBlockTest do
 
   describe "type guards" do
     test "thinking_content?/1 returns true for thinking content" do
-      {:ok, content} = ThinkingBlock.new(%{
-        "type" => "thinking",
-        "thinking" => "Let me think...",
-        "signature" => "sig_123"
-      })
+      {:ok, content} =
+        ThinkingBlock.new(%{
+          "type" => "thinking",
+          "thinking" => "Let me think...",
+          "signature" => "sig_123"
+        })
 
       assert ThinkingBlock.thinking_content?(content)
     end
@@ -116,7 +117,7 @@ defmodule ClaudeCode.Content.ThinkingBlockTest do
       }
 
       {:ok, content} = ThinkingBlock.new(data)
-      
+
       # Verify all required fields are present
       assert Map.has_key?(content, :type)
       assert Map.has_key?(content, :thinking)

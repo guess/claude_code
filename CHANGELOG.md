@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING: Renamed message type modules** - Added "Message" suffix for clarity
+  - `ClaudeCode.Message.Assistant` → `ClaudeCode.Message.AssistantMessage`
+  - `ClaudeCode.Message.User` → `ClaudeCode.Message.UserMessage`
+  - `ClaudeCode.Message.Result` → `ClaudeCode.Message.ResultMessage`
+  - `ClaudeCode.Message.StreamEvent` → `ClaudeCode.Message.StreamEventMessage`
+  - New `ClaudeCode.Message.SystemMessage` and `ClaudeCode.Message.CompactBoundaryMessage` message types
+- **BREAKING: Renamed content block modules** - Added "Block" suffix for consistency
+  - `ClaudeCode.Content.Text` → `ClaudeCode.Content.TextBlock`
+  - `ClaudeCode.Content.ToolUse` → `ClaudeCode.Content.ToolUseBlock`
+  - `ClaudeCode.Content.ToolResult` → `ClaudeCode.Content.ToolResultBlock`
+  - `ClaudeCode.Content.Thinking` → `ClaudeCode.Content.ThinkingBlock`
+
+### Added
+- **New system message fields** - Support for additional Claude Code features
+  - `:output_style` - Claude's configured output style
+  - `:slash_commands` - Available slash commands
+  - `:uuid` - Session UUID
+- **Extended message type fields** - Better access to API response metadata
+  - `AssistantMessage`: `:priority`, `:sequence_id`, `:finalize_stack`
+  - `ResultMessage`: `:session_id`, `:duration_ms`, `:usage`, `:parent_message_id`, `:sequence_id`
+  - `UserMessage`: `:priority`, `:sequence_id`, `:finalize_stack`
+
+### Fixed
+- **`:mcp_servers` option validation** - Fixed handling of MCP server configurations ([0c7e849])
+
 ## [0.7.0] - 2026-01-02
 
 ### Added
