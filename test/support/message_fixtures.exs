@@ -20,7 +20,28 @@ defmodule ClaudeCode.Test.MessageFixtures do
       permission_mode: "auto",
       api_key_source: "ANTHROPIC_API_KEY",
       slash_commands: [],
-      output_style: "default"
+      output_style: "default",
+      compact_metadata: nil
+    }
+
+    struct!(Message.System, Map.merge(defaults, attrs))
+  end
+
+  def system_message_compact_boundary(attrs \\ %{}) do
+    defaults = %{
+      type: "system",
+      subtype: "compact_boundary",
+      uuid: "550e8400-e29b-41d4-a716-446655440000",
+      session_id: "test-123",
+      compact_metadata: %{trigger: "manual", pre_tokens: 1000},
+      cwd: nil,
+      tools: nil,
+      mcp_servers: nil,
+      model: nil,
+      permission_mode: nil,
+      api_key_source: nil,
+      slash_commands: nil,
+      output_style: nil
     }
 
     struct!(Message.System, Map.merge(defaults, attrs))
@@ -43,6 +64,8 @@ defmodule ClaudeCode.Test.MessageFixtures do
     defaults = %{
       type: "assistant",
       session_id: "test-123",
+      uuid: nil,
+      parent_tool_use_id: nil,
       message: Map.merge(message_defaults, Map.get(attrs, :message, %{}))
     }
 
@@ -62,6 +85,8 @@ defmodule ClaudeCode.Test.MessageFixtures do
     defaults = %{
       type: "user",
       session_id: "test-123",
+      uuid: nil,
+      parent_tool_use_id: nil,
       message: Map.merge(message_defaults, Map.get(attrs, :message, %{}))
     }
 
@@ -79,7 +104,12 @@ defmodule ClaudeCode.Test.MessageFixtures do
       result: "Done",
       session_id: "test-123",
       total_cost_usd: 0.001,
-      usage: %{}
+      usage: %{},
+      uuid: nil,
+      model_usage: nil,
+      permission_denials: nil,
+      structured_output: nil,
+      errors: nil
     }
 
     struct!(Message.Result, Map.merge(defaults, attrs))

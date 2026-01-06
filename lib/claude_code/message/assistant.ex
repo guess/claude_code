@@ -9,8 +9,10 @@ defmodule ClaudeCode.Message.Assistant do
   ```
   {
     type: "assistant",
+    uuid: string,
     message: { ... },  # Anthropic SDK Message type
-    session_id: string
+    session_id: string,
+    parent_tool_use_id?: string | null
   }
   ```
   """
@@ -26,13 +28,17 @@ defmodule ClaudeCode.Message.Assistant do
   defstruct [
     :type,
     :message,
-    :session_id
+    :session_id,
+    :uuid,
+    :parent_tool_use_id
   ]
 
   @type t :: %__MODULE__{
           type: :assistant,
           message: Types.message(),
-          session_id: String.t()
+          session_id: String.t(),
+          uuid: String.t() | nil,
+          parent_tool_use_id: String.t() | nil
         }
 
   @doc """
@@ -81,7 +87,9 @@ defmodule ClaudeCode.Message.Assistant do
             stop_sequence: message_data["stop_sequence"],
             usage: parse_usage(message_data["usage"])
           },
-          session_id: parent_json["session_id"]
+          session_id: parent_json["session_id"],
+          uuid: parent_json["uuid"],
+          parent_tool_use_id: parent_json["parent_tool_use_id"]
         }
 
         {:ok, message_struct}

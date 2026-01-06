@@ -18,7 +18,12 @@ defmodule ClaudeCode.Types do
 
   @type permission_mode :: :default | :accept_edits | :bypass_permissions | :plan
 
-  @type result_subtype :: :success | :error_max_turns | :error_during_execution
+  @type result_subtype ::
+          :success
+          | :error_max_turns
+          | :error_during_execution
+          | :error_max_budget_usd
+          | :error_max_structured_output_retries
 
   @type usage :: %{
           input_tokens: non_neg_integer(),
@@ -30,6 +35,19 @@ defmodule ClaudeCode.Types do
 
   @type server_tool_usage :: %{
           web_search_requests: non_neg_integer()
+        }
+
+  @type model_usage :: %{
+          input_tokens: non_neg_integer(),
+          output_tokens: non_neg_integer(),
+          cache_creation_input_tokens: non_neg_integer() | nil,
+          cache_read_input_tokens: non_neg_integer() | nil
+        }
+
+  @type permission_denial :: %{
+          tool_name: String.t(),
+          tool_use_id: String.t(),
+          tool_input: map()
         }
 
   @type mcp_server :: %{

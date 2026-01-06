@@ -9,8 +9,10 @@ defmodule ClaudeCode.Message.User do
   ```
   {
     type: "user",
+    uuid?: string,
     message: MessageParam,  # from Anthropic SDK
-    session_id: string
+    session_id: string,
+    parent_tool_use_id?: string | null
   }
   ```
   """
@@ -22,13 +24,17 @@ defmodule ClaudeCode.Message.User do
   defstruct [
     :type,
     :message,
-    :session_id
+    :session_id,
+    :uuid,
+    :parent_tool_use_id
   ]
 
   @type t :: %__MODULE__{
           type: :user,
           message: Types.message_param(),
-          session_id: Types.session_id()
+          session_id: Types.session_id(),
+          uuid: String.t() | nil,
+          parent_tool_use_id: String.t() | nil
         }
 
   @doc """
@@ -71,7 +77,9 @@ defmodule ClaudeCode.Message.User do
             content: content,
             role: :user
           },
-          session_id: parent_json["session_id"]
+          session_id: parent_json["session_id"],
+          uuid: parent_json["uuid"],
+          parent_tool_use_id: parent_json["parent_tool_use_id"]
         }
 
         {:ok, message_struct}

@@ -18,13 +18,18 @@ defmodule ClaudeCode.Message.Result do
   {
     type: "result",
     subtype: "success",
+    uuid: string,
     duration_ms: float,
     duration_api_ms: float,
     is_error: boolean,
     num_turns: int,
     result: string,
     session_id: string,
-    total_cost_usd: float
+    total_cost_usd: float,
+    usage: object,
+    modelUsage: {model: ModelUsage},
+    permission_denials: PermissionDenial[],
+    structured_output?: unknown
   }
   ```
 
@@ -32,13 +37,18 @@ defmodule ClaudeCode.Message.Result do
   ```
   {
     type: "result",
-    subtype: "error_max_turns" | "error_during_execution",
+    subtype: "error_max_turns" | "error_during_execution" | "error_max_budget_usd" | "error_max_structured_output_retries",
+    uuid: string,
     duration_ms: float,
     duration_api_ms: float,
     is_error: boolean,
     num_turns: int,
     session_id: string,
-    total_cost_usd: float
+    total_cost_usd: float,
+    usage: object,
+    modelUsage: {model: ModelUsage},
+    permission_denials: PermissionDenial[],
+    errors: string[]
   }
   ```
   """
@@ -67,7 +77,12 @@ defmodule ClaudeCode.Message.Result do
     :result,
     :session_id,
     :total_cost_usd,
-    :usage
+    :usage,
+    :uuid,
+    :model_usage,
+    :permission_denials,
+    :structured_output,
+    :errors
   ]
 
   @type t :: %__MODULE__{
@@ -80,7 +95,12 @@ defmodule ClaudeCode.Message.Result do
           result: String.t(),
           session_id: Types.session_id(),
           total_cost_usd: float(),
-          usage: Types.usage()
+          usage: Types.usage(),
+          uuid: String.t() | nil,
+          model_usage: %{String.t() => Types.model_usage()} | nil,
+          permission_denials: [Types.permission_denial()] | nil,
+          structured_output: any() | nil,
+          errors: [String.t()] | nil
         }
 
   @doc """
@@ -121,7 +141,12 @@ defmodule ClaudeCode.Message.Result do
         result: json["result"],
         session_id: json["session_id"],
         total_cost_usd: parse_float(json["total_cost_usd"]),
-        usage: parse_usage(json["usage"])
+        usage: parse_usage(json["usage"]),
+        uuid: json["uuid"],
+        model_usage: parse_model_usage(json["modelUsage"]),
+        permission_denials: parse_permission_denials(json["permission_denials"]),
+        structured_output: json["structured_output"],
+        errors: json["errors"]
       }
 
       {:ok, message}
@@ -142,6 +167,8 @@ defmodule ClaudeCode.Message.Result do
   defp parse_subtype("success"), do: :success
   defp parse_subtype("error_max_turns"), do: :error_max_turns
   defp parse_subtype("error_during_execution"), do: :error_during_execution
+  defp parse_subtype("error_max_budget_usd"), do: :error_max_budget_usd
+  defp parse_subtype("error_max_structured_output_retries"), do: :error_max_structured_output_retries
   defp parse_subtype(other) when is_binary(other), do: String.to_atom(other)
 
   defp parse_float(value) when is_float(value), do: value
@@ -169,6 +196,41 @@ defmodule ClaudeCode.Message.Result do
 
   defp parse_server_tool_use(%{"web_search_requests" => count}), do: %{web_search_requests: count}
   defp parse_server_tool_use(_), do: %{web_search_requests: 0}
+
+  defp parse_model_usage(nil), do: nil
+
+  defp parse_model_usage(model_usage) when is_map(model_usage) do
+    Map.new(model_usage, fn {model, usage_data} ->
+      {model, parse_single_model_usage(usage_data)}
+    end)
+  end
+
+  defp parse_model_usage(_), do: nil
+
+  defp parse_single_model_usage(usage_data) when is_map(usage_data) do
+    %{
+      input_tokens: usage_data["input_tokens"] || 0,
+      output_tokens: usage_data["output_tokens"] || 0,
+      cache_creation_input_tokens: usage_data["cache_creation_input_tokens"],
+      cache_read_input_tokens: usage_data["cache_read_input_tokens"]
+    }
+  end
+
+  defp parse_single_model_usage(_), do: nil
+
+  defp parse_permission_denials(nil), do: nil
+
+  defp parse_permission_denials(denials) when is_list(denials) do
+    Enum.map(denials, fn denial ->
+      %{
+        tool_name: denial["tool_name"],
+        tool_use_id: denial["tool_use_id"],
+        tool_input: denial["tool_input"] || %{}
+      }
+    end)
+  end
+
+  defp parse_permission_denials(_), do: nil
 end
 
 defimpl String.Chars, for: ClaudeCode.Message.Result do
