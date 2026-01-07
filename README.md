@@ -4,12 +4,11 @@ The Elixir SDK for building AI agents with Claude Code.
 
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
 - **💬 Conversation Continuity**: Automatic context retention across queries
-- **🔁 Bidirectional Streaming**: Multi-turn conversations over a single connection
-- **🔌 Native MCP Tools**: Expose Elixir functions to Claude via Hermes with full BEAM access
 - **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
-- **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
 - **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
-- **🔧 Zero-Config Phoenix Integration**: Drop-in support for LiveView and Phoenix apps
+- **🔧 Zero-Config Phoenix**: Drop-in support for LiveView and Phoenix apps
+- **🧪 Built-in Test Stubs**: Mock Claude responses for fast, deterministic tests without API calls
+- **🔌 MCP Tool Integration**: Expose Elixir functions to Claude via Hermes
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
@@ -64,13 +63,13 @@ mix deps.get
 claude --version  # Verify installation
 ```
 
-**Step 4:** Set your API key
+**Step 4:** Authenticate (choose one)
 ```bash
-# The SDK uses ANTHROPIC_API_KEY from your environment
-export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+# Option A: Use your Claude subscription (no API key needed)
+claude  # Then type /login to authenticate
 
-# Or configure in config/config.exs (optional)
-config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
+# Option B: Use an API key
+export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 ```
 
 🎉 **Ready to go!** Try the quick demo above.
@@ -267,6 +266,26 @@ Expose Elixir tools to Claude using Hermes MCP:
 
 # Claude can now use your custom tools!
 ```
+
+## 🧪 Testing
+
+ClaudeCode includes a test adapter for fast, deterministic tests without API calls:
+
+```elixir
+test "handles greeting" do
+  ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+    [ClaudeCode.Test.text("Hello! How can I help?")]
+  end)
+
+  {:ok, session} = ClaudeCode.start_link()
+  result = session |> ClaudeCode.stream("Hi") |> ClaudeCode.Stream.final_text()
+  assert result == "Hello! How can I help?"
+end
+```
+
+Includes message helpers (`text`, `tool_use`, `tool_result`, `thinking`), dynamic stubs, and concurrent test support.
+
+📖 **[Full Testing Guide →](docs/guides/testing.md)**
 
 ## 📚 Documentation
 

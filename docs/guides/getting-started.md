@@ -28,14 +28,19 @@ The SDK requires the Claude Code CLI to be installed on your system.
    claude --version
    ```
 
-### 3. Anthropic API Key
+### 3. Authentication
 
-You'll need an API key from Anthropic.
+You need either a Claude subscription or an API key.
 
-**Get your API key:**
+**Option A: Use your Claude subscription (recommended)**
+```bash
+claude  # Then type /login to authenticate
+```
+
+**Option B: Use an API key**
 1. Sign up at [console.anthropic.com](https://console.anthropic.com)
 2. Create a new API key
-3. Configure it in your application (see Configuration section below)
+3. Set `ANTHROPIC_API_KEY` environment variable
 
 ## Installation
 
@@ -57,22 +62,11 @@ mix deps.get
 
 ## Configuration
 
-The SDK uses the `ANTHROPIC_API_KEY` environment variable by default. Choose one of these methods:
+If you authenticated via `/login`, no configuration is needed - it just works.
 
-**Method 1: Environment Variable (Recommended)**
+For API key usage, set the environment variable:
 ```bash
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
-```
-
-**Method 2: Application Configuration**
-```elixir
-# config/config.exs
-config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
-```
-
-**Method 3: Pass Explicitly**
-```elixir
-{:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-your-api-key-here")
 ```
 
 ## Your First Query
