@@ -5,6 +5,7 @@ The idiomatic way to integrate Claude AI into your Elixir applications.
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
 - **💬 Conversation Continuity**: Automatic context retention across queries
 - **🔁 Bidirectional Streaming**: Multi-turn conversations over a single connection
+- **🔌 Native MCP Tools**: Expose Elixir functions to Claude via Hermes with full BEAM access
 - **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
 - **🛠️ Built-in File Operations**: Read, edit, and analyze files with zero configuration
 - **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
