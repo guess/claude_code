@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-01-07
+
+### Added
+- **New stream helpers** for common use cases ([0775bd4])
+  - `final_text/1` - Returns only the final result text, simplest way to get Claude's answer
+  - `collect/1` - Returns structured summary with text, thinking, tool_calls, and result
+  - `tap/2` - Side-effect function for logging/monitoring without filtering the stream
+  - `on_tool_use/2` - Callback invoked for each tool use, useful for progress indicators
+
+### Changed
+- **`collect/1` returns `tool_calls` instead of `tool_uses`** ([7eebfeb])
+  - Now returns `{tool_use, tool_result}` tuples pairing each tool invocation with its result
+  - If a tool use has no matching result, the result will be `nil`
+  - Migration: Change `summary.tool_uses` to `summary.tool_calls` and update iteration to handle tuples
+
+### Removed
+- **`buffered_text/1` stream helper** - Use `final_text/1` or `collect/1` instead ([4a1ee97])
+
 ## [0.11.0] - 2026-01-07
 
 ### Changed
