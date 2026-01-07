@@ -24,7 +24,7 @@ defmodule ClaudeCode.MixProject do
 
       # Hex
       package: package(),
-      description: "An idiomatic Elixir SDK for Claude Code AI assistant",
+      description: "The Elixir SDK for building AI agents with Claude Code",
 
       # Docs
       name: "ClaudeCode",

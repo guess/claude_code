@@ -1,6 +1,6 @@
 # 🤖 Claude Code SDK for Elixir
 
-The idiomatic way to integrate Claude AI into your Elixir applications.
+The Elixir SDK for building AI agents with Claude Code.
 
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
 - **💬 Conversation Continuity**: Automatic context retention across queries
