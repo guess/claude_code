@@ -59,11 +59,14 @@ defmodule ClaudeCode.Test do
       ClaudeCode.Test.allow(ClaudeCode.Session, self(), pid_of_spawned_process)
   """
 
-  alias ClaudeCode.Content
+  alias ClaudeCode.Content.TextBlock
+  alias ClaudeCode.Content.ToolResultBlock
+  alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
   alias ClaudeCode.Message.UserMessage
+  alias ClaudeCode.Test.Factory
 
   @ownership __MODULE__.Ownership
 
@@ -247,22 +250,18 @@ defmodule ClaudeCode.Test do
   """
   @spec text(String.t(), keyword()) :: AssistantMessage.t()
   def text(text, opts \\ []) do
-    %AssistantMessage{
-      type: :assistant,
-      session_id: Keyword.get(opts, :session_id, generate_session_id()),
-      uuid: nil,
-      parent_tool_use_id: nil,
-      message: %{
-        id: Keyword.get(opts, :message_id, generate_message_id()),
-        type: :message,
-        role: :assistant,
-        model: Keyword.get(opts, :model, "claude-sonnet-4-20250514"),
-        content: [%Content.TextBlock{type: :text, text: text}],
-        stop_reason: Keyword.get(opts, :stop_reason),
-        stop_sequence: nil,
-        usage: default_usage()
-      }
-    }
+    message_opts =
+      opts
+      |> Keyword.take([:message_id, :model, :stop_reason])
+      |> Keyword.put(:content, [Factory.text_block(text: text)])
+      |> rename_key(:message_id, :id)
+
+    assistant_opts =
+      opts
+      |> Keyword.take([:session_id])
+      |> Keyword.put(:message, Map.new(message_opts))
+
+    Factory.assistant_message(assistant_opts)
   end
 
   @doc """
@@ -288,39 +287,31 @@ defmodule ClaudeCode.Test do
   def tool_use(opts) do
     name = Keyword.fetch!(opts, :name)
     input = Keyword.fetch!(opts, :input)
-    id = Keyword.get(opts, :id, generate_tool_id())
     text_content = Keyword.get(opts, :text)
 
-    tool_use_block = %Content.ToolUseBlock{
-      type: :tool_use,
-      id: id,
-      name: name,
-      input: input
-    }
+    tool_block_opts = maybe_put([name: name, input: input], :id, Keyword.get(opts, :id))
+
+    tool_use_block = Factory.tool_use_block(tool_block_opts)
 
     content =
       if text_content do
-        [%Content.TextBlock{type: :text, text: text_content}, tool_use_block]
+        [Factory.text_block(text: text_content), tool_use_block]
       else
         [tool_use_block]
       end
 
-    %AssistantMessage{
-      type: :assistant,
-      session_id: Keyword.get(opts, :session_id, generate_session_id()),
-      uuid: nil,
-      parent_tool_use_id: nil,
-      message: %{
-        id: Keyword.get(opts, :message_id, generate_message_id()),
-        type: :message,
-        role: :assistant,
-        model: Keyword.get(opts, :model, "claude-sonnet-4-20250514"),
-        content: content,
-        stop_reason: :tool_use,
-        stop_sequence: nil,
-        usage: default_usage()
-      }
-    }
+    message_opts =
+      opts
+      |> Keyword.take([:message_id, :model])
+      |> Keyword.merge(content: content, stop_reason: :tool_use)
+      |> rename_key(:message_id, :id)
+
+    assistant_opts =
+      opts
+      |> Keyword.take([:session_id])
+      |> Keyword.put(:message, Map.new(message_opts))
+
+    Factory.assistant_message(assistant_opts)
   end
 
   @doc """
@@ -329,7 +320,7 @@ defmodule ClaudeCode.Test do
   ## Options
 
   - `:content` - Tool result content string (default: "")
-  - `:tool_use_id` - ID of the tool use this is responding to (default: auto-generated)
+  - `:tool_use_id` - ID of the tool use this is responding to (default: nil for auto-linking)
   - `:is_error` - Whether the tool execution failed (default: false)
   - `:session_id` - Session ID (default: auto-generated)
 
@@ -340,28 +331,21 @@ defmodule ClaudeCode.Test do
   """
   @spec tool_result(keyword()) :: UserMessage.t()
   def tool_result(opts \\ []) do
-    content = Keyword.get(opts, :content, "")
-    # Default to nil so auto-linking can work
-    tool_use_id = Keyword.get(opts, :tool_use_id)
-    is_error = Keyword.get(opts, :is_error, false)
+    # Explicitly pass tool_use_id (even nil) to allow auto-linking
+    result_block_opts = [
+      tool_use_id: Keyword.get(opts, :tool_use_id),
+      content: Keyword.get(opts, :content, ""),
+      is_error: Keyword.get(opts, :is_error, false)
+    ]
 
-    %UserMessage{
-      type: :user,
-      session_id: Keyword.get(opts, :session_id, generate_session_id()),
-      uuid: nil,
-      parent_tool_use_id: nil,
-      message: %{
-        role: :user,
-        content: [
-          %Content.ToolResultBlock{
-            type: :tool_result,
-            tool_use_id: tool_use_id,
-            content: content,
-            is_error: is_error
-          }
-        ]
-      }
-    }
+    result_block = Factory.tool_result_block(result_block_opts)
+
+    user_opts =
+      opts
+      |> Keyword.take([:session_id])
+      |> Keyword.put(:message, %{content: [result_block]})
+
+    Factory.user_message(user_opts)
   end
 
   @doc """
@@ -381,39 +365,32 @@ defmodule ClaudeCode.Test do
   """
   @spec thinking(keyword()) :: AssistantMessage.t()
   def thinking(opts) do
-    thinking_text = Keyword.fetch!(opts, :thinking)
-    signature = Keyword.get(opts, :signature, generate_signature())
-    text_content = Keyword.get(opts, :text)
+    thinking_block_opts =
+      maybe_put([thinking: Keyword.fetch!(opts, :thinking)], :signature, Keyword.get(opts, :signature))
 
-    thinking_block = %Content.ThinkingBlock{
-      type: :thinking,
-      thinking: thinking_text,
-      signature: signature
-    }
+    thinking_block = Factory.thinking_block(thinking_block_opts)
+
+    text_content = Keyword.get(opts, :text)
 
     content =
       if text_content do
-        [thinking_block, %Content.TextBlock{type: :text, text: text_content}]
+        [thinking_block, Factory.text_block(text: text_content)]
       else
         [thinking_block]
       end
 
-    %AssistantMessage{
-      type: :assistant,
-      session_id: Keyword.get(opts, :session_id, generate_session_id()),
-      uuid: nil,
-      parent_tool_use_id: nil,
-      message: %{
-        id: Keyword.get(opts, :message_id, generate_message_id()),
-        type: :message,
-        role: :assistant,
-        model: Keyword.get(opts, :model, "claude-sonnet-4-20250514"),
-        content: content,
-        stop_reason: nil,
-        stop_sequence: nil,
-        usage: default_usage()
-      }
-    }
+    message_opts =
+      opts
+      |> Keyword.take([:message_id, :model])
+      |> Keyword.put(:content, content)
+      |> rename_key(:message_id, :id)
+
+    assistant_opts =
+      opts
+      |> Keyword.take([:session_id])
+      |> Keyword.put(:message, Map.new(message_opts))
+
+    Factory.assistant_message(assistant_opts)
   end
 
   @doc """
@@ -439,23 +416,9 @@ defmodule ClaudeCode.Test do
     is_error = Keyword.get(opts, :is_error, false)
     default_subtype = if is_error, do: :error_during_execution, else: :success
 
-    %ResultMessage{
-      type: :result,
-      subtype: Keyword.get(opts, :subtype, default_subtype),
-      is_error: is_error,
-      duration_ms: Keyword.get(opts, :duration_ms, 100),
-      duration_api_ms: Keyword.get(opts, :duration_api_ms, 80),
-      num_turns: Keyword.get(opts, :num_turns, 1),
-      result: Keyword.get(opts, :result, "Done"),
-      session_id: Keyword.get(opts, :session_id, generate_session_id()),
-      total_cost_usd: Keyword.get(opts, :total_cost_usd, 0.001),
-      usage: Keyword.get(opts, :usage, %{}),
-      uuid: nil,
-      model_usage: nil,
-      permission_denials: nil,
-      structured_output: nil,
-      errors: nil
-    }
+    opts
+    |> Keyword.put_new(:subtype, default_subtype)
+    |> Factory.result_message()
   end
 
   @doc """
@@ -475,20 +438,7 @@ defmodule ClaudeCode.Test do
   """
   @spec system(keyword()) :: SystemMessage.t()
   def system(opts \\ []) do
-    %SystemMessage{
-      type: :system,
-      subtype: :init,
-      uuid: generate_uuid(),
-      model: Keyword.get(opts, :model, "claude-sonnet-4-20250514"),
-      session_id: Keyword.get(opts, :session_id, generate_session_id()),
-      cwd: Keyword.get(opts, :cwd, "/test"),
-      tools: Keyword.get(opts, :tools, []),
-      mcp_servers: Keyword.get(opts, :mcp_servers, []),
-      permission_mode: Keyword.get(opts, :permission_mode, "auto"),
-      api_key_source: Keyword.get(opts, :api_key_source, "ANTHROPIC_API_KEY"),
-      slash_commands: Keyword.get(opts, :slash_commands, []),
-      output_style: Keyword.get(opts, :output_style, "default")
-    }
+    Factory.system_message(opts)
   end
 
   # ============================================================================
@@ -496,7 +446,7 @@ defmodule ClaudeCode.Test do
   # ============================================================================
 
   defp build_stream(messages, opts) do
-    session_id = Keyword.get(opts, :session_id, generate_session_id())
+    session_id = Keyword.get_lazy(opts, :session_id, &Factory.generate_session_id/0)
 
     messages
     |> ensure_system_message(session_id)
@@ -523,7 +473,7 @@ defmodule ClaudeCode.Test do
           content
           |> Enum.reverse()
           |> Enum.find_value(fn
-            %Content.TextBlock{text: t} -> t
+            %TextBlock{text: t} -> t
             _ -> nil
           end)
 
@@ -543,13 +493,13 @@ defmodule ClaudeCode.Test do
             # Extract tool_use ID if present
             tool_id =
               Enum.find_value(content, fn
-                %Content.ToolUseBlock{id: id} -> id
+                %ToolUseBlock{id: id} -> id
                 _ -> nil
               end)
 
             {msg, tool_id || last_tool_id}
 
-          %UserMessage{message: %{content: [%Content.ToolResultBlock{tool_use_id: id} = block | rest]}}
+          %UserMessage{message: %{content: [%ToolResultBlock{tool_use_id: id} = block | rest]}}
           when is_nil(id) or id == "" ->
             # Link to last tool_use ID
             if last_tool_id do
@@ -576,22 +526,16 @@ defmodule ClaudeCode.Test do
   end
 
   # ============================================================================
-  # ID Generators
+  # Helpers
   # ============================================================================
 
-  defp generate_session_id, do: "test-#{:rand.uniform(999_999)}"
-  defp generate_message_id, do: "msg_test_#{:rand.uniform(999_999)}"
-  defp generate_tool_id, do: "toolu_test_#{:rand.uniform(999_999)}"
-  defp generate_signature, do: "sig_test_#{:rand.uniform(999_999)}"
-  defp generate_uuid, do: "#{:rand.uniform(999_999)}-#{:rand.uniform(999_999)}"
-
-  defp default_usage do
-    %{
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_input_tokens: nil,
-      cache_read_input_tokens: nil,
-      server_tool_use: nil
-    }
+  defp rename_key(keywords, old_key, new_key) do
+    case Keyword.pop(keywords, old_key) do
+      {nil, keywords} -> keywords
+      {value, keywords} -> Keyword.put(keywords, new_key, value)
+    end
   end
+
+  defp maybe_put(keywords, _key, nil), do: keywords
+  defp maybe_put(keywords, key, value), do: Keyword.put(keywords, key, value)
 end

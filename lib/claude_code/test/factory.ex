@@ -520,11 +520,34 @@ defmodule ClaudeCode.Test.Factory do
   defp to_map(attrs) when is_list(attrs), do: Map.new(attrs)
   defp to_map(attrs) when is_map(attrs), do: attrs
 
-  defp unique_id, do: :rand.uniform(999_999)
-  defp session_id, do: "test-#{unique_id()}"
-  defp uuid, do: "#{unique_id()}-#{unique_id()}-#{unique_id()}"
+  # ============================================================================
+  # ID Generators (public for use by ClaudeCode.Test)
+  # ============================================================================
 
-  defp default_usage do
+  @doc "Generates a unique numeric ID"
+  def unique_id, do: :rand.uniform(999_999)
+
+  @doc "Generates a test session ID"
+  def generate_session_id, do: "test-#{unique_id()}"
+
+  @doc "Generates a test message ID"
+  def generate_message_id, do: "msg_test_#{unique_id()}"
+
+  @doc "Generates a test tool ID"
+  def generate_tool_id, do: "toolu_test_#{unique_id()}"
+
+  @doc "Generates a test signature"
+  def generate_signature, do: "sig_test_#{unique_id()}"
+
+  @doc "Generates a test UUID"
+  def generate_uuid, do: "#{unique_id()}-#{unique_id()}-#{unique_id()}"
+
+  # Internal aliases for backward compatibility within this module
+  defp session_id, do: generate_session_id()
+  defp uuid, do: generate_uuid()
+
+  @doc "Returns default usage map for messages"
+  def default_usage do
     %{
       input_tokens: 0,
       output_tokens: 0,
