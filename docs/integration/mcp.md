@@ -132,7 +132,11 @@ The simplest way to connect MCP servers is with the `mcp_servers` option. Pass a
 )
 
 # Claude can now use your tools!
-{:ok, response} = ClaudeCode.query(session, "Calculate 15 * 7")
+response =
+  session
+  |> ClaudeCode.stream("Calculate 15 * 7")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 # Claude invokes your calculator tool and returns the result
 ```
 
@@ -198,12 +202,13 @@ You can also specify or override MCP servers at query time:
 )
 
 # Add additional server for specific query
-ClaudeCode.query(session, "Test the login page",
-  mcp_servers: %{
-    "myapp-tools" => MyApp.MCPServer,
-    "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
-  }
-)
+session
+|> ClaudeCode.stream("Test the login page",
+     mcp_servers: %{
+       "myapp-tools" => MyApp.MCPServer,
+       "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
+     })
+|> Stream.run()
 ```
 
 ## Production Supervision

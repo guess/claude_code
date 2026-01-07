@@ -30,6 +30,7 @@ Key CLI flags we use:
 - `--permission-mode`: Controls permission handling (default, acceptEdits, bypassPermissions)
 - `--timeout`: Query timeout in milliseconds
 - `--resume`: Resume a previous session by ID
+- `--fork-session`: When resuming, create a new session ID instead of reusing the original
 
 ### 2. Message Flow
 
@@ -98,14 +99,15 @@ defmodule ClaudeCode.CLI do
 end
 ```
 
-#### Message Parser (`ClaudeCode.Parser`)
+#### Message Parser (`ClaudeCode.Message`)
 ```elixir
-defmodule ClaudeCode.Parser do
+defmodule ClaudeCode.Message do
   # Parses JSON lines into message structs:
+  # - SystemMessage
   # - AssistantMessage
-  # - ToolUseMessage
+  # - UserMessage
   # - ResultMessage
-  # - etc.
+  # - StreamEventMessage
 end
 ```
 
@@ -124,7 +126,7 @@ final_options = Options.resolve_final_options(session_opts, query_opts)
 
 1. **Query-level options** (highest precedence)
    ```elixir
-   ClaudeCode.query(session, "prompt", system_prompt: "Override for this query")
+   ClaudeCode.stream(session, "prompt", system_prompt: "Override for this query")
    ```
 
 2. **Session-level options**
@@ -350,22 +352,32 @@ The SDK automatically maintains conversation context across queries within a ses
 {:ok, session} = ClaudeCode.start_link(api_key: key)
 
 # First query establishes conversation context
-{:ok, response1} = ClaudeCode.query(session, "Hello, my name is Alice")
+session
+|> ClaudeCode.stream("Hello, my name is Alice")
+|> Stream.run()
 
 # Subsequent queries automatically continue the conversation using stored session_id
-{:ok, response2} = ClaudeCode.query(session, "What's my name?")
+session
+|> ClaudeCode.stream("What's my name?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.join()
+# => "Your name is Alice!"
 
 # Check current session ID
 session_id = ClaudeCode.get_session_id(session)
 
 # Clear session to start fresh conversation
 :ok = ClaudeCode.clear(session)
+
+# Fork a session to branch the conversation
+{:ok, forked} = ClaudeCode.start_link(resume: session_id, fork_session: true)
 ```
 
 **How it works:**
 - Session IDs are captured from CLI responses and stored in the GenServer state
 - The `--resume` flag is automatically added to subsequent queries
 - Sessions maintain conversation history until explicitly cleared
+- Use `fork_session: true` with `resume:` to create a branch with a new session ID
 
 ## Permissions
 

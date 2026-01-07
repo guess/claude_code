@@ -260,9 +260,12 @@ Supported CLI versions: 0.8.0+
 
 3. **Use fresh sessions for unrelated queries:**
    ```elixir
-   # For isolated queries
-   {:ok, temp_session} = ClaudeCode.start_link(api_key: "...")
-   result = ClaudeCode.query(temp_session, prompt)
+   # For isolated queries, use the one-off query/2
+   {:ok, result} = ClaudeCode.query(prompt)
+
+   # Or manually manage a session
+   {:ok, temp_session} = ClaudeCode.start_link()
+   temp_session |> ClaudeCode.stream(prompt) |> Stream.run()
    ClaudeCode.stop(temp_session)
    ```
 
@@ -274,11 +277,11 @@ Supported CLI versions: 0.8.0+
 
 **Debugging:**
 
-1. **Test with synchronous query first:**
+1. **Test with one-off query first:**
    ```elixir
-   case ClaudeCode.query(session, prompt) do
-     {:ok, response} -> IO.puts("Sync works: #{response}")
-     error -> IO.puts("Sync error: #{inspect(error)}")
+   case ClaudeCode.query(prompt) do
+     {:ok, response} -> IO.puts("One-off works: #{response}")
+     error -> IO.puts("One-off error: #{inspect(error)}")
    end
    ```
 
@@ -417,12 +420,18 @@ Supported CLI versions: 0.8.0+
 1. **Implement backoff:**
    ```elixir
    defp query_with_backoff(session, prompt, retries \\ 3) do
-     case ClaudeCode.query(session, prompt) do
-       {:ok, response} -> {:ok, response}
-       {:error, {:claude_error, "Rate limit" <> _}} when retries > 0 ->
+     try do
+       result =
+         session
+         |> ClaudeCode.stream(prompt)
+         |> ClaudeCode.Stream.text_content()
+         |> Enum.join()
+       {:ok, result}
+     rescue
+       e when retries > 0 ->
          :timer.sleep(2000)  # Wait 2 seconds
          query_with_backoff(session, prompt, retries - 1)
-       error -> error
+       e -> {:error, e}
      end
    end
    ```
@@ -536,7 +545,11 @@ end
 )
 
 # The failing operation
-result = ClaudeCode.query(session, "Hello")
+result =
+  session
+  |> ClaudeCode.stream("Hello")
+  |> Enum.to_list()
+
 IO.inspect(result, label: "Result")
 
 ClaudeCode.stop(session)

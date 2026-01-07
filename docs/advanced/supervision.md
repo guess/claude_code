@@ -35,21 +35,31 @@ Use from anywhere:
 ```elixir
 # Controller
 def chat(conn, %{"message" => message}) do
-  case ClaudeCode.query(:general_assistant, message) do
-    {:ok, response} -> json(conn, %{response: response})
-    {:error, _} -> conn |> put_status(500) |> json(%{error: "AI unavailable"})
-  end
+  response =
+    :general_assistant
+    |> ClaudeCode.stream(message)
+    |> ClaudeCode.Stream.text_content()
+    |> Enum.join()
+
+  json(conn, %{response: response})
 end
 
 # GenServer
 def handle_call({:review, code}, _from, state) do
-  result = ClaudeCode.query(:code_reviewer, "Review: #{code}")
-  {:reply, result, state}
+  result =
+    :code_reviewer
+    |> ClaudeCode.stream("Review: #{code}")
+    |> ClaudeCode.Stream.text_content()
+    |> Enum.join()
+
+  {:reply, {:ok, result}, state}
 end
 
 # Task
 Task.async(fn ->
-  ClaudeCode.query(:general_assistant, "Analyze: #{data}")
+  :general_assistant
+  |> ClaudeCode.stream("Analyze: #{data}")
+  |> Stream.run()
 end)
 ```
 
@@ -87,7 +97,7 @@ def create_user_session(user_id) do
 end
 
 # Query user session
-ClaudeCode.query({:user, user_id}, message)
+{:user, user_id} |> ClaudeCode.stream(message) |> Stream.run()
 
 # Clean up
 def cleanup_user_session(user_id) do
@@ -109,7 +119,7 @@ children = [
 
 # Access via registry
 session = {:via, Registry, {MyApp.SessionRegistry, :primary}}
-ClaudeCode.query(session, "Hello")
+session |> ClaudeCode.stream("Hello") |> Stream.run()
 ```
 
 ## Fault Tolerance
@@ -119,9 +129,9 @@ ClaudeCode.query(session, "Hello")
 Sessions restart transparently after crashes:
 
 ```elixir
-{:ok, response} = ClaudeCode.query(:assistant, "Complex task")
+:assistant |> ClaudeCode.stream("Complex task") |> Stream.run()
 # Even if :assistant crashes, it restarts automatically
-{:ok, response2} = ClaudeCode.query(:assistant, "Another task")
+:assistant |> ClaudeCode.stream("Another task") |> Stream.run()
 ```
 
 Note: Conversation history is lost on restart.
@@ -133,13 +143,17 @@ One session crash doesn't affect others:
 ```elixir
 # If :code_reviewer crashes, :test_writer continues working
 try do
-  ClaudeCode.query(:code_reviewer, bad_input)
+  :code_reviewer |> ClaudeCode.stream(bad_input) |> Stream.run()
 catch
   :error, _ -> :crashed
 end
 
 # Still works
-{:ok, tests} = ClaudeCode.query(:test_writer, "Write tests")
+tests =
+  :test_writer
+  |> ClaudeCode.stream("Write tests")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 ```
 
 ### Management API
@@ -193,9 +207,16 @@ end
 def chat(conn, %{"message" => message}) do
   session = {:via, Registry, {MyApp.AIRegistry, :support}}
 
-  case ClaudeCode.query(session, message) do
-    {:ok, response} -> json(conn, %{response: response})
-    {:error, _} -> conn |> put_status(500) |> json(%{error: "Unavailable"})
+  try do
+    response =
+      session
+      |> ClaudeCode.stream(message)
+      |> ClaudeCode.Stream.text_content()
+      |> Enum.join()
+
+    json(conn, %{response: response})
+  rescue
+    _ -> conn |> put_status(500) |> json(%{error: "Unavailable"})
   end
 end
 ```
@@ -214,9 +235,14 @@ defmodule MyApp.HealthCheck do
   end
 
   def test_connectivity do
-    case ClaudeCode.query(:assistant, "ping", timeout: 10_000) do
-      {:ok, _} -> :healthy
-      {:error, reason} -> {:unhealthy, reason}
+    try do
+      :assistant
+      |> ClaudeCode.stream("ping", timeout: 10_000)
+      |> Stream.run()
+
+      :healthy
+    rescue
+      e -> {:unhealthy, e}
     end
   end
 end

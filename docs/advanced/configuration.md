@@ -19,7 +19,7 @@ config :claude_code, timeout: 300_000
 {:ok, session} = ClaudeCode.start_link(timeout: 120_000)
 
 # Query-level overrides session
-ClaudeCode.query(session, "Hello", timeout: 60_000)
+ClaudeCode.stream(session, "Hello", timeout: 60_000)
 ```
 
 ## Session Options
@@ -67,6 +67,7 @@ All options for `ClaudeCode.start_link/1`:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `resume` | string | - | Session ID to resume |
+| `fork_session` | boolean | false | Create new session ID when resuming |
 | `mcp_config` | string | - | Path to MCP config file |
 | `strict_mcp_config` | boolean | false | Only use MCP servers from explicit config |
 | `agents` | map | - | Custom agent configurations |
@@ -78,7 +79,7 @@ All options for `ClaudeCode.start_link/1`:
 
 ## Query Options
 
-Options that can be passed to `query/3` or `stream/3`:
+Options that can be passed to `stream/3`:
 
 | Option | Type | Description |
 |--------|------|-------------|
@@ -162,9 +163,9 @@ Available models: `"sonnet"`, `"opus"`, `"haiku"`, or full model IDs.
 
 ```elixir
 # Limit spending per query
-ClaudeCode.query(session, "Complex analysis task",
-  max_budget_usd: 5.00
-)
+session
+|> ClaudeCode.stream("Complex analysis task", max_budget_usd: 5.00)
+|> Stream.run()
 
 # Set a session-wide budget limit
 {:ok, session} = ClaudeCode.start_link(
@@ -187,9 +188,11 @@ schema = %{
   "required" => ["name", "age"]
 }
 
-ClaudeCode.query(session, "Extract person info from: John is 30 and knows Elixir",
-  json_schema: schema
-)
+session
+|> ClaudeCode.stream("Extract person info from: John is 30 and knows Elixir",
+     json_schema: schema)
+|> ClaudeCode.Stream.text_content()
+|> Enum.join()
 ```
 
 ## Tool Configuration

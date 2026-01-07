@@ -87,7 +87,11 @@ Restrict which directories Claude can access:
   add_dir: ["/app/src"]  # Only access source directory
 )
 
-{:ok, review} = ClaudeCode.query(session, "Review the code for security issues")
+review =
+  session
+  |> ClaudeCode.stream("Review the code for security issues")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 ```
 
 ## Next Steps

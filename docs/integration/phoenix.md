@@ -88,14 +88,19 @@ defmodule MyAppWeb.ClaudeController do
   use MyAppWeb, :controller
 
   def ask(conn, %{"prompt" => prompt}) do
-    case ClaudeCode.query(:assistant, prompt) do
-      {:ok, response} ->
-        json(conn, %{response: response})
+    try do
+      response =
+        :assistant
+        |> ClaudeCode.stream(prompt)
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
 
-      {:error, reason} ->
+      json(conn, %{response: response})
+    rescue
+      e ->
         conn
         |> put_status(:service_unavailable)
-        |> json(%{error: inspect(reason)})
+        |> json(%{error: inspect(e)})
     end
   end
 end
@@ -167,7 +172,11 @@ defmodule MyApp.Claude do
 
   def ask(prompt, opts \\ []) do
     session = Keyword.get(opts, :session, :assistant)
-    ClaudeCode.query(session, prompt)
+
+    session
+    |> ClaudeCode.stream(prompt)
+    |> ClaudeCode.Stream.text_content()
+    |> Enum.join()
   end
 
   def stream(prompt, opts \\ []) do
@@ -181,10 +190,8 @@ defmodule MyApp.Claude do
 end
 
 # Usage in controller/LiveView
-case MyApp.Claude.ask("Hello!") do
-  {:ok, response} -> # handle
-  {:error, _} -> # handle
-end
+response = MyApp.Claude.ask("Hello!")
+# => "Hello! How can I help you today?"
 ```
 
 ## Error Handling

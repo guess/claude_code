@@ -112,11 +112,16 @@ defmodule FileAnalyzer do
   defp analyze_file(sessions, file_path) do
     session = Enum.at(sessions, :erlang.phash2(file_path, length(sessions)))
 
-    case ClaudeCode.query(session, "Analyze: #{file_path}") do
-      {:ok, analysis} ->
-        %{file: file_path, analysis: analysis, analyzed_at: DateTime.utc_now()}
-      {:error, reason} ->
-        %{file: file_path, error: reason, analyzed_at: DateTime.utc_now()}
+    try do
+      analysis =
+        session
+        |> ClaudeCode.stream("Analyze: #{file_path}")
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
+
+      %{file: file_path, analysis: analysis, analyzed_at: DateTime.utc_now()}
+    rescue
+      e -> %{file: file_path, error: e, analyzed_at: DateTime.utc_now()}
     end
   end
 end
@@ -142,13 +147,16 @@ defmodule DependencyAnalyzer do
     Check for security vulnerabilities, outdated versions, and conflicts.
     """
 
-    case ClaudeCode.query(session, prompt) do
-      {:ok, analysis} ->
-        ClaudeCode.stop(session)
-        {:ok, analysis}
-      error ->
-        ClaudeCode.stop(session)
-        error
+    try do
+      analysis =
+        session
+        |> ClaudeCode.stream(prompt)
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
+
+      {:ok, analysis}
+    after
+      ClaudeCode.stop(session)
     end
   end
 end
@@ -197,22 +205,22 @@ defmodule ResilientQuery do
   end
 
   defp do_query(session, prompt, opts, max_retries, base_delay, attempt) do
-    case ClaudeCode.query(session, prompt, opts) do
-      {:ok, response} ->
-        {:ok, response}
+    try do
+      result =
+        session
+        |> ClaudeCode.stream(prompt, opts)
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
 
-      {:error, :timeout} when attempt < max_retries ->
+      {:ok, result}
+    rescue
+      e when attempt < max_retries ->
         delay = base_delay * :math.pow(2, attempt)
         :timer.sleep(round(delay))
         do_query(session, prompt, opts, max_retries, base_delay, attempt + 1)
 
-      {:error, {:cli_exit, _}} when attempt < max_retries ->
-        delay = base_delay * :math.pow(2, attempt)
-        :timer.sleep(round(delay))
-        do_query(session, prompt, opts, max_retries, base_delay, attempt + 1)
-
-      error ->
-        {:error, {error, attempts: attempt + 1}}
+      e ->
+        {:error, {e, attempts: attempt + 1}}
     end
   end
 end
@@ -242,11 +250,16 @@ defmodule ClaudeCircuitBreaker do
   end
 
   def handle_call({:query, prompt}, _from, %{session: session} = state) do
-    case ClaudeCode.query(session, prompt) do
-      {:ok, response} ->
-        {:reply, {:ok, response}, %{state | failures: 0, state: :closed}}
+    try do
+      response =
+        session
+        |> ClaudeCode.stream(prompt)
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
 
-      {:error, _} = error ->
+      {:reply, {:ok, response}, %{state | failures: 0, state: :closed}}
+    rescue
+      e ->
         new_failures = state.failures + 1
         new_state = if new_failures >= 3, do: :open, else: :closed
 
@@ -268,20 +281,37 @@ end
 
 ```elixir
 defmodule ClaudeMetrics do
-  def query_with_metrics(session, prompt, opts \\ []) do
+  def stream_with_metrics(session, prompt, opts \\ []) do
     start_time = System.monotonic_time(:millisecond)
 
-    result = ClaudeCode.query(session, prompt, opts)
+    try do
+      result =
+        session
+        |> ClaudeCode.stream(prompt, opts)
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
 
-    duration = System.monotonic_time(:millisecond) - start_time
+      duration = System.monotonic_time(:millisecond) - start_time
 
-    :telemetry.execute(
-      [:claude_code, :query],
-      %{duration_ms: duration},
-      %{success: match?({:ok, _}, result)}
-    )
+      :telemetry.execute(
+        [:claude_code, :query],
+        %{duration_ms: duration},
+        %{success: true}
+      )
 
-    result
+      {:ok, result}
+    rescue
+      e ->
+        duration = System.monotonic_time(:millisecond) - start_time
+
+        :telemetry.execute(
+          [:claude_code, :query],
+          %{duration_ms: duration},
+          %{success: false}
+        )
+
+        {:error, e}
+    end
   end
 end
 

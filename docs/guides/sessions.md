@@ -27,9 +27,14 @@ Sessions automatically maintain conversation context:
 {:ok, session} = ClaudeCode.start_link()
 
 # Claude remembers each exchange
-{:ok, _} = ClaudeCode.query(session, "My name is Alice")
-{:ok, _} = ClaudeCode.query(session, "I'm learning Elixir")
-{:ok, response} = ClaudeCode.query(session, "What's my name and what am I learning?")
+session |> ClaudeCode.stream("My name is Alice") |> Stream.run()
+session |> ClaudeCode.stream("I'm learning Elixir") |> Stream.run()
+
+response =
+  session
+  |> ClaudeCode.stream("What's my name and what am I learning?")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 # => "Your name is Alice and you're learning Elixir!"
 
 ClaudeCode.stop(session)
@@ -65,13 +70,18 @@ Save and resume conversations across process restarts:
 ```elixir
 # Get the session ID after a conversation
 {:ok, session} = ClaudeCode.start_link()
-{:ok, _} = ClaudeCode.query(session, "Remember: the secret code is 12345")
+session |> ClaudeCode.stream("Remember: the secret code is 12345") |> Stream.run()
 session_id = ClaudeCode.get_session_id(session)
 ClaudeCode.stop(session)
 
 # Later: resume with the same context
 {:ok, session} = ClaudeCode.start_link(resume: session_id)
-{:ok, response} = ClaudeCode.query(session, "What was the secret code?")
+
+response =
+  session
+  |> ClaudeCode.stream("What was the secret code?")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 # => "The secret code is 12345"
 ```
 
@@ -133,7 +143,7 @@ Use atoms for easy access across your application:
 {:ok, _} = ClaudeCode.start_link(name: :assistant)
 
 # Use from anywhere
-ClaudeCode.query(:assistant, "Hello!")
+:assistant |> ClaudeCode.stream("Hello!") |> Stream.run()
 ```
 
 ## Session Lifecycle
@@ -178,10 +188,13 @@ defmodule ChatAgent do
   end
 
   def handle_call({:chat, message}, _from, %{session: session} = state) do
-    case ClaudeCode.query(session, message) do
-      {:ok, response} -> {:reply, {:ok, response}, state}
-      {:error, reason} -> {:reply, {:error, reason}, state}
-    end
+    result =
+      session
+      |> ClaudeCode.stream(message)
+      |> ClaudeCode.Stream.text_content()
+      |> Enum.join()
+
+    {:reply, {:ok, result}, state}
   end
 
   def terminate(_reason, %{session: session}) do
@@ -220,7 +233,7 @@ children = [
 ]
 
 # Sessions restart automatically on crashes
-ClaudeCode.query(:assistant, "Hello!")
+:assistant |> ClaudeCode.stream("Hello!") |> Stream.run()
 ```
 
 See [Supervision Guide](../advanced/supervision.md) for full production patterns.

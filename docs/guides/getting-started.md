@@ -85,7 +85,12 @@ iex -S mix
 {:ok, session} = ClaudeCode.start_link()
 
 # Send your first query
-{:ok, response} = ClaudeCode.query(session, "Hello! What's 2 + 2?")
+response =
+  session
+  |> ClaudeCode.stream("Hello! What's 2 + 2?")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
+
 IO.puts(response)
 # => "Hello! 2 + 2 equals 4."
 
@@ -119,9 +124,11 @@ Claude can read and analyze files in your project:
   allowed_tools: ["View", "Edit"]
 )
 
-{:ok, response} = ClaudeCode.query(session,
-  "Can you look at my mix.exs file and suggest any improvements?"
-)
+response =
+  session
+  |> ClaudeCode.stream("Can you look at my mix.exs file and suggest any improvements?")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 
 IO.puts(response)
 ClaudeCode.stop(session)
@@ -135,10 +142,15 @@ ClaudeCode automatically maintains conversation context:
 {:ok, session} = ClaudeCode.start_link()
 
 # First message
-{:ok, _} = ClaudeCode.query(session, "My name is Alice and I'm learning Elixir")
+session |> ClaudeCode.stream("My name is Alice and I'm learning Elixir") |> Stream.run()
 
 # Follow-up message - Claude remembers the context
-{:ok, response} = ClaudeCode.query(session, "What's my name and what am I learning?")
+response =
+  session
+  |> ClaudeCode.stream("What's my name and what am I learning?")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
+
 IO.puts(response)
 # => "Your name is Alice and you're learning Elixir!"
 
@@ -154,15 +166,19 @@ Always handle potential errors:
 ```elixir
 case ClaudeCode.start_link() do
   {:ok, session} ->
-    case ClaudeCode.query(session, "Hello!") do
-      {:ok, response} ->
-        IO.puts("Claude says: #{response}")
-      {:error, :timeout} ->
-        IO.puts("Request timed out")
-      {:error, reason} ->
-        IO.puts("Error: #{inspect(reason)}")
+    try do
+      response =
+        session
+        |> ClaudeCode.stream("Hello!")
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.join()
+
+      IO.puts("Claude says: #{response}")
+    rescue
+      e -> IO.puts("Error: #{inspect(e)}")
+    after
+      ClaudeCode.stop(session)
     end
-    ClaudeCode.stop(session)
 
   {:error, reason} ->
     IO.puts("Failed to start session: #{inspect(reason)}")

@@ -1,29 +1,33 @@
 # Streaming Guide
 
-ClaudeCode offers two ways to get responses: synchronous queries and streaming. This guide covers when and how to use each.
+ClaudeCode offers two ways to get responses: one-off queries and session-based streaming. This guide covers when and how to use each.
 
-## Synchronous vs Streaming
+## One-off vs Session-based
 
-**Synchronous** - Wait for the complete response:
+**One-off** - Single query with automatic session management:
 ```elixir
-{:ok, response} = ClaudeCode.query(session, "Explain GenServers")
+{:ok, response} = ClaudeCode.query("Explain GenServers")
 IO.puts(response)  # Full response at once
 ```
 
-**Streaming** - Process response as it arrives:
+**Session-based Streaming** - Multi-turn with real-time responses:
 ```elixir
+{:ok, session} = ClaudeCode.start_link()
+
 session
 |> ClaudeCode.stream("Explain GenServers")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)  # Prints incrementally
+
+ClaudeCode.stop(session)
 ```
 
 | Use Case | Recommended |
 |----------|-------------|
-| Simple queries, scripts | Synchronous |
-| Chat interfaces, LiveView | Streaming |
-| Long responses | Streaming |
-| Batch processing | Synchronous |
+| Simple queries, scripts | One-off (`query/2`) |
+| Chat interfaces, LiveView | Session + `stream/3` |
+| Multi-turn conversations | Session + `stream/3` |
+| Batch processing | One-off (`query/2`) |
 
 ## Stream Utilities
 
