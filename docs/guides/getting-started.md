@@ -77,26 +77,19 @@ config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 
 ## Your First Query
 
+The simplest way to query Claude is with `query/2`:
+
 ```elixir
 # Start an interactive Elixir session
 iex -S mix
 
-# Start a ClaudeCode session
-{:ok, session} = ClaudeCode.start_link()
-
-# Send your first query
-response =
-  session
-  |> ClaudeCode.stream("Hello! What's 2 + 2?")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
-
+# Send a one-off query
+{:ok, response} = ClaudeCode.query("Hello! What's 2 + 2?")
 IO.puts(response)
 # => "Hello! 2 + 2 equals 4."
-
-# Stop the session when done
-ClaudeCode.stop(session)
 ```
+
+That's it! No session management needed for simple queries.
 
 ## Streaming Responses
 
