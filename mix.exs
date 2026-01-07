@@ -109,6 +109,8 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/streaming.md",
         "docs/guides/sessions.md",
         "docs/guides/permissions.md",
+        # Testing
+        "docs/guides/testing.md",
         # Integration
         "docs/integration/phoenix.md",
         "docs/integration/mcp.md",
@@ -131,6 +133,9 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/streaming.md",
           "docs/guides/sessions.md",
           "docs/guides/permissions.md"
+        ],
+        Testing: [
+          "docs/guides/testing.md"
         ],
         Integration: [
           "docs/integration/phoenix.md",
