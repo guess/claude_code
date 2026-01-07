@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-01-07
+
 ### Changed
 - **Renamed `StreamEventMessage` to `PartialAssistantMessage`** - Aligns with TypeScript SDK naming (`SDKPartialAssistantMessage`)
   - `ClaudeCode.Message.StreamEventMessage` → `ClaudeCode.Message.PartialAssistantMessage`
@@ -14,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Helper function renamed: `stream_event?/1` → `partial_assistant_message?/1`
 
 ### Added
-- **`:fork_session` option** - Create a new session ID when resuming a conversation ([006a659])
+- **`:fork_session` option** - Create a new session ID when resuming a conversation
   - Use with `:resume` to branch a conversation: `start_link(resume: session_id, fork_session: true)`
   - Original session continues unchanged, fork gets its own session ID after first query
 
