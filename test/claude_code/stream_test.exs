@@ -161,6 +161,149 @@ defmodule ClaudeCode.StreamTest do
     end
   end
 
+  describe "tool_results_by_name/2" do
+    test "extracts tool results matching tool name" do
+      tool_id = "tool_123"
+
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              text_content("I'll read the file"),
+              tool_use_content("Read", %{path: "/tmp/test.txt"}, tool_id)
+            ]
+          }
+        ),
+        user_message(
+          message: %{
+            content: [tool_result_content("file contents here", tool_id)]
+          }
+        )
+      ]
+
+      results = messages |> Stream.tool_results_by_name("Read") |> Enum.to_list()
+
+      assert length(results) == 1
+      assert hd(results).content == "file contents here"
+      assert hd(results).tool_use_id == tool_id
+    end
+
+    test "filters out results from other tools" do
+      read_id = "tool_read_123"
+      bash_id = "tool_bash_456"
+
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Read", %{path: "/tmp/test.txt"}, read_id),
+              tool_use_content("Bash", %{command: "ls"}, bash_id)
+            ]
+          }
+        ),
+        user_message(
+          message: %{
+            content: [
+              tool_result_content("file contents", read_id),
+              tool_result_content("file1.txt\nfile2.txt", bash_id)
+            ]
+          }
+        )
+      ]
+
+      read_results = messages |> Stream.tool_results_by_name("Read") |> Enum.to_list()
+      assert length(read_results) == 1
+      assert hd(read_results).content == "file contents"
+
+      bash_results = messages |> Stream.tool_results_by_name("Bash") |> Enum.to_list()
+      assert length(bash_results) == 1
+      assert hd(bash_results).content == "file1.txt\nfile2.txt"
+    end
+
+    test "handles multiple tool uses of same type" do
+      id1 = "tool_read_1"
+      id2 = "tool_read_2"
+
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Read", %{path: "/tmp/file1.txt"}, id1)
+            ]
+          }
+        ),
+        user_message(
+          message: %{
+            content: [tool_result_content("contents of file 1", id1)]
+          }
+        ),
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Read", %{path: "/tmp/file2.txt"}, id2)
+            ]
+          }
+        ),
+        user_message(
+          message: %{
+            content: [tool_result_content("contents of file 2", id2)]
+          }
+        )
+      ]
+
+      results = messages |> Stream.tool_results_by_name("Read") |> Enum.to_list()
+
+      assert length(results) == 2
+      assert Enum.at(results, 0).content == "contents of file 1"
+      assert Enum.at(results, 1).content == "contents of file 2"
+    end
+
+    test "returns empty when no matching tool uses exist" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Bash", %{command: "ls"}, "tool_123")
+            ]
+          }
+        ),
+        user_message(
+          message: %{
+            content: [tool_result_content("file1.txt", "tool_123")]
+          }
+        )
+      ]
+
+      results = messages |> Stream.tool_results_by_name("Read") |> Enum.to_list()
+      assert results == []
+    end
+
+    test "handles stream with no tool uses" do
+      messages = [
+        system_message(),
+        assistant_message(message: %{content: [text_content("Just text")]}),
+        result_message()
+      ]
+
+      results = messages |> Stream.tool_results_by_name("Read") |> Enum.to_list()
+      assert results == []
+    end
+
+    test "ignores tool results without matching tool use" do
+      # This simulates a malformed stream where result appears without prior tool use
+      messages = [
+        user_message(
+          message: %{
+            content: [tool_result_content("orphan result", "unknown_id")]
+          }
+        )
+      ]
+
+      results = messages |> Stream.tool_results_by_name("Read") |> Enum.to_list()
+      assert results == []
+    end
+  end
+
   describe "filter_type/2" do
     test "filters by message type" do
       messages = [
@@ -502,6 +645,294 @@ defmodule ClaudeCode.StreamTest do
 
       text_chunks = sequence |> Stream.text_deltas() |> Enum.to_list()
       assert text_chunks == ["Hello", " ", "World!"]
+    end
+  end
+
+  describe "final_text/1" do
+    test "returns result text from stream" do
+      messages = [
+        system_message(),
+        assistant_message(message: %{content: [text_content("Thinking...")]}),
+        result_message(%{result: "The final answer is 42."})
+      ]
+
+      assert Stream.final_text(messages) == "The final answer is 42."
+    end
+
+    test "returns nil when no result message" do
+      messages = [
+        system_message(),
+        assistant_message(message: %{content: [text_content("Hello")]})
+      ]
+
+      assert Stream.final_text(messages) == nil
+    end
+
+    test "returns first result when multiple exist" do
+      messages = [
+        result_message(%{result: "First result"}),
+        result_message(%{result: "Second result"})
+      ]
+
+      assert Stream.final_text(messages) == "First result"
+    end
+
+    test "handles empty stream" do
+      assert Stream.final_text([]) == nil
+    end
+  end
+
+  describe "collect/1" do
+    test "collects all content from stream" do
+      messages = [
+        system_message(),
+        assistant_message(
+          message: %{
+            content: [
+              text_content("Hello "),
+              text_content("world!")
+            ]
+          }
+        ),
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Write", %{path: "test.txt"}, "tool_1")
+            ]
+          }
+        ),
+        result_message(%{result: "Operation complete."})
+      ]
+
+      summary = Stream.collect(messages)
+
+      assert summary.text == "Hello world!"
+      assert length(summary.tool_uses) == 1
+      assert hd(summary.tool_uses).name == "Write"
+      assert summary.result == "Operation complete."
+      assert summary.is_error == false
+    end
+
+    test "collects thinking content" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              thinking_content("Let me think..."),
+              thinking_content(" Yes, I see."),
+              text_content("Here's my answer.")
+            ]
+          }
+        ),
+        result_message(%{result: "Done"})
+      ]
+
+      summary = Stream.collect(messages)
+
+      assert summary.thinking == "Let me think... Yes, I see."
+      assert summary.text == "Here's my answer."
+    end
+
+    test "handles error results" do
+      messages = [
+        assistant_message(message: %{content: [text_content("Attempting...")]}),
+        result_message(%{result: "Error: Something went wrong", is_error: true})
+      ]
+
+      summary = Stream.collect(messages)
+
+      assert summary.is_error == true
+      assert summary.result == "Error: Something went wrong"
+    end
+
+    test "handles empty stream" do
+      summary = Stream.collect([])
+
+      assert summary.text == ""
+      assert summary.tool_uses == []
+      assert summary.thinking == ""
+      assert summary.result == nil
+      assert summary.is_error == false
+    end
+
+    test "collects multiple tool uses" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Read", %{path: "a.txt"}, "tool_1"),
+              tool_use_content("Read", %{path: "b.txt"}, "tool_2")
+            ]
+          }
+        ),
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Write", %{path: "c.txt"}, "tool_3")
+            ]
+          }
+        )
+      ]
+
+      summary = Stream.collect(messages)
+
+      assert length(summary.tool_uses) == 3
+      assert Enum.map(summary.tool_uses, & &1.name) == ["Read", "Read", "Write"]
+    end
+  end
+
+  describe "tap/1" do
+    test "invokes callback for each message" do
+      messages = [
+        system_message(),
+        assistant_message(),
+        result_message()
+      ]
+
+      {:ok, agent} = Agent.start_link(fn -> [] end)
+
+      messages
+      |> Stream.tap(fn msg -> Agent.update(agent, fn msgs -> [msg | msgs] end) end)
+      |> Enum.to_list()
+
+      collected = Agent.get(agent, & &1)
+      Agent.stop(agent)
+
+      assert length(collected) == 3
+    end
+
+    test "passes messages through unchanged" do
+      messages = [
+        system_message(),
+        assistant_message(message: %{content: [text_content("Hello")]}),
+        result_message(%{result: "Done"})
+      ]
+
+      result =
+        messages
+        |> Stream.tap(fn _ -> :ignored end)
+        |> Enum.to_list()
+
+      assert result == messages
+    end
+
+    test "works in pipeline with other stream functions" do
+      messages = [
+        assistant_message(message: %{content: [text_content("Hello")]}),
+        result_message(%{result: "World"})
+      ]
+
+      {:ok, agent} = Agent.start_link(fn -> 0 end)
+
+      text =
+        messages
+        |> Stream.tap(fn _ -> Agent.update(agent, &(&1 + 1)) end)
+        |> Stream.text_content()
+        |> Enum.join()
+
+      count = Agent.get(agent, & &1)
+      Agent.stop(agent)
+
+      assert text == "Hello"
+      assert count == 2
+    end
+  end
+
+  describe "on_tool_use/2" do
+    test "invokes callback for each tool use" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              text_content("I'll read the files"),
+              tool_use_content("Read", %{path: "a.txt"}, "tool_1"),
+              tool_use_content("Read", %{path: "b.txt"}, "tool_2")
+            ]
+          }
+        ),
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Write", %{path: "c.txt"}, "tool_3")
+            ]
+          }
+        )
+      ]
+
+      {:ok, agent} = Agent.start_link(fn -> [] end)
+
+      messages
+      |> Stream.on_tool_use(fn tool -> Agent.update(agent, fn tools -> [tool.name | tools] end) end)
+      |> Enum.to_list()
+
+      tool_names = agent |> Agent.get(& &1) |> Enum.reverse()
+      Agent.stop(agent)
+
+      assert tool_names == ["Read", "Read", "Write"]
+    end
+
+    test "passes messages through unchanged" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [tool_use_content("Read", %{path: "test.txt"}, "tool_1")]
+          }
+        ),
+        result_message(%{result: "Done"})
+      ]
+
+      result =
+        messages
+        |> Stream.on_tool_use(fn _ -> :ignored end)
+        |> Enum.to_list()
+
+      assert result == messages
+    end
+
+    test "does not invoke callback when no tool uses" do
+      messages = [
+        system_message(),
+        assistant_message(message: %{content: [text_content("Just text")]}),
+        result_message(%{result: "Done"})
+      ]
+
+      {:ok, agent} = Agent.start_link(fn -> 0 end)
+
+      messages
+      |> Stream.on_tool_use(fn _ -> Agent.update(agent, &(&1 + 1)) end)
+      |> Enum.to_list()
+
+      count = Agent.get(agent, & &1)
+      Agent.stop(agent)
+
+      assert count == 0
+    end
+
+    test "works with final_text in pipeline" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              text_content("Creating file..."),
+              tool_use_content("Write", %{path: "test.txt"}, "tool_1")
+            ]
+          }
+        ),
+        result_message(%{result: "File created successfully"})
+      ]
+
+      {:ok, agent} = Agent.start_link(fn -> [] end)
+
+      result =
+        messages
+        |> Stream.on_tool_use(fn tool -> Agent.update(agent, fn t -> [tool.name | t] end) end)
+        |> Stream.final_text()
+
+      tools = Agent.get(agent, & &1)
+      Agent.stop(agent)
+
+      assert result == "File created successfully"
+      assert tools == ["Write"]
     end
   end
 end

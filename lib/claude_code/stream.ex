@@ -232,6 +232,55 @@ defmodule ClaudeCode.Stream do
   end
 
   @doc """
+  Extracts tool results for a specific tool name from a message stream.
+
+  Since tool results reference tool uses by ID (not name), this function
+  tracks tool use blocks and matches their IDs with subsequent tool results.
+
+  ## Examples
+
+      # Get all Read tool results
+      session
+      |> ClaudeCode.stream("Read some files")
+      |> ClaudeCode.Stream.tool_results_by_name("Read")
+      |> Enum.each(&IO.inspect/1)
+
+      # Get Bash command outputs
+      session
+      |> ClaudeCode.stream("Run some commands")
+      |> ClaudeCode.Stream.tool_results_by_name("Bash")
+      |> Enum.map(& &1.content)
+  """
+  @spec tool_results_by_name(Enumerable.t(), String.t()) :: Enumerable.t()
+  def tool_results_by_name(stream, tool_name) do
+    Stream.transform(stream, %{}, fn message, tool_use_ids ->
+      case message do
+        %Message.AssistantMessage{message: %{content: content}} ->
+          # Track tool use IDs for the target tool
+          new_ids =
+            content
+            |> Enum.filter(&match?(%Content.ToolUseBlock{name: ^tool_name}, &1))
+            |> Map.new(&{&1.id, true})
+
+          {[], Map.merge(tool_use_ids, new_ids)}
+
+        %Message.UserMessage{message: %{content: content}} ->
+          # Emit matching tool results
+          results =
+            Enum.filter(content, fn
+              %Content.ToolResultBlock{tool_use_id: id} -> Map.has_key?(tool_use_ids, id)
+              _ -> false
+            end)
+
+          {results, tool_use_ids}
+
+        _ ->
+          {[], tool_use_ids}
+      end
+    end)
+  end
+
+  @doc """
   Filters a message stream by message type.
 
   ## Examples
@@ -245,6 +294,158 @@ defmodule ClaudeCode.Stream do
   @spec filter_type(Enumerable.t(), atom()) :: Enumerable.t()
   def filter_type(stream, type) do
     Stream.filter(stream, &message_type_matches?(&1, type))
+  end
+
+  @doc """
+  Returns only the final result text, consuming the stream.
+
+  This is the most common use case - when you just want Claude's answer
+  without processing intermediate messages.
+
+  ## Examples
+
+      # Simple query
+      result = session
+      |> ClaudeCode.stream("What is 2 + 2?")
+      |> ClaudeCode.Stream.final_text()
+      # => "2 + 2 equals 4."
+
+      # With error handling
+      case ClaudeCode.Stream.final_text(stream) do
+        nil -> IO.puts("No result received")
+        text -> IO.puts(text)
+      end
+  """
+  @spec final_text(Enumerable.t()) :: String.t() | nil
+  def final_text(stream) do
+    Enum.find_value(stream, fn
+      %Message.ResultMessage{result: result} -> result
+      _ -> nil
+    end)
+  end
+
+  @doc """
+  Consumes the stream and returns a structured summary of the conversation.
+
+  Returns a map containing:
+  - `text` - All text content concatenated
+  - `tool_uses` - List of tool use blocks
+  - `thinking` - All thinking content concatenated
+  - `result` - The final result text
+  - `is_error` - Whether the result was an error
+
+  ## Examples
+
+      summary = session
+      |> ClaudeCode.stream("Create a hello.txt file")
+      |> ClaudeCode.Stream.collect()
+
+      IO.puts("Claude said: \#{summary.text}")
+      IO.puts("Tools used: \#{length(summary.tool_uses)}")
+      IO.puts("Final result: \#{summary.result}")
+  """
+  @spec collect(Enumerable.t()) :: %{
+          text: String.t(),
+          tool_uses: [Content.ToolUseBlock.t()],
+          thinking: String.t(),
+          result: String.t() | nil,
+          is_error: boolean()
+        }
+  def collect(stream) do
+    initial = %{text: [], tool_uses: [], thinking: [], result: nil, is_error: false}
+
+    stream
+    |> Enum.reduce(initial, fn
+      %Message.AssistantMessage{message: message}, acc ->
+        {text, thinking, tools} = extract_content_parts(message.content)
+
+        %{
+          acc
+          | text: acc.text ++ text,
+            thinking: acc.thinking ++ thinking,
+            tool_uses: acc.tool_uses ++ tools
+        }
+
+      %Message.ResultMessage{result: result, is_error: is_error}, acc ->
+        %{acc | result: result, is_error: is_error}
+
+      _, acc ->
+        acc
+    end)
+    |> then(fn acc ->
+      %{
+        text: Enum.join(acc.text),
+        tool_uses: acc.tool_uses,
+        thinking: Enum.join(acc.thinking),
+        result: acc.result,
+        is_error: acc.is_error
+      }
+    end)
+  end
+
+  @doc """
+  Applies a side-effect function to each message without filtering.
+
+  This is useful for logging, monitoring, or sending events while still
+  allowing the stream to continue unchanged. Unlike `Stream.each/2`, this
+  is designed for observation within a pipeline.
+
+  ## Examples
+
+      # Logging all messages
+      stream
+      |> ClaudeCode.Stream.tap(fn msg -> Logger.debug("Got: \#{inspect(msg)}") end)
+      |> ClaudeCode.Stream.text_content()
+      |> Enum.join()
+
+      # Progress notifications
+      stream
+      |> ClaudeCode.Stream.tap(&send(progress_pid, {:message, &1}))
+      |> ClaudeCode.Stream.final_text()
+  """
+  @spec tap(Enumerable.t(), (Message.t() -> any())) :: Enumerable.t()
+  def tap(stream, fun) when is_function(fun, 1) do
+    Stream.each(stream, fun)
+  end
+
+  @doc """
+  Invokes a callback whenever a tool is used, without filtering the stream.
+
+  This is useful for progress indicators, logging, or triggering side effects
+  when Claude uses tools. The callback receives each `ToolUseBlock`.
+
+  ## Examples
+
+      # Progress indicator for tool usage
+      stream
+      |> ClaudeCode.Stream.on_tool_use(fn tool ->
+        IO.puts("Using tool: \#{tool.name}")
+      end)
+      |> ClaudeCode.Stream.final_text()
+
+      # Send tool events to a LiveView process
+      stream
+      |> ClaudeCode.Stream.on_tool_use(fn tool ->
+        send(liveview_pid, {:tool_started, tool.name, tool.input})
+      end)
+      |> Enum.to_list()
+
+      # Track tool usage
+      stream
+      |> ClaudeCode.Stream.on_tool_use(&Agent.update(tracker, fn tools -> [&1 | tools] end))
+      |> ClaudeCode.Stream.collect()
+  """
+  @spec on_tool_use(Enumerable.t(), (Content.ToolUseBlock.t() -> any())) :: Enumerable.t()
+  def on_tool_use(stream, callback) when is_function(callback, 1) do
+    Stream.each(stream, fn
+      %Message.AssistantMessage{message: message} ->
+        message.content
+        |> Enum.filter(&match?(%Content.ToolUseBlock{}, &1))
+        |> Enum.each(callback)
+
+      _ ->
+        :ok
+    end)
   end
 
   @doc """
@@ -392,5 +593,21 @@ defmodule ClaudeCode.Stream do
     message.content
     |> Enum.filter(&match?(%Content.TextBlock{}, &1))
     |> Enum.map_join("", & &1.text)
+  end
+
+  defp extract_content_parts(content) do
+    Enum.reduce(content, {[], [], []}, fn
+      %Content.TextBlock{text: text}, {texts, thinking, tools} ->
+        {texts ++ [text], thinking, tools}
+
+      %Content.ThinkingBlock{thinking: thought}, {texts, thinking, tools} ->
+        {texts, thinking ++ [thought], tools}
+
+      %Content.ToolUseBlock{} = tool, {texts, thinking, tools} ->
+        {texts, thinking, tools ++ [tool]}
+
+      _, acc ->
+        acc
+    end)
   end
 end
