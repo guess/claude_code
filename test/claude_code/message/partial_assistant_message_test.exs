@@ -1,8 +1,8 @@
-defmodule ClaudeCode.Message.StreamEventMessageTest do
+defmodule ClaudeCode.Message.PartialAssistantMessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEventMessage
+  alias ClaudeCode.Message.PartialAssistantMessage
 
   describe "new/1" do
     test "parses a text_delta stream event" do
@@ -18,7 +18,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "uuid" => "uuid-456"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.type == :stream_event
       assert event.event.type == :content_block_delta
       assert event.event.index == 0
@@ -38,7 +38,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.type == :message_start
       assert event.event.message.model == "claude-3"
       assert event.event.message.id == "msg_123"
@@ -55,7 +55,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.type == :content_block_start
       assert event.event.index == 0
       assert event.event.content_block.type == :text
@@ -72,7 +72,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.delta.type == :input_json_delta
       assert event.event.delta.partial_json == "{\"path\":"
     end
@@ -88,7 +88,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.delta.type == :thinking_delta
       assert event.event.delta.thinking == "Let me reason through this..."
     end
@@ -103,7 +103,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.type == :content_block_stop
       assert event.event.index == 0
     end
@@ -119,7 +119,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.type == :message_delta
       assert event.event.usage.output_tokens == 50
     end
@@ -131,7 +131,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.type == :message_stop
     end
 
@@ -151,7 +151,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, event} = StreamEventMessage.new(json)
+      assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.content_block.type == :tool_use
       assert event.event.content_block.name == "read_file"
     end
@@ -162,7 +162,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:error, :missing_event} = StreamEventMessage.new(json)
+      assert {:error, :missing_event} = PartialAssistantMessage.new(json)
     end
 
     test "returns error for missing session_id" do
@@ -171,7 +171,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "event" => %{"type" => "message_stop"}
       }
 
-      assert {:error, :missing_session_id} = StreamEventMessage.new(json)
+      assert {:error, :missing_session_id} = PartialAssistantMessage.new(json)
     end
 
     test "returns error for wrong type" do
@@ -180,7 +180,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "message" => %{}
       }
 
-      assert {:error, :invalid_message_type} = StreamEventMessage.new(json)
+      assert {:error, :invalid_message_type} = PartialAssistantMessage.new(json)
     end
   end
 
@@ -196,79 +196,79 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, %StreamEventMessage{}} = Message.parse(json)
+      assert {:ok, %PartialAssistantMessage{}} = Message.parse(json)
     end
   end
 
   describe "helper functions" do
     test "text_delta?/1 returns true for text deltas" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hi"})
-      assert StreamEventMessage.text_delta?(event)
+      assert PartialAssistantMessage.text_delta?(event)
     end
 
     test "text_delta?/1 returns false for non-text deltas" do
       event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{}"})
-      refute StreamEventMessage.text_delta?(event)
+      refute PartialAssistantMessage.text_delta?(event)
     end
 
     test "get_text/1 extracts text from text delta" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello World"})
-      assert StreamEventMessage.get_text(event) == "Hello World"
+      assert PartialAssistantMessage.get_text(event) == "Hello World"
     end
 
     test "get_text/1 returns nil for non-text delta" do
       event = build_event(:message_start, nil)
-      assert StreamEventMessage.get_text(event) == nil
+      assert PartialAssistantMessage.get_text(event) == nil
     end
 
     test "thinking_delta?/1 returns true for thinking deltas" do
       event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "reasoning"})
-      assert StreamEventMessage.thinking_delta?(event)
+      assert PartialAssistantMessage.thinking_delta?(event)
     end
 
     test "thinking_delta?/1 returns false for non-thinking deltas" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
-      refute StreamEventMessage.thinking_delta?(event)
+      refute PartialAssistantMessage.thinking_delta?(event)
     end
 
     test "get_thinking/1 extracts thinking from thinking delta" do
       event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "Let me think..."})
-      assert StreamEventMessage.get_thinking(event) == "Let me think..."
+      assert PartialAssistantMessage.get_thinking(event) == "Let me think..."
     end
 
     test "get_thinking/1 returns nil for non-thinking delta" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
-      assert StreamEventMessage.get_thinking(event) == nil
+      assert PartialAssistantMessage.get_thinking(event) == nil
     end
 
     test "input_json_delta?/1 detects input_json_delta events" do
       event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{}"})
-      assert StreamEventMessage.input_json_delta?(event)
+      assert PartialAssistantMessage.input_json_delta?(event)
     end
 
     test "get_partial_json/1 extracts partial JSON" do
       event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{\"path\":"})
-      assert StreamEventMessage.get_partial_json(event) == "{\"path\":"
+      assert PartialAssistantMessage.get_partial_json(event) == "{\"path\":"
     end
 
     test "get_index/1 returns content block index" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hi"}, 2)
-      assert StreamEventMessage.get_index(event) == 2
+      assert PartialAssistantMessage.get_index(event) == 2
     end
 
     test "event_type/1 returns the event type" do
       event = build_event(:message_start, nil)
-      assert StreamEventMessage.event_type(event) == :message_start
+      assert PartialAssistantMessage.event_type(event) == :message_start
     end
 
-    test "stream_event?/1 type guard" do
+    test "partial_assistant_message?/1 type guard" do
       event = build_event(:message_start, nil)
-      assert StreamEventMessage.stream_event?(event)
-      refute StreamEventMessage.stream_event?(%{type: "other"})
+      assert PartialAssistantMessage.partial_assistant_message?(event)
+      refute PartialAssistantMessage.partial_assistant_message?(%{type: "other"})
     end
   end
 
-  # Helper to build stream events for testing
+  # Helper to build partial assistant messages for testing
   defp build_event(event_type, delta, index \\ 0) do
     event =
       case event_type do
@@ -282,7 +282,7 @@ defmodule ClaudeCode.Message.StreamEventMessageTest do
           %{type: type}
       end
 
-    %StreamEventMessage{
+    %PartialAssistantMessage{
       type: :stream_event,
       event: event,
       session_id: "test-123"

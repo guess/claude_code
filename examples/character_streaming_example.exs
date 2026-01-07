@@ -65,12 +65,12 @@ IO.puts("Example 4: Filtering Stream Events by Type")
 IO.puts("=" |> String.duplicate(60))
 IO.puts("Different event types during streaming:\n")
 
-alias ClaudeCode.Message.StreamEvent
+alias ClaudeCode.Message.PartialAssistantMessage
 
 session
 |> ClaudeCode.stream("Hello", include_partial_messages: true)
-|> Stream.filter(&match?(%StreamEvent{}, &1))
-|> Stream.each(fn %StreamEvent{event: event} ->
+|> Stream.filter(&match?(%PartialAssistantMessage{}, &1))
+|> Stream.each(fn %PartialAssistantMessage{event: event} ->
   IO.puts("Event type: #{event.type}")
 end)
 |> Stream.run()

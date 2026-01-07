@@ -1,10 +1,12 @@
-defmodule ClaudeCode.Message.StreamEventMessage do
+defmodule ClaudeCode.Message.PartialAssistantMessage do
   @moduledoc """
-  Represents a stream event from the Claude CLI when using partial message streaming.
+  Represents a partial assistant message from the Claude CLI when using partial message streaming.
 
-  Stream events are emitted when `include_partial_messages: true` is enabled.
+  Partial assistant messages are emitted when `include_partial_messages: true` is enabled.
   They provide real-time updates as Claude generates responses, enabling
   character-by-character streaming for LiveView applications.
+
+  This type corresponds to `SDKPartialAssistantMessage` in the TypeScript SDK.
 
   ## Event Types
 
@@ -79,16 +81,16 @@ defmodule ClaudeCode.Message.StreamEventMessage do
         }
 
   @doc """
-  Creates a new StreamEvent from JSON data.
+  Creates a new PartialAssistantMessage from JSON data.
 
   ## Examples
 
-      iex> StreamEvent.new(%{
+      iex> PartialAssistantMessage.new(%{
       ...>   "type" => "stream_event",
       ...>   "event" => %{"type" => "content_block_delta", "index" => 0, "delta" => %{"type" => "text_delta", "text" => "Hi"}},
       ...>   "session_id" => "abc123"
       ...> })
-      {:ok, %StreamEvent{type: :stream_event, event: %{type: :content_block_delta, ...}, ...}}
+      {:ok, %PartialAssistantMessage{type: :stream_event, event: %{type: :content_block_delta, ...}, ...}}
   """
   @spec new(map()) :: {:ok, t()} | {:error, atom() | tuple()}
   def new(%{"type" => "stream_event"} = json) do
@@ -114,14 +116,14 @@ defmodule ClaudeCode.Message.StreamEventMessage do
   def new(_), do: {:error, :invalid_message_type}
 
   @doc """
-  Type guard to check if a value is a StreamEvent.
+  Type guard to check if a value is a PartialAssistantMessage.
   """
-  @spec stream_event?(any()) :: boolean()
-  def stream_event?(%__MODULE__{type: :stream_event}), do: true
-  def stream_event?(_), do: false
+  @spec partial_assistant_message?(any()) :: boolean()
+  def partial_assistant_message?(%__MODULE__{type: :stream_event}), do: true
+  def partial_assistant_message?(_), do: false
 
   @doc """
-  Checks if this stream event is a text delta.
+  Checks if this partial message is a text delta.
   """
   @spec text_delta?(t()) :: boolean()
   def text_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :text_delta}}}), do: true
@@ -139,7 +141,7 @@ defmodule ClaudeCode.Message.StreamEventMessage do
   def get_text(_), do: nil
 
   @doc """
-  Checks if this stream event is a thinking delta.
+  Checks if this partial message is a thinking delta.
   """
   @spec thinking_delta?(t()) :: boolean()
   def thinking_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :thinking_delta}}}), do: true
@@ -158,7 +160,7 @@ defmodule ClaudeCode.Message.StreamEventMessage do
   def get_thinking(_), do: nil
 
   @doc """
-  Checks if this stream event is an input JSON delta (for tool use).
+  Checks if this partial message is an input JSON delta (for tool use).
   """
   @spec input_json_delta?(t()) :: boolean()
   def input_json_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :input_json_delta}}}), do: true

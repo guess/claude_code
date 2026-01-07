@@ -7,15 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Renamed `StreamEventMessage` to `PartialAssistantMessage`** - Aligns with TypeScript SDK naming (`SDKPartialAssistantMessage`)
+  - `ClaudeCode.Message.StreamEventMessage` → `ClaudeCode.Message.PartialAssistantMessage`
+  - The struct still uses `type: :stream_event` to match the wire format
+  - Helper function renamed: `stream_event?/1` → `partial_assistant_message?/1`
+
 ### Added
 - **`:fork_session` option** - Create a new session ID when resuming a conversation ([006a659])
   - Use with `:resume` to branch a conversation: `start_link(resume: session_id, fork_session: true)`
   - Original session continues unchanged, fork gets its own session ID after first query
-
-### Changed
-- **`get_session_id/1` simplified return value** - Now returns `String.t() | nil` directly instead of `{:ok, String.t() | nil}` ([006a659])
-  - Before: `{:ok, session_id} = ClaudeCode.get_session_id(session)`
-  - After: `session_id = ClaudeCode.get_session_id(session)`
 
 ## [0.9.0] - 2026-01-06
 
@@ -45,7 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ClaudeCode.Message.Assistant` → `ClaudeCode.Message.AssistantMessage`
   - `ClaudeCode.Message.User` → `ClaudeCode.Message.UserMessage`
   - `ClaudeCode.Message.Result` → `ClaudeCode.Message.ResultMessage`
-  - `ClaudeCode.Message.StreamEvent` → `ClaudeCode.Message.StreamEventMessage`
+  - `ClaudeCode.Message.StreamEvent` → `ClaudeCode.Message.PartialAssistantMessage`
   - New `ClaudeCode.Message.SystemMessage` and `ClaudeCode.Message.CompactBoundaryMessage` message types
 - **BREAKING: Renamed content block modules** - Added "Block" suffix for consistency
   - `ClaudeCode.Content.Text` → `ClaudeCode.Content.TextBlock`
@@ -260,4 +261,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Property-based testing for message parsing
 - Stream testing with concurrent scenarios
 - Coverage reporting with ExCoveralls
-

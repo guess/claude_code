@@ -4,7 +4,7 @@ defmodule ClaudeCode.StreamTest do
   import ClaudeCode.Test.MessageFixtures
 
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEventMessage
+  alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Stream
 
   describe "text_content/1" do
@@ -444,7 +444,7 @@ defmodule ClaudeCode.StreamTest do
 
       starts = events |> Stream.filter_event_type(:content_block_start) |> Enum.to_list()
       assert length(starts) == 1
-      assert match?(%StreamEventMessage{event: %{type: :content_block_start}}, hd(starts))
+      assert match?(%PartialAssistantMessage{event: %{type: :content_block_start}}, hd(starts))
 
       deltas = events |> Stream.filter_event_type(:content_block_delta) |> Enum.to_list()
       assert length(deltas) == 1
@@ -475,7 +475,7 @@ defmodule ClaudeCode.StreamTest do
 
       stream_events = events |> Stream.filter_type(:stream_event) |> Enum.to_list()
       assert length(stream_events) == 2
-      assert Enum.all?(stream_events, &match?(%StreamEventMessage{}, &1))
+      assert Enum.all?(stream_events, &match?(%PartialAssistantMessage{}, &1))
     end
 
     test "filters text_delta pseudo-type" do
@@ -489,7 +489,7 @@ defmodule ClaudeCode.StreamTest do
 
       text_deltas = events |> Stream.filter_type(:text_delta) |> Enum.to_list()
       assert length(text_deltas) == 2
-      assert Enum.all?(text_deltas, &StreamEventMessage.text_delta?/1)
+      assert Enum.all?(text_deltas, &PartialAssistantMessage.text_delta?/1)
     end
   end
 

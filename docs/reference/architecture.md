@@ -107,7 +107,7 @@ defmodule ClaudeCode.Message do
   # - AssistantMessage
   # - UserMessage
   # - ResultMessage
-  # - StreamEventMessage
+  # - PartialAssistantMessage
 end
 ```
 

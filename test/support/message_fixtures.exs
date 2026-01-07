@@ -6,8 +6,8 @@ defmodule ClaudeCode.Test.MessageFixtures do
   alias ClaudeCode.Content
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.StreamEventMessage
   alias ClaudeCode.Message.SystemMessage
   alias ClaudeCode.Message.UserMessage
 
@@ -221,7 +221,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -240,7 +240,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -259,7 +259,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -278,7 +278,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -297,7 +297,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -315,7 +315,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -334,7 +334,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """
@@ -349,7 +349,7 @@ defmodule ClaudeCode.Test.MessageFixtures do
       uuid: Map.get(attrs, :uuid, "uuid-#{:rand.uniform(1000)}")
     }
 
-    struct!(StreamEventMessage, defaults)
+    struct!(PartialAssistantMessage, defaults)
   end
 
   @doc """

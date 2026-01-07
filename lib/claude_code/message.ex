@@ -9,8 +9,8 @@ defmodule ClaudeCode.Message do
 
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.StreamEventMessage
   alias ClaudeCode.Message.SystemMessage
   alias ClaudeCode.Message.UserMessage
 
@@ -20,7 +20,7 @@ defmodule ClaudeCode.Message do
           | AssistantMessage.t()
           | UserMessage.t()
           | ResultMessage.t()
-          | StreamEventMessage.t()
+          | PartialAssistantMessage.t()
 
   @doc """
   Parses a message from JSON data based on its type.
@@ -40,7 +40,7 @@ defmodule ClaudeCode.Message do
       "assistant" -> AssistantMessage.new(data)
       "user" -> UserMessage.new(data)
       "result" -> ResultMessage.new(data)
-      "stream_event" -> StreamEventMessage.new(data)
+      "stream_event" -> PartialAssistantMessage.new(data)
       other -> {:error, {:unknown_message_type, other}}
     end
   end
@@ -106,7 +106,7 @@ defmodule ClaudeCode.Message do
   def message?(%AssistantMessage{}), do: true
   def message?(%UserMessage{}), do: true
   def message?(%ResultMessage{}), do: true
-  def message?(%StreamEventMessage{}), do: true
+  def message?(%PartialAssistantMessage{}), do: true
   def message?(_), do: false
 
   @doc """
@@ -118,7 +118,7 @@ defmodule ClaudeCode.Message do
   def message_type(%AssistantMessage{type: type}), do: type
   def message_type(%UserMessage{type: type}), do: type
   def message_type(%ResultMessage{type: type}), do: type
-  def message_type(%StreamEventMessage{type: type}), do: type
+  def message_type(%PartialAssistantMessage{type: type}), do: type
 
   # Private
 

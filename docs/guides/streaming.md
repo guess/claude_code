@@ -91,29 +91,29 @@ stream |> Stream.text_deltas() |> Enum.to_list()
 # => ["Hello", "!", " How", " can", " I", " help", ...]
 ```
 
-## Working with Stream Events
+## Working with Partial Messages
 
-For advanced use cases, work with raw `StreamEvent` structs:
+For advanced use cases, work with raw `PartialAssistantMessage` structs:
 
 ```elixir
-alias ClaudeCode.Message.StreamEvent
+alias ClaudeCode.Message.PartialAssistantMessage
 
 session
 |> ClaudeCode.stream("Hello", include_partial_messages: true)
 |> Elixir.Stream.each(fn
-  %StreamEvent{event: %{type: :message_start}} ->
+  %PartialAssistantMessage{event: %{type: :message_start}} ->
     IO.puts("Message started")
 
-  %StreamEvent{event: %{type: :content_block_start, index: idx}} ->
+  %PartialAssistantMessage{event: %{type: :content_block_start, index: idx}} ->
     IO.puts("Content block #{idx} started")
 
-  %StreamEvent{} = event when StreamEvent.text_delta?(event) ->
-    IO.write(StreamEvent.get_text(event))
+  %PartialAssistantMessage{} = event when PartialAssistantMessage.text_delta?(event) ->
+  IO.write(PartialAssistantMessage.get_text(event))
 
-  %StreamEvent{event: %{type: :content_block_stop}} ->
+  %PartialAssistantMessage{event: %{type: :content_block_stop}} ->
     IO.puts("\nContent block complete")
 
-  %StreamEvent{event: %{type: :message_stop}} ->
+  %PartialAssistantMessage{event: %{type: :message_stop}} ->
     IO.puts("Message complete")
 
   _other ->

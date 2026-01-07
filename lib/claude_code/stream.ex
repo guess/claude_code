@@ -17,7 +17,7 @@ defmodule ClaudeCode.Stream do
 
   alias ClaudeCode.Content
   alias ClaudeCode.Message
-  alias ClaudeCode.Message.StreamEventMessage
+  alias ClaudeCode.Message.PartialAssistantMessage
 
   @doc """
   Creates a stream of messages from a Claude Code query.
@@ -133,8 +133,8 @@ defmodule ClaudeCode.Stream do
   @spec text_deltas(Enumerable.t()) :: Enumerable.t()
   def text_deltas(stream) do
     stream
-    |> Stream.filter(&StreamEventMessage.text_delta?/1)
-    |> Stream.map(&StreamEventMessage.get_text/1)
+    |> Stream.filter(&PartialAssistantMessage.text_delta?/1)
+    |> Stream.map(&PartialAssistantMessage.get_text/1)
   end
 
   @doc """
@@ -154,8 +154,8 @@ defmodule ClaudeCode.Stream do
   @spec thinking_deltas(Enumerable.t()) :: Enumerable.t()
   def thinking_deltas(stream) do
     stream
-    |> Stream.filter(&StreamEventMessage.thinking_delta?/1)
-    |> Stream.map(&StreamEventMessage.get_thinking/1)
+    |> Stream.filter(&PartialAssistantMessage.thinking_delta?/1)
+    |> Stream.map(&PartialAssistantMessage.get_thinking/1)
   end
 
   @doc """
@@ -182,8 +182,8 @@ defmodule ClaudeCode.Stream do
   @spec content_deltas(Enumerable.t()) :: Enumerable.t()
   def content_deltas(stream) do
     stream
-    |> Stream.filter(&match?(%StreamEventMessage{event: %{type: :content_block_delta}}, &1))
-    |> Stream.map(fn %StreamEventMessage{event: %{delta: delta, index: index}} ->
+    |> Stream.filter(&match?(%PartialAssistantMessage{event: %{type: :content_block_delta}}, &1))
+    |> Stream.map(fn %PartialAssistantMessage{event: %{delta: delta, index: index}} ->
       Map.put(delta, :index, index)
     end)
   end
@@ -201,10 +201,10 @@ defmodule ClaudeCode.Stream do
       |> ClaudeCode.Stream.filter_event_type(:content_block_delta)
       |> Enum.each(&process_delta/1)
   """
-  @spec filter_event_type(Enumerable.t(), StreamEventMessage.event_type()) :: Enumerable.t()
+  @spec filter_event_type(Enumerable.t(), PartialAssistantMessage.event_type()) :: Enumerable.t()
   def filter_event_type(stream, event_type) do
     Stream.filter(stream, fn
-      %StreamEventMessage{event: %{type: ^event_type}} -> true
+      %PartialAssistantMessage{event: %{type: ^event_type}} -> true
       _ -> false
     end)
   end
@@ -375,15 +375,15 @@ defmodule ClaudeCode.Stream do
   defp message_type_matches?(%Message.ResultMessage{}, :result), do: true
   defp message_type_matches?(%Message.SystemMessage{}, :system), do: true
   defp message_type_matches?(%Message.UserMessage{}, :user), do: true
-  defp message_type_matches?(%StreamEventMessage{}, :stream_event), do: true
+  defp message_type_matches?(%PartialAssistantMessage{}, :stream_event), do: true
 
   defp message_type_matches?(%Message.AssistantMessage{message: message}, :tool_use) do
     Enum.any?(message.content, &match?(%Content.ToolUseBlock{}, &1))
   end
 
-  # Match text delta stream events when filtering for :text_delta
-  defp message_type_matches?(%StreamEventMessage{} = event, :text_delta) do
-    StreamEventMessage.text_delta?(event)
+  # Match text delta partial messages when filtering for :text_delta
+  defp message_type_matches?(%PartialAssistantMessage{} = event, :text_delta) do
+    PartialAssistantMessage.text_delta?(event)
   end
 
   defp message_type_matches?(_, _), do: false
