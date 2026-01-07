@@ -48,7 +48,7 @@ ClaudeCode.stop(session)
 **Step 1:** Add to your `mix.exs`
 ```elixir
 def deps do
-  [{:claude_code, "~> 0.8.1"}]
+  [{:claude_code, "~> 0.9.0"}]
 end
 ```
 

@@ -8,7 +8,7 @@ The Model Context Protocol (MCP) lets you expose custom Elixir tools to Claude. 
 # mix.exs
 def deps do
   [
-    {:claude_code, "~> 0.8.1"},
+    {:claude_code, "~> 0.9.0"},
     {:hermes_mcp, "~> 0.14"}  # Optional MCP support
   ]
 end

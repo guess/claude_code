@@ -1,7 +1,7 @@
 defmodule ClaudeCode.MixProject do
   use Mix.Project
 
-  @version "0.8.1"
+  @version "0.9.0"
   @source_url "https://github.com/guess/claude_code"
 
   def project do
