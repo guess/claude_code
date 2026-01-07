@@ -644,14 +644,21 @@ defmodule ClaudeCode.StreamTest do
             ]
           }
         ),
+        user_message(
+          message: %{
+            content: [tool_result_content("File written successfully", "tool_1")]
+          }
+        ),
         result_message(%{result: "Operation complete."})
       ]
 
       summary = Stream.collect(messages)
 
       assert summary.text == "Hello world!"
-      assert length(summary.tool_uses) == 1
-      assert hd(summary.tool_uses).name == "Write"
+      assert length(summary.tool_calls) == 1
+      [{tool_use, tool_result}] = summary.tool_calls
+      assert tool_use.name == "Write"
+      assert tool_result.content == "File written successfully"
       assert summary.result == "Operation complete."
       assert summary.is_error == false
     end
@@ -692,13 +699,13 @@ defmodule ClaudeCode.StreamTest do
       summary = Stream.collect([])
 
       assert summary.text == ""
-      assert summary.tool_uses == []
+      assert summary.tool_calls == []
       assert summary.thinking == ""
       assert summary.result == nil
       assert summary.is_error == false
     end
 
-    test "collects multiple tool uses" do
+    test "collects multiple tool calls with results" do
       messages = [
         assistant_message(
           message: %{
@@ -708,19 +715,58 @@ defmodule ClaudeCode.StreamTest do
             ]
           }
         ),
+        user_message(
+          message: %{
+            content: [
+              tool_result_content("contents of a", "tool_1"),
+              tool_result_content("contents of b", "tool_2")
+            ]
+          }
+        ),
         assistant_message(
           message: %{
             content: [
               tool_use_content("Write", %{path: "c.txt"}, "tool_3")
             ]
           }
+        ),
+        user_message(
+          message: %{
+            content: [tool_result_content("written", "tool_3")]
+          }
         )
       ]
 
       summary = Stream.collect(messages)
 
-      assert length(summary.tool_uses) == 3
-      assert Enum.map(summary.tool_uses, & &1.name) == ["Read", "Read", "Write"]
+      assert length(summary.tool_calls) == 3
+      assert Enum.map(summary.tool_calls, fn {use, _result} -> use.name end) == ["Read", "Read", "Write"]
+
+      assert Enum.map(summary.tool_calls, fn {_use, result} -> result.content end) == [
+               "contents of a",
+               "contents of b",
+               "written"
+             ]
+    end
+
+    test "handles tool use without result" do
+      messages = [
+        assistant_message(
+          message: %{
+            content: [
+              tool_use_content("Read", %{path: "a.txt"}, "tool_1")
+            ]
+          }
+        )
+        # No user message with tool result
+      ]
+
+      summary = Stream.collect(messages)
+
+      assert length(summary.tool_calls) == 1
+      [{tool_use, tool_result}] = summary.tool_calls
+      assert tool_use.name == "Read"
+      assert tool_result == nil
     end
   end
 

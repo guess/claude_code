@@ -329,7 +329,9 @@ defmodule ClaudeCode.Stream do
 
   Returns a map containing:
   - `text` - All text content concatenated
-  - `tool_uses` - List of tool use blocks
+  - `tool_calls` - List of `{tool_use, tool_result}` tuples pairing each tool
+    invocation with its result. If a tool use has no matching result, the
+    result will be `nil`.
   - `thinking` - All thinking content concatenated
   - `result` - The final result text
   - `is_error` - Whether the result was an error
@@ -341,30 +343,65 @@ defmodule ClaudeCode.Stream do
       |> ClaudeCode.Stream.collect()
 
       IO.puts("Claude said: \#{summary.text}")
-      IO.puts("Tools used: \#{length(summary.tool_uses)}")
+      IO.puts("Tool calls: \#{length(summary.tool_calls)}")
       IO.puts("Final result: \#{summary.result}")
+
+      # Process each tool call with its result
+      Enum.each(summary.tool_calls, fn {tool_use, tool_result} ->
+        IO.puts("Tool: \#{tool_use.name}")
+        if tool_result, do: IO.puts("Result: \#{tool_result.content}")
+      end)
   """
   @spec collect(Enumerable.t()) :: %{
           text: String.t(),
-          tool_uses: [Content.ToolUseBlock.t()],
+          tool_calls: [{Content.ToolUseBlock.t(), Content.ToolResultBlock.t() | nil}],
           thinking: String.t(),
           result: String.t() | nil,
           is_error: boolean()
         }
   def collect(stream) do
-    initial = %{text: [], tool_uses: [], thinking: [], result: nil, is_error: false}
+    initial = %{
+      text: [],
+      # Map of tool_use_id => ToolUseBlock for pairing
+      tool_use_map: %{},
+      # Ordered list of tool_use_ids to preserve order
+      tool_use_order: [],
+      # Map of tool_use_id => ToolResultBlock
+      tool_result_map: %{},
+      thinking: [],
+      result: nil,
+      is_error: false
+    }
 
     stream
     |> Enum.reduce(initial, fn
       %Message.AssistantMessage{message: message}, acc ->
         {text, thinking, tools} = extract_content_parts(message.content)
 
+        # Track tool uses by ID
+        {tool_use_map, tool_use_order} =
+          Enum.reduce(tools, {acc.tool_use_map, acc.tool_use_order}, fn tool, {map, order} ->
+            {Map.put(map, tool.id, tool), order ++ [tool.id]}
+          end)
+
         %{
           acc
           | text: acc.text ++ text,
             thinking: acc.thinking ++ thinking,
-            tool_uses: acc.tool_uses ++ tools
+            tool_use_map: tool_use_map,
+            tool_use_order: tool_use_order
         }
+
+      %Message.UserMessage{message: message}, acc ->
+        # Extract tool results and index by tool_use_id
+        tool_result_map =
+          message.content
+          |> Enum.filter(&match?(%Content.ToolResultBlock{}, &1))
+          |> Enum.reduce(acc.tool_result_map, fn result, map ->
+            Map.put(map, result.tool_use_id, result)
+          end)
+
+        %{acc | tool_result_map: tool_result_map}
 
       %Message.ResultMessage{result: result, is_error: is_error}, acc ->
         %{acc | result: result, is_error: is_error}
@@ -373,9 +410,17 @@ defmodule ClaudeCode.Stream do
         acc
     end)
     |> then(fn acc ->
+      # Pair tool uses with their results in order
+      tool_calls =
+        Enum.map(acc.tool_use_order, fn id ->
+          tool_use = Map.fetch!(acc.tool_use_map, id)
+          tool_result = Map.get(acc.tool_result_map, id)
+          {tool_use, tool_result}
+        end)
+
       %{
         text: Enum.join(acc.text),
-        tool_uses: acc.tool_uses,
+        tool_calls: tool_calls,
         thinking: Enum.join(acc.thinking),
         result: acc.result,
         is_error: acc.is_error
