@@ -28,9 +28,9 @@ defmodule ClaudeCode.TestTest do
     end
   end
 
-  describe "tool_use/1" do
+  describe "tool_use/3" do
     test "creates assistant message with tool use block" do
-      msg = ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/tmp/file.txt"})
+      msg = ClaudeCode.Test.tool_use("Read", %{path: "/tmp/file.txt"})
 
       assert %AssistantMessage{} = msg
 
@@ -41,27 +41,22 @@ defmodule ClaudeCode.TestTest do
     end
 
     test "accepts optional text before tool use" do
-      msg =
-        ClaudeCode.Test.tool_use(
-          name: "Read",
-          input: %{path: "/tmp/file.txt"},
-          text: "Let me read that"
-        )
+      msg = ClaudeCode.Test.tool_use("Read", %{path: "/tmp/file.txt"}, text: "Let me read that")
 
       assert [%Content.TextBlock{text: "Let me read that"}, %Content.ToolUseBlock{}] =
                msg.message.content
     end
 
     test "accepts custom tool ID" do
-      msg = ClaudeCode.Test.tool_use(name: "Read", input: %{}, id: "custom_tool_123")
+      msg = ClaudeCode.Test.tool_use("Read", %{}, id: "custom_tool_123")
 
       assert [%Content.ToolUseBlock{id: "custom_tool_123"}] = msg.message.content
     end
   end
 
-  describe "tool_result/1" do
+  describe "tool_result/2" do
     test "creates user message with tool result block" do
-      msg = ClaudeCode.Test.tool_result(content: "file contents")
+      msg = ClaudeCode.Test.tool_result("file contents")
 
       assert %UserMessage{} = msg
 
@@ -70,35 +65,35 @@ defmodule ClaudeCode.TestTest do
     end
 
     test "supports error results" do
-      msg = ClaudeCode.Test.tool_result(content: "Permission denied", is_error: true)
+      msg = ClaudeCode.Test.tool_result("Permission denied", is_error: true)
 
       assert [%Content.ToolResultBlock{is_error: true}] = msg.message.content
     end
 
     test "accepts custom tool_use_id" do
-      msg = ClaudeCode.Test.tool_result(content: "result", tool_use_id: "custom_tool_123")
+      msg = ClaudeCode.Test.tool_result("result", tool_use_id: "custom_tool_123")
 
       assert [%Content.ToolResultBlock{tool_use_id: "custom_tool_123"}] = msg.message.content
     end
   end
 
-  describe "thinking/1" do
+  describe "thinking/2" do
     test "creates assistant message with thinking block" do
-      msg = ClaudeCode.Test.thinking(thinking: "Let me analyze this...")
+      msg = ClaudeCode.Test.thinking("Let me analyze this...")
 
       assert %AssistantMessage{} = msg
       assert [%Content.ThinkingBlock{thinking: "Let me analyze this..."}] = msg.message.content
     end
 
     test "accepts optional text after thinking" do
-      msg = ClaudeCode.Test.thinking(thinking: "Analyzing...", text: "Here's my answer")
+      msg = ClaudeCode.Test.thinking("Analyzing...", text: "Here's my answer")
 
       assert [%Content.ThinkingBlock{}, %Content.TextBlock{text: "Here's my answer"}] =
                msg.message.content
     end
   end
 
-  describe "result/1" do
+  describe "result/2" do
     test "creates success result by default" do
       msg = ClaudeCode.Test.result()
 
@@ -109,7 +104,7 @@ defmodule ClaudeCode.TestTest do
     end
 
     test "creates error result" do
-      msg = ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")
+      msg = ClaudeCode.Test.result("Rate limit exceeded", is_error: true)
 
       assert msg.is_error == true
       assert msg.result == "Rate limit exceeded"
@@ -117,7 +112,7 @@ defmodule ClaudeCode.TestTest do
     end
 
     test "accepts custom subtype" do
-      msg = ClaudeCode.Test.result(is_error: true, subtype: :error_max_turns)
+      msg = ClaudeCode.Test.result("Done", is_error: true, subtype: :error_max_turns)
 
       assert msg.subtype == :error_max_turns
     end
@@ -219,7 +214,7 @@ defmodule ClaudeCode.TestTest do
     test "does not duplicate result message if present" do
       ClaudeCode.Test.stub(ExplicitResultStub, [
         ClaudeCode.Test.text("Hello"),
-        ClaudeCode.Test.result(result: "Custom result")
+        ClaudeCode.Test.result("Custom result")
       ])
 
       messages = ExplicitResultStub |> ClaudeCode.Test.stream("q", []) |> Enum.to_list()
@@ -231,8 +226,8 @@ defmodule ClaudeCode.TestTest do
 
     test "auto-links tool_use IDs to tool_result messages" do
       ClaudeCode.Test.stub(ToolLinkStub, [
-        ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/tmp/x"}, id: "tool_abc"),
-        ClaudeCode.Test.tool_result(content: "file contents")
+        ClaudeCode.Test.tool_use("Read", %{path: "/tmp/x"}, id: "tool_abc"),
+        ClaudeCode.Test.tool_result("file contents")
       ])
 
       messages = ToolLinkStub |> ClaudeCode.Test.stream("q", []) |> Enum.to_list()
@@ -264,7 +259,7 @@ defmodule ClaudeCode.TestTest do
       ClaudeCode.Test.stub(SessionTestStub, fn query, _opts ->
         [
           ClaudeCode.Test.text("You asked: #{query}"),
-          ClaudeCode.Test.result(result: "You asked: #{query}")
+          ClaudeCode.Test.result("You asked: #{query}")
         ]
       end)
 
@@ -284,10 +279,10 @@ defmodule ClaudeCode.TestTest do
       ClaudeCode.Test.stub(ToolTestStub, fn _query, _opts ->
         [
           ClaudeCode.Test.text("I'll read that file"),
-          ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/tmp/test.txt"}),
-          ClaudeCode.Test.tool_result(content: "Hello from file!"),
+          ClaudeCode.Test.tool_use("Read", %{path: "/tmp/test.txt"}),
+          ClaudeCode.Test.tool_result("Hello from file!"),
           ClaudeCode.Test.text("The file contains: Hello from file!"),
-          ClaudeCode.Test.result(result: "The file contains: Hello from file!")
+          ClaudeCode.Test.result("The file contains: Hello from file!")
         ]
       end)
 
@@ -317,7 +312,7 @@ defmodule ClaudeCode.TestTest do
 
     test "session handles error scenario" do
       ClaudeCode.Test.stub(ErrorTestStub, fn _query, _opts ->
-        [ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")]
+        [ClaudeCode.Test.result("Rate limit exceeded", is_error: true)]
       end)
 
       {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, ErrorTestStub})
@@ -363,9 +358,9 @@ defmodule ClaudeCode.TestTest do
     test "tool_uses/1 extracts tool uses from mock messages" do
       ClaudeCode.Test.stub(ToolUsesStub, fn _q, _o ->
         [
-          ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/a"}),
-          ClaudeCode.Test.tool_result(content: "contents"),
-          ClaudeCode.Test.tool_use(name: "Edit", input: %{path: "/b"})
+          ClaudeCode.Test.tool_use("Read", %{path: "/a"}),
+          ClaudeCode.Test.tool_result("contents"),
+          ClaudeCode.Test.tool_use("Edit", %{path: "/b"})
         ]
       end)
 
@@ -386,8 +381,8 @@ defmodule ClaudeCode.TestTest do
       ClaudeCode.Test.stub(CollectStub, fn _q, _o ->
         [
           ClaudeCode.Test.text("Hello"),
-          ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/x"}),
-          ClaudeCode.Test.tool_result(content: "data"),
+          ClaudeCode.Test.tool_use("Read", %{path: "/x"}),
+          ClaudeCode.Test.tool_result("data"),
           ClaudeCode.Test.text("Done")
         ]
       end)

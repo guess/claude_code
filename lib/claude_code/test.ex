@@ -42,10 +42,10 @@ defmodule ClaudeCode.Test do
   ## Message Helpers
 
   - `text/2` - Creates an assistant message with text content
-  - `tool_use/1` - Creates a tool invocation message
-  - `tool_result/1` - Creates a tool result message
-  - `thinking/1` - Creates a thinking block message
-  - `result/1` - Creates the final result message
+  - `tool_use/3` - Creates a tool invocation message
+  - `tool_result/2` - Creates a tool result message
+  - `thinking/2` - Creates a thinking block message
+  - `result/2` - Creates the final result message
   - `system/1` - Creates a system initialization message
 
   ## Async Tests
@@ -267,12 +267,7 @@ defmodule ClaudeCode.Test do
   @doc """
   Creates an assistant message with a tool use block.
 
-  ## Options (required)
-
-  - `:name` - Tool name (e.g., "Read", "Bash", "Edit")
-  - `:input` - Tool input map
-
-  ## Options (optional)
+  ## Options
 
   - `:id` - Tool use ID (default: auto-generated)
   - `:text` - Optional text to include before the tool use
@@ -280,18 +275,14 @@ defmodule ClaudeCode.Test do
 
   ## Examples
 
-      ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/tmp/file.txt"})
-      ClaudeCode.Test.tool_use(name: "Bash", input: %{command: "ls -la"}, text: "Let me check...")
+      ClaudeCode.Test.tool_use("Read", %{path: "/tmp/file.txt"})
+      ClaudeCode.Test.tool_use("Bash", %{command: "ls -la"}, text: "Let me check...")
   """
-  @spec tool_use(keyword()) :: AssistantMessage.t()
-  def tool_use(opts) do
-    name = Keyword.fetch!(opts, :name)
-    input = Keyword.fetch!(opts, :input)
+  @spec tool_use(String.t(), map(), keyword()) :: AssistantMessage.t()
+  def tool_use(name, input, opts \\ []) do
     text_content = Keyword.get(opts, :text)
 
-    tool_block_opts = maybe_put([name: name, input: input], :id, Keyword.get(opts, :id))
-
-    tool_use_block = Factory.tool_use_block(tool_block_opts)
+    tool_use_block = Factory.tool_use_content(name, input, Keyword.get(opts, :id))
 
     content =
       if text_content do
@@ -319,26 +310,24 @@ defmodule ClaudeCode.Test do
 
   ## Options
 
-  - `:content` - Tool result content string (default: "")
   - `:tool_use_id` - ID of the tool use this is responding to (default: nil for auto-linking)
   - `:is_error` - Whether the tool execution failed (default: false)
   - `:session_id` - Session ID (default: auto-generated)
 
   ## Examples
 
-      ClaudeCode.Test.tool_result(content: "file contents here")
-      ClaudeCode.Test.tool_result(content: "Permission denied", is_error: true)
+      ClaudeCode.Test.tool_result("file contents here")
+      ClaudeCode.Test.tool_result("Permission denied", is_error: true)
   """
-  @spec tool_result(keyword()) :: UserMessage.t()
-  def tool_result(opts \\ []) do
-    # Explicitly pass tool_use_id (even nil) to allow auto-linking
-    result_block_opts = [
-      tool_use_id: Keyword.get(opts, :tool_use_id),
-      content: Keyword.get(opts, :content, ""),
-      is_error: Keyword.get(opts, :is_error, false)
-    ]
-
-    result_block = Factory.tool_result_block(result_block_opts)
+  @spec tool_result(String.t(), keyword()) :: UserMessage.t()
+  def tool_result(content \\ "", opts \\ []) do
+    # Use tool_result_block directly to preserve nil tool_use_id for auto-linking
+    result_block =
+      Factory.tool_result_block(
+        content: content,
+        tool_use_id: Keyword.get(opts, :tool_use_id),
+        is_error: Keyword.get(opts, :is_error, false)
+      )
 
     user_opts =
       opts
@@ -353,22 +342,18 @@ defmodule ClaudeCode.Test do
 
   ## Options
 
-  - `:thinking` - The thinking content (required)
   - `:signature` - Thinking signature (default: auto-generated)
   - `:text` - Optional text to include after thinking
   - `:session_id` - Session ID (default: auto-generated)
 
   ## Examples
 
-      ClaudeCode.Test.thinking(thinking: "Let me analyze this step by step...")
-      ClaudeCode.Test.thinking(thinking: "First...", text: "Here's my answer")
+      ClaudeCode.Test.thinking("Let me analyze this step by step...")
+      ClaudeCode.Test.thinking("First...", text: "Here's my answer")
   """
-  @spec thinking(keyword()) :: AssistantMessage.t()
-  def thinking(opts) do
-    thinking_block_opts =
-      maybe_put([thinking: Keyword.fetch!(opts, :thinking)], :signature, Keyword.get(opts, :signature))
-
-    thinking_block = Factory.thinking_block(thinking_block_opts)
+  @spec thinking(String.t(), keyword()) :: AssistantMessage.t()
+  def thinking(thinking_text, opts \\ []) do
+    thinking_block = Factory.thinking_content(thinking_text, Keyword.get(opts, :signature))
 
     text_content = Keyword.get(opts, :text)
 
@@ -398,7 +383,6 @@ defmodule ClaudeCode.Test do
 
   ## Options
 
-  - `:result` - The result text (default: "Done")
   - `:is_error` - Whether this is an error result (default: false)
   - `:subtype` - Result subtype (default: :success or :error_during_execution)
   - `:session_id` - Session ID (default: auto-generated)
@@ -408,16 +392,17 @@ defmodule ClaudeCode.Test do
   ## Examples
 
       ClaudeCode.Test.result()
-      ClaudeCode.Test.result(result: "Task completed successfully")
-      ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")
+      ClaudeCode.Test.result("Task completed successfully")
+      ClaudeCode.Test.result("Rate limit exceeded", is_error: true)
   """
-  @spec result(keyword()) :: ResultMessage.t()
-  def result(opts \\ []) do
+  @spec result(String.t(), keyword()) :: ResultMessage.t()
+  def result(result_text \\ "Done", opts \\ []) do
     is_error = Keyword.get(opts, :is_error, false)
     default_subtype = if is_error, do: :error_during_execution, else: :success
 
     opts
     |> Keyword.put_new(:subtype, default_subtype)
+    |> Keyword.put(:result, result_text)
     |> Factory.result_message()
   end
 
@@ -477,10 +462,10 @@ defmodule ClaudeCode.Test do
             _ -> nil
           end)
 
-        messages ++ [result(result: last_text || "Done", session_id: session_id)]
+        messages ++ [result(last_text || "Done", session_id: session_id)]
 
       _ ->
-        messages ++ [result(session_id: session_id)]
+        messages ++ [result("Done", session_id: session_id)]
     end
   end
 
@@ -535,7 +520,4 @@ defmodule ClaudeCode.Test do
       {value, keywords} -> Keyword.put(keywords, new_key, value)
     end
   end
-
-  defp maybe_put(keywords, _key, nil), do: keywords
-  defp maybe_put(keywords, key, value), do: Keyword.put(keywords, key, value)
 end

@@ -30,7 +30,7 @@ test "returns greeting" do
   ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
     [
       ClaudeCode.Test.text("Hello! How can I help?"),
-      ClaudeCode.Test.result(result: "Hello! How can I help?")
+      ClaudeCode.Test.result("Hello! How can I help?")
     ]
   end)
 
@@ -47,10 +47,10 @@ end
 | Helper | Description |
 |--------|-------------|
 | `text/2` | Assistant message with text content |
-| `tool_use/1` | Assistant message with tool invocation |
-| `tool_result/1` | User message with tool execution result |
-| `thinking/1` | Assistant message with thinking block |
-| `result/1` | Final result message |
+| `tool_use/3` | Assistant message with tool invocation |
+| `tool_result/2` | User message with tool execution result |
+| `thinking/2` | Assistant message with thinking block |
+| `result/2` | Final result message |
 | `system/1` | System initialization message |
 
 ### Text Messages
@@ -67,43 +67,30 @@ ClaudeCode.Test.text("Done", stop_reason: :end_turn)
 
 ```elixir
 # Tool invocation
-ClaudeCode.Test.tool_use(
-  name: "Read",
-  input: %{file_path: "/tmp/file.txt"}
-)
+ClaudeCode.Test.tool_use("Read", %{file_path: "/tmp/file.txt"})
 
 # With preceding text
-ClaudeCode.Test.tool_use(
-  name: "Bash",
-  input: %{command: "ls -la"},
-  text: "Let me check the directory..."
-)
+ClaudeCode.Test.tool_use("Bash", %{command: "ls -la"}, text: "Let me check the directory...")
 ```
 
 ### Tool Results
 
 ```elixir
 # Successful tool result
-ClaudeCode.Test.tool_result(content: "file contents here")
+ClaudeCode.Test.tool_result("file contents here")
 
 # Failed tool result
-ClaudeCode.Test.tool_result(
-  content: "Permission denied",
-  is_error: true
-)
+ClaudeCode.Test.tool_result("Permission denied", is_error: true)
 ```
 
 ### Thinking Blocks
 
 ```elixir
 # Extended thinking
-ClaudeCode.Test.thinking(thinking: "Let me analyze step by step...")
+ClaudeCode.Test.thinking("Let me analyze step by step...")
 
 # Thinking followed by response
-ClaudeCode.Test.thinking(
-  thinking: "First I need to...",
-  text: "Here's my answer"
-)
+ClaudeCode.Test.thinking("First I need to...", text: "Here's my answer")
 ```
 
 ### Result Messages
@@ -113,13 +100,10 @@ ClaudeCode.Test.thinking(
 ClaudeCode.Test.result()
 
 # Custom result
-ClaudeCode.Test.result(result: "Task completed successfully")
+ClaudeCode.Test.result("Task completed successfully")
 
 # Error result
-ClaudeCode.Test.result(
-  is_error: true,
-  result: "Rate limit exceeded"
-)
+ClaudeCode.Test.result("Rate limit exceeded", is_error: true)
 ```
 
 ## Dynamic Stubs
@@ -130,12 +114,12 @@ Stubs can be functions that receive the query and options:
 ClaudeCode.Test.stub(ClaudeCode.Session, fn query, opts ->
   cond do
     String.contains?(query, "error") ->
-      [ClaudeCode.Test.result(is_error: true, result: "Something went wrong")]
+      [ClaudeCode.Test.result("Something went wrong", is_error: true)]
 
     String.contains?(query, "file") ->
       [
-        ClaudeCode.Test.tool_use(name: "Read", input: %{file_path: "/tmp/test.txt"}),
-        ClaudeCode.Test.tool_result(content: "file contents"),
+        ClaudeCode.Test.tool_use("Read", %{file_path: "/tmp/test.txt"}),
+        ClaudeCode.Test.tool_result("file contents"),
         ClaudeCode.Test.text("I read the file"),
         ClaudeCode.Test.result()
       ]
@@ -155,17 +139,17 @@ test "handles file read and edit sequence" do
   ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
     [
       ClaudeCode.Test.text("I'll read the file first"),
-      ClaudeCode.Test.tool_use(name: "Read", input: %{file_path: "lib/app.ex"}),
-      ClaudeCode.Test.tool_result(content: "defmodule App do\nend"),
+      ClaudeCode.Test.tool_use("Read", %{file_path: "lib/app.ex"}),
+      ClaudeCode.Test.tool_result("defmodule App do\nend"),
       ClaudeCode.Test.text("Now I'll edit it"),
-      ClaudeCode.Test.tool_use(name: "Edit", input: %{
+      ClaudeCode.Test.tool_use("Edit", %{
         file_path: "lib/app.ex",
         old_string: "defmodule App do",
         new_string: "defmodule MyApp do"
       }),
-      ClaudeCode.Test.tool_result(content: "File updated"),
+      ClaudeCode.Test.tool_result("File updated"),
       ClaudeCode.Test.text("Done! I renamed the module."),
-      ClaudeCode.Test.result(result: "Done! I renamed the module.")
+      ClaudeCode.Test.result("Done! I renamed the module.")
     ]
   end)
 
@@ -255,8 +239,8 @@ test "tool callback receives events" do
 
   ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
     [
-      ClaudeCode.Test.tool_use(name: "Bash", input: %{command: "echo hi"}),
-      ClaudeCode.Test.tool_result(content: "hi"),
+      ClaudeCode.Test.tool_use("Bash", %{command: "echo hi"}),
+      ClaudeCode.Test.tool_result("hi"),
       ClaudeCode.Test.result()
     ]
   end)
@@ -294,7 +278,7 @@ end)
 ```elixir
 test "handles API errors gracefully" do
   ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
-    [ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")]
+    [ClaudeCode.Test.result("Rate limit exceeded", is_error: true)]
   end)
 
   {:ok, session} = ClaudeCode.start_link()

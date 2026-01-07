@@ -18,7 +18,7 @@ defmodule ClaudeCode.SessionStreamingTest do
           ClaudeCode.Test.text("First part"),
           ClaudeCode.Test.text("Second part"),
           ClaudeCode.Test.text("Final part"),
-          ClaudeCode.Test.result(result: "Complete")
+          ClaudeCode.Test.result("Complete")
         ]
       end)
 
@@ -97,7 +97,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
         [
           ClaudeCode.Test.text("Turn #{count} response"),
-          ClaudeCode.Test.result(result: "Turn #{count} complete")
+          ClaudeCode.Test.result("Turn #{count} complete")
         ]
       end)
 

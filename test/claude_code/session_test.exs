@@ -17,7 +17,7 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Hello from test adapter!"),
-          ClaudeCode.Test.result(result: "Hello from test adapter!")
+          ClaudeCode.Test.result("Hello from test adapter!")
         ]
       end)
 
@@ -37,10 +37,10 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Let me read that file"),
-          ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/tmp/test.txt"}),
-          ClaudeCode.Test.tool_result(content: "File contents here"),
+          ClaudeCode.Test.tool_use("Read", %{path: "/tmp/test.txt"}),
+          ClaudeCode.Test.tool_result("File contents here"),
           ClaudeCode.Test.text("Done reading"),
-          ClaudeCode.Test.result(result: "Done reading")
+          ClaudeCode.Test.result("Done reading")
         ]
       end)
 
@@ -68,7 +68,7 @@ defmodule ClaudeCode.SessionTest do
 
     test "handles error result" do
       ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
-        [ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")]
+        [ClaudeCode.Test.result("Rate limit exceeded", is_error: true)]
       end)
 
       {:ok, session} = Session.start_link(adapter: @adapter)
@@ -133,7 +133,7 @@ defmodule ClaudeCode.SessionTest do
 
         [
           ClaudeCode.Test.text("Response #{count}"),
-          ClaudeCode.Test.result(result: "Response #{count}")
+          ClaudeCode.Test.result("Response #{count}")
         ]
       end)
 
@@ -162,7 +162,7 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Hello", session_id: "captured-session-abc"),
-          ClaudeCode.Test.result(result: "Hello", session_id: "captured-session-abc")
+          ClaudeCode.Test.result("Hello", session_id: "captured-session-abc")
         ]
       end)
 
