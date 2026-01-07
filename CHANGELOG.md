@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-01-07
+
 ### Added
 - **`ClaudeCode.Test` module** - Req.Test-style test helpers for mocking Claude responses ([9f78103])
   - `stub/2` - Register function or static message stubs for test isolation
