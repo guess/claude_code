@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **BREAKING: Simplified public API** - Renamed and reorganized query functions ([e7ca31a])
+  - `query_stream/3` → `stream/3` - Primary API for session-based streaming queries
+  - `query/3` (session-based sync) → Removed - Use `stream/3` instead
+  - `query/2` (new) - One-off convenience function with auto session management
+  - Migration: Replace `ClaudeCode.query(session, prompt)` with `ClaudeCode.stream(session, prompt) |> Enum.to_list()`
+  - Migration: Replace `ClaudeCode.query_stream(session, prompt)` with `ClaudeCode.stream(session, prompt)`
+
+### Added
+- **Concurrent request queuing** - Multiple concurrent streams on same session are now properly queued and executed sequentially ([e7ca31a])
+
+### Fixed
+- **Named process handling** - Stream cleanup now properly handles named processes (atoms, `:via`, `:global` tuples) ([e7ca31a])
+
 ## [0.8.1] - 2026-01-06
 
 ### Fixed
