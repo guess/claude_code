@@ -29,8 +29,7 @@ Supervisor.start_link([ClaudeCode.Test], strategy: :one_for_one)
 test "returns greeting" do
   ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
     [
-      ClaudeCode.Test.text("Hello! How can I help?"),
-      ClaudeCode.Test.result("Hello! How can I help?")
+      ClaudeCode.Test.text("Hello! How can I help?")
     ]
   end)
 
