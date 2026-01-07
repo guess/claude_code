@@ -33,9 +33,40 @@ ClaudeCode.stop(session)
 
 The `ClaudeCode.Stream` module provides utilities for working with streams:
 
+### Getting the Final Result
+
 ```elixir
 alias ClaudeCode.Stream
 
+# Most common: just get the final answer
+result = session
+|> ClaudeCode.stream("What is 2 + 2?")
+|> Stream.final_text()
+# => "2 + 2 equals 4."
+```
+
+### Collecting a Summary
+
+```elixir
+# Get a structured summary of the entire conversation
+summary = session
+|> ClaudeCode.stream("Create a hello.txt file")
+|> Stream.collect()
+
+IO.puts("Text: #{summary.text}")
+IO.puts("Result: #{summary.result}")
+IO.puts("Tool calls: #{length(summary.tool_calls)}")
+
+# Process each tool call with its result
+Enum.each(summary.tool_calls, fn {tool_use, tool_result} ->
+  IO.puts("Tool: #{tool_use.name}")
+  if tool_result, do: IO.puts("Output: #{tool_result.content}")
+end)
+```
+
+### Filtering and Extracting Content
+
+```elixir
 # Extract text content from assistant messages
 stream |> Stream.text_content() |> Enum.each(&IO.write/1)
 
@@ -48,11 +79,24 @@ stream |> Stream.tool_uses() |> Enum.each(&handle_tool/1)
 # Filter by message type
 stream |> Stream.filter_type(:assistant) |> Enum.to_list()
 
-# Buffer text until sentence boundaries
-stream |> Stream.buffered_text() |> Enum.each(&process_sentence/1)
-
 # Take messages until result is received
 stream |> Stream.until_result() |> Enum.to_list()
+```
+
+### Monitoring and Side Effects
+
+```elixir
+# Log all messages without affecting the stream
+stream
+|> Stream.tap(fn msg -> Logger.debug("Got: #{inspect(msg)}") end)
+|> Stream.final_text()
+
+# React to tool usage (for progress indicators)
+stream
+|> Stream.on_tool_use(fn tool ->
+  IO.puts("Using tool: #{tool.name}")
+end)
+|> Stream.final_text()
 ```
 
 ## Character-Level Streaming

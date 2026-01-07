@@ -120,8 +120,7 @@ Claude can read and analyze files in your project:
 response =
   session
   |> ClaudeCode.stream("Can you look at my mix.exs file and suggest any improvements?")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
+  |> ClaudeCode.Stream.final_text()
 
 IO.puts(response)
 ClaudeCode.stop(session)
@@ -141,8 +140,7 @@ session |> ClaudeCode.stream("My name is Alice and I'm learning Elixir") |> Stre
 response =
   session
   |> ClaudeCode.stream("What's my name and what am I learning?")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
+  |> ClaudeCode.Stream.final_text()
 
 IO.puts(response)
 # => "Your name is Alice and you're learning Elixir!"
@@ -163,8 +161,7 @@ case ClaudeCode.start_link() do
       response =
         session
         |> ClaudeCode.stream("Hello!")
-        |> ClaudeCode.Stream.text_content()
-        |> Enum.join()
+        |> ClaudeCode.Stream.final_text()
 
       IO.puts("Claude says: #{response}")
     catch

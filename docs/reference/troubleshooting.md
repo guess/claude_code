@@ -340,13 +340,15 @@ Supported CLI versions: 0.8.0+
    |> Stream.run()
    ```
 
-2. **Use buffered streaming:**
+2. **Use collect for structured results:**
    ```elixir
-   session
+   # When you need the full response organized
+   summary = session
    |> ClaudeCode.stream(prompt)
-   |> ClaudeCode.Stream.buffered_text()
-   |> Stream.each(&process_complete_sentences/1)
-   |> Stream.run()
+   |> ClaudeCode.Stream.collect()
+
+   # Process the collected data
+   IO.puts(summary.result)
    ```
 
 ## Performance Issues

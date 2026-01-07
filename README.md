@@ -89,8 +89,7 @@ session
 # File operations
 session
 |> ClaudeCode.stream("Review my mix.exs file", allowed_tools: ["View", "Edit"])
-|> ClaudeCode.Stream.text_content()
-|> Enum.join()
+|> ClaudeCode.Stream.final_text()
 
 # Custom agents
 agents = %{
@@ -107,8 +106,7 @@ agents = %{
 {:ok, _} = ClaudeCode.Supervisor.start_link(name: :assistant)
 :assistant
 |> ClaudeCode.stream("Help with this task")
-|> ClaudeCode.Stream.text_content()
-|> Enum.join()
+|> ClaudeCode.Stream.final_text()
 ```
 
 📖 **[Complete Getting Started Guide →](docs/guides/getting-started.md)**
@@ -133,8 +131,7 @@ end
 review =
   :code_reviewer
   |> ClaudeCode.stream("Review this code")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
+  |> ClaudeCode.Stream.final_text()
 ```
 
 **Benefits:**
@@ -150,8 +147,7 @@ def ask(conn, %{"prompt" => prompt}) do
   response =
     :assistant
     |> ClaudeCode.stream(prompt)
-    |> ClaudeCode.Stream.text_content()
-    |> Enum.join()
+    |> ClaudeCode.Stream.final_text()
 
   json(conn, %{response: response})
 end
