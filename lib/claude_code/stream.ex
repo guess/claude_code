@@ -470,40 +470,6 @@ defmodule ClaudeCode.Stream do
     end)
   end
 
-  @doc """
-  Buffers text content until complete assistant messages are formed.
-
-  This is useful when you want complete sentences or paragraphs rather
-  than individual text fragments.
-
-  ## Examples
-
-      session
-      |> ClaudeCode.stream("Explain something")
-      |> ClaudeCode.Stream.buffered_text()
-      |> Enum.each(&IO.puts/1)
-  """
-  @spec buffered_text(Enumerable.t()) :: Enumerable.t()
-  def buffered_text(stream) do
-    Stream.transform(stream, "", fn
-      %Message.AssistantMessage{} = msg, buffer ->
-        text = extract_text(msg)
-        full_text = buffer <> text
-
-        if String.ends_with?(text, [". ", ".\n", "! ", "!\n", "? ", "?\n"]) do
-          {[full_text], ""}
-        else
-          {[], full_text}
-        end
-
-      %Message.ResultMessage{}, buffer ->
-        if buffer == "", do: {[], ""}, else: {[buffer], ""}
-
-      _other, buffer ->
-        {[], buffer}
-    end)
-  end
-
   # Private functions
 
   # Remove init_stream as it's no longer needed
@@ -588,12 +554,6 @@ defmodule ClaudeCode.Stream do
   end
 
   defp message_type_matches?(_, _), do: false
-
-  defp extract_text(%Message.AssistantMessage{message: message}) do
-    message.content
-    |> Enum.filter(&match?(%Content.TextBlock{}, &1))
-    |> Enum.map_join("", & &1.text)
-  end
 
   defp extract_content_parts(content) do
     Enum.reduce(content, {[], [], []}, fn

@@ -373,63 +373,6 @@ defmodule ClaudeCode.StreamTest do
     end
   end
 
-  describe "buffered_text/1" do
-    test "buffers text until sentence boundaries" do
-      messages = [
-        assistant_message(
-          message: %{
-            content: [text_content("This is the first part")]
-          }
-        ),
-        assistant_message(
-          message: %{
-            content: [text_content(" of a sentence. ")]
-          }
-        ),
-        assistant_message(
-          message: %{
-            content: [text_content("This is another")]
-          }
-        ),
-        assistant_message(
-          message: %{
-            content: [text_content(" sentence!")]
-          }
-        )
-      ]
-
-      buffered = messages |> Stream.buffered_text() |> Enum.to_list()
-      assert buffered == ["This is the first part of a sentence. "]
-    end
-
-    test "flushes buffer on result message" do
-      messages = [
-        assistant_message(
-          message: %{
-            content: [text_content("Incomplete sentence")]
-          }
-        ),
-        result_message()
-      ]
-
-      buffered = messages |> Stream.buffered_text() |> Enum.to_list()
-      assert buffered == ["Incomplete sentence"]
-    end
-
-    test "handles multiple sentences in one message" do
-      messages = [
-        assistant_message(
-          message: %{
-            content: [text_content("First. Second. ")]
-          }
-        )
-      ]
-
-      buffered = messages |> Stream.buffered_text() |> Enum.to_list()
-      assert buffered == ["First. Second. "]
-    end
-  end
-
   describe "text_deltas/1" do
     test "extracts text from text_delta stream events" do
       events = [
