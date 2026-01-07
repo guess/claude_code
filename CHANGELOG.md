@@ -75,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Or using only built-in tools: `tools: :default, strict_mcp_config: true`
 
 ### Changed
-- **BREAKING: `ClaudeCode.query/3` now returns full `%Result{}` struct** instead of just text
+- **BREAKING: `ClaudeCode.query` now returns full `%Result{}` struct** instead of just text
   - Before: `{:ok, "response text"}` or `{:error, {:claude_error, "message"}}`
   - After: `{:ok, %ClaudeCode.Message.Result{result: "response text", ...}}` or `{:error, %ClaudeCode.Message.Result{is_error: true, ...}}`
   - Provides access to metadata: `session_id`, `is_error`, `subtype`, `duration_ms`, `usage`, etc.
