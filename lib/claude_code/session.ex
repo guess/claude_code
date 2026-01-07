@@ -43,13 +43,9 @@ defmodule ClaudeCode.Session do
     @moduledoc false
     defstruct [
       :id,
-      # :sync | :stream
-      :type,
-      # For sync requests - GenServer.from()
-      :from,
-      # For stream requests - list of waiting subscribers (GenServer.from())
+      # List of waiting subscribers (GenServer.from())
       :subscribers,
-      # Collected messages for sync requests
+      # Buffered messages waiting to be consumed
       :messages,
       # :active | :completed
       :status,
@@ -109,32 +105,22 @@ defmodule ClaudeCode.Session do
   end
 
   @impl true
-  def handle_call({:query, prompt, opts}, from, state) do
-    request = %Request{
-      id: make_ref(),
-      type: :sync,
-      from: from,
-      messages: [],
-      status: :active,
-      created_at: System.monotonic_time()
-    }
-
-    new_state = enqueue_or_execute(request, prompt, opts, state)
-    {:noreply, new_state}
-  end
-
   def handle_call({:query_stream, prompt, opts}, _from, state) do
     request = %Request{
       id: make_ref(),
-      type: :stream,
       subscribers: [],
       messages: [],
       status: :active,
       created_at: System.monotonic_time()
     }
 
-    new_state = enqueue_or_execute(request, prompt, opts, state)
-    {:reply, {:ok, request.id}, new_state}
+    case enqueue_or_execute(request, prompt, opts, state) do
+      {:ok, new_state} ->
+        {:reply, {:ok, request.id}, new_state}
+
+      {:error, reason, new_state} ->
+        {:reply, {:error, reason}, new_state}
+    end
   end
 
   def handle_call({:receive_next, req_ref}, from, state) do
@@ -151,7 +137,8 @@ defmodule ClaudeCode.Session do
         new_requests = Map.delete(state.requests, req_ref)
         {:reply, :done, %{state | requests: new_requests}}
 
-      %{status: :active, messages: []} = request ->
+      %{status: status, messages: []} = request when status in [:active, :queued] ->
+        # For both active and queued requests, add to subscribers and wait
         updated_request = %{request | subscribers: [from | request.subscribers]}
         new_requests = Map.put(state.requests, req_ref, updated_request)
         {:noreply, %{state | requests: new_requests}}
@@ -268,18 +255,19 @@ defmodule ClaudeCode.Session do
     case ensure_connected(state) do
       {:ok, connected_state} ->
         if has_active_request?(connected_state) do
-          # Queue this request
+          # Queue this request and track it with :queued status
+          queued_request = %{request | status: :queued}
           queue = :queue.in({request, prompt, opts}, connected_state.query_queue)
-          %{connected_state | query_queue: queue}
+          new_requests = Map.put(connected_state.requests, request.id, queued_request)
+          {:ok, %{connected_state | query_queue: queue, requests: new_requests}}
         else
           # Execute immediately
           execute_request(request, prompt, opts, connected_state)
         end
 
       {:error, reason, state} ->
-        # Connection failed, notify the request
-        notify_error(request, reason)
-        state
+        # Connection failed
+        {:error, reason, state}
     end
   end
 
@@ -303,8 +291,7 @@ defmodule ClaudeCode.Session do
 
   defp execute_request(request, prompt, opts, state) do
     if is_nil(state.port) do
-      notify_error(request, :not_connected)
-      state
+      {:error, :not_connected, state}
     else
       # Merge options
       {:ok, validated_opts} = Options.validate_query_options(opts)
@@ -316,7 +303,7 @@ defmodule ClaudeCode.Session do
 
       # Register the request and schedule timeout
       schedule_request_timeout(request.id)
-      %{state | requests: Map.put(state.requests, request.id, request)}
+      {:ok, %{state | requests: Map.put(state.requests, request.id, request)}}
     end
   end
 
@@ -324,7 +311,22 @@ defmodule ClaudeCode.Session do
     case :queue.out(state.query_queue) do
       {{:value, {request, prompt, opts}}, new_queue} ->
         new_state = %{state | query_queue: new_queue}
-        execute_request(request, prompt, opts, new_state)
+
+        # Get the tracked request (may have subscribers waiting) and update to active
+        tracked_request =
+          case Map.get(state.requests, request.id) do
+            nil -> request
+            existing -> %{existing | status: :active}
+          end
+
+        case execute_request(tracked_request, prompt, opts, new_state) do
+          {:ok, updated_state} ->
+            updated_state
+
+          {:error, reason, updated_state} ->
+            notify_error(tracked_request, reason)
+            updated_state
+        end
 
       {:empty, _queue} ->
         state
@@ -386,78 +388,33 @@ defmodule ClaudeCode.Session do
   end
 
   defp dispatch_message(message, request) do
-    case request.type do
-      :sync ->
-        # Store message for sync collection
+    # Either deliver to waiting subscriber or buffer the message
+    case request.subscribers do
+      [subscriber | rest] ->
+        GenServer.reply(subscriber, {:message, message})
+        %{request | subscribers: rest}
+
+      [] ->
         %{request | messages: request.messages ++ [message]}
-
-      :stream ->
-        # For stream requests, either deliver to waiting subscriber or queue
-        case request.subscribers do
-          [subscriber | rest] ->
-            GenServer.reply(subscriber, {:message, message})
-            %{request | subscribers: rest}
-
-          [] ->
-            %{request | messages: request.messages ++ [message]}
-        end
     end
   end
 
   defp complete_request(req_ref, request, state) do
-    case request.type do
-      :sync ->
-        result = extract_result(request.messages)
-        GenServer.reply(request.from, result)
+    # Notify any waiting subscribers that we're done
+    Enum.each(request.subscribers, fn subscriber ->
+      GenServer.reply(subscriber, :done)
+    end)
 
-      :stream ->
-        # Notify any waiting subscribers that we're done
-        Enum.each(request.subscribers, fn subscriber ->
-          GenServer.reply(subscriber, :done)
-        end)
-    end
-
-    # Remove the completed request and process next queued request
-    # Note: For stream requests, we keep them until explicitly cleaned up
-    # so that receive_messages can still retrieve buffered messages
-    new_requests =
-      case request.type do
-        :stream ->
-          # Mark as completed but keep in map for message retrieval
-          Map.put(state.requests, req_ref, %{request | status: :completed})
-
-        _ ->
-          # Remove sync/async requests immediately
-          Map.delete(state.requests, req_ref)
-      end
-
+    # Mark as completed but keep in map for message retrieval
+    new_requests = Map.put(state.requests, req_ref, %{request | status: :completed})
     new_state = %{state | requests: new_requests}
     process_next_in_queue(new_state)
   end
 
-  defp extract_result(messages) do
-    case Enum.find(messages, &match?(%ResultMessage{}, &1)) do
-      %ResultMessage{is_error: true} = result ->
-        {:error, result}
-
-      %ResultMessage{} = result ->
-        {:ok, result}
-
-      nil ->
-        {:error, :no_result}
-    end
-  end
-
   defp notify_error(request, error) do
-    case request.type do
-      :sync ->
-        GenServer.reply(request.from, {:error, error})
-
-      :stream ->
-        Enum.each(request.subscribers, fn subscriber ->
-          GenServer.reply(subscriber, {:error, error})
-        end)
-    end
+    Enum.each(request.subscribers, fn subscriber ->
+      GenServer.reply(subscriber, {:error, error})
+    end)
   end
 
   defp find_active_request(requests) do

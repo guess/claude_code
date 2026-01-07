@@ -13,7 +13,7 @@ IO.puts(response)  # Full response at once
 **Streaming** - Process response as it arrives:
 ```elixir
 session
-|> ClaudeCode.query_stream("Explain GenServers")
+|> ClaudeCode.stream("Explain GenServers")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)  # Prints incrementally
 ```
@@ -57,7 +57,7 @@ For real-time chat interfaces, enable partial messages to receive text character
 
 ```elixir
 session
-|> ClaudeCode.query_stream("Tell me a story", include_partial_messages: true)
+|> ClaudeCode.stream("Tell me a story", include_partial_messages: true)
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 ```
@@ -95,7 +95,7 @@ For advanced use cases, work with raw `StreamEvent` structs:
 alias ClaudeCode.Message.StreamEvent
 
 session
-|> ClaudeCode.query_stream("Hello", include_partial_messages: true)
+|> ClaudeCode.stream("Hello", include_partial_messages: true)
 |> Elixir.Stream.each(fn
   %StreamEvent{event: %{type: :message_start}} ->
     IO.puts("Message started")
@@ -129,7 +129,7 @@ defmodule StreamMetrics do
 
     {first_chunk_time, chunks} =
       session
-      |> ClaudeCode.query_stream(prompt, include_partial_messages: true)
+      |> ClaudeCode.stream(prompt, include_partial_messages: true)
       |> ClaudeCode.Stream.text_deltas()
       |> Elixir.Stream.with_index()
       |> Enum.reduce({nil, []}, fn {chunk, idx}, {ttft, acc} ->
@@ -154,14 +154,14 @@ end
 
 ## Push-Based Streaming for LiveView
 
-For event-driven architectures like Phoenix LiveView, wrap `query_stream/3` in a Task:
+For event-driven architectures like Phoenix LiveView, wrap `stream/3` in a Task:
 
 ```elixir
 # Start streaming in a Task and forward messages
 parent = self()
 Task.start(fn ->
   session
-  |> ClaudeCode.query_stream("Tell me a story", include_partial_messages: true)
+  |> ClaudeCode.stream("Tell me a story", include_partial_messages: true)
   |> ClaudeCode.Stream.text_deltas()
   |> Enum.each(&send(parent, {:chunk, &1}))
   send(parent, :complete)
@@ -184,7 +184,7 @@ See [Phoenix Integration](../integration/phoenix.md) for complete LiveView examp
 ```elixir
 try do
   session
-  |> ClaudeCode.query_stream(prompt)
+  |> ClaudeCode.stream(prompt)
   |> ClaudeCode.Stream.text_content()
   |> Enum.each(&IO.write/1)
 rescue
@@ -199,7 +199,7 @@ For large responses, process chunks immediately instead of accumulating:
 ```elixir
 # Good: Process immediately
 session
-|> ClaudeCode.query_stream(prompt)
+|> ClaudeCode.stream(prompt)
 |> ClaudeCode.Stream.text_content()
 |> Elixir.Stream.each(&IO.write/1)
 |> Elixir.Stream.run()
@@ -207,7 +207,7 @@ session
 # Avoid: Accumulating all chunks
 chunks =
   session
-  |> ClaudeCode.query_stream(prompt)
+  |> ClaudeCode.stream(prompt)
   |> ClaudeCode.Stream.text_content()
   |> Enum.to_list()  # Loads everything into memory
 ```

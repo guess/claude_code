@@ -286,7 +286,7 @@ Supported CLI versions: 0.8.0+
    ```elixir
    # Force stream evaluation
    session
-   |> ClaudeCode.query_stream(prompt)
+   |> ClaudeCode.stream(prompt)
    |> Enum.to_list()
    |> IO.inspect()
    ```
@@ -294,7 +294,7 @@ Supported CLI versions: 0.8.0+
 3. **Use stream utilities:**
    ```elixir
    session
-   |> ClaudeCode.query_stream(prompt)
+   |> ClaudeCode.stream(prompt)
    |> ClaudeCode.Stream.text_content()
    |> Enum.each(&IO.write/1)
    ```
@@ -308,7 +308,7 @@ Supported CLI versions: 0.8.0+
 1. **Add timeouts:**
    ```elixir
    session
-   |> ClaudeCode.query_stream(prompt, timeout: 120_000)
+   |> ClaudeCode.stream(prompt, timeout: 120_000)
    |> Stream.take_while(fn _ -> true end)
    |> Enum.to_list()
    ```
@@ -316,7 +316,7 @@ Supported CLI versions: 0.8.0+
 2. **Use stream debugging:**
    ```elixir
    session
-   |> ClaudeCode.query_stream(prompt)
+   |> ClaudeCode.stream(prompt)
    |> Stream.each(fn msg -> IO.inspect(msg, label: "Stream message") end)
    |> ClaudeCode.Stream.text_content()
    |> Enum.to_list()
@@ -331,7 +331,7 @@ Supported CLI versions: 0.8.0+
 1. **Process chunks immediately:**
    ```elixir
    session
-   |> ClaudeCode.query_stream(prompt)
+   |> ClaudeCode.stream(prompt)
    |> ClaudeCode.Stream.text_content()
    |> Stream.each(&IO.write/1)  # Don't accumulate
    |> Stream.run()
@@ -340,7 +340,7 @@ Supported CLI versions: 0.8.0+
 2. **Use buffered streaming:**
    ```elixir
    session
-   |> ClaudeCode.query_stream(prompt)
+   |> ClaudeCode.stream(prompt)
    |> ClaudeCode.Stream.buffered_text()
    |> Stream.each(&process_complete_sentences/1)
    |> Stream.run()
@@ -373,7 +373,7 @@ Supported CLI versions: 0.8.0+
    ```elixir
    # User sees response immediately
    session
-   |> ClaudeCode.query_stream(prompt)
+   |> ClaudeCode.stream(prompt)
    |> ClaudeCode.Stream.text_content()
    |> Enum.each(&IO.write/1)
    ```

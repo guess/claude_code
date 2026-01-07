@@ -183,7 +183,7 @@ Adds streaming support for real-time responses.
 Users want to see Claude's responses as they're generated, like in the web interface.
 
 ## How
-- Implements `query_stream/3` function
+- Implements `stream/3` function
 - Uses Elixir Streams for lazy evaluation
 - Parses JSON messages in real-time
 

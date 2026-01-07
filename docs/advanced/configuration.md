@@ -6,7 +6,7 @@ ClaudeCode uses NimbleOptions for configuration validation. Options can be set a
 
 Options are resolved in this order (highest to lowest priority):
 
-1. **Query-level options** - Passed to `query/3` or `query_stream/3`
+1. **Query-level options** - Passed to `query/3` or `stream/3`
 2. **Session-level options** - Passed to `start_link/1`
 3. **Application config** - Set in `config/config.exs`
 4. **Default values** - Built-in defaults
@@ -78,7 +78,7 @@ All options for `ClaudeCode.start_link/1`:
 
 ## Query Options
 
-Options that can be passed to `query/3` or `query_stream/3`:
+Options that can be passed to `query/3` or `stream/3`:
 
 | Option | Type | Description |
 |--------|------|-------------|

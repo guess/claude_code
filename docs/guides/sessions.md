@@ -37,20 +37,20 @@ ClaudeCode.stop(session)
 
 ### Streaming Multi-Turn
 
-Use `query_stream/3` for real-time responses while maintaining context:
+Use `stream/3` for real-time responses while maintaining context:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
 
 # First turn with streaming
 session
-|> ClaudeCode.query_stream("My name is Alice")
+|> ClaudeCode.stream("My name is Alice")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 
 # Second turn - context is preserved
 session
-|> ClaudeCode.query_stream("What is my name?")
+|> ClaudeCode.stream("What is my name?")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 # => "Your name is Alice"

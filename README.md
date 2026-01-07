@@ -22,15 +22,25 @@ The idiomatic way to integrate Claude AI into your Elixir applications.
 ## 🎯 30-Second Demo
 
 ```elixir
-# Start a session and query Claude (uses ANTHROPIC_API_KEY from env)
-{:ok, session} = ClaudeCode.start_link()
-{:ok, response} = ClaudeCode.query(session, "Explain Elixir GenServers in one sentence")
-IO.puts(response)
+# Simple one-off query (uses ANTHROPIC_API_KEY from env)
+{:ok, result} = ClaudeCode.query("Explain Elixir GenServers in one sentence")
+IO.puts(result.result)
 
-# Conversation continuity - Claude remembers context
-ClaudeCode.query(session, "My favorite language is Elixir")
-{:ok, answer} = ClaudeCode.query(session, "What's my favorite language?")
-IO.puts(answer)  # => "Your favorite language is Elixir!"
+# For multi-turn conversations, use sessions with streaming
+{:ok, session} = ClaudeCode.start_link()
+
+session
+|> ClaudeCode.stream("My favorite language is Elixir")
+|> Stream.run()
+
+# Claude remembers context across queries
+session
+|> ClaudeCode.stream("What's my favorite language?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+# => "Your favorite language is Elixir!"
+
+ClaudeCode.stop(session)
 ```
 
 ## 📦 Installation
@@ -69,11 +79,17 @@ config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 ```elixir
 # Basic usage (uses ANTHROPIC_API_KEY from environment)
 {:ok, session} = ClaudeCode.start_link()
-{:ok, response} = ClaudeCode.query(session, "Hello, Claude!")
+
+# Stream response messages
+session
+|> ClaudeCode.stream("Hello, Claude!")
+|> Enum.each(&IO.inspect/1)
 
 # File operations
-ClaudeCode.query(session, "Review my mix.exs file",
-  allowed_tools: ["View", "Edit"])
+session
+|> ClaudeCode.stream("Review my mix.exs file", allowed_tools: ["View", "Edit"])
+|> ClaudeCode.Stream.text_content()
+|> Enum.join()
 
 # Custom agents
 agents = %{
@@ -88,7 +104,10 @@ agents = %{
 
 # Production with supervision
 {:ok, _} = ClaudeCode.Supervisor.start_link(name: :assistant)
-ClaudeCode.query(:assistant, "Help with this task")
+:assistant
+|> ClaudeCode.stream("Help with this task")
+|> ClaudeCode.Stream.text_content()
+|> Enum.join()
 ```
 
 📖 **[Complete Getting Started Guide →](docs/guides/getting-started.md)**
@@ -110,7 +129,11 @@ def start(_type, _args) do
 end
 
 # Use from anywhere in your app
-{:ok, review} = ClaudeCode.query(:code_reviewer, "Review this code")
+review =
+  :code_reviewer
+  |> ClaudeCode.stream("Review this code")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
 ```
 
 **Benefits:**
@@ -123,21 +146,24 @@ end
 ```elixir
 # Simple controller usage
 def ask(conn, %{"prompt" => prompt}) do
-  case ClaudeCode.query(:assistant, prompt) do
-    {:ok, response} -> json(conn, %{response: response})
-    {:error, _} -> json(conn, %{error: "Claude unavailable"})
-  end
+  response =
+    :assistant
+    |> ClaudeCode.stream(prompt)
+    |> ClaudeCode.Stream.text_content()
+    |> Enum.join()
+
+  json(conn, %{response: response})
 end
 ```
 
-For LiveView with real-time streaming, use `query_stream/3` with a Task:
+For LiveView with real-time streaming, use `stream/3` with a Task:
 ```elixir
 # LiveView with streaming responses
 def handle_event("send", %{"message" => msg}, socket) do
   parent = self()
   Task.start(fn ->
     :assistant
-    |> ClaudeCode.query_stream(msg, include_partial_messages: true)
+    |> ClaudeCode.stream(msg, include_partial_messages: true)
     |> ClaudeCode.Stream.text_deltas()
     |> Enum.each(&send(parent, {:chunk, &1}))
     send(parent, :complete)
@@ -158,11 +184,22 @@ end
 
 ### Error Handling
 ```elixir
-case ClaudeCode.query(session, "Hello") do
-  {:ok, response} -> IO.puts(response)
-  {:error, :timeout} -> IO.puts("Request timed out")
-  {:error, {:cli_not_found, msg}} -> IO.puts("CLI error: #{msg}")
-  {:error, {:claude_error, msg}} -> IO.puts("Claude error: #{msg}")
+# Stream errors are thrown and can be caught
+try do
+  session
+  |> ClaudeCode.stream("Hello")
+  |> Enum.to_list()
+catch
+  {:stream_timeout, _ref} -> IO.puts("Request timed out")
+  {:stream_init_error, {:cli_not_found, msg}} -> IO.puts("CLI error: #{msg}")
+  {:stream_error, reason} -> IO.puts("Stream error: #{inspect(reason)}")
+end
+
+# Or use one-off query with result pattern matching
+case ClaudeCode.query("Hello") do
+  {:ok, result} -> IO.puts(result.result)
+  {:error, %{is_error: true, result: msg}} -> IO.puts("Error: #{msg}")
+  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
 end
 ```
 
@@ -172,12 +209,16 @@ Sessions automatically maintain context across queries:
 {:ok, session} = ClaudeCode.start_link()
 
 # First turn
-{:ok, response1} = ClaudeCode.query(session, "What's the capital of France?")
-IO.puts(response1)  # Paris
+session
+|> ClaudeCode.stream("What's the capital of France?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)  # Paris
 
 # Second turn - context is preserved automatically
-{:ok, response2} = ClaudeCode.query(session, "What about Germany?")
-IO.puts(response2)  # Berlin
+session
+|> ClaudeCode.stream("What about Germany?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)  # Berlin
 
 # Get session ID for later resume
 {:ok, session_id} = ClaudeCode.get_session_id(session)
@@ -186,8 +227,11 @@ ClaudeCode.stop(session)
 
 # Resume later with the same context
 {:ok, new_session} = ClaudeCode.start_link(resume: session_id)
-{:ok, response3} = ClaudeCode.query(new_session, "What was the first capital I asked about?")
-IO.puts(response3)  # Paris
+
+new_session
+|> ClaudeCode.stream("What was the first capital I asked about?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)  # Paris
 ```
 
 **Benefits:**

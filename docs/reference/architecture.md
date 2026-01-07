@@ -249,7 +249,7 @@ port = Port.open({:spawn_executable, cli_path}, [
 For streaming responses, we'll use Elixir's `Stream` module:
 
 ```elixir
-def query_stream(session, prompt) do
+def stream(session, prompt) do
   Stream.resource(
     fn -> start_query(session, prompt) end,
     fn state -> receive_next_message(state) end,

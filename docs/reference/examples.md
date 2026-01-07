@@ -44,7 +44,7 @@ defmodule CodeAssistant do
     prompt = Enum.join(args, " ")
 
     session
-    |> ClaudeCode.query_stream(prompt)
+    |> ClaudeCode.stream(prompt)
     |> ClaudeCode.Stream.text_content()
     |> Enum.each(&IO.write/1)
 
@@ -57,7 +57,7 @@ defmodule CodeAssistant do
       "" -> interactive_loop(session)
       prompt ->
         session
-        |> ClaudeCode.query_stream(prompt)
+        |> ClaudeCode.stream(prompt)
         |> ClaudeCode.Stream.text_content()
         |> Enum.each(&IO.write/1)
 
@@ -173,7 +173,7 @@ defmodule TestGenerator do
 
     result =
       session
-      |> ClaudeCode.query_stream(prompt)
+      |> ClaudeCode.stream(prompt)
       |> ClaudeCode.Stream.text_content()
       |> Enum.join()
 

@@ -101,7 +101,7 @@ For real-time responses, use streaming:
 {:ok, session} = ClaudeCode.start_link()
 
 session
-|> ClaudeCode.query_stream("Explain how GenServers work in Elixir")
+|> ClaudeCode.stream("Explain how GenServers work in Elixir")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 

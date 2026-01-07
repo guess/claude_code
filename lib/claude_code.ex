@@ -6,12 +6,31 @@ defmodule ClaudeCode do
   through the command-line interface. It manages sessions as GenServer processes
   that maintain persistent CLI subprocesses for efficient bidirectional communication.
 
+  ## API Overview
+
+  | Function | Purpose |
+  |----------|---------|
+  | `start_link/1` | Start a session (with optional `resume: id`) |
+  | `stop/1` | Stop a session |
+  | `stream/3` | Send prompt to session, get message stream |
+  | `query/2` | One-off query (auto start/stop) |
+
   ## Quick Start
 
-      # Start a single session (auto-connects to CLI)
+      # Multi-turn conversation (primary API)
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
-      {:ok, result} = ClaudeCode.query(session, "Hello, Claude!")
-      IO.puts(result)  # Result implements String.Chars
+
+      ClaudeCode.stream(session, "What is 5 + 3?")
+      |> Enum.each(&IO.inspect/1)
+
+      ClaudeCode.stream(session, "Multiply that by 2")
+      |> Enum.each(&IO.inspect/1)
+
+      ClaudeCode.stop(session)
+
+      # One-off query (convenience)
+      {:ok, result} = ClaudeCode.query("What is 2 + 2?", api_key: "sk-ant-...")
+      IO.puts(result)
 
   ## Session Lifecycle
 
@@ -37,7 +56,10 @@ defmodule ClaudeCode do
       Supervisor.start_link(children, strategy: :one_for_one)
 
       # Access supervised sessions from anywhere
-      {:ok, response} = ClaudeCode.query(:code_reviewer, "Review this function")
+      :code_reviewer
+      |> ClaudeCode.stream("Review this function")
+      |> ClaudeCode.Stream.text_content()
+      |> Enum.join()
 
   ## Resume Previous Conversations
 
@@ -49,35 +71,9 @@ defmodule ClaudeCode do
         api_key: "sk-ant-...",
         resume: session_id
       )
-      {:ok, response} = ClaudeCode.query(new_session, "Continue where we left off")
 
-  ## Session Management Patterns
-
-  ### Static Named Sessions (Recommended for most use cases)
-
-  Best for long-lived assistants with specific roles:
-
-      # In supervision tree
-      {ClaudeCode.Supervisor, [
-        [name: {:global, :main_assistant}, api_key: api_key],
-        [name: :local_helper, api_key: api_key]
-      ]}
-
-      # Access from anywhere in your application
-      ClaudeCode.query({:global, :main_assistant}, "Help me with this bug")
-
-  ### Dynamic On-Demand Sessions
-
-  Best for temporary or user-specific contexts:
-
-      # Create as needed
-      {:ok, session} = ClaudeCode.start_link(
-        api_key: user_api_key,
-        system_prompt: "Help user #\{user_id\}"
-      )
-
-      # Use and let it terminate naturally
-      {:ok, result} = ClaudeCode.query(session, prompt)
+      ClaudeCode.stream(new_session, "Continue where we left off")
+      |> Enum.each(&IO.inspect/1)
 
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
@@ -139,57 +135,55 @@ defmodule ClaudeCode do
   end
 
   @doc """
-  Sends a query to Claude and waits for the complete response.
+  Sends a one-off query to Claude and returns the result.
 
-  This function blocks until Claude has finished responding. For streaming
-  responses, use `query_stream/3` instead.
+  This is a convenience function that automatically manages a temporary session.
+  For multi-turn conversations, use `start_link/1` and `stream/3` instead.
 
   ## Options
 
-  Query-level options override session-level options. See `ClaudeCode.Options.query_schema/0`
-  for all available query options.
+  See `ClaudeCode.Options.session_schema/0` for all available options.
 
   ## Examples
 
-      {:ok, result} = ClaudeCode.query(session, "What is 2 + 2?")
+      # Simple one-off query
+      {:ok, result} = ClaudeCode.query("What is 2 + 2?", api_key: "sk-ant-...")
       IO.puts(result)  # Result implements String.Chars
       # => "4"
 
-      # With option overrides
-      {:ok, result} = ClaudeCode.query(session, "Complex query",
-        system_prompt: "Focus on performance optimization",
-        allowed_tools: ["View"],
-        timeout: 120_000
+      # With options
+      {:ok, result} = ClaudeCode.query("Complex query",
+        api_key: "sk-ant-...",
+        model: "opus",
+        system_prompt: "Focus on performance optimization"
       )
 
       # Handle errors
-      case ClaudeCode.query(session, "Do something risky") do
+      case ClaudeCode.query("Do something risky", api_key: "sk-ant-...") do
         {:ok, result} -> IO.puts(result.result)
         {:error, %ClaudeCode.Message.ResultMessage{is_error: true} = result} ->
           IO.puts("Claude error: \#{result.result}")
-        {:error, :timeout} -> IO.puts("Request timed out")
         {:error, reason} -> IO.puts("Error: \#{inspect(reason)}")
       end
   """
-  @spec query(session(), String.t(), keyword()) :: query_response()
-  def query(session, prompt, opts \\ []) do
-    # Extract timeout for GenServer.call, pass rest to session
-    {timeout, query_opts} = Keyword.pop(opts, :timeout, 60_000)
+  @spec query(String.t(), keyword()) :: query_response()
+  def query(prompt, opts \\ []) do
+    {:ok, session} = start_link(opts)
 
     try do
-      GenServer.call(session, {:query, prompt, query_opts}, timeout)
-    catch
-      :exit, {:timeout, _} ->
-        {:error, :timeout}
+      session
+      |> stream(prompt)
+      |> collect_result()
+    after
+      stop(session)
     end
   end
 
   @doc """
-  Sends a query to Claude and returns a stream of messages.
+  Sends a query to a session and returns a stream of messages.
 
-  This function returns immediately with a stream that emits messages as they
-  arrive from Claude. The stream will automatically complete when Claude finishes
-  responding.
+  This is the primary API for interacting with Claude. The stream emits messages
+  as they arrive and automatically completes when Claude finishes responding.
 
   ## Options
 
@@ -200,12 +194,12 @@ defmodule ClaudeCode do
 
       # Stream all messages
       session
-      |> ClaudeCode.query_stream("Write a hello world program")
+      |> ClaudeCode.stream("Write a hello world program")
       |> Enum.each(&IO.inspect/1)
 
       # Stream with option overrides
       session
-      |> ClaudeCode.query_stream("Explain quantum computing",
+      |> ClaudeCode.stream("Explain quantum computing",
            system_prompt: "Focus on practical applications",
            allowed_tools: ["View"])
       |> ClaudeCode.Stream.text_content()
@@ -214,12 +208,21 @@ defmodule ClaudeCode do
       # Collect all text content
       text =
         session
-        |> ClaudeCode.query_stream("Tell me a story")
+        |> ClaudeCode.stream("Tell me a story")
         |> ClaudeCode.Stream.text_content()
         |> Enum.join()
+
+      # Multi-turn conversation
+      {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
+
+      ClaudeCode.stream(session, "What is 5 + 3?")
+      |> Enum.each(&IO.inspect/1)
+
+      ClaudeCode.stream(session, "Multiply that by 2")
+      |> Enum.each(&IO.inspect/1)
   """
-  @spec query_stream(session(), String.t(), keyword()) :: message_stream()
-  def query_stream(session, prompt, opts \\ []) do
+  @spec stream(session(), String.t(), keyword()) :: message_stream()
+  def stream(session, prompt, opts \\ []) do
     ClaudeCode.Stream.create(session, prompt, opts)
   end
 
@@ -293,11 +296,27 @@ defmodule ClaudeCode do
 
       :ok = ClaudeCode.clear(session)
 
-      # Next query will start fresh
-      {:ok, response} = ClaudeCode.query(session, "Hello!")
+      # Next stream will start fresh
+      ClaudeCode.stream(session, "Hello!")
+      |> Enum.each(&IO.inspect/1)
   """
   @spec clear(session()) :: :ok
   def clear(session) do
     GenServer.call(session, :clear_session)
+  end
+
+  # Private helpers
+
+  defp collect_result(stream) do
+    stream
+    |> Enum.reduce(nil, fn
+      %ResultMessage{} = result, _acc -> result
+      _msg, acc -> acc
+    end)
+    |> case do
+      %ResultMessage{is_error: true} = result -> {:error, result}
+      %ResultMessage{} = result -> {:ok, result}
+      nil -> {:error, :no_result}
+    end
   end
 end

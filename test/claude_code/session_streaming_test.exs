@@ -34,7 +34,7 @@ defmodule ClaudeCode.SessionStreamingTest do
       assert state.port == nil
 
       # First query triggers connection
-      {:ok, result} = ClaudeCode.query(session, "Hello")
+      {:ok, result} = MockCLI.sync_query(session, "Hello")
       assert %ResultMessage{result: "Streaming response"} = result
 
       # Port should now be set
@@ -70,7 +70,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       messages =
         session
-        |> ClaudeCode.query_stream("Test query")
+        |> ClaudeCode.stream("Test query")
         |> Enum.to_list()
 
       # Should have messages including result
@@ -87,7 +87,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       messages =
         session
-        |> ClaudeCode.query_stream("Test")
+        |> ClaudeCode.stream("Test")
         |> Enum.to_list()
 
       # Should have received messages
@@ -124,11 +124,11 @@ defmodule ClaudeCode.SessionStreamingTest do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
       # First query
-      {:ok, result1} = ClaudeCode.query(session, "First question")
+      {:ok, result1} = MockCLI.sync_query(session, "First question")
       assert %ResultMessage{result: "Turn 1 response"} = result1
 
       # Second query on same session
-      {:ok, result2} = ClaudeCode.query(session, "Second question")
+      {:ok, result2} = MockCLI.sync_query(session, "Second question")
       assert %ResultMessage{result: "Turn 2 response"} = result2
 
       GenServer.stop(session)
@@ -159,7 +159,7 @@ defmodule ClaudeCode.SessionStreamingTest do
     test "captures session ID from streaming response", %{mock_dir: _mock_dir} do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
-      {:ok, _result} = ClaudeCode.query(session, "Hello")
+      {:ok, _result} = MockCLI.sync_query(session, "Hello")
 
       # Session ID should be captured
       {:ok, session_id} = ClaudeCode.get_session_id(session)
@@ -213,7 +213,7 @@ defmodule ClaudeCode.SessionStreamingTest do
           resume: "previous-session-xyz"
         )
 
-      {:ok, result} = ClaudeCode.query(session, "Hello")
+      {:ok, result} = MockCLI.sync_query(session, "Hello")
       assert %ResultMessage{result: "Resumed session: previous-session-xyz"} = result
 
       GenServer.stop(session)

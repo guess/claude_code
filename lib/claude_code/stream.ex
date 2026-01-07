@@ -9,7 +9,7 @@ defmodule ClaudeCode.Stream do
   ## Example
 
       session
-      |> ClaudeCode.query("Write a story")
+      |> ClaudeCode.stream("Write a story")
       |> ClaudeCode.Stream.text_content()
       |> Stream.each(&IO.write/1)
       |> Stream.run()
@@ -70,7 +70,7 @@ defmodule ClaudeCode.Stream do
   ## Examples
 
       text = session
-      |> ClaudeCode.query("Tell me about Elixir")
+      |> ClaudeCode.stream("Tell me about Elixir")
       |> ClaudeCode.Stream.text_content()
       |> Enum.join()
   """
@@ -94,7 +94,7 @@ defmodule ClaudeCode.Stream do
   ## Examples
 
       thinking = session
-      |> ClaudeCode.query("Complex problem")
+      |> ClaudeCode.stream("Complex problem")
       |> ClaudeCode.Stream.thinking_content()
       |> Enum.join()
   """
@@ -118,7 +118,7 @@ defmodule ClaudeCode.Stream do
   ## Examples
 
       # Real-time character streaming for LiveView
-      ClaudeCode.query_stream(session, "Tell a story", include_partial_messages: true)
+      ClaudeCode.stream(session, "Tell a story", include_partial_messages: true)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:123", {:text_chunk, chunk})
@@ -126,7 +126,7 @@ defmodule ClaudeCode.Stream do
 
       # Simple console output
       session
-      |> ClaudeCode.query_stream("Hello", include_partial_messages: true)
+      |> ClaudeCode.stream("Hello", include_partial_messages: true)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&IO.write/1)
   """
@@ -147,7 +147,7 @@ defmodule ClaudeCode.Stream do
 
       # Stream thinking content in real-time
       session
-      |> ClaudeCode.query_stream("Complex problem", include_partial_messages: true)
+      |> ClaudeCode.stream("Complex problem", include_partial_messages: true)
       |> ClaudeCode.Stream.thinking_deltas()
       |> Enum.each(&IO.write/1)
   """
@@ -169,7 +169,7 @@ defmodule ClaudeCode.Stream do
 
   ## Examples
 
-      ClaudeCode.query_stream(session, "Create a file", include_partial_messages: true)
+      ClaudeCode.stream(session, "Create a file", include_partial_messages: true)
       |> ClaudeCode.Stream.content_deltas()
       |> Enum.each(fn delta ->
         case delta.type do
@@ -218,7 +218,7 @@ defmodule ClaudeCode.Stream do
   ## Examples
 
       session
-      |> ClaudeCode.query("Create some files")
+      |> ClaudeCode.stream("Create some files")
       |> ClaudeCode.Stream.tool_uses()
       |> Enum.each(&handle_tool_use/1)
   """
@@ -256,7 +256,7 @@ defmodule ClaudeCode.Stream do
   ## Examples
 
       messages = session
-      |> ClaudeCode.query("Quick task")
+      |> ClaudeCode.stream("Quick task")
       |> ClaudeCode.Stream.until_result()
       |> Enum.to_list()
   """
@@ -278,7 +278,7 @@ defmodule ClaudeCode.Stream do
   ## Examples
 
       session
-      |> ClaudeCode.query("Explain something")
+      |> ClaudeCode.stream("Explain something")
       |> ClaudeCode.Stream.buffered_text()
       |> Enum.each(&IO.puts/1)
   """
@@ -352,10 +352,18 @@ defmodule ClaudeCode.Stream do
 
   defp cleanup_stream(state) do
     # Notify session that we're done with this stream
-    if state.session && state.request_ref && Process.alive?(state.session) do
+    # Handle both pid and named process references
+    if state.session && state.request_ref && process_alive?(state.session) do
       GenServer.cast(state.session, {:stream_cleanup, state.request_ref})
     end
   end
+
+  defp process_alive?(pid) when is_pid(pid), do: Process.alive?(pid)
+  defp process_alive?(name) when is_atom(name), do: GenServer.whereis(name) != nil
+  defp process_alive?({:via, _, _} = name), do: GenServer.whereis(name) != nil
+  defp process_alive?({:global, _} = name), do: GenServer.whereis(name) != nil
+  defp process_alive?({name, _node} = ref) when is_atom(name), do: GenServer.whereis(ref) != nil
+  defp process_alive?(_), do: false
 
   defp should_emit?(_message, :all), do: true
 

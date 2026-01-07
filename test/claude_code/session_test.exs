@@ -56,7 +56,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # This should use our mock CLI
-      response = GenServer.call(session, {:query, "test prompt", []}, 5000)
+      response = MockCLI.sync_query(session, "test prompt")
 
       assert {:ok, %ResultMessage{result: "Hello from mock CLI!"}} = response
 
@@ -66,15 +66,22 @@ defmodule ClaudeCode.SessionTest do
 
   describe "error handling" do
     test "handles CLI not found" do
-      # Temporarily clear PATH to ensure CLI is not found
+      # Set PATH to only include system directories (not where claude would be)
+      # This ensures sh works but claude isn't found
       original_path = System.get_env("PATH")
-      System.put_env("PATH", "")
+      System.put_env("PATH", "/bin:/usr/bin")
 
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      response = GenServer.call(session, {:query, "test", []})
+      # Stream should throw init error when CLI not found
+      thrown =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+        |> catch_throw()
 
-      assert {:error, {:cli_not_found, _message}} = response
+      assert {:stream_init_error, {:cli_not_found, message}} = thrown
+      assert message =~ "Claude CLI not found in PATH"
 
       System.put_env("PATH", original_path)
       GenServer.stop(session)
@@ -174,7 +181,7 @@ defmodule ClaudeCode.SessionTest do
       assert state.session_id == nil
 
       # Run a query
-      {:ok, _result} = GenServer.call(session, {:query, "test prompt", []})
+      {:ok, _result} = MockCLI.sync_query(session, "test prompt")
 
       # Session ID should now be stored
       state = :sys.get_state(session)
@@ -187,7 +194,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Run query and check that we capture session ID from assistant message too
-      {:ok, _result} = GenServer.call(session, {:query, "test prompt", []})
+      {:ok, _result} = MockCLI.sync_query(session, "test prompt")
 
       state = :sys.get_state(session)
       assert state.session_id == "test-session-123"
@@ -199,7 +206,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Run query and verify session ID is captured
-      {:ok, result} = GenServer.call(session, {:query, "test prompt", []})
+      {:ok, result} = MockCLI.sync_query(session, "test prompt")
 
       # Result should contain the session ID
       assert %ResultMessage{result: "Hello from session test-session-123"} = result
@@ -214,12 +221,12 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # First query establishes session ID
-      {:ok, _result1} = GenServer.call(session, {:query, "first query", []})
+      {:ok, _result1} = MockCLI.sync_query(session, "first query")
       state = :sys.get_state(session)
       session_id_1 = state.session_id
 
       # Second query should have same session ID
-      {:ok, _result2} = GenServer.call(session, {:query, "second query", []})
+      {:ok, _result2} = MockCLI.sync_query(session, "second query")
       state = :sys.get_state(session)
       session_id_2 = state.session_id
 
@@ -232,10 +239,10 @@ defmodule ClaudeCode.SessionTest do
     test "session ID is captured during streaming queries", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Start streaming query using query_stream
+      # Start streaming query using stream
       _messages =
         session
-        |> ClaudeCode.query_stream("streaming test")
+        |> ClaudeCode.stream("streaming test")
         |> Enum.to_list()
 
       # Session ID should be captured during streaming
@@ -289,7 +296,7 @@ defmodule ClaudeCode.SessionTest do
       assert session_id == nil
 
       # Run query to establish session
-      {:ok, _result} = GenServer.call(session, {:query, "test", []})
+      {:ok, _result} = MockCLI.sync_query(session, "test")
 
       # Now should return session ID
       {:ok, session_id} = GenServer.call(session, :get_session_id)
@@ -302,7 +309,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Establish session
-      {:ok, _result} = GenServer.call(session, {:query, "test", []})
+      {:ok, _result} = MockCLI.sync_query(session, "test")
       {:ok, session_id} = GenServer.call(session, :get_session_id)
       assert session_id == "new-session-456"
 
@@ -320,14 +327,14 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # First query establishes session
-      {:ok, result1} = GenServer.call(session, {:query, "first", []})
+      {:ok, result1} = MockCLI.sync_query(session, "first")
       assert %ResultMessage{result: "Session: new-session-456"} = result1
 
       # Clear session
       :ok = GenServer.call(session, :clear_session)
 
       # Next query starts new session (not using --resume)
-      {:ok, result2} = GenServer.call(session, {:query, "second", []})
+      {:ok, result2} = MockCLI.sync_query(session, "second")
       # New session gets same ID in mock
       assert %ResultMessage{result: "Session: new-session-456"} = result2
 
@@ -359,14 +366,14 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # First query establishes valid session
-      {:ok, result1} = GenServer.call(session, {:query, "first query", []})
+      {:ok, result1} = MockCLI.sync_query(session, "first query")
       assert %ResultMessage{result: "Success with session: persistent-session-789"} = result1
 
       {:ok, session_id1} = GenServer.call(session, :get_session_id)
       assert session_id1 == "persistent-session-789"
 
       # Second query should preserve the valid session
-      {:ok, result2} = GenServer.call(session, {:query, "second query", []})
+      {:ok, result2} = MockCLI.sync_query(session, "second query")
       assert %ResultMessage{result: "Success with session: persistent-session-789"} = result2
 
       {:ok, session_id2} = GenServer.call(session, :get_session_id)
@@ -414,23 +421,23 @@ defmodule ClaudeCode.SessionTest do
       """)
     end
 
-    test "handles multiple concurrent sync queries", %{mock_dir: _mock_dir} do
+    test "handles multiple concurrent queries", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Start 3 concurrent queries
+      # Start 3 concurrent queries (they get queued and run sequentially)
       task1 =
         Task.async(fn ->
-          GenServer.call(session, {:query, "query1", []}, 5000)
+          MockCLI.sync_query(session, "query1")
         end)
 
       task2 =
         Task.async(fn ->
-          GenServer.call(session, {:query, "query2", []}, 5000)
+          MockCLI.sync_query(session, "query2")
         end)
 
       task3 =
         Task.async(fn ->
-          GenServer.call(session, {:query, "query3", []}, 5000)
+          MockCLI.sync_query(session, "query3")
         end)
 
       # Wait for all results
@@ -447,6 +454,7 @@ defmodule ClaudeCode.SessionTest do
       assert "Response 3" in result_texts
 
       # Verify all requests are cleaned up
+      Process.sleep(100)
       state = :sys.get_state(session)
       assert map_size(state.requests) == 0
 
@@ -459,17 +467,17 @@ defmodule ClaudeCode.SessionTest do
       # Run multiple streaming queries sequentially (they are serialized internally)
       messages1 =
         session
-        |> ClaudeCode.query_stream("query1")
+        |> ClaudeCode.stream("query1")
         |> Enum.to_list()
 
       messages2 =
         session
-        |> ClaudeCode.query_stream("query2")
+        |> ClaudeCode.stream("query2")
         |> Enum.to_list()
 
       messages3 =
         session
-        |> ClaudeCode.query_stream("query3")
+        |> ClaudeCode.stream("query3")
         |> Enum.to_list()
 
       # Verify each stream got its messages
@@ -493,23 +501,16 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
 
-    test "handles mixed sync and streaming queries", %{mock_dir: _mock_dir} do
+    test "handles multiple queries in sequence", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # First run a sync query
-      sync_result = GenServer.call(session, {:query, "query1", []}, 5000)
-      assert {:ok, %ResultMessage{result: "Response 1"}} = sync_result
+      # First run a query
+      {:ok, result1} = MockCLI.sync_query(session, "query1")
+      assert %ResultMessage{result: "Response 1"} = result1
 
-      # Then run a streaming query
-      stream_messages =
-        session
-        |> ClaudeCode.query_stream("query2")
-        |> Enum.to_list()
-
-      # Verify stream result
-      result_msg = Enum.find(stream_messages, &match?(%ResultMessage{}, &1))
-      assert result_msg != nil, "No result message found in stream"
-      assert result_msg.result == "Response 2"
+      # Then run another query
+      {:ok, result2} = MockCLI.sync_query(session, "query2")
+      assert %ResultMessage{result: "Response 2"} = result2
 
       GenServer.stop(session)
     end
@@ -518,18 +519,17 @@ defmodule ClaudeCode.SessionTest do
       # This test verifies that when one CLI subprocess fails, it doesn't affect other requests
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Start multiple concurrent queries
+      # Start multiple concurrent queries (they get queued)
       tasks = [
         Task.async(fn ->
-          GenServer.call(session, {:query, "query1", []}, 5000)
+          MockCLI.sync_query(session, "query1")
         end),
         Task.async(fn ->
-          GenServer.call(session, {:query, "query2", []}, 5000)
+          MockCLI.sync_query(session, "query2")
         end),
         Task.async(fn ->
-          # This one will fail because the mock doesn't recognize "unknown"
-          # and returns the default case
-          GenServer.call(session, {:query, "query3", []}, 5000)
+          # This one will still return a response (the mock has a default case)
+          MockCLI.sync_query(session, "query3")
         end)
       ]
 
@@ -548,34 +548,14 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
 
-    test "handles request timeouts independently", %{mock_dir: mock_dir} do
-      # Create a slow mock script
-      slow_script = Path.join(mock_dir, "claude_slow")
-
-      File.write!(slow_script, """
-      #!/bin/bash
-      echo '{"type":"system","subtype":"init","model":"claude-3","session_id":"test-slow","cwd":"/tmp","tools":[],"mcp_servers":[],"permissionMode":"allow","apiKeySource":"env"}'
-      # Never send result, just sleep
-      sleep 10
-      """)
-
-      File.chmod!(slow_script, 0o755)
-
-      # Start session with very short timeout for testing
+    test "handles request timeouts independently", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # Temporarily set a shorter timeout by updating the module attribute
-      # Note: In real code, we'd make this configurable
-      # For now, we'll just test that the timeout mechanism exists
-
       # Start a normal query
-      task1 =
-        Task.async(fn ->
-          GenServer.call(session, {:query, "query1", []}, 5000)
-        end)
+      {:ok, result} = MockCLI.sync_query(session, "query1")
 
       # Verify normal query completes
-      assert {:ok, %ResultMessage{result: "Response 1"}} = Task.await(task1)
+      assert %ResultMessage{result: "Response 1"} = result
 
       GenServer.stop(session)
     end

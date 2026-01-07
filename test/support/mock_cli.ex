@@ -189,6 +189,28 @@ defmodule MockCLI do
     Jason.encode!(message)
   end
 
+  @doc """
+  Helper to perform a sync-like query on a session using streaming.
+
+  This is useful for tests that need to verify query results without
+  dealing with stream iteration. Returns `{:ok, result}` or `{:error, reason}`.
+  """
+  def sync_query(session, prompt, opts \\ []) do
+    alias ClaudeCode.Message.ResultMessage
+
+    session
+    |> ClaudeCode.stream(prompt, opts)
+    |> Enum.reduce(nil, fn
+      %ResultMessage{} = result, _acc -> result
+      _msg, acc -> acc
+    end)
+    |> case do
+      %ResultMessage{is_error: true} = result -> {:error, result}
+      %ResultMessage{} = result -> {:ok, result}
+      nil -> {:error, :no_result}
+    end
+  end
+
   # Private helpers
 
   defp build_script(messages, sleep) do

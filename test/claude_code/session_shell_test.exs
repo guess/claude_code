@@ -42,9 +42,9 @@ defmodule ClaudeCode.SessionShellTest do
     test "handles simple arguments correctly", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key-123")
 
-      response = GenServer.call(session, {:query, "Hello Claude", []}, 5000)
+      {:ok, result} = MockCLI.sync_query(session, "Hello Claude")
 
-      assert {:ok, %ResultMessage{result: "Hello from Claude Code CLI!"}} = response
+      assert %ResultMessage{result: "Hello from Claude Code CLI!"} = result
 
       GenServer.stop(session)
     end
@@ -52,9 +52,9 @@ defmodule ClaudeCode.SessionShellTest do
     test "escapes arguments with special characters", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key-with-special-$-chars")
 
-      response = GenServer.call(session, {:query, "Hello 'Claude' with \"quotes\"", []}, 5000)
+      {:ok, result} = MockCLI.sync_query(session, "Hello 'Claude' with \"quotes\"")
 
-      assert {:ok, %ResultMessage{result: "Hello from Claude Code CLI!"}} = response
+      assert %ResultMessage{result: "Hello from Claude Code CLI!"} = result
 
       GenServer.stop(session)
     end
@@ -63,9 +63,9 @@ defmodule ClaudeCode.SessionShellTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       prompt = "Line 1\nLine 2\nLine 3"
-      response = GenServer.call(session, {:query, prompt, []}, 5000)
+      {:ok, result} = MockCLI.sync_query(session, prompt)
 
-      assert {:ok, %ResultMessage{result: "Hello from Claude Code CLI!"}} = response
+      assert %ResultMessage{result: "Hello from Claude Code CLI!"} = result
 
       GenServer.stop(session)
     end

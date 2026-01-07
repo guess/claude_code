@@ -35,7 +35,7 @@ defmodule MyAppWeb.ChatLive do
 
     Task.start(fn ->
       :assistant
-      |> ClaudeCode.query_stream(message, include_partial_messages: true)
+      |> ClaudeCode.stream(message, include_partial_messages: true)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         send(parent, {:chunk, chunk})
@@ -111,7 +111,7 @@ def stream(conn, %{"prompt" => prompt}) do
   conn = send_chunked(conn, 200)
 
   :assistant
-  |> ClaudeCode.query_stream(prompt)
+  |> ClaudeCode.stream(prompt)
   |> ClaudeCode.Stream.text_content()
   |> Enum.reduce_while(conn, fn chunk, conn ->
     case chunk(conn, "data: #{chunk}\n\n") do
@@ -131,7 +131,7 @@ defmodule MyApp.ClaudeStreamer do
   def stream_to_topic(prompt, topic) do
     Task.start(fn ->
       :assistant
-      |> ClaudeCode.query_stream(prompt, include_partial_messages: true)
+      |> ClaudeCode.stream(prompt, include_partial_messages: true)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         Phoenix.PubSub.broadcast(MyApp.PubSub, topic, {:claude_chunk, chunk})
@@ -175,7 +175,7 @@ defmodule MyApp.Claude do
     include_partial = Keyword.get(opts, :partial, true)
 
     session
-    |> ClaudeCode.query_stream(prompt, include_partial_messages: include_partial)
+    |> ClaudeCode.stream(prompt, include_partial_messages: include_partial)
     |> ClaudeCode.Stream.text_deltas()
   end
 end
@@ -198,7 +198,7 @@ def handle_event("send", %{"message" => message}, socket) do
   Task.start(fn ->
     try do
       :assistant
-      |> ClaudeCode.query_stream(message)
+      |> ClaudeCode.stream(message)
       |> ClaudeCode.Stream.text_content()
       |> Enum.each(fn chunk -> send(parent, {:chunk, chunk}) end)
 

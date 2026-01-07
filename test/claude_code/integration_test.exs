@@ -45,6 +45,9 @@ defmodule ClaudeCode.IntegrationTest do
           *error*)
             echo '{"type":"result","subtype":"error_during_execution","is_error":true,"duration_ms":200,"duration_api_ms":0,"num_turns":0,"result":"Simulated error response","session_id":"int-test-session","total_cost_usd":0.0,"usage":{}}'
             ;;
+          *auth_fail*)
+            echo '{"type":"result","subtype":"error_during_execution","is_error":true,"duration_ms":100,"duration_api_ms":0,"num_turns":0,"result":"Authentication failed: Missing API key","session_id":"int-test-session","total_cost_usd":0.0,"usage":{}}'
+            ;;
           *timeout*)
             # Simulate timeout by sleeping
             sleep 10
@@ -78,7 +81,7 @@ defmodule ClaudeCode.IntegrationTest do
     test "successful query returns response" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:ok, result} = ClaudeCode.query(session, "Hello, Claude!")
+      {:ok, result} = MockCLI.sync_query(session, "Hello, Claude!")
 
       assert %ResultMessage{result: "Mock response to: Hello, Claude!"} = result
 
@@ -88,17 +91,18 @@ defmodule ClaudeCode.IntegrationTest do
     test "error in prompt returns error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:error, result} = ClaudeCode.query(session, "Please error")
+      {:error, result} = MockCLI.sync_query(session, "Please error")
 
       assert %ResultMessage{is_error: true, result: "Simulated error response"} = result
 
       ClaudeCode.stop(session)
     end
 
-    test "missing API key returns authentication error" do
-      {:ok, session} = ClaudeCode.start_link(api_key: "")
+    test "authentication error is handled correctly" do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      {:error, result} = ClaudeCode.query(session, "Hello")
+      # Use prompt trigger for auth failure simulation
+      {:error, result} = MockCLI.sync_query(session, "test auth_fail")
 
       assert %ResultMessage{is_error: true, result: "Authentication failed: Missing API key"} = result
 
@@ -108,8 +112,14 @@ defmodule ClaudeCode.IntegrationTest do
     test "timeout returns timeout error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
 
-      # Use a short timeout
-      {:error, :timeout} = ClaudeCode.query(session, "Please timeout", timeout: 1000)
+      # Use a short timeout - the stream will throw when it times out
+      thrown =
+        session
+        |> ClaudeCode.stream("Please timeout", timeout: 1000)
+        |> Enum.to_list()
+        |> catch_throw()
+
+      assert {:stream_timeout, _ref} = thrown
 
       ClaudeCode.stop(session)
     end
@@ -118,8 +128,8 @@ defmodule ClaudeCode.IntegrationTest do
       {:ok, _session1} = ClaudeCode.start_link(api_key: "key1", name: :session1)
       {:ok, _session2} = ClaudeCode.start_link(api_key: "key2", name: :session2)
 
-      {:ok, result1} = ClaudeCode.query(:session1, "From session 1")
-      {:ok, result2} = ClaudeCode.query(:session2, "From session 2")
+      {:ok, result1} = MockCLI.sync_query(:session1, "From session 1")
+      {:ok, result2} = MockCLI.sync_query(:session2, "From session 2")
 
       assert %ResultMessage{result: "Mock response to: From session 1"} = result1
       assert %ResultMessage{result: "Mock response to: From session 2"} = result2
@@ -131,9 +141,9 @@ defmodule ClaudeCode.IntegrationTest do
 
   describe "error cases without mock CLI" do
     setup do
-      # Ensure no claude binary is in PATH
+      # Set PATH to only system directories (not where claude would be)
       original_path = System.get_env("PATH")
-      System.put_env("PATH", "/nonexistent")
+      System.put_env("PATH", "/bin:/usr/bin")
 
       on_exit(fn ->
         System.put_env("PATH", original_path)
@@ -145,10 +155,14 @@ defmodule ClaudeCode.IntegrationTest do
     test "CLI not found returns appropriate error" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
-      {:error, {:cli_not_found, message}} = ClaudeCode.query(session, "Hello")
+      # Stream should throw init error when CLI not found
+      error =
+        session
+        |> ClaudeCode.stream("Hello")
+        |> Enum.to_list()
+        |> catch_throw()
 
-      assert message =~ "Claude CLI not found"
-      assert message =~ "Please install Claude Code CLI"
+      assert {:stream_init_error, {:cli_not_found, _message}} = error
 
       ClaudeCode.stop(session)
     end

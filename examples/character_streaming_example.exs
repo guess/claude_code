@@ -13,7 +13,7 @@ IO.puts("=" |> String.duplicate(60))
 IO.puts("Watch the text appear character by character:\n")
 
 session
-|> ClaudeCode.query_stream("Count from 1 to 5, spelling out each number", include_partial_messages: true)
+|> ClaudeCode.stream("Count from 1 to 5, spelling out each number", include_partial_messages: true)
 |> ClaudeCode.Stream.text_deltas()
 |> Stream.each(&IO.write/1)
 |> Stream.run()
@@ -27,7 +27,7 @@ IO.puts("\nWith include_partial_messages: false (default):")
 IO.puts("Each chunk is a complete message:\n")
 
 session
-|> ClaudeCode.query_stream("Say 'Hello World'")
+|> ClaudeCode.stream("Say 'Hello World'")
 |> ClaudeCode.Stream.text_content()
 |> Stream.each(fn chunk ->
   IO.puts("[chunk: #{inspect(chunk)}]")
@@ -38,7 +38,7 @@ IO.puts("\nWith include_partial_messages: true:")
 IO.puts("Each chunk is a character/token:\n")
 
 session
-|> ClaudeCode.query_stream("Say 'Hello World'", include_partial_messages: true)
+|> ClaudeCode.stream("Say 'Hello World'", include_partial_messages: true)
 |> ClaudeCode.Stream.text_deltas()
 |> Stream.each(fn chunk ->
   IO.puts("[delta: #{inspect(chunk)}]")
@@ -52,7 +52,7 @@ IO.puts("=" |> String.duplicate(60))
 IO.puts("Content deltas include index and type information:\n")
 
 session
-|> ClaudeCode.query_stream("Hi there!", include_partial_messages: true)
+|> ClaudeCode.stream("Hi there!", include_partial_messages: true)
 |> ClaudeCode.Stream.content_deltas()
 |> Stream.each(fn delta ->
   IO.inspect(delta, label: "delta")
@@ -68,7 +68,7 @@ IO.puts("Different event types during streaming:\n")
 alias ClaudeCode.Message.StreamEvent
 
 session
-|> ClaudeCode.query_stream("Hello", include_partial_messages: true)
+|> ClaudeCode.stream("Hello", include_partial_messages: true)
 |> Stream.filter(&match?(%StreamEvent{}, &1))
 |> Stream.each(fn %StreamEvent{event: event} ->
   IO.puts("Event type: #{event.type}")
@@ -91,7 +91,7 @@ end
 session_id = "chat:12345"
 
 session
-|> ClaudeCode.query_stream("Say hi", include_partial_messages: true)
+|> ClaudeCode.stream("Say hi", include_partial_messages: true)
 |> ClaudeCode.Stream.text_deltas()
 |> Stream.each(fn text_chunk ->
   # In a real app: Phoenix.PubSub.broadcast(MyApp.PubSub, topic, message)
@@ -107,7 +107,7 @@ IO.puts("Building up the full response while streaming:\n")
 
 {chunks, final_text} =
   session
-  |> ClaudeCode.query_stream("List three colors", include_partial_messages: true)
+  |> ClaudeCode.stream("List three colors", include_partial_messages: true)
   |> ClaudeCode.Stream.text_deltas()
   |> Enum.reduce({[], ""}, fn chunk, {chunks, acc} ->
     IO.write(chunk)
@@ -127,7 +127,7 @@ start_time = System.monotonic_time(:millisecond)
 first_chunk_time = nil
 
 session
-|> ClaudeCode.query_stream("Write a haiku", include_partial_messages: true)
+|> ClaudeCode.stream("Write a haiku", include_partial_messages: true)
 |> ClaudeCode.Stream.text_deltas()
 |> Stream.with_index()
 |> Stream.each(fn {chunk, index} ->

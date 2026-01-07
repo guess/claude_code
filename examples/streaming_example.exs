@@ -8,7 +8,7 @@ IO.puts("Example 1: Using Stream.text_content() helper (recommended)")
 IO.puts("=" |> String.duplicate(60))
 
 session
-|> ClaudeCode.query("Explain GenServers in Elixir in 2 sentences")
+|> ClaudeCode.stream("Explain GenServers in Elixir in 2 sentences")
 |> ClaudeCode.Stream.text_content()
 |> Stream.each(&IO.write/1)
 |> Stream.run()
@@ -19,7 +19,7 @@ IO.puts("Example 2: Working with raw messages")
 IO.puts("=" |> String.duplicate(60))
 
 session
-|> ClaudeCode.query("What is pattern matching?")
+|> ClaudeCode.stream("What is pattern matching?")
 |> Stream.each(fn message ->
   case message do
     %ClaudeCode.Message.Assistant{message: %{content: content}} ->
@@ -46,7 +46,7 @@ IO.puts("=" |> String.duplicate(60))
 # Collect only assistant messages
 messages =
   session
-  |> ClaudeCode.query("List 3 Elixir features")
+  |> ClaudeCode.stream("List 3 Elixir features")
   |> ClaudeCode.Stream.filter_type(:assistant)
   |> Enum.to_list()
 
@@ -58,7 +58,7 @@ IO.puts("Example 4: Using buffered text for complete sentences")
 IO.puts("=" |> String.duplicate(60))
 
 session
-|> ClaudeCode.query("Tell me about OTP")
+|> ClaudeCode.stream("Tell me about OTP")
 |> ClaudeCode.Stream.buffered_text()
 |> Stream.each(&IO.puts/1)
 |> Stream.run()
