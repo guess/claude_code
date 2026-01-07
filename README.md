@@ -221,7 +221,7 @@ session
 |> Enum.each(&IO.write/1)  # Berlin
 
 # Get session ID for later resume
-{:ok, session_id} = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.get_session_id(session)
 
 ClaudeCode.stop(session)
 

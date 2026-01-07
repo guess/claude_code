@@ -191,6 +191,29 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       assert validated[:tools] == :default
     end
+
+    test "validates fork_session option" do
+      opts = [fork_session: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:fork_session] == true
+
+      opts = [fork_session: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:fork_session] == false
+    end
+
+    test "defaults fork_session to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:fork_session] == false
+    end
+
+    test "validates resume and fork_session together" do
+      opts = [resume: "session-id-123", fork_session: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:resume] == "session-id-123"
+      assert validated[:fork_session] == true
+    end
   end
 
   describe "validate_query_options/1" do
@@ -851,6 +874,45 @@ defmodule ClaudeCode.OptionsTest do
 
       args = Options.to_cli_args(opts)
       refute "--strict-mcp-config" in args
+    end
+
+    test "converts fork_session true to --fork-session" do
+      opts = [fork_session: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--fork-session" in args
+      # Boolean flag should not have a value
+      refute "true" in args
+    end
+
+    test "does not add flag when fork_session is false" do
+      opts = [fork_session: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--fork-session" in args
+    end
+
+    test "combines fork_session with other options" do
+      opts = [
+        fork_session: true,
+        model: "opus",
+        max_turns: 10
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--fork-session" in args
+      assert "--model" in args
+      assert "opus" in args
+      assert "--max-turns" in args
+      assert "10" in args
+    end
+
+    test "does not pass resume as CLI flag (handled separately)" do
+      opts = [resume: "session-id-123"]
+
+      args = Options.to_cli_args(opts)
+      refute "--resume" in args
+      refute "session-id-123" in args
     end
   end
 

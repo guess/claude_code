@@ -66,7 +66,7 @@ Save and resume conversations across process restarts:
 # Get the session ID after a conversation
 {:ok, session} = ClaudeCode.start_link()
 {:ok, _} = ClaudeCode.query(session, "Remember: the secret code is 12345")
-{:ok, session_id} = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.get_session_id(session)
 ClaudeCode.stop(session)
 
 # Later: resume with the same context
@@ -74,6 +74,47 @@ ClaudeCode.stop(session)
 {:ok, response} = ClaudeCode.query(session, "What was the secret code?")
 # => "The secret code is 12345"
 ```
+
+## Forking Sessions
+
+Create a branch from an existing conversation. The fork starts with the same
+context but gets a new session ID after the first query:
+
+```elixir
+# Original conversation
+{:ok, session} = ClaudeCode.start_link()
+
+session
+|> ClaudeCode.stream("My name is Mike")
+|> Stream.run()
+
+session_id = ClaudeCode.get_session_id(session)
+# => "eec9f765-06fb-437f-8e48-c4fef8bc3096"
+
+# Fork the conversation - creates a new branch
+{:ok, forked} = ClaudeCode.start_link(
+  resume: session_id,
+  fork_session: true
+)
+
+# Forked session has same context initially
+forked
+|> ClaudeCode.stream("What is my name?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+# => "Your name is Mike."
+
+# After first query, fork gets its own session ID
+ClaudeCode.get_session_id(forked)
+# => "196dd288-4024-4a50-a3a1-0ae38000e76f"
+
+# Original session unchanged
+ClaudeCode.get_session_id(session)
+# => "eec9f765-06fb-437f-8e48-c4fef8bc3096"
+```
+
+This is useful for exploring alternative conversation paths without affecting
+the original session.
 
 ## Clearing Context
 
@@ -111,8 +152,8 @@ ClaudeCode.query(:assistant, "Hello!")
 # Check if session is alive
 ClaudeCode.alive?(session)
 
-# Get current session ID
-{:ok, session_id} = ClaudeCode.get_session_id(session)
+# Get current session ID (nil if no queries yet)
+session_id = ClaudeCode.get_session_id(session)
 ```
 
 ## Wrapping in GenServer
@@ -157,6 +198,7 @@ Common options for `start_link/1`:
 |--------|------|-------------|
 | `name` | atom | Register with a name for global access |
 | `resume` | string | Session ID to resume |
+| `fork_session` | boolean | Create new session ID when resuming (use with `resume`) |
 | `model` | string | Claude model ("sonnet", "opus", etc.) |
 | `system_prompt` | string | Override system prompt |
 | `timeout` | integer | Query timeout in ms (default: 300_000) |

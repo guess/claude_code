@@ -356,7 +356,7 @@ The SDK automatically maintains conversation context across queries within a ses
 {:ok, response2} = ClaudeCode.query(session, "What's my name?")
 
 # Check current session ID
-{:ok, session_id} = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.get_session_id(session)
 
 # Clear session to start fresh conversation
 :ok = ClaudeCode.clear(session)

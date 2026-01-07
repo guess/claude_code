@@ -64,6 +64,8 @@ defmodule ClaudeCode.Options do
   - `:name` - GenServer process name (atom, optional)
   - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
   - `:resume` - Session ID to resume a previous conversation (string, optional)
+  - `:fork_session` - When resuming, create a new session ID instead of reusing the original (boolean, optional)
+    Must be used with `:resume`. Creates a fork of the conversation.
   - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
     Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
   - `:cwd` - Current working directory (string, optional)
@@ -139,6 +141,11 @@ defmodule ClaudeCode.Options do
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
     resume: [type: :string, doc: "Session ID to resume a previous conversation"],
+    fork_session: [
+      type: :boolean,
+      default: false,
+      doc: "When resuming, create a new session ID instead of reusing the original"
+    ],
     tool_callback: [
       type: {:fun, 1},
       doc: """
@@ -396,6 +403,14 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:timeout, _value), do: nil
   defp convert_option_to_cli_flag(:tool_callback, _value), do: nil
   defp convert_option_to_cli_flag(:resume, _value), do: nil
+
+  defp convert_option_to_cli_flag(:fork_session, true) do
+    # Boolean flag without value - return as list to be flattened
+    ["--fork-session"]
+  end
+
+  defp convert_option_to_cli_flag(:fork_session, false), do: nil
+
   defp convert_option_to_cli_flag(_key, nil), do: nil
 
   # TypeScript SDK aligned options

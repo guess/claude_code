@@ -64,7 +64,7 @@ defmodule ClaudeCode do
   ## Resume Previous Conversations
 
       # Get session ID from a previous interaction
-      {:ok, session_id} = ClaudeCode.get_session_id(session)
+      session_id = ClaudeCode.get_session_id(session)
 
       # Later: resume the conversation
       {:ok, new_session} = ClaudeCode.start_link(
@@ -74,6 +74,12 @@ defmodule ClaudeCode do
 
       ClaudeCode.stream(new_session, "Continue where we left off")
       |> Enum.each(&IO.inspect/1)
+
+      # Or fork to create a branch with a new session ID
+      {:ok, forked} = ClaudeCode.start_link(
+        resume: session_id,
+        fork_session: true
+      )
 
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
@@ -267,20 +273,24 @@ defmodule ClaudeCode do
   for subsequent queries to continue the conversation.
 
   You can use this session ID with the `:resume` option when starting a
-  new session to continue the conversation later.
+  new session to continue the conversation later, or with `:fork_session`
+  to create a branch.
 
   ## Examples
 
-      {:ok, session_id} = ClaudeCode.get_session_id(session)
-      # => {:ok, "abc123-session-id"}
+      session_id = ClaudeCode.get_session_id(session)
+      # => "abc123-session-id"
 
       # For a new session with no queries yet
-      {:ok, nil} = ClaudeCode.get_session_id(session)
+      nil = ClaudeCode.get_session_id(session)
 
       # Resume later
       {:ok, new_session} = ClaudeCode.start_link(resume: session_id)
+
+      # Or fork the conversation
+      {:ok, forked} = ClaudeCode.start_link(resume: session_id, fork_session: true)
   """
-  @spec get_session_id(session()) :: {:ok, String.t() | nil}
+  @spec get_session_id(session()) :: String.t() | nil
   def get_session_id(session) do
     GenServer.call(session, :get_session_id)
   end

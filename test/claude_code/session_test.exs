@@ -292,14 +292,14 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
       # Initially no session ID
-      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      session_id = GenServer.call(session, :get_session_id)
       assert session_id == nil
 
       # Run query to establish session
       {:ok, _result} = MockCLI.sync_query(session, "test")
 
       # Now should return session ID
-      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      session_id = GenServer.call(session, :get_session_id)
       assert session_id == "new-session-456"
 
       GenServer.stop(session)
@@ -310,14 +310,14 @@ defmodule ClaudeCode.SessionTest do
 
       # Establish session
       {:ok, _result} = MockCLI.sync_query(session, "test")
-      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      session_id = GenServer.call(session, :get_session_id)
       assert session_id == "new-session-456"
 
       # Clear session
       :ok = GenServer.call(session, :clear_session)
 
       # Session ID should be nil
-      {:ok, session_id} = GenServer.call(session, :get_session_id)
+      session_id = GenServer.call(session, :get_session_id)
       assert session_id == nil
 
       GenServer.stop(session)
@@ -369,14 +369,14 @@ defmodule ClaudeCode.SessionTest do
       {:ok, result1} = MockCLI.sync_query(session, "first query")
       assert %ResultMessage{result: "Success with session: persistent-session-789"} = result1
 
-      {:ok, session_id1} = GenServer.call(session, :get_session_id)
+      session_id1 = GenServer.call(session, :get_session_id)
       assert session_id1 == "persistent-session-789"
 
       # Second query should preserve the valid session
       {:ok, result2} = MockCLI.sync_query(session, "second query")
       assert %ResultMessage{result: "Success with session: persistent-session-789"} = result2
 
-      {:ok, session_id2} = GenServer.call(session, :get_session_id)
+      session_id2 = GenServer.call(session, :get_session_id)
       # Should be the same
       assert session_id2 == session_id1
 

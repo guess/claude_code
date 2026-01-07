@@ -146,7 +146,7 @@ defmodule ClaudeCode.Session do
   end
 
   def handle_call(:get_session_id, _from, state) do
-    {:reply, {:ok, state.session_id}, state}
+    {:reply, state.session_id, state}
   end
 
   def handle_call(:clear_session, _from, state) do

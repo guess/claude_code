@@ -162,7 +162,7 @@ defmodule ClaudeCode.SessionStreamingTest do
       {:ok, _result} = MockCLI.sync_query(session, "Hello")
 
       # Session ID should be captured
-      {:ok, session_id} = ClaudeCode.get_session_id(session)
+      session_id = ClaudeCode.get_session_id(session)
       assert session_id == "captured-session-id-abc"
 
       GenServer.stop(session)
