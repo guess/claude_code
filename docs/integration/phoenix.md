@@ -96,11 +96,11 @@ defmodule MyAppWeb.ClaudeController do
         |> Enum.join()
 
       json(conn, %{response: response})
-    rescue
-      e ->
+    catch
+      error ->
         conn
         |> put_status(:service_unavailable)
-        |> json(%{error: inspect(e)})
+        |> json(%{error: inspect(error)})
     end
   end
 end
@@ -210,8 +210,8 @@ def handle_event("send", %{"message" => message}, socket) do
       |> Enum.each(fn chunk -> send(parent, {:chunk, chunk}) end)
 
       send(parent, :complete)
-    rescue
-      e -> send(parent, {:error, Exception.message(e)})
+    catch
+      error -> send(parent, {:error, inspect(error)})
     end
   end)
 

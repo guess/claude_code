@@ -154,7 +154,7 @@ See the [Sessions Guide](sessions.md) for more on multi-turn conversations.
 
 ## Error Handling
 
-Always handle potential errors:
+Streams throw on infrastructure errors (CLI crash, timeout). Use `catch` to handle them:
 
 ```elixir
 case ClaudeCode.start_link() do
@@ -167,8 +167,15 @@ case ClaudeCode.start_link() do
         |> Enum.join()
 
       IO.puts("Claude says: #{response}")
-    rescue
-      e -> IO.puts("Error: #{inspect(e)}")
+    catch
+      {:stream_init_error, reason} ->
+        IO.puts("Failed to start stream: #{inspect(reason)}")
+
+      {:stream_error, reason} ->
+        IO.puts("Stream error: #{inspect(reason)}")
+
+      {:stream_timeout, _ref} ->
+        IO.puts("Request timed out")
     after
       ClaudeCode.stop(session)
     end
@@ -177,6 +184,8 @@ case ClaudeCode.start_link() do
     IO.puts("Failed to start session: #{inspect(reason)}")
 end
 ```
+
+Claude API errors (rate limits, max turns) come through as result messages with `is_error: true` - see [Troubleshooting](../reference/troubleshooting.md#error-reference) for details.
 
 ## Next Steps
 

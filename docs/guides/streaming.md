@@ -185,14 +185,18 @@ See [Phoenix Integration](../integration/phoenix.md) for complete LiveView examp
 
 ## Error Handling
 
+Streams throw on infrastructure errors. Use `catch` to handle them:
+
 ```elixir
 try do
   session
   |> ClaudeCode.stream(prompt)
   |> ClaudeCode.Stream.text_content()
   |> Enum.each(&IO.write/1)
-rescue
-  e in RuntimeError -> IO.puts("Stream error: #{inspect(e)}")
+catch
+  {:stream_init_error, reason} -> IO.puts("Init error: #{inspect(reason)}")
+  {:stream_error, reason} -> IO.puts("Stream error: #{inspect(reason)}")
+  {:stream_timeout, _ref} -> IO.puts("Timeout")
 end
 ```
 

@@ -427,11 +427,11 @@ Supported CLI versions: 0.8.0+
          |> ClaudeCode.Stream.text_content()
          |> Enum.join()
        {:ok, result}
-     rescue
-       e when retries > 0 ->
+     catch
+       error when retries > 0 ->
          :timer.sleep(2000)  # Wait 2 seconds
          query_with_backoff(session, prompt, retries - 1)
-       e -> {:error, e}
+       error -> {:error, error}
      end
    end
    ```

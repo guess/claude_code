@@ -215,7 +215,7 @@ def chat(conn, %{"message" => message}) do
       |> Enum.join()
 
     json(conn, %{response: response})
-  rescue
+  catch
     _ -> conn |> put_status(500) |> json(%{error: "Unavailable"})
   end
 end
@@ -241,8 +241,8 @@ defmodule MyApp.HealthCheck do
       |> Stream.run()
 
       :healthy
-    rescue
-      e -> {:unhealthy, e}
+    catch
+      error -> {:unhealthy, error}
     end
   end
 end

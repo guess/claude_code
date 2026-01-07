@@ -120,8 +120,8 @@ defmodule FileAnalyzer do
         |> Enum.join()
 
       %{file: file_path, analysis: analysis, analyzed_at: DateTime.utc_now()}
-    rescue
-      e -> %{file: file_path, error: e, analyzed_at: DateTime.utc_now()}
+    catch
+      error -> %{file: file_path, error: error, analyzed_at: DateTime.utc_now()}
     end
   end
 end
@@ -213,14 +213,14 @@ defmodule ResilientQuery do
         |> Enum.join()
 
       {:ok, result}
-    rescue
-      e when attempt < max_retries ->
+    catch
+      error when attempt < max_retries ->
         delay = base_delay * :math.pow(2, attempt)
         :timer.sleep(round(delay))
         do_query(session, prompt, opts, max_retries, base_delay, attempt + 1)
 
-      e ->
-        {:error, {e, attempts: attempt + 1}}
+      error ->
+        {:error, {error, attempts: attempt + 1}}
     end
   end
 end
@@ -258,8 +258,8 @@ defmodule ClaudeCircuitBreaker do
         |> Enum.join()
 
       {:reply, {:ok, response}, %{state | failures: 0, state: :closed}}
-    rescue
-      e ->
+    catch
+      error ->
         new_failures = state.failures + 1
         new_state = if new_failures >= 3, do: :open, else: :closed
 
@@ -267,7 +267,7 @@ defmodule ClaudeCircuitBreaker do
           Process.send_after(self(), :half_open, 30_000)
         end
 
-        {:reply, error, %{state | failures: new_failures, state: new_state}}
+        {:reply, {:error, error}, %{state | failures: new_failures, state: new_state}}
     end
   end
 
@@ -300,8 +300,8 @@ defmodule ClaudeMetrics do
       )
 
       {:ok, result}
-    rescue
-      e ->
+    catch
+      error ->
         duration = System.monotonic_time(:millisecond) - start_time
 
         :telemetry.execute(
@@ -310,7 +310,7 @@ defmodule ClaudeMetrics do
           %{success: false}
         )
 
-        {:error, e}
+        {:error, error}
     end
   end
 end
