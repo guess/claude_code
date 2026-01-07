@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`ClaudeCode.Test` module** - Req.Test-style test helpers for mocking Claude responses ([9f78103])
+  - `stub/2` - Register function or static message stubs for test isolation
+  - `allow/3` - Share stubs with spawned processes for async tests
+  - `set_mode_to_shared/0` - Enable shared mode for integration tests
+  - Message helpers: `text/2`, `tool_use/3`, `tool_result/2`, `thinking/2`, `result/2`, `system/1`
+  - Auto-generates system/result messages, links tool IDs, unifies session IDs
+  - Uses `NimbleOwnership` for process-based isolation with `async: true` support
+- **`ClaudeCode.Test.Factory` module** - Test data generation for all message and content types ([54dcfd7])
+  - Struct factories: `assistant_message/1`, `user_message/1`, `result_message/1`, `system_message/1`
+  - Content block factories: `text_block/1`, `tool_use_block/1`, `tool_result_block/1`, `thinking_block/1`
+  - Stream event factories for partial message testing
+  - Convenience functions with positional arguments for common cases
+- **Testing guide** - Comprehensive documentation for testing ClaudeCode integrations ([7dfe509])
+
 ## [0.12.0] - 2026-01-07
 
 ### Added

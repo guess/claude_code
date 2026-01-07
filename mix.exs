@@ -173,10 +173,17 @@ defmodule ClaudeCode.MixProject do
         Callbacks: [
           ClaudeCode.ToolCallback
         ],
+        Testing: [
+          ClaudeCode.Test,
+          ClaudeCode.Test.Factory,
+          ClaudeCode.Adapter.Test
+        ],
         "MCP Integration": ~r/ClaudeCode.MCP/,
         Messages: ~r/ClaudeCode.Message/,
         "Content Blocks": ~r/ClaudeCode.Content/,
         Internal: [
+          ClaudeCode.Adapter,
+          ClaudeCode.Adapter.CLI,
           ClaudeCode.CLI,
           ClaudeCode.Input
         ]
