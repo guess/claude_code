@@ -30,11 +30,11 @@ test "returns greeting" do
   ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
     [
       ClaudeCode.Test.text("Hello! How can I help?"),
-      ClaudeCode.Test.result()
+      ClaudeCode.Test.result(result: "Hello! How can I help?")
     ]
   end)
 
-  {:ok, session} = ClaudeCode.start_link([])
+  {:ok, session} = ClaudeCode.start_link()
   result = session |> ClaudeCode.stream("Hi") |> ClaudeCode.Stream.final_text()
   assert result == "Hello! How can I help?"
 end
@@ -169,7 +169,7 @@ test "handles file read and edit sequence" do
     ]
   end)
 
-  {:ok, session} = ClaudeCode.start_link([])
+  {:ok, session} = ClaudeCode.start_link()
 
   summary = session
   |> ClaudeCode.stream("Rename the module")
@@ -215,7 +215,7 @@ test "spawned process can use stub" do
   end)
 
   task = Task.async(fn ->
-    {:ok, session} = ClaudeCode.start_link([])
+    {:ok, session} = ClaudeCode.start_link()
     ClaudeCode.stream(session, "hi") |> Enum.to_list()
   end)
 
@@ -297,7 +297,7 @@ test "handles API errors gracefully" do
     [ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")]
   end)
 
-  {:ok, session} = ClaudeCode.start_link([])
+  {:ok, session} = ClaudeCode.start_link()
 
   result = session
   |> ClaudeCode.stream("test")
@@ -319,7 +319,7 @@ test "processes streaming text correctly" do
     ]
   end)
 
-  {:ok, session} = ClaudeCode.start_link([])
+  {:ok, session} = ClaudeCode.start_link()
 
   texts = session
   |> ClaudeCode.stream("test")
@@ -343,7 +343,7 @@ test "maintains context across turns" do
     [ClaudeCode.Test.text("Turn #{turn}: #{query}")]
   end)
 
-  {:ok, session} = ClaudeCode.start_link([])
+  {:ok, session} = ClaudeCode.start_link()
 
   r1 = session |> ClaudeCode.stream("First") |> ClaudeCode.Stream.final_text()
   r2 = session |> ClaudeCode.stream("Second") |> ClaudeCode.Stream.final_text()
