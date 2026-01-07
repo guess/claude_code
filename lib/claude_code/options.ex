@@ -146,6 +146,17 @@ defmodule ClaudeCode.Options do
       default: false,
       doc: "When resuming, create a new session ID instead of reusing the original"
     ],
+    adapter: [
+      type: {:tuple, [:atom, :any]},
+      doc: """
+      Optional adapter for testing. A tuple of `{module, name}` where:
+      - `module` implements the `ClaudeCode.Adapter` behaviour
+      - `name` is passed to the adapter's `stream/3` callback
+
+      Example:
+          adapter: {ClaudeCode.Test, MyApp.Chat}
+      """
+    ],
     tool_callback: [
       type: {:fun, 1},
       doc: """
@@ -403,6 +414,7 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:timeout, _value), do: nil
   defp convert_option_to_cli_flag(:tool_callback, _value), do: nil
   defp convert_option_to_cli_flag(:resume, _value), do: nil
+  defp convert_option_to_cli_flag(:adapter, _value), do: nil
 
   defp convert_option_to_cli_flag(:fork_session, true) do
     # Boolean flag without value - return as list to be flattened
@@ -578,6 +590,12 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:input_format, :stream_json) do
     {"--input-format", "stream-json"}
   end
+
+  # Internal options - not passed to CLI
+  defp convert_option_to_cli_flag(:callers, _value), do: nil
+  defp convert_option_to_cli_flag(:name, _value), do: nil
+  defp convert_option_to_cli_flag(:adapter, _value), do: nil
+  defp convert_option_to_cli_flag(:stub_name, _value), do: nil
 
   defp convert_option_to_cli_flag(key, value) do
     # Convert unknown keys to kebab-case flags

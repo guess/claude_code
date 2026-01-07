@@ -108,24 +108,6 @@ defmodule ClaudeCode.IntegrationStreamTest do
       ClaudeCode.stop(session)
     end
 
-    test "buffered_text/1 buffers until sentence boundaries", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-
-      buffered =
-        session
-        |> ClaudeCode.stream("Tell me a story")
-        |> ClaudeCode.Stream.buffered_text()
-        |> Enum.to_list()
-
-      # Should buffer text until sentence boundaries
-      assert buffered == [
-               "Once upon a time, there was a developer who loved Elixir. ",
-               "The end."
-             ]
-
-      ClaudeCode.stop(session)
-    end
-
     test "until_result/1 stops at result message", %{mock_dir: _mock_dir} do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 

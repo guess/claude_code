@@ -51,6 +51,7 @@ defmodule ClaudeCode.MixProject do
       # Production dependencies
       {:jason, "~> 1.4"},
       {:nimble_options, "~> 1.0"},
+      {:nimble_ownership, "~> 1.0"},
       {:telemetry, "~> 1.2"},
 
       # Optional dependencies

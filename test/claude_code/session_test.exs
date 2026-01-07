@@ -1,8 +1,194 @@
 defmodule ClaudeCode.SessionTest do
   use ExUnit.Case
 
+  alias ClaudeCode.Content
+  alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
+
+  @adapter {ClaudeCode.Test, ClaudeCode.Session}
+
+  # ============================================================================
+  # Tests using ClaudeCode.Test adapter (faster, no subprocess)
+  # ============================================================================
+
+  describe "query handling with test adapter" do
+    test "handles successful query response" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Hello from test adapter!"),
+          ClaudeCode.Test.result(result: "Hello from test adapter!")
+        ]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      result =
+        session
+        |> ClaudeCode.stream("test prompt")
+        |> ClaudeCode.Stream.final_text()
+
+      assert result == "Hello from test adapter!"
+
+      ClaudeCode.stop(session)
+    end
+
+    test "handles query with tool use" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Let me read that file"),
+          ClaudeCode.Test.tool_use(name: "Read", input: %{path: "/tmp/test.txt"}),
+          ClaudeCode.Test.tool_result(content: "File contents here"),
+          ClaudeCode.Test.text("Done reading"),
+          ClaudeCode.Test.result(result: "Done reading")
+        ]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      messages =
+        session
+        |> ClaudeCode.stream("read file")
+        |> Enum.to_list()
+
+      # Should have tool use in the messages
+      tool_uses =
+        Enum.filter(messages, fn
+          %AssistantMessage{message: %{content: content}} ->
+            Enum.any?(content, &match?(%Content.ToolUseBlock{}, &1))
+
+          _ ->
+            false
+        end)
+
+      assert length(tool_uses) == 1
+
+      ClaudeCode.stop(session)
+    end
+
+    test "handles error result" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [ClaudeCode.Test.result(is_error: true, result: "Rate limit exceeded")]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      messages =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+
+      result = List.last(messages)
+      assert %ResultMessage{is_error: true, result: "Rate limit exceeded"} = result
+
+      ClaudeCode.stop(session)
+    end
+
+    test "query_stream returns a request reference" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [ClaudeCode.Test.text("Hello")]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+      assert is_reference(ref)
+
+      ClaudeCode.stop(session)
+    end
+
+    test "stream cleanup removes request" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [ClaudeCode.Test.text("Hello")]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+
+      # Allow async delivery
+      Process.sleep(50)
+
+      # Check that request exists
+      state = :sys.get_state(session)
+      assert map_size(state.requests) > 0
+
+      # Send cleanup
+      GenServer.cast(session, {:stream_cleanup, ref})
+      Process.sleep(50)
+
+      # Check that request is removed
+      state = :sys.get_state(session)
+      assert map_size(state.requests) == 0
+
+      ClaudeCode.stop(session)
+    end
+
+    test "handles multiple sequential queries" do
+      counter = :counters.new(1, [])
+
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        :counters.add(counter, 1, 1)
+        count = :counters.get(counter, 1)
+
+        [
+          ClaudeCode.Test.text("Response #{count}"),
+          ClaudeCode.Test.result(result: "Response #{count}")
+        ]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      # First query
+      result1 =
+        session
+        |> ClaudeCode.stream("first")
+        |> ClaudeCode.Stream.final_text()
+
+      assert result1 == "Response 1"
+
+      # Second query
+      result2 =
+        session
+        |> ClaudeCode.stream("second")
+        |> ClaudeCode.Stream.final_text()
+
+      assert result2 == "Response 2"
+
+      ClaudeCode.stop(session)
+    end
+
+    test "captures session ID from messages" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Hello", session_id: "captured-session-abc"),
+          ClaudeCode.Test.result(result: "Hello", session_id: "captured-session-abc")
+        ]
+      end)
+
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      # Initially no session ID
+      assert ClaudeCode.get_session_id(session) == nil
+
+      # Run query
+      _result =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+
+      # Session ID should be captured
+      # Note: ClaudeCode.Test unifies session IDs, so this tests the capture mechanism
+      session_id = ClaudeCode.get_session_id(session)
+      assert session_id != nil
+
+      ClaudeCode.stop(session)
+    end
+  end
+
+  # ============================================================================
+  # GenServer lifecycle tests
+  # ============================================================================
 
   describe "start_link/1" do
     test "starts with required options" do
@@ -20,7 +206,7 @@ defmodule ClaudeCode.SessionTest do
         )
 
       state = :sys.get_state(pid)
-      assert state.model == "claude-3-opus-20240229"
+      assert Keyword.get(state.session_options, :model) == "claude-3-opus-20240229"
 
       GenServer.stop(pid)
     end
@@ -37,7 +223,12 @@ defmodule ClaudeCode.SessionTest do
     end
   end
 
-  describe "query handling with mock CLI" do
+  # ============================================================================
+  # Tests using MockCLI (integration tests requiring CLI subprocess)
+  # These tests verify CLI argument handling, Port behavior, and session persistence
+  # ============================================================================
+
+  describe "query handling with mock CLI (integration)" do
     setup do
       MockCLI.setup([
         MockCLI.system_message(session_id: "a4c79bab-3a68-425c-988e-0aa6b9151a63"),
@@ -52,10 +243,10 @@ defmodule ClaudeCode.SessionTest do
       ])
     end
 
-    test "handles successful query response", %{mock_dir: _mock_dir} do
+    test "handles successful query via CLI subprocess", %{mock_dir: _mock_dir} do
       {:ok, session} = Session.start_link(api_key: "test-key")
 
-      # This should use our mock CLI
+      # This uses the mock CLI subprocess
       response = MockCLI.sync_query(session, "test prompt")
 
       assert {:ok, %ResultMessage{result: "Hello from mock CLI!"}} = response
@@ -573,7 +764,7 @@ defmodule ClaudeCode.SessionTest do
 
         # Verify session has the API key from app config
         state = :sys.get_state(session)
-        assert state.api_key == "app-config-key"
+        assert Keyword.get(state.session_options, :api_key) == "app-config-key"
 
         GenServer.stop(session)
       after
@@ -597,7 +788,7 @@ defmodule ClaudeCode.SessionTest do
 
         # Verify session uses the explicit api_key
         state = :sys.get_state(session)
-        assert state.api_key == "session-key"
+        assert Keyword.get(state.session_options, :api_key) == "session-key"
 
         GenServer.stop(session)
       after

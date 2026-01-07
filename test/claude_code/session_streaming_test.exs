@@ -1,7 +1,141 @@
 defmodule ClaudeCode.SessionStreamingTest do
   use ExUnit.Case
 
+  alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage
+
+  @adapter {ClaudeCode.Test, ClaudeCode.Session}
+
+  # ============================================================================
+  # Tests using ClaudeCode.Test adapter (faster, no subprocess)
+  # ============================================================================
+
+  describe "streaming with test adapter" do
+    test "query returns a stream of messages" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("First part"),
+          ClaudeCode.Test.text("Second part"),
+          ClaudeCode.Test.text("Final part"),
+          ClaudeCode.Test.result(result: "Complete")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: @adapter)
+
+      messages =
+        session
+        |> ClaudeCode.stream("Test query")
+        |> Enum.to_list()
+
+      # Should have system (auto-added), 3 text messages, and result
+      assert length(messages) >= 4
+
+      # Verify we got assistant messages
+      assistant_msgs = Enum.filter(messages, &match?(%AssistantMessage{}, &1))
+      assert length(assistant_msgs) == 3
+
+      # Verify result
+      result = Enum.find(messages, &match?(%ResultMessage{}, &1))
+      assert result.result == "Complete"
+
+      ClaudeCode.stop(session)
+    end
+
+    test "text_content/1 extracts text properly" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Once upon a time"),
+          ClaudeCode.Test.text(", there was"),
+          ClaudeCode.Test.text(" a story.")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: @adapter)
+
+      text_parts =
+        session
+        |> ClaudeCode.stream("Tell me a story")
+        |> ClaudeCode.Stream.text_content()
+        |> Enum.to_list()
+
+      assert text_parts == ["Once upon a time", ", there was", " a story."]
+
+      ClaudeCode.stop(session)
+    end
+
+    test "filter_type/2 filters correctly" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Hello"),
+          ClaudeCode.Test.text("World")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: @adapter)
+
+      # Get only assistant messages
+      assistant_messages =
+        session
+        |> ClaudeCode.stream("Test")
+        |> ClaudeCode.Stream.filter_type(:assistant)
+        |> Enum.to_list()
+
+      assert Enum.all?(assistant_messages, &match?(%AssistantMessage{}, &1))
+      assert length(assistant_messages) == 2
+
+      ClaudeCode.stop(session)
+    end
+
+    test "supports multiple queries on same session" do
+      counter = :counters.new(1, [])
+
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        :counters.add(counter, 1, 1)
+        count = :counters.get(counter, 1)
+
+        [
+          ClaudeCode.Test.text("Turn #{count} response"),
+          ClaudeCode.Test.result(result: "Turn #{count} complete")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: @adapter)
+
+      # First query
+      result1 = session |> ClaudeCode.stream("Q1") |> ClaudeCode.Stream.final_text()
+      assert result1 == "Turn 1 complete"
+
+      # Second query
+      result2 = session |> ClaudeCode.stream("Q2") |> ClaudeCode.Stream.final_text()
+      assert result2 == "Turn 2 complete"
+
+      ClaudeCode.stop(session)
+    end
+
+    test "auto-prepends system message" do
+      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        [ClaudeCode.Test.text("Hello")]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: @adapter)
+
+      messages =
+        session
+        |> ClaudeCode.stream("Test")
+        |> Enum.to_list()
+
+      # First message should be system
+      assert %SystemMessage{} = hd(messages)
+
+      ClaudeCode.stop(session)
+    end
+  end
+
+  # ============================================================================
+  # Tests using MockCLI (integration tests requiring CLI subprocess)
+  # ============================================================================
 
   describe "streaming mode - auto-connect behavior" do
     setup do
@@ -29,17 +163,17 @@ defmodule ClaudeCode.SessionStreamingTest do
     test "session connects automatically on first query", %{mock_dir: _mock_dir} do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
-      # Port should be nil initially (lazy connect)
+      # Adapter should be nil initially (lazy connect)
       state = :sys.get_state(session)
-      assert state.port == nil
+      assert state.adapter_pid == nil
 
       # First query triggers connection
       {:ok, result} = MockCLI.sync_query(session, "Hello")
       assert %ResultMessage{result: "Streaming response"} = result
 
-      # Port should now be set
+      # Adapter should now be running
       state = :sys.get_state(session)
-      assert state.port != nil
+      assert state.adapter_pid != nil
 
       GenServer.stop(session)
     end
