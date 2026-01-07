@@ -1,7 +1,7 @@
 defmodule ClaudeCode.StreamTest do
   use ExUnit.Case, async: true
 
-  import ClaudeCode.Test.MessageFixtures
+  import ClaudeCode.Test.Factory
 
   alias ClaudeCode.Message
   alias ClaudeCode.Message.PartialAssistantMessage
