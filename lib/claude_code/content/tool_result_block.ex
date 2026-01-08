@@ -12,7 +12,7 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   @type t :: %__MODULE__{
           type: :tool_result,
           tool_use_id: String.t(),
-          content: String.t(),
+          content: [ClaudeCode.Content.TextBlock.t()],
           is_error: boolean()
         }
 

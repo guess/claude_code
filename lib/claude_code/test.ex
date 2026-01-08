@@ -327,6 +327,7 @@ defmodule ClaudeCode.Test do
   Creates a user message with a tool result block.
 
   The content can be a string or a map. Maps are automatically JSON-encoded.
+  Content is wrapped as a list of content blocks: `[%{"type" => "text", "text" => content}]`
 
   ## Options
 
@@ -342,12 +343,12 @@ defmodule ClaudeCode.Test do
   """
   @spec tool_result(String.t() | map(), keyword()) :: UserMessage.t()
   def tool_result(content \\ "", opts \\ []) do
-    encoded_content = encode_content(content)
+    content_blocks = build_content_blocks(content)
 
     # Use tool_result_block directly to preserve nil tool_use_id for auto-linking
     result_block =
       Factory.tool_result_block(
-        content: encoded_content,
+        content: content_blocks,
         tool_use_id: Keyword.get(opts, :tool_use_id),
         is_error: Keyword.get(opts, :is_error, false)
       )
@@ -360,8 +361,13 @@ defmodule ClaudeCode.Test do
     Factory.user_message(user_opts)
   end
 
-  defp encode_content(content) when is_map(content), do: Jason.encode!(content)
-  defp encode_content(content) when is_binary(content), do: content
+  defp build_content_blocks(content) when is_map(content) do
+    [Factory.text_block(text: Jason.encode!(content))]
+  end
+
+  defp build_content_blocks(content) when is_binary(content) do
+    [Factory.text_block(text: content)]
+  end
 
   @doc """
   Creates an assistant message with a thinking block.

@@ -55,12 +55,12 @@ defmodule ClaudeCode.TestTest do
   end
 
   describe "tool_result/2" do
-    test "creates user message with tool result block" do
+    test "creates user message with tool result block as list of TextBlocks" do
       msg = ClaudeCode.Test.tool_result("file contents")
 
       assert %UserMessage{} = msg
 
-      assert [%Content.ToolResultBlock{content: "file contents", is_error: false}] =
+      assert [%Content.ToolResultBlock{content: [%Content.TextBlock{text: "file contents"}], is_error: false}] =
                msg.message.content
     end
 
@@ -79,8 +79,8 @@ defmodule ClaudeCode.TestTest do
     test "JSON encodes map content" do
       msg = ClaudeCode.Test.tool_result(%{status: "success", count: 42})
 
-      assert [%Content.ToolResultBlock{content: content}] = msg.message.content
-      assert content == ~s|{"count":42,"status":"success"}|
+      assert [%Content.ToolResultBlock{content: [%Content.TextBlock{text: text}]}] = msg.message.content
+      assert text == ~s|{"count":42,"status":"success"}|
     end
   end
 
