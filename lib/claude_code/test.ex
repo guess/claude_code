@@ -338,13 +338,16 @@ defmodule ClaudeCode.Test do
 
       ClaudeCode.Test.tool_result("file contents here")
       ClaudeCode.Test.tool_result("Permission denied", is_error: true)
+      ClaudeCode.Test.tool_result(%{status: "success", data: [1, 2, 3]})
   """
-  @spec tool_result(String.t(), keyword()) :: UserMessage.t()
+  @spec tool_result(String.t() | map(), keyword()) :: UserMessage.t()
   def tool_result(content \\ "", opts \\ []) do
+    encoded_content = encode_content(content)
+
     # Use tool_result_block directly to preserve nil tool_use_id for auto-linking
     result_block =
       Factory.tool_result_block(
-        content: content,
+        content: encoded_content,
         tool_use_id: Keyword.get(opts, :tool_use_id),
         is_error: Keyword.get(opts, :is_error, false)
       )
@@ -356,6 +359,9 @@ defmodule ClaudeCode.Test do
 
     Factory.user_message(user_opts)
   end
+
+  defp encode_content(content) when is_map(content), do: Jason.encode!(content)
+  defp encode_content(content) when is_binary(content), do: content
 
   @doc """
   Creates an assistant message with a thinking block.

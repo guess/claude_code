@@ -75,6 +75,13 @@ defmodule ClaudeCode.TestTest do
 
       assert [%Content.ToolResultBlock{tool_use_id: "custom_tool_123"}] = msg.message.content
     end
+
+    test "JSON encodes map content" do
+      msg = ClaudeCode.Test.tool_result(%{status: "success", count: 42})
+
+      assert [%Content.ToolResultBlock{content: content}] = msg.message.content
+      assert content == ~s|{"count":42,"status":"success"}|
+    end
   end
 
   describe "thinking/2" do
