@@ -41,6 +41,39 @@ defmodule ClaudeCode.Content.ToolResultBlockTest do
       assert result.is_error == false
     end
 
+    test "parses content as list of TextBlocks when content is a list" do
+      alias ClaudeCode.Content.TextBlock
+
+      data = %{
+        "type" => "tool_result",
+        "tool_use_id" => "toolu_abc",
+        "content" => [
+          %{"type" => "text", "text" => "First block"},
+          %{"type" => "text", "text" => "Second block"}
+        ]
+      }
+
+      assert {:ok, result} = ToolResultBlock.new(data)
+      assert result.tool_use_id == "toolu_abc"
+      assert length(result.content) == 2
+      assert [%TextBlock{text: "First block"}, %TextBlock{text: "Second block"}] = result.content
+    end
+
+    test "parses JSON content wrapped in text blocks" do
+      alias ClaudeCode.Content.TextBlock
+
+      json_content = ~s|{"data":{"id":"123","name":"Test"}}|
+
+      data = %{
+        "type" => "tool_result",
+        "tool_use_id" => "toolu_json",
+        "content" => [%{"type" => "text", "text" => json_content}]
+      }
+
+      assert {:ok, result} = ToolResultBlock.new(data)
+      assert [%TextBlock{text: ^json_content}] = result.content
+    end
+
     test "returns error for invalid type" do
       data = %{
         "type" => "text",

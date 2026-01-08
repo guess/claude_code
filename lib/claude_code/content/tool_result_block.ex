@@ -33,14 +33,20 @@ defmodule ClaudeCode.Content.ToolResultBlock do
     missing = Enum.filter(required, &(not Map.has_key?(data, &1)))
 
     if Enum.empty?(missing) do
-      result = %__MODULE__{
-        type: :tool_result,
-        tool_use_id: data["tool_use_id"],
-        content: data["content"],
-        is_error: Map.get(data, "is_error", false)
-      }
+      case parse_content(data["content"]) do
+        {:ok, parsed_content} ->
+          result = %__MODULE__{
+            type: :tool_result,
+            tool_use_id: data["tool_use_id"],
+            content: parsed_content,
+            is_error: Map.get(data, "is_error", false)
+          }
 
-      {:ok, result}
+          {:ok, result}
+
+        {:error, _} = error ->
+          error
+      end
     else
       {:error, {:missing_fields, Enum.map(missing, &String.to_atom/1)}}
     end
@@ -54,4 +60,10 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   @spec tool_result_content?(any()) :: boolean()
   def tool_result_content?(%__MODULE__{type: :tool_result}), do: true
   def tool_result_content?(_), do: false
+
+  # Private helpers
+
+  defp parse_content(content) when is_binary(content), do: {:ok, content}
+  defp parse_content(content) when is_list(content), do: ClaudeCode.Content.parse_all(content)
+  defp parse_content(_), do: {:error, :invalid_content}
 end
