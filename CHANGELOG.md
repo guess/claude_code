@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.2] - 2026-01-08
+
+### Fixed
+- **`ToolResultBlock` content parsing** - When CLI returns content as a list of text blocks, they are now parsed into `TextBlock` structs instead of raw maps ([5361e2d])
+
 ## [0.13.1] - 2026-01-07
 
 ### Changed
