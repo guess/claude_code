@@ -75,8 +75,11 @@ ClaudeCode.Test.tool_use("Bash", %{command: "ls -la"}, text: "Let me check the d
 ### Tool Results
 
 ```elixir
-# Successful tool result
+# Successful tool result (string)
 ClaudeCode.Test.tool_result("file contents here")
+
+# Structured data (maps are auto-encoded to JSON)
+ClaudeCode.Test.tool_result(%{status: "success", files: ["a.ex", "b.ex"]})
 
 # Failed tool result
 ClaudeCode.Test.tool_result("Permission denied", is_error: true)
@@ -118,7 +121,7 @@ ClaudeCode.Test.stub(ClaudeCode, fn query, opts ->
     String.contains?(query, "file") ->
       [
         ClaudeCode.Test.tool_use("Read", %{file_path: "/tmp/test.txt"}),
-        ClaudeCode.Test.tool_result("file contents"),
+        ClaudeCode.Test.tool_result(%{content: "file contents", size: 123}),
         ClaudeCode.Test.text("I read the file"),
         ClaudeCode.Test.result()
       ]
