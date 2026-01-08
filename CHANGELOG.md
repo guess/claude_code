@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-01-07
+
+### Changed
+- **Simplified test stub naming** - Default stub name changed from `ClaudeCode.Session` to `ClaudeCode` ([2fd244f])
+  - Config: `adapter: {ClaudeCode.Test, ClaudeCode}` instead of `{ClaudeCode.Test, ClaudeCode.Session}`
+  - Stubs: `ClaudeCode.Test.stub(ClaudeCode, fn ...)` instead of `stub(ClaudeCode.Session, fn ...)`
+  - Custom names still supported for multiple stub behaviors in same test
+
+### Added
+- **`tool_result/2` accepts maps** - Maps are automatically JSON-encoded ([6d9fca6])
+  - Example: `ClaudeCode.Test.tool_result(%{status: "success", data: [1, 2, 3]})`
+
+### Fixed
+- **`tool_result` content format** - Content is now `[TextBlock.t()]` instead of plain string ([dfba539])
+  - Matches MCP `CallToolResult` format where content is an array of content blocks
+  - Fixes compatibility with code expecting `content: [%{"type" => "text", "text" => ...}]`
+
 ## [0.13.0] - 2026-01-07
 
 ### Added
