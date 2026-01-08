@@ -273,7 +273,7 @@ ClaudeCode includes a test adapter for fast, deterministic tests without API cal
 
 ```elixir
 test "handles greeting" do
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
     [ClaudeCode.Test.text("Hello! How can I help?")]
   end)
 

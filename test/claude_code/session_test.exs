@@ -6,7 +6,7 @@ defmodule ClaudeCode.SessionTest do
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
 
-  @adapter {ClaudeCode.Test, ClaudeCode.Session}
+  @adapter {ClaudeCode.Test, ClaudeCode}
 
   # ============================================================================
   # Tests using ClaudeCode.Test adapter (faster, no subprocess)
@@ -14,7 +14,7 @@ defmodule ClaudeCode.SessionTest do
 
   describe "query handling with test adapter" do
     test "handles successful query response" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Hello from test adapter!"),
           ClaudeCode.Test.result("Hello from test adapter!")
@@ -34,7 +34,7 @@ defmodule ClaudeCode.SessionTest do
     end
 
     test "handles query with tool use" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Let me read that file"),
           ClaudeCode.Test.tool_use("Read", %{path: "/tmp/test.txt"}),
@@ -67,7 +67,7 @@ defmodule ClaudeCode.SessionTest do
     end
 
     test "handles error result" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [ClaudeCode.Test.result("Rate limit exceeded", is_error: true)]
       end)
 
@@ -85,7 +85,7 @@ defmodule ClaudeCode.SessionTest do
     end
 
     test "query_stream returns a request reference" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [ClaudeCode.Test.text("Hello")]
       end)
 
@@ -98,7 +98,7 @@ defmodule ClaudeCode.SessionTest do
     end
 
     test "stream cleanup removes request" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [ClaudeCode.Test.text("Hello")]
       end)
 
@@ -127,7 +127,7 @@ defmodule ClaudeCode.SessionTest do
     test "handles multiple sequential queries" do
       counter = :counters.new(1, [])
 
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         :counters.add(counter, 1, 1)
         count = :counters.get(counter, 1)
 
@@ -159,7 +159,7 @@ defmodule ClaudeCode.SessionTest do
     end
 
     test "captures session ID from messages" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Hello", session_id: "captured-session-abc"),
           ClaudeCode.Test.result("Hello", session_id: "captured-session-abc")

@@ -10,7 +10,7 @@ Configure the test adapter in your test environment:
 
 ```elixir
 # config/test.exs
-config :claude_code, adapter: {ClaudeCode.Test, ClaudeCode.Session}
+config :claude_code, adapter: {ClaudeCode.Test, ClaudeCode}
 ```
 
 ### 2. Start the Ownership Server
@@ -27,7 +27,7 @@ Supervisor.start_link([ClaudeCode.Test], strategy: :one_for_one)
 
 ```elixir
 test "returns greeting" do
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
     [
       ClaudeCode.Test.text("Hello! How can I help?")
     ]
@@ -110,7 +110,7 @@ ClaudeCode.Test.result("Rate limit exceeded", is_error: true)
 Stubs can be functions that receive the query and options:
 
 ```elixir
-ClaudeCode.Test.stub(ClaudeCode.Session, fn query, opts ->
+ClaudeCode.Test.stub(ClaudeCode, fn query, opts ->
   cond do
     String.contains?(query, "error") ->
       [ClaudeCode.Test.result("Something went wrong", is_error: true)]
@@ -135,7 +135,7 @@ Simulate multi-step tool interactions:
 
 ```elixir
 test "handles file read and edit sequence" do
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
     [
       ClaudeCode.Test.text("I'll read the file first"),
       ClaudeCode.Test.tool_use("Read", %{file_path: "lib/app.ex"}),
@@ -172,14 +172,14 @@ defmodule MyAppTest do
   use ExUnit.Case, async: true
 
   test "concurrent test 1" do
-    ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+    ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
       [ClaudeCode.Test.text("Response 1")]
     end)
     # ...
   end
 
   test "concurrent test 2" do
-    ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+    ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
       [ClaudeCode.Test.text("Response 2")]
     end)
     # ...
@@ -193,7 +193,7 @@ If your test spawns processes that need stub access:
 
 ```elixir
 test "spawned process can use stub" do
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
     [ClaudeCode.Test.text("Hello")]
   end)
 
@@ -203,7 +203,7 @@ test "spawned process can use stub" do
   end)
 
   # Allow the task to access our stubs
-  ClaudeCode.Test.allow(ClaudeCode.Session, self(), task.pid)
+  ClaudeCode.Test.allow(ClaudeCode, self(), task.pid)
 
   messages = Task.await(task)
   assert length(messages) > 0
@@ -223,6 +223,39 @@ end
 
 In shared mode, all processes can access stubs without explicit allowances.
 
+### Using Different Names
+
+The name in `{ClaudeCode.Test, name}` can be any term. This is useful when you need different stub behaviors in the same test, or when building wrapper modules around ClaudeCode:
+
+```elixir
+defmodule MyApp.AIAgentTest do
+  use ExUnit.Case, async: true
+
+  test "different agents have different behaviors" do
+    # Stub different "personas" with different names
+    ClaudeCode.Test.stub(MyApp.CodingAgent, fn _query, _opts ->
+      [ClaudeCode.Test.text("Here's the code you requested...")]
+    end)
+
+    ClaudeCode.Test.stub(MyApp.ResearchAgent, fn _query, _opts ->
+      [ClaudeCode.Test.text("Based on my research...")]
+    end)
+
+    # Start sessions with different adapters
+    {:ok, coder} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, MyApp.CodingAgent})
+    {:ok, researcher} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, MyApp.ResearchAgent})
+
+    coding_result = coder |> ClaudeCode.stream("write code") |> ClaudeCode.Stream.final_text()
+    research_result = researcher |> ClaudeCode.stream("research") |> ClaudeCode.Stream.final_text()
+
+    assert coding_result =~ "code"
+    assert research_result =~ "research"
+  end
+end
+```
+
+This pattern is inspired by [Req.Test](https://hexdocs.pm/req/Req.Test.html), where the name represents the semantic entity being mocked rather than an internal module.
+
 ## Testing with Tool Callbacks
 
 Test your tool callback handlers:
@@ -236,7 +269,7 @@ test "tool callback receives events" do
     :ok
   end
 
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
     [
       ClaudeCode.Test.tool_use("Bash", %{command: "echo hi"}),
       ClaudeCode.Test.tool_result("hi"),
@@ -265,7 +298,7 @@ This means minimal stubs work correctly:
 
 ```elixir
 # This minimal stub works - system and result are auto-added
-ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
   [ClaudeCode.Test.text("Hello")]
 end)
 ```
@@ -276,7 +309,7 @@ end)
 
 ```elixir
 test "handles API errors gracefully" do
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
     [ClaudeCode.Test.result("Rate limit exceeded", is_error: true)]
   end)
 
@@ -294,7 +327,7 @@ end
 
 ```elixir
 test "processes streaming text correctly" do
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ ->
+  ClaudeCode.Test.stub(ClaudeCode, fn _, _ ->
     [
       ClaudeCode.Test.text("Part 1"),
       ClaudeCode.Test.text("Part 2"),
@@ -319,7 +352,7 @@ end
 test "maintains context across turns" do
   counter = :counters.new(1, [])
 
-  ClaudeCode.Test.stub(ClaudeCode.Session, fn query, _opts ->
+  ClaudeCode.Test.stub(ClaudeCode, fn query, _opts ->
     :counters.add(counter, 1, 1)
     turn = :counters.get(counter, 1)
 

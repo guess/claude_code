@@ -5,7 +5,7 @@ defmodule ClaudeCode.SessionStreamingTest do
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
 
-  @adapter {ClaudeCode.Test, ClaudeCode.Session}
+  @adapter {ClaudeCode.Test, ClaudeCode}
 
   # ============================================================================
   # Tests using ClaudeCode.Test adapter (faster, no subprocess)
@@ -13,7 +13,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
   describe "streaming with test adapter" do
     test "query returns a stream of messages" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [
           ClaudeCode.Test.text("First part"),
           ClaudeCode.Test.text("Second part"),
@@ -44,7 +44,7 @@ defmodule ClaudeCode.SessionStreamingTest do
     end
 
     test "text_content/1 extracts text properly" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Once upon a time"),
           ClaudeCode.Test.text(", there was"),
@@ -66,7 +66,7 @@ defmodule ClaudeCode.SessionStreamingTest do
     end
 
     test "filter_type/2 filters correctly" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [
           ClaudeCode.Test.text("Hello"),
           ClaudeCode.Test.text("World")
@@ -91,7 +91,7 @@ defmodule ClaudeCode.SessionStreamingTest do
     test "supports multiple queries on same session" do
       counter = :counters.new(1, [])
 
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         :counters.add(counter, 1, 1)
         count = :counters.get(counter, 1)
 
@@ -115,7 +115,7 @@ defmodule ClaudeCode.SessionStreamingTest do
     end
 
     test "auto-prepends system message" do
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
         [ClaudeCode.Test.text("Hello")]
       end)
 

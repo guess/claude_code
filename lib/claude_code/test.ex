@@ -11,7 +11,7 @@ defmodule ClaudeCode.Test do
 
       ```elixir
       # config/test.exs
-      config :claude_code, adapter: {ClaudeCode.Test, ClaudeCode.Session}
+      config :claude_code, adapter: {ClaudeCode.Test, ClaudeCode}
       ```
 
   2. In your test helper, start the ownership server:
@@ -26,7 +26,7 @@ defmodule ClaudeCode.Test do
 
       ```elixir
       test "returns greeting" do
-        ClaudeCode.Test.stub(ClaudeCode.Session, fn _query, _opts ->
+        ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
           [
             ClaudeCode.Test.text("Hello! How can I help?"),
             ClaudeCode.Test.result()
@@ -56,7 +56,25 @@ defmodule ClaudeCode.Test do
 
   To allow a spawned process to access stubs:
 
-      ClaudeCode.Test.allow(ClaudeCode.Session, self(), pid_of_spawned_process)
+      ClaudeCode.Test.allow(ClaudeCode, self(), pid_of_spawned_process)
+
+  ## Using Different Names
+
+  The name in `{ClaudeCode.Test, name}` can be any term. This is useful when
+  you need different stub behaviors in the same test, or when building wrapper
+  modules around ClaudeCode:
+
+      # Testing multiple "agents" with different behaviors
+      ClaudeCode.Test.stub(MyApp.CodingAgent, fn _query, _opts ->
+        [ClaudeCode.Test.text("Here's the code...")]
+      end)
+
+      ClaudeCode.Test.stub(MyApp.ResearchAgent, fn _query, _opts ->
+        [ClaudeCode.Test.text("Based on my research...")]
+      end)
+
+      {:ok, coder} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, MyApp.CodingAgent})
+      {:ok, researcher} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, MyApp.ResearchAgent})
   """
 
   alias ClaudeCode.Content.TextBlock
@@ -95,7 +113,7 @@ defmodule ClaudeCode.Test do
 
   Receives the query and options, returns a list of messages:
 
-      ClaudeCode.Test.stub(ClaudeCode.Session, fn query, opts ->
+      ClaudeCode.Test.stub(ClaudeCode, fn query, opts ->
         [
           ClaudeCode.Test.text("Response to: \#{query}"),
           ClaudeCode.Test.result()
@@ -106,7 +124,7 @@ defmodule ClaudeCode.Test do
 
   A list of messages that will be returned for any query:
 
-      ClaudeCode.Test.stub(ClaudeCode.Session, [
+      ClaudeCode.Test.stub(ClaudeCode, [
         ClaudeCode.Test.text("Static response"),
         ClaudeCode.Test.result()
       ])
@@ -140,7 +158,7 @@ defmodule ClaudeCode.Test do
   ## Example
 
       test "spawned process can use stub" do
-        ClaudeCode.Test.stub(ClaudeCode.Session, fn _, _ -> [...] end)
+        ClaudeCode.Test.stub(ClaudeCode, fn _, _ -> [...] end)
 
         task = Task.async(fn ->
           # This task can now access the stub
@@ -149,7 +167,7 @@ defmodule ClaudeCode.Test do
         end)
 
         # Allow the task to access our stubs
-        ClaudeCode.Test.allow(ClaudeCode.Session, self(), task.pid)
+        ClaudeCode.Test.allow(ClaudeCode, self(), task.pid)
 
         Task.await(task)
       end
@@ -307,6 +325,8 @@ defmodule ClaudeCode.Test do
 
   @doc """
   Creates a user message with a tool result block.
+
+  The content can be a string or a map. Maps are automatically JSON-encoded.
 
   ## Options
 
