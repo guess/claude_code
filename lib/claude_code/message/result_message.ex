@@ -62,7 +62,6 @@ defmodule ClaudeCode.Message.ResultMessage do
     :duration_ms,
     :duration_api_ms,
     :num_turns,
-    :result,
     :session_id,
     :total_cost_usd,
     :usage
@@ -92,7 +91,7 @@ defmodule ClaudeCode.Message.ResultMessage do
           duration_ms: float(),
           duration_api_ms: float(),
           num_turns: non_neg_integer(),
-          result: String.t(),
+          result: String.t() | nil,
           session_id: Types.session_id(),
           total_cost_usd: float(),
           usage: Types.usage(),
@@ -122,7 +121,6 @@ defmodule ClaudeCode.Message.ResultMessage do
       "duration_ms",
       "duration_api_ms",
       "num_turns",
-      "result",
       "session_id",
       "total_cost_usd",
       "usage"
@@ -233,6 +231,11 @@ defmodule ClaudeCode.Message.ResultMessage do
   defp parse_permission_denials(_), do: nil
 end
 
-defimpl String.Chars, for: ClaudeCode.Message.Result do
+defimpl String.Chars, for: ClaudeCode.Message.ResultMessage do
+  def to_string(%{result: nil, errors: errors}) when is_list(errors) do
+    "Error: " <> Enum.join(errors, ", ")
+  end
+
+  def to_string(%{result: nil}), do: ""
   def to_string(%{result: result}), do: result
 end
