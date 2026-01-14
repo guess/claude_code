@@ -96,8 +96,8 @@ defmodule ClaudeCode.Message.ResultMessage do
           total_cost_usd: float(),
           usage: Types.usage(),
           uuid: String.t() | nil,
-          model_usage: %{String.t() => Types.model_usage()} | nil,
-          permission_denials: [Types.permission_denial()] | nil,
+          model_usage: %{String.t() => Types.model_usage()},
+          permission_denials: [Types.permission_denial()],
           structured_output: any() | nil,
           errors: [String.t()] | nil
         }
@@ -195,15 +195,13 @@ defmodule ClaudeCode.Message.ResultMessage do
   defp parse_server_tool_use(%{"web_search_requests" => count}), do: %{web_search_requests: count}
   defp parse_server_tool_use(_), do: %{web_search_requests: 0}
 
-  defp parse_model_usage(nil), do: nil
-
   defp parse_model_usage(model_usage) when is_map(model_usage) do
     Map.new(model_usage, fn {model, usage_data} ->
       {model, parse_single_model_usage(usage_data)}
     end)
   end
 
-  defp parse_model_usage(_), do: nil
+  defp parse_model_usage(_), do: %{}
 
   defp parse_single_model_usage(usage_data) when is_map(usage_data) do
     %{
@@ -216,8 +214,6 @@ defmodule ClaudeCode.Message.ResultMessage do
 
   defp parse_single_model_usage(_), do: nil
 
-  defp parse_permission_denials(nil), do: nil
-
   defp parse_permission_denials(denials) when is_list(denials) do
     Enum.map(denials, fn denial ->
       %{
@@ -228,7 +224,7 @@ defmodule ClaudeCode.Message.ResultMessage do
     end)
   end
 
-  defp parse_permission_denials(_), do: nil
+  defp parse_permission_denials(_), do: []
 end
 
 defimpl String.Chars, for: ClaudeCode.Message.ResultMessage do
