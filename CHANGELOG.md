@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`ResultMessage.result` is now optional** - Error messages from the CLI may contain an `errors` array instead of a `result` field. The field no longer crashes when nil and displays errors appropriately ([c06e825])
+
 ## [0.13.2] - 2026-01-08
 
 ### Fixed
