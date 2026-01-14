@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.3] - 2026-01-14
+
+### Changed
+- **`ResultMessage` optional fields use sensible defaults** - `model_usage` defaults to `%{}` and `permission_denials` defaults to `[]` instead of `nil` ([cda582b])
+
 ### Fixed
 - **`ResultMessage.result` is now optional** - Error messages from the CLI may contain an `errors` array instead of a `result` field. The field no longer crashes when nil and displays errors appropriately ([c06e825])
 
