@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-01-15
+
 ### Added
 - **`:session_id` option** - Specify a custom UUID as the session ID for conversations ([2f2c919])
 - **`:disable_slash_commands` option** - Disable all skills/slash commands ([16f96b4])
