@@ -19,8 +19,12 @@ defmodule ClaudeCode.Message.SystemMessageTest do
         "model" => "claude-opus-4",
         "permissionMode" => "default",
         "apiKeySource" => "ANTHROPIC_API_KEY",
-        "slashCommands" => ["/help", "/clear", "/search"],
-        "outputStyle" => "default"
+        "slash_commands" => ["/help", "/clear", "/search"],
+        "output_style" => "default",
+        "claude_code_version" => "2.1.7",
+        "agents" => ["Bash", "Explore"],
+        "skills" => [],
+        "plugins" => []
       }
 
       assert {:ok, message} = SystemMessage.new(json)
@@ -37,6 +41,10 @@ defmodule ClaudeCode.Message.SystemMessageTest do
       assert message.api_key_source == "ANTHROPIC_API_KEY"
       assert message.slash_commands == ["/help", "/clear", "/search"]
       assert message.output_style == "default"
+      assert message.claude_code_version == "2.1.7"
+      assert message.agents == ["Bash", "Explore"]
+      assert message.skills == []
+      assert message.plugins == []
     end
 
     test "parses bypassPermissions mode correctly" do
@@ -51,8 +59,8 @@ defmodule ClaudeCode.Message.SystemMessageTest do
         "model" => "claude",
         "permissionMode" => "bypassPermissions",
         "apiKeySource" => "env",
-        "slashCommands" => [],
-        "outputStyle" => "default"
+        "slash_commands" => [],
+        "output_style" => "default"
       }
 
       assert {:ok, message} = SystemMessage.new(json)
@@ -114,8 +122,8 @@ defmodule ClaudeCode.Message.SystemMessageTest do
       "model" => "claude",
       "permissionMode" => "default",
       "apiKeySource" => "env",
-      "slashCommands" => ["/help", "/clear"],
-      "outputStyle" => "default"
+      "slash_commands" => ["/help", "/clear"],
+      "output_style" => "default"
     }
   end
 end

@@ -179,7 +179,9 @@ defmodule ClaudeCode.Message.ResultMessage do
       cache_creation_input_tokens: usage_data["cache_creation_input_tokens"] || 0,
       cache_read_input_tokens: usage_data["cache_read_input_tokens"] || 0,
       output_tokens: usage_data["output_tokens"] || 0,
-      server_tool_use: parse_server_tool_use(usage_data["server_tool_use"])
+      server_tool_use: parse_server_tool_use(usage_data["server_tool_use"]),
+      service_tier: usage_data["service_tier"],
+      cache_creation: parse_cache_creation(usage_data["cache_creation"])
     }
   end
 
@@ -189,11 +191,25 @@ defmodule ClaudeCode.Message.ResultMessage do
       cache_creation_input_tokens: 0,
       cache_read_input_tokens: 0,
       output_tokens: 0,
-      server_tool_use: %{web_search_requests: 0}
+      server_tool_use: %{web_search_requests: 0, web_fetch_requests: 0},
+      service_tier: nil,
+      cache_creation: nil
     }
 
-  defp parse_server_tool_use(%{"web_search_requests" => count}), do: %{web_search_requests: count}
-  defp parse_server_tool_use(_), do: %{web_search_requests: 0}
+  defp parse_server_tool_use(%{} = data) when map_size(data) > 0 do
+    %{
+      web_search_requests: data["web_search_requests"] || 0,
+      web_fetch_requests: data["web_fetch_requests"] || 0
+    }
+  end
+
+  defp parse_server_tool_use(_), do: %{web_search_requests: 0, web_fetch_requests: 0}
+
+  defp parse_cache_creation(%{"ephemeral_5m_input_tokens" => t5m, "ephemeral_1h_input_tokens" => t1h}) do
+    %{ephemeral_5m_input_tokens: t5m, ephemeral_1h_input_tokens: t1h}
+  end
+
+  defp parse_cache_creation(_), do: nil
 
   defp parse_model_usage(model_usage) when is_map(model_usage) do
     Map.new(model_usage, fn {model, usage_data} ->
@@ -203,12 +219,17 @@ defmodule ClaudeCode.Message.ResultMessage do
 
   defp parse_model_usage(_), do: %{}
 
+  # NOTE: modelUsage uses camelCase keys from the CLI (e.g., "inputTokens" not "input_tokens")
   defp parse_single_model_usage(usage_data) when is_map(usage_data) do
     %{
-      input_tokens: usage_data["input_tokens"] || 0,
-      output_tokens: usage_data["output_tokens"] || 0,
-      cache_creation_input_tokens: usage_data["cache_creation_input_tokens"],
-      cache_read_input_tokens: usage_data["cache_read_input_tokens"]
+      input_tokens: usage_data["inputTokens"] || 0,
+      output_tokens: usage_data["outputTokens"] || 0,
+      cache_creation_input_tokens: usage_data["cacheCreationInputTokens"],
+      cache_read_input_tokens: usage_data["cacheReadInputTokens"],
+      web_search_requests: usage_data["webSearchRequests"] || 0,
+      cost_usd: usage_data["costUSD"],
+      context_window: usage_data["contextWindow"],
+      max_output_tokens: usage_data["maxOutputTokens"]
     }
   end
 

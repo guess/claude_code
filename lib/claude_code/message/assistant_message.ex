@@ -111,7 +111,9 @@ defmodule ClaudeCode.Message.AssistantMessage do
       input_tokens: usage_data["input_tokens"] || 0,
       output_tokens: usage_data["output_tokens"] || 0,
       cache_creation_input_tokens: usage_data["cache_creation_input_tokens"],
-      cache_read_input_tokens: usage_data["cache_read_input_tokens"]
+      cache_read_input_tokens: usage_data["cache_read_input_tokens"],
+      cache_creation: parse_cache_creation(usage_data["cache_creation"]),
+      service_tier: usage_data["service_tier"]
     }
   end
 
@@ -120,7 +122,15 @@ defmodule ClaudeCode.Message.AssistantMessage do
       input_tokens: 0,
       output_tokens: 0,
       cache_creation_input_tokens: nil,
-      cache_read_input_tokens: nil
+      cache_read_input_tokens: nil,
+      cache_creation: nil,
+      service_tier: nil
     }
   end
+
+  defp parse_cache_creation(%{"ephemeral_5m_input_tokens" => t5m, "ephemeral_1h_input_tokens" => t1h}) do
+    %{ephemeral_5m_input_tokens: t5m, ephemeral_1h_input_tokens: t1h}
+  end
+
+  defp parse_cache_creation(_), do: nil
 end

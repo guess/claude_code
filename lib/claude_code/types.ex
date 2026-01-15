@@ -30,18 +30,30 @@ defmodule ClaudeCode.Types do
           output_tokens: non_neg_integer(),
           cache_creation_input_tokens: non_neg_integer() | nil,
           cache_read_input_tokens: non_neg_integer() | nil,
-          server_tool_use: server_tool_usage() | nil
+          server_tool_use: server_tool_usage() | nil,
+          service_tier: String.t() | nil,
+          cache_creation: cache_creation() | nil
         }
 
   @type server_tool_usage :: %{
-          web_search_requests: non_neg_integer()
+          web_search_requests: non_neg_integer(),
+          web_fetch_requests: non_neg_integer()
+        }
+
+  @type cache_creation :: %{
+          ephemeral_5m_input_tokens: non_neg_integer(),
+          ephemeral_1h_input_tokens: non_neg_integer()
         }
 
   @type model_usage :: %{
           input_tokens: non_neg_integer(),
           output_tokens: non_neg_integer(),
           cache_creation_input_tokens: non_neg_integer() | nil,
-          cache_read_input_tokens: non_neg_integer() | nil
+          cache_read_input_tokens: non_neg_integer() | nil,
+          web_search_requests: non_neg_integer(),
+          cost_usd: float() | nil,
+          context_window: non_neg_integer() | nil,
+          max_output_tokens: non_neg_integer() | nil
         }
 
   @type permission_denial :: %{

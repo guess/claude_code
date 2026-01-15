@@ -20,8 +20,12 @@ defmodule ClaudeCode.Message.SystemMessage do
     mcp_servers: { name: string, status: string }[],
     model: string,
     permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan",
-    slashCommands: string[],
-    outputStyle: string
+    slash_commands: string[],
+    output_style: string,
+    claude_code_version: string,
+    agents: string[],
+    skills: string[],
+    plugins: string[]
   }
   ```
   """
@@ -50,8 +54,12 @@ defmodule ClaudeCode.Message.SystemMessage do
     :model,
     :permission_mode,
     :api_key_source,
+    :claude_code_version,
     slash_commands: [],
-    output_style: "default"
+    output_style: "default",
+    agents: [],
+    skills: [],
+    plugins: []
   ]
 
   @type t :: %__MODULE__{
@@ -65,8 +73,12 @@ defmodule ClaudeCode.Message.SystemMessage do
           model: String.t(),
           permission_mode: Types.permission_mode(),
           api_key_source: String.t(),
+          claude_code_version: String.t() | nil,
           slash_commands: [String.t()],
-          output_style: String.t()
+          output_style: String.t(),
+          agents: [String.t()],
+          skills: [String.t()],
+          plugins: [String.t()]
         }
 
   @doc """
@@ -107,8 +119,12 @@ defmodule ClaudeCode.Message.SystemMessage do
         model: json["model"],
         permission_mode: parse_permission_mode(json["permissionMode"]),
         api_key_source: json["apiKeySource"],
-        slash_commands: json["slashCommands"] || [],
-        output_style: json["outputStyle"] || "default"
+        claude_code_version: json["claude_code_version"],
+        slash_commands: json["slash_commands"] || [],
+        output_style: json["output_style"] || "default",
+        agents: json["agents"] || [],
+        skills: json["skills"] || [],
+        plugins: json["plugins"] || []
       }
 
       {:ok, message}
