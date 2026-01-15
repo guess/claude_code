@@ -244,6 +244,10 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Disable session persistence - sessions will not be saved to disk and cannot be resumed"
+    ],
+    session_id: [
+      type: :string,
+      doc: "Use a specific session ID for the conversation (must be a valid UUID)"
     ]
   ]
 
@@ -624,6 +628,10 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:no_session_persistence, false), do: nil
+
+  defp convert_option_to_cli_flag(:session_id, value) do
+    {"--session-id", value}
+  end
 
   defp convert_option_to_cli_flag(:input_format, :text) do
     {"--input-format", "text"}

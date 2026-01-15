@@ -105,6 +105,12 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:no_session_persistence] == false
     end
 
+    test "validates session_id option" do
+      opts = [session_id: "550e8400-e29b-41d4-a716-446655440000"]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:session_id] == "550e8400-e29b-41d4-a716-446655440000"
+    end
+
     test "validates mcp_servers option as a map" do
       opts = [
         mcp_servers: %{
@@ -960,6 +966,14 @@ defmodule ClaudeCode.OptionsTest do
 
       args = Options.to_cli_args(opts)
       refute "--no-session-persistence" in args
+    end
+
+    test "converts session_id to --session-id" do
+      opts = [session_id: "550e8400-e29b-41d4-a716-446655440000"]
+
+      args = Options.to_cli_args(opts)
+      assert "--session-id" in args
+      assert "550e8400-e29b-41d4-a716-446655440000" in args
     end
 
     test "converts fork_session true to --fork-session" do
