@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`:session_id` option** - Specify a custom UUID as the session ID for conversations ([2f2c919])
+- **`:disable_slash_commands` option** - Disable all skills/slash commands ([16f96b4])
+- **`:no_session_persistence` option** - Disable session persistence so sessions are not saved to disk ([16f96b4])
+- **New permission modes** - `:delegate`, `:dont_ask`, and `:plan` added to `:permission_mode` option ([16f96b4])
+- **New usage tracking fields** - `cache_creation`, `service_tier`, `web_fetch_requests`, `cost_usd`, `context_window`, `max_output_tokens` in result and assistant message usage ([bed060b])
+- **New system message fields** - `claude_code_version`, `agents`, `skills`, `plugins` for enhanced session metadata ([bed060b])
+
+### Fixed
+- **SystemMessage `slash_commands` and `output_style` parsing** - Fields were always empty/default ([bed060b])
+- **ResultMessage `model_usage` parsing** - Per-model token counts and costs were always 0/nil ([bed060b])
+
 ## [0.13.3] - 2026-01-14
 
 ### Changed
