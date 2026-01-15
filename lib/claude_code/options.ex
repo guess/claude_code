@@ -49,7 +49,7 @@ defmodule ClaudeCode.Options do
     When true, ignores all global MCP configurations and only uses explicitly provided MCP config.
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
-    Options: `:default`, `:accept_edits`, `:bypass_permissions`
+    Options: `:default`, `:accept_edits`, `:bypass_permissions`, `:delegate`, `:dont_ask`, `:plan`
   - `:json_schema` - JSON Schema for structured output validation (string or map, optional)
     When provided as a map, it will be JSON encoded automatically.
     Example: `%{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}`
@@ -213,9 +213,9 @@ defmodule ClaudeCode.Options do
     ],
     permission_prompt_tool: [type: :string, doc: "MCP tool for handling permission prompts"],
     permission_mode: [
-      type: {:in, [:default, :accept_edits, :bypass_permissions]},
+      type: {:in, [:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan]},
       default: :default,
-      doc: "Permission handling mode"
+      doc: "Permission handling mode (:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan)"
     ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
     json_schema: [
@@ -234,6 +234,16 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
+    ],
+    disable_slash_commands: [
+      type: :boolean,
+      default: false,
+      doc: "Disable all skills/slash commands"
+    ],
+    no_session_persistence: [
+      type: :boolean,
+      default: false,
+      doc: "Disable session persistence - sessions will not be saved to disk and cannot be resumed"
     ]
   ]
 
@@ -268,7 +278,7 @@ defmodule ClaudeCode.Options do
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
     permission_mode: [
-      type: {:in, [:default, :accept_edits, :bypass_permissions]},
+      type: {:in, [:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan]},
       doc: "Override permission mode for this query"
     ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
@@ -287,6 +297,14 @@ defmodule ClaudeCode.Options do
     include_partial_messages: [
       type: :boolean,
       doc: "Include partial message chunks as they arrive for character-level streaming"
+    ],
+    disable_slash_commands: [
+      type: :boolean,
+      doc: "Disable all skills/slash commands for this query"
+    ],
+    no_session_persistence: [
+      type: :boolean,
+      doc: "Disable session persistence for this query"
     ]
   ]
 
@@ -510,6 +528,18 @@ defmodule ClaudeCode.Options do
     {"--permission-mode", "bypassPermissions"}
   end
 
+  defp convert_option_to_cli_flag(:permission_mode, :delegate) do
+    {"--permission-mode", "delegate"}
+  end
+
+  defp convert_option_to_cli_flag(:permission_mode, :dont_ask) do
+    {"--permission-mode", "dontAsk"}
+  end
+
+  defp convert_option_to_cli_flag(:permission_mode, :plan) do
+    {"--permission-mode", "plan"}
+  end
+
   defp convert_option_to_cli_flag(:add_dir, value) when is_list(value) do
     if value == [] do
       nil
@@ -582,6 +612,18 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:strict_mcp_config, false), do: nil
+
+  defp convert_option_to_cli_flag(:disable_slash_commands, true) do
+    ["--disable-slash-commands"]
+  end
+
+  defp convert_option_to_cli_flag(:disable_slash_commands, false), do: nil
+
+  defp convert_option_to_cli_flag(:no_session_persistence, true) do
+    ["--no-session-persistence"]
+  end
+
+  defp convert_option_to_cli_flag(:no_session_persistence, false), do: nil
 
   defp convert_option_to_cli_flag(:input_format, :text) do
     {"--input-format", "text"}

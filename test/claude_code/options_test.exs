@@ -73,6 +73,38 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:strict_mcp_config] == false
     end
 
+    test "validates disable_slash_commands option" do
+      opts = [disable_slash_commands: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:disable_slash_commands] == true
+
+      opts = [disable_slash_commands: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:disable_slash_commands] == false
+    end
+
+    test "defaults disable_slash_commands to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:disable_slash_commands] == false
+    end
+
+    test "validates no_session_persistence option" do
+      opts = [no_session_persistence: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:no_session_persistence] == true
+
+      opts = [no_session_persistence: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:no_session_persistence] == false
+    end
+
+    test "defaults no_session_persistence to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:no_session_persistence] == false
+    end
+
     test "validates mcp_servers option as a map" do
       opts = [
         mcp_servers: %{
@@ -471,6 +503,30 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       refute "--permission-mode" in args
       refute "default" in args
+    end
+
+    test "converts permission_mode delegate to --permission-mode delegate" do
+      opts = [permission_mode: :delegate]
+
+      args = Options.to_cli_args(opts)
+      assert "--permission-mode" in args
+      assert "delegate" in args
+    end
+
+    test "converts permission_mode dont_ask to --permission-mode dontAsk" do
+      opts = [permission_mode: :dont_ask]
+
+      args = Options.to_cli_args(opts)
+      assert "--permission-mode" in args
+      assert "dontAsk" in args
+    end
+
+    test "converts permission_mode plan to --permission-mode plan" do
+      opts = [permission_mode: :plan]
+
+      args = Options.to_cli_args(opts)
+      assert "--permission-mode" in args
+      assert "plan" in args
     end
 
     test "converts add_dir to --add-dir" do
@@ -874,6 +930,36 @@ defmodule ClaudeCode.OptionsTest do
 
       args = Options.to_cli_args(opts)
       refute "--strict-mcp-config" in args
+    end
+
+    test "converts disable_slash_commands true to --disable-slash-commands" do
+      opts = [disable_slash_commands: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--disable-slash-commands" in args
+      refute "true" in args
+    end
+
+    test "does not add flag when disable_slash_commands is false" do
+      opts = [disable_slash_commands: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--disable-slash-commands" in args
+    end
+
+    test "converts no_session_persistence true to --no-session-persistence" do
+      opts = [no_session_persistence: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--no-session-persistence" in args
+      refute "true" in args
+    end
+
+    test "does not add flag when no_session_persistence is false" do
+      opts = [no_session_persistence: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--no-session-persistence" in args
     end
 
     test "converts fork_session true to --fork-session" do
