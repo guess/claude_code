@@ -256,3 +256,19 @@ defimpl String.Chars, for: ClaudeCode.Message.ResultMessage do
   def to_string(%{result: nil}), do: ""
   def to_string(%{result: result}), do: result
 end
+
+defimpl Jason.Encoder, for: ClaudeCode.Message.ResultMessage do
+  def encode(message, opts) do
+    message
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> Jason.Encoder.Map.encode(opts)
+  end
+end
+
+defimpl JSON.Encoder, for: ClaudeCode.Message.ResultMessage do
+  def encode(message, encoder) do
+    message
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> JSON.Encoder.Map.encode(encoder)
+  end
+end

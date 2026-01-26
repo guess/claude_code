@@ -67,3 +67,19 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   defp parse_content(content) when is_list(content), do: ClaudeCode.Content.parse_all(content)
   defp parse_content(_), do: {:error, :invalid_content}
 end
+
+defimpl Jason.Encoder, for: ClaudeCode.Content.ToolResultBlock do
+  def encode(block, opts) do
+    block
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> Jason.Encoder.Map.encode(opts)
+  end
+end
+
+defimpl JSON.Encoder, for: ClaudeCode.Content.ToolResultBlock do
+  def encode(block, encoder) do
+    block
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> JSON.Encoder.Map.encode(encoder)
+  end
+end

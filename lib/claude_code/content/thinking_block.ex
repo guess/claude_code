@@ -53,3 +53,19 @@ defmodule ClaudeCode.Content.ThinkingBlock do
   def thinking_content?(%__MODULE__{type: :thinking}), do: true
   def thinking_content?(_), do: false
 end
+
+defimpl Jason.Encoder, for: ClaudeCode.Content.ThinkingBlock do
+  def encode(block, opts) do
+    block
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> Jason.Encoder.Map.encode(opts)
+  end
+end
+
+defimpl JSON.Encoder, for: ClaudeCode.Content.ThinkingBlock do
+  def encode(block, encoder) do
+    block
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> JSON.Encoder.Map.encode(encoder)
+  end
+end

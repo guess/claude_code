@@ -93,3 +93,19 @@ defmodule ClaudeCode.Message.UserMessage do
   defp parse_content(content) when is_list(content), do: Content.parse_all(content)
   defp parse_content(_), do: {:ok, []}
 end
+
+defimpl Jason.Encoder, for: ClaudeCode.Message.UserMessage do
+  def encode(message, opts) do
+    message
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> Jason.Encoder.Map.encode(opts)
+  end
+end
+
+defimpl JSON.Encoder, for: ClaudeCode.Message.UserMessage do
+  def encode(message, encoder) do
+    message
+    |> ClaudeCode.JSONEncoder.to_encodable()
+    |> JSON.Encoder.Map.encode(encoder)
+  end
+end
