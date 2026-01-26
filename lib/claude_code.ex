@@ -315,6 +315,53 @@ defmodule ClaudeCode do
     GenServer.call(session, :clear_session)
   end
 
+  @doc """
+  Reads conversation history from a session's JSONL file.
+
+  Returns user and assistant messages parsed into SDK message structs.
+  This allows you to display or analyze a previous conversation.
+
+  ## Options
+
+  - `:project_path` - Specific project path to search in (optional)
+  - `:claude_dir` - Override the Claude directory (default: `~/.claude`)
+
+  ## Examples
+
+      # Read conversation history by session ID
+      {:ok, messages} = ClaudeCode.read_history("abc123-def456")
+
+      Enum.each(messages, fn
+        %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
+          IO.puts("User: \#{inspect(content)}")
+        %ClaudeCode.Message.AssistantMessage{message: %{content: blocks}} ->
+          text = Enum.map_join(blocks, "", fn
+            %ClaudeCode.Content.TextBlock{text: t} -> t
+            _ -> ""
+          end)
+          IO.puts("Assistant: \#{text}")
+      end)
+
+  See `ClaudeCode.History` for more options.
+  """
+  @spec read_history(String.t(), keyword()) ::
+          {:ok, [ClaudeCode.Message.AssistantMessage.t() | ClaudeCode.Message.UserMessage.t()]}
+          | {:error, term()}
+  defdelegate read_history(session_id, opts \\ []), to: ClaudeCode.History, as: :conversation
+
+  @doc """
+  Finds the file path for a session's JSONL file.
+
+  ## Examples
+
+      {:ok, path} = ClaudeCode.find_session_path("abc123-def456")
+      # => {:ok, "/Users/me/.claude/projects/-my-project/abc123-def456.jsonl"}
+
+  See `ClaudeCode.History` for more options.
+  """
+  @spec find_session_path(String.t(), keyword()) :: {:ok, Path.t()} | {:error, term()}
+  defdelegate find_session_path(session_id, opts \\ []), to: ClaudeCode.History
+
   # Private helpers
 
   defp collect_result(stream) do
