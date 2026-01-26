@@ -302,6 +302,12 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   end
 end
 
+defimpl String.Chars, for: ClaudeCode.Message.PartialAssistantMessage do
+  def to_string(%{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}}), do: text
+
+  def to_string(_), do: ""
+end
+
 defimpl Jason.Encoder, for: ClaudeCode.Message.PartialAssistantMessage do
   def encode(message, opts) do
     message

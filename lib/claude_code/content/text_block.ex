@@ -49,6 +49,10 @@ defmodule ClaudeCode.Content.TextBlock do
   def text_content?(_), do: false
 end
 
+defimpl String.Chars, for: ClaudeCode.Content.TextBlock do
+  def to_string(%{text: text}), do: text
+end
+
 defimpl Jason.Encoder, for: ClaudeCode.Content.TextBlock do
   def encode(block, opts) do
     block

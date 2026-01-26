@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Session history reading** - Read and parse conversation history from session files ([ad737ea])
+  - `ClaudeCode.History.read/1` - Read all messages from a session ID
+  - `ClaudeCode.History.read_file/1` - Read messages from a specific session file path
+  - Returns parsed message structs (AssistantMessage, UserMessage, ResultMessage, etc.)
+- **JSON encoding for all structs** - Implement `Jason.Encoder` and `JSON.Encoder` protocols ([a511d5c])
+  - All message types: SystemMessage, AssistantMessage, UserMessage, ResultMessage, PartialAssistantMessage, CompactBoundaryMessage
+  - All content blocks: TextBlock, ThinkingBlock, ToolUseBlock, ToolResultBlock
+  - Nil values are automatically excluded from encoded output
+- **String.Chars for messages and content blocks** - Use `to_string/1` or string interpolation
+  - `TextBlock` - returns the text content
+  - `ThinkingBlock` - returns the thinking content
+  - `AssistantMessage` - concatenates all text blocks from the message
+  - `PartialAssistantMessage` - returns delta text (empty string for non-text deltas)
+
 ## [0.14.0] - 2026-01-15
 
 ### Added

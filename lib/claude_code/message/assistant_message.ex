@@ -135,6 +135,18 @@ defmodule ClaudeCode.Message.AssistantMessage do
   defp parse_cache_creation(_), do: nil
 end
 
+defimpl String.Chars, for: ClaudeCode.Message.AssistantMessage do
+  alias ClaudeCode.Content.TextBlock
+
+  def to_string(%{message: %{content: content}}) when is_list(content) do
+    content
+    |> Enum.filter(&match?(%TextBlock{}, &1))
+    |> Enum.map_join(& &1.text)
+  end
+
+  def to_string(_), do: ""
+end
+
 defimpl Jason.Encoder, for: ClaudeCode.Message.AssistantMessage do
   def encode(message, opts) do
     message

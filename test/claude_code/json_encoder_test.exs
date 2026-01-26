@@ -414,4 +414,97 @@ defmodule ClaudeCode.JSONEncoderTest do
       assert json =~ "text"
     end
   end
+
+  describe "String.Chars protocol" do
+    test "TextBlock returns text" do
+      block = %TextBlock{type: :text, text: "Hello world"}
+      assert to_string(block) == "Hello world"
+      assert "#{block}" == "Hello world"
+    end
+
+    test "ThinkingBlock returns thinking" do
+      block = %ThinkingBlock{type: :thinking, thinking: "Let me think...", signature: "sig"}
+      assert to_string(block) == "Let me think..."
+    end
+
+    test "AssistantMessage concatenates text blocks" do
+      message = %AssistantMessage{
+        type: :assistant,
+        session_id: "sess_123",
+        uuid: nil,
+        parent_tool_use_id: nil,
+        message: %{
+          content: [
+            %TextBlock{type: :text, text: "Hello "},
+            %ToolUseBlock{type: :tool_use, id: "t1", name: "Read", input: %{}},
+            %TextBlock{type: :text, text: "world!"}
+          ],
+          role: :assistant
+        }
+      }
+
+      assert to_string(message) == "Hello world!"
+    end
+
+    test "AssistantMessage with no text blocks returns empty string" do
+      message = %AssistantMessage{
+        type: :assistant,
+        session_id: "sess_123",
+        uuid: nil,
+        parent_tool_use_id: nil,
+        message: %{
+          content: [
+            %ToolUseBlock{type: :tool_use, id: "t1", name: "Read", input: %{}}
+          ],
+          role: :assistant
+        }
+      }
+
+      assert to_string(message) == ""
+    end
+
+    test "PartialAssistantMessage returns text delta" do
+      message = %PartialAssistantMessage{
+        type: :stream_event,
+        event: %{
+          type: :content_block_delta,
+          index: 0,
+          delta: %{type: :text_delta, text: "Hi"}
+        },
+        session_id: "sess_123",
+        parent_tool_use_id: nil,
+        uuid: nil
+      }
+
+      assert to_string(message) == "Hi"
+    end
+
+    test "PartialAssistantMessage with non-text delta returns empty string" do
+      message = %PartialAssistantMessage{
+        type: :stream_event,
+        event: %{
+          type: :content_block_delta,
+          index: 0,
+          delta: %{type: :input_json_delta, partial_json: "{"}
+        },
+        session_id: "sess_123",
+        parent_tool_use_id: nil,
+        uuid: nil
+      }
+
+      assert to_string(message) == ""
+    end
+
+    test "PartialAssistantMessage with message_start returns empty string" do
+      message = %PartialAssistantMessage{
+        type: :stream_event,
+        event: %{type: :message_start, message: %{}},
+        session_id: "sess_123",
+        parent_tool_use_id: nil,
+        uuid: nil
+      }
+
+      assert to_string(message) == ""
+    end
+  end
 end

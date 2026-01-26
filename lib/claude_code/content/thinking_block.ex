@@ -54,6 +54,10 @@ defmodule ClaudeCode.Content.ThinkingBlock do
   def thinking_content?(_), do: false
 end
 
+defimpl String.Chars, for: ClaudeCode.Content.ThinkingBlock do
+  def to_string(%{thinking: thinking}), do: thinking
+end
+
 defimpl Jason.Encoder, for: ClaudeCode.Content.ThinkingBlock do
   def encode(block, opts) do
     block
