@@ -39,6 +39,8 @@ defmodule ClaudeCode.History do
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.UserMessage
 
+  require Logger
+
   @type session_id :: String.t()
   @type history_entry :: map()
   @type parsed_message :: AssistantMessage.t() | UserMessage.t() | map()
@@ -123,14 +125,7 @@ defmodule ClaudeCode.History do
   def conversation(session_id, opts \\ []) do
     case read_session(session_id, opts) do
       {:ok, entries} ->
-        messages =
-          entries
-          |> Enum.filter(&conversation_message?/1)
-          |> Enum.map(&parse_conversation_message/1)
-          |> Enum.filter(&match?({:ok, _}, &1))
-          |> Enum.map(fn {:ok, msg} -> msg end)
-
-        {:ok, messages}
+        {:ok, extract_conversation_messages(entries)}
 
       {:error, _} = error ->
         error
@@ -151,14 +146,7 @@ defmodule ClaudeCode.History do
   def conversation_from_file(path) do
     case read_file(path) do
       {:ok, entries} ->
-        messages =
-          entries
-          |> Enum.filter(&conversation_message?/1)
-          |> Enum.map(&parse_conversation_message/1)
-          |> Enum.filter(&match?({:ok, _}, &1))
-          |> Enum.map(fn {:ok, msg} -> msg end)
-
-        {:ok, messages}
+        {:ok, extract_conversation_messages(entries)}
 
       {:error, _} = error ->
         error
@@ -442,6 +430,20 @@ defmodule ClaudeCode.History do
 
   defp conversation_message?(%{"type" => type}) when type in @conversation_types, do: true
   defp conversation_message?(_), do: false
+
+  defp extract_conversation_messages(entries) do
+    entries
+    |> Enum.filter(&conversation_message?/1)
+    |> Enum.map(&parse_conversation_message/1)
+    |> Enum.flat_map(fn
+      {:ok, msg} ->
+        [msg]
+
+      {:error, reason} ->
+        Logger.warning("Failed to parse conversation message: #{inspect(reason)}")
+        []
+    end)
+  end
 
   defp parse_conversation_message(%{"type" => "user"} = entry) do
     UserMessage.new(entry)
