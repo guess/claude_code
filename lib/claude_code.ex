@@ -318,8 +318,8 @@ defmodule ClaudeCode do
   @doc """
   Reads conversation history from a session's JSONL file.
 
+  Accepts either a session ID string or a running session reference.
   Returns user and assistant messages parsed into SDK message structs.
-  This allows you to display or analyze a previous conversation.
 
   ## Options
 
@@ -329,7 +329,12 @@ defmodule ClaudeCode do
   ## Examples
 
       # Read conversation history by session ID
-      {:ok, messages} = ClaudeCode.read_history("abc123-def456")
+      {:ok, messages} = ClaudeCode.conversation("abc123-def456")
+
+      # Or from a running session
+      {:ok, session} = ClaudeCode.start_link()
+      ClaudeCode.query(session, "Hello!")
+      {:ok, messages} = ClaudeCode.conversation(session)
 
       Enum.each(messages, fn
         %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
@@ -344,23 +349,21 @@ defmodule ClaudeCode do
 
   See `ClaudeCode.History` for more options.
   """
-  @spec read_history(String.t(), keyword()) ::
+  @spec conversation(session() | String.t(), keyword()) ::
           {:ok, [ClaudeCode.Message.AssistantMessage.t() | ClaudeCode.Message.UserMessage.t()]}
           | {:error, term()}
-  defdelegate read_history(session_id, opts \\ []), to: ClaudeCode.History, as: :conversation
+  def conversation(session_or_id, opts \\ [])
 
-  @doc """
-  Finds the file path for a session's JSONL file.
+  def conversation(session_id, opts) when is_binary(session_id) do
+    ClaudeCode.History.conversation(session_id, opts)
+  end
 
-  ## Examples
-
-      {:ok, path} = ClaudeCode.find_session_path("abc123-def456")
-      # => {:ok, "/Users/me/.claude/projects/-my-project/abc123-def456.jsonl"}
-
-  See `ClaudeCode.History` for more options.
-  """
-  @spec find_session_path(String.t(), keyword()) :: {:ok, Path.t()} | {:error, term()}
-  defdelegate find_session_path(session_id, opts \\ []), to: ClaudeCode.History
+  def conversation(session, opts) do
+    case get_session_id(session) do
+      nil -> {:error, :no_session_id}
+      session_id -> ClaudeCode.History.conversation(session_id, opts)
+    end
+  end
 
   # Private helpers
 

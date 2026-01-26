@@ -126,6 +126,55 @@ ClaudeCode.get_session_id(session)
 This is useful for exploring alternative conversation paths without affecting
 the original session.
 
+## Reading Session History
+
+Claude Code stores conversation history in `~/.claude/projects/`. You can read
+past conversations without starting a new session:
+
+```elixir
+# Get conversation (user + assistant messages) by session ID
+{:ok, messages} = ClaudeCode.History.conversation("abc123-def456")
+
+Enum.each(messages, fn msg ->
+  IO.puts("#{msg.type}: #{msg}")
+end)
+```
+
+### Listing Projects and Sessions
+
+```elixir
+# List all projects with history
+{:ok, projects} = ClaudeCode.History.list_projects()
+# => ["/Users/me/project1", "/Users/me/project2"]
+
+# List sessions for a project
+{:ok, sessions} = ClaudeCode.History.list_sessions("/Users/me/project1")
+# => ["abc123-def456", "ghi789-jkl012"]
+```
+
+### Low-Level Access
+
+For metadata and non-conversation entries:
+
+```elixir
+# Read all entries (includes system events, summaries, file snapshots)
+{:ok, entries} = ClaudeCode.History.read_session("abc123-def456")
+
+# Get session summary if available
+{:ok, summary} = ClaudeCode.History.summary("abc123-def456")
+# => "User asked about Elixir GenServers..."
+```
+
+### Searching in a Specific Project
+
+```elixir
+# Faster lookup when you know the project
+{:ok, messages} = ClaudeCode.History.conversation(
+  "abc123-def456",
+  project_path: "/Users/me/my-project"
+)
+```
+
 ## Clearing Context
 
 Start fresh within the same session:
