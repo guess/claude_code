@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-01-27
+
 ### Added
 - **`:env` option** - Pass custom environment variables to the CLI subprocess ([aa2d3eb])
   - Merge precedence: system env → user `:env` → SDK vars → `:api_key`
