@@ -87,6 +87,21 @@ defmodule ClaudeCode do
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
 
+  @doc """
+  Returns the SDK version string.
+
+  Used internally for environment variables passed to the CLI subprocess.
+
+  ## Examples
+
+      iex> ClaudeCode.version()
+      "0.15.0"
+  """
+  @spec version() :: String.t()
+  def version do
+    :claude_code |> Application.spec(:vsn) |> to_string()
+  end
+
   @type session :: pid() | atom() | {:via, module(), any()}
   @type query_response ::
           {:ok, ResultMessage.t()} | {:error, ResultMessage.t() | term()}

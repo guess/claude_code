@@ -69,6 +69,9 @@ defmodule ClaudeCode.Options do
   - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
     Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
   - `:cwd` - Current working directory (string, optional)
+  - `:env` - Environment variables to merge with system environment (map of string to string, default: %{})
+    User-provided env vars override system vars but are overridden by SDK vars and `:api_key`.
+    Example: `%{"MY_VAR" => "value", "PATH" => "/custom/bin:" <> System.get_env("PATH")}`
 
   ## Query Options
 
@@ -176,6 +179,34 @@ defmodule ClaudeCode.Options do
           tool_callback: fn event ->
             Logger.info("Tool \#{event.name} executed")
           end
+      """
+    ],
+    env: [
+      type: {:map, :string, :string},
+      default: %{},
+      doc: """
+      Environment variables to merge with system environment when spawning CLI.
+
+      These variables override system environment variables but are overridden by
+      SDK-required variables (CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_SDK_VERSION) and
+      the `:api_key` option (which sets ANTHROPIC_API_KEY).
+
+      Merge precedence (lowest to highest):
+      1. System environment variables
+      2. User `:env` option (these values)
+      3. SDK-required variables
+      4. `:api_key` option
+
+      Useful for:
+      - MCP tools that need specific env vars
+      - Providing PATH or other tool-specific configuration
+      - Testing with custom environment
+
+      Example:
+          env: %{
+            "MY_CUSTOM_VAR" => "value",
+            "PATH" => "/custom/bin:" <> System.get_env("PATH")
+          }
       """
     ],
 
@@ -646,6 +677,7 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:name, _value), do: nil
   defp convert_option_to_cli_flag(:adapter, _value), do: nil
   defp convert_option_to_cli_flag(:stub_name, _value), do: nil
+  defp convert_option_to_cli_flag(:env, _value), do: nil
 
   defp convert_option_to_cli_flag(key, value) do
     # Convert unknown keys to kebab-case flags

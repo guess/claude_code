@@ -208,28 +208,55 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   defp prepare_env(state) do
-    System.get_env()
-    |> Map.take(["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"])
-    |> maybe_put_api_override(state)
+    # Merge precedence (lowest to highest):
+    # 1. All system environment variables (base)
+    # 2. User-provided :env option (overrides)
+    # 3. SDK-required variables (always set)
+    # 4. API key override (if provided via :api_key option)
+    state.session_options
+    |> build_env(state.api_key)
     |> Map.to_list()
     |> Enum.map(fn {key, value} -> {String.to_charlist(key), String.to_charlist(value)} end)
   end
-
-  defp maybe_put_api_override(env, %{api_key: api_key}) when is_binary(api_key) do
-    Map.put(env, "ANTHROPIC_API_KEY", api_key)
-  end
-
-  defp maybe_put_api_override(env, _state), do: env
 
   # ============================================================================
   # Testable Functions (public but not part of API)
   # ============================================================================
 
   @doc false
+  # Returns the SDK-required environment variables that are always set.
+  def sdk_env_vars do
+    %{
+      "CLAUDE_CODE_ENTRYPOINT" => "sdk-ex",
+      "CLAUDE_AGENT_SDK_VERSION" => ClaudeCode.version()
+    }
+  end
+
+  @doc false
+  # Prepares the environment for the CLI subprocess with proper merge order.
+  # Exposed for testing - see prepare_env/1 for the private implementation.
+  def build_env(session_options, api_key) do
+    user_env = Keyword.get(session_options, :env, %{})
+
+    System.get_env()
+    |> Map.merge(user_env)
+    |> Map.merge(sdk_env_vars())
+    |> maybe_put_api_override_map(api_key)
+  end
+
+  defp maybe_put_api_override_map(env, api_key) when is_binary(api_key) do
+    Map.put(env, "ANTHROPIC_API_KEY", api_key)
+  end
+
+  defp maybe_put_api_override_map(env, _), do: env
+
+  @doc false
   # Escapes a string for safe use in shell commands.
   # Uses single-quote escaping which handles most special characters.
+  # NOTE: `;` must be escaped because it's a command separator in shell.
+  # This is critical when passing through system env vars like LS_COLORS.
   def shell_escape(str) when is_binary(str) do
-    if str == "" or String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n"]) do
+    if str == "" or String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]) do
       "'" <> String.replace(str, "'", "'\\''") <> "'"
     else
       str

@@ -54,6 +54,27 @@ defmodule ClaudeCode.Adapter.CLITest do
       assert CLI.shell_escape("say \"hi\" to '$USER'") == "'say \"hi\" to '\\''$USER'\\'''"
     end
 
+    test "escapes strings with semicolons (command separator)" do
+      # Critical for env vars like LS_COLORS which contain semicolons
+      assert CLI.shell_escape("rs=0:di=01;34") == "'rs=0:di=01;34'"
+      assert CLI.shell_escape("cmd1;cmd2") == "'cmd1;cmd2'"
+    end
+
+    test "escapes strings with ampersands (background/and operator)" do
+      assert CLI.shell_escape("cmd1&cmd2") == "'cmd1&cmd2'"
+      assert CLI.shell_escape("cmd1 && cmd2") == "'cmd1 && cmd2'"
+    end
+
+    test "escapes strings with pipes (command chaining)" do
+      assert CLI.shell_escape("cmd1|cmd2") == "'cmd1|cmd2'"
+      assert CLI.shell_escape("cmd1 | cmd2") == "'cmd1 | cmd2'"
+    end
+
+    test "escapes strings with parentheses (subshell)" do
+      assert CLI.shell_escape("(cmd)") == "'(cmd)'"
+      assert CLI.shell_escape("$(cmd)") == "'$(cmd)'"
+    end
+
     test "converts non-strings to strings" do
       assert CLI.shell_escape(123) == "123"
       assert CLI.shell_escape(:atom) == "atom"
@@ -143,6 +164,147 @@ defmodule ClaudeCode.Adapter.CLITest do
     test "implements ClaudeCode.Adapter behaviour" do
       behaviours = CLI.__info__(:attributes)[:behaviour] || []
       assert ClaudeCode.Adapter in behaviours
+    end
+  end
+
+  # ============================================================================
+  # Environment Variable Tests
+  # ============================================================================
+
+  describe "sdk_env_vars/0" do
+    test "returns SDK-required environment variables" do
+      env = CLI.sdk_env_vars()
+
+      assert env["CLAUDE_CODE_ENTRYPOINT"] == "sdk-ex"
+      assert env["CLAUDE_AGENT_SDK_VERSION"] == ClaudeCode.version()
+    end
+
+    test "version matches application version" do
+      env = CLI.sdk_env_vars()
+      expected_version = :claude_code |> Application.spec(:vsn) |> to_string()
+
+      assert env["CLAUDE_AGENT_SDK_VERSION"] == expected_version
+    end
+  end
+
+  describe "build_env/2" do
+    test "includes system environment variables" do
+      # Set a known system env var for the test
+      System.put_env("CLAUDE_CODE_TEST_VAR", "test_value")
+
+      try do
+        env = CLI.build_env([], nil)
+
+        assert env["CLAUDE_CODE_TEST_VAR"] == "test_value"
+      after
+        System.delete_env("CLAUDE_CODE_TEST_VAR")
+      end
+    end
+
+    test "user env overrides system env" do
+      System.put_env("CLAUDE_CODE_TEST_VAR", "system_value")
+
+      try do
+        env = CLI.build_env([env: %{"CLAUDE_CODE_TEST_VAR" => "user_value"}], nil)
+
+        assert env["CLAUDE_CODE_TEST_VAR"] == "user_value"
+      after
+        System.delete_env("CLAUDE_CODE_TEST_VAR")
+      end
+    end
+
+    test "SDK vars are always present" do
+      env = CLI.build_env([], nil)
+
+      assert env["CLAUDE_CODE_ENTRYPOINT"] == "sdk-ex"
+      assert env["CLAUDE_AGENT_SDK_VERSION"] == ClaudeCode.version()
+    end
+
+    test "SDK vars override user env" do
+      # User cannot override SDK-required vars
+      env =
+        CLI.build_env(
+          [
+            env: %{
+              "CLAUDE_CODE_ENTRYPOINT" => "malicious",
+              "CLAUDE_AGENT_SDK_VERSION" => "0.0.0"
+            }
+          ],
+          nil
+        )
+
+      # SDK vars win
+      assert env["CLAUDE_CODE_ENTRYPOINT"] == "sdk-ex"
+      assert env["CLAUDE_AGENT_SDK_VERSION"] == ClaudeCode.version()
+    end
+
+    test "api_key overrides ANTHROPIC_API_KEY from system" do
+      System.put_env("ANTHROPIC_API_KEY", "system_key")
+
+      try do
+        env = CLI.build_env([], "option_api_key")
+
+        assert env["ANTHROPIC_API_KEY"] == "option_api_key"
+      after
+        System.delete_env("ANTHROPIC_API_KEY")
+      end
+    end
+
+    test "api_key overrides ANTHROPIC_API_KEY from user env" do
+      env =
+        CLI.build_env(
+          [env: %{"ANTHROPIC_API_KEY" => "user_env_key"}],
+          "option_api_key"
+        )
+
+      assert env["ANTHROPIC_API_KEY"] == "option_api_key"
+    end
+
+    test "user env ANTHROPIC_API_KEY used when no api_key option" do
+      env = CLI.build_env([env: %{"ANTHROPIC_API_KEY" => "user_env_key"}], nil)
+
+      assert env["ANTHROPIC_API_KEY"] == "user_env_key"
+    end
+
+    test "default empty env option" do
+      # When :env not specified, defaults to empty map
+      env = CLI.build_env([], nil)
+
+      # Should still have SDK vars
+      assert env["CLAUDE_CODE_ENTRYPOINT"] == "sdk-ex"
+    end
+
+    test "custom environment variables are passed through" do
+      env =
+        CLI.build_env(
+          [
+            env: %{
+              "MY_CUSTOM_VAR" => "custom_value",
+              "ANOTHER_VAR" => "another_value"
+            }
+          ],
+          nil
+        )
+
+      assert env["MY_CUSTOM_VAR"] == "custom_value"
+      assert env["ANOTHER_VAR"] == "another_value"
+    end
+
+    test "preserves PATH from system" do
+      path = System.get_env("PATH")
+
+      env = CLI.build_env([], nil)
+
+      assert env["PATH"] == path
+    end
+
+    test "allows extending PATH" do
+      original_path = System.get_env("PATH")
+      extended_path = "/custom/bin:#{original_path}"
+
+      env = CLI.build_env([env: %{"PATH" => extended_path}], nil)
+
+      assert env["PATH"] == extended_path
     end
   end
 end
