@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`:env` option** - Pass custom environment variables to the CLI subprocess ([aa2d3eb])
+  - Merge precedence: system env → user `:env` → SDK vars → `:api_key`
+  - Useful for MCP tools that need specific env vars or custom PATH configurations
+  - Aligns with Python SDK's environment handling
+
 ## [0.15.0] - 2026-01-26
 
 ### Added
