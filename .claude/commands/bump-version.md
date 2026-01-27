@@ -2,18 +2,20 @@
 description: Update version number across the project
 ---
 
-## Task
-Update the version number to the specified value in all project files.
-
-### Arguments
-The version number (e.g., "0.4.0")
+Update version to the specified X.Y.Z value.
 
 ### Steps
-1. Validate the version format (should match semantic versioning: X.Y.Z)
-2. Use `grep -rn "CURRENT_VERSION" --include="*.md" --include="*.ex" --include="*.exs" . | grep -v deps/` to find ALL occurrences of the current version
-3. Update each occurrence with the new version in:
-   - `mix.exs` (the `@version` module attribute)
-   - `README.md`
-   - `CHANGELOG.md`
-   - `docs/` directory (dependency examples like `{:claude_code, "~> X.Y"}`)
-4. Confirm all updates were successful by running grep again with the new version
+
+1. Get current version from `mix.exs`
+
+2. Search for **both** version patterns (replace X.Y with actual current major.minor):
+   ```bash
+   grep -rn "X\.Y" --include="*.md" --include="*.ex" --include="*.exs" . | grep -v deps/ | grep -v _build/ | grep -v CHANGELOG
+   ```
+
+3. Update all matches (preserve existing format):
+   - Full versions `"X.Y.Z"` → new full version
+   - Dependency specs `"~> X.Y"` → new major.minor
+   - `CHANGELOG.md` → convert Unreleased to `[X.Y.Z] - YYYY-MM-DD`
+
+4. Verify no old versions remain (except CHANGELOG history)
