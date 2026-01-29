@@ -297,6 +297,56 @@ defmodule ClaudeCode.Options do
     session_id: [
       type: :string,
       doc: "Use a specific session ID for the conversation (must be a valid UUID)"
+    ],
+
+    # Remote execution options
+    remote: [
+      type: :keyword_list,
+      doc: "Remote execution options (used with Remote adapter)",
+      keys: [
+        endpoint: [
+          type: :string,
+          doc: "WebSocket endpoint URL (e.g., wss://my-container.example.com:8080)"
+        ],
+        transport: [
+          type: :atom,
+          doc: "Transport module (default: ClaudeCode.Adapter.Remote.Transport.WebSocket)"
+        ],
+        backend: [
+          type: :atom,
+          doc: "Backend module (default: ClaudeCode.Adapter.Remote.Backend.Custom)"
+        ],
+        connect_timeout: [
+          type: :timeout,
+          default: 30_000,
+          doc: "Timeout for establishing WebSocket connection"
+        ],
+        request_timeout: [
+          type: :timeout,
+          default: 300_000,
+          doc: "Timeout for individual requests (5 minutes default)"
+        ],
+        reconnect_attempts: [
+          type: :non_neg_integer,
+          default: 3,
+          doc: "Number of reconnection attempts before failing"
+        ],
+        reconnect_interval: [
+          type: :pos_integer,
+          default: 1_000,
+          doc: "Base interval between reconnection attempts (ms)"
+        ],
+        credential_mode: [
+          type: {:in, [:proxy, :inject]},
+          default: :inject,
+          doc: "How API credentials are passed to container (:proxy or :inject)"
+        ]
+      ]
+    ],
+    # Shorthand for remote.endpoint - convenience option
+    endpoint: [
+      type: :string,
+      doc: "WebSocket endpoint URL for remote execution (shorthand for remote: [endpoint: ...])"
     ]
   ]
 
@@ -492,6 +542,8 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:resume, _value), do: nil
   defp convert_option_to_cli_flag(:adapter, _value), do: nil
   defp convert_option_to_cli_flag(:cli_path, _value), do: nil
+  defp convert_option_to_cli_flag(:remote, _value), do: nil
+  defp convert_option_to_cli_flag(:endpoint, _value), do: nil
 
   defp convert_option_to_cli_flag(:fork_session, true) do
     # Boolean flag without value - return as list to be flattened

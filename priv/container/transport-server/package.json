@@ -1,0 +1,23 @@
+{
+  "name": "claude-code-transport-server",
+  "version": "1.0.0",
+  "description": "WebSocket transport server for Claude Code remote execution",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "websocket",
+    "transport"
+  ],
+  "license": "MIT"
+}

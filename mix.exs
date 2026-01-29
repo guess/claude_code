@@ -58,6 +58,7 @@ defmodule ClaudeCode.MixProject do
       {:nimble_options, "~> 1.0"},
       {:nimble_ownership, "~> 1.0"},
       {:telemetry, "~> 1.2"},
+      {:websockex, "~> 0.5"},
 
       # Optional dependencies
       {:hermes_mcp, "~> 0.14", optional: true},
@@ -124,6 +125,7 @@ defmodule ClaudeCode.MixProject do
         "docs/advanced/configuration.md",
         "docs/advanced/supervision.md",
         "docs/advanced/agents.md",
+        "docs/guides/remote-execution.md",
         # Reference
         "docs/reference/examples.md",
         "docs/reference/architecture.md",
@@ -150,7 +152,8 @@ defmodule ClaudeCode.MixProject do
         Advanced: [
           "docs/advanced/configuration.md",
           "docs/advanced/supervision.md",
-          "docs/advanced/agents.md"
+          "docs/advanced/agents.md",
+          "docs/guides/remote-execution.md"
         ],
         Reference: [
           "docs/reference/examples.md",
@@ -188,6 +191,13 @@ defmodule ClaudeCode.MixProject do
         "Content Blocks": ~r/ClaudeCode.Content/,
         Installation: [
           ClaudeCode.Installer
+        ],
+        "Remote Execution": [
+          ClaudeCode.Adapter.Remote,
+          ClaudeCode.Adapter.Remote.Transport,
+          ClaudeCode.Adapter.Remote.Transport.WebSocket,
+          ClaudeCode.Adapter.Remote.Backend,
+          ClaudeCode.Adapter.Remote.Backend.Custom
         ],
         Internal: [
           ClaudeCode.Adapter,
