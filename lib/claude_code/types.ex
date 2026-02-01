@@ -69,6 +69,8 @@ defmodule ClaudeCode.Types do
 
   @type message_content :: String.t() | [Content.t()]
 
+  @type context_management :: map() | nil
+
   @type message :: %{
           id: String.t(),
           type: :message,
@@ -77,7 +79,8 @@ defmodule ClaudeCode.Types do
           model: model(),
           stop_reason: stop_reason(),
           stop_sequence: String.t() | nil,
-          usage: usage()
+          usage: usage(),
+          context_management: context_management()
         }
 
   @type message_param :: %{
