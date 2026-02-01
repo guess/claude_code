@@ -10,7 +10,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
 
   ## Options
 
-  - `--version VERSION` - Install a specific version (default: "latest")
+  - `--version VERSION` - Install a specific version (default: SDK's tested version)
   - `--if-missing` - Only install if the CLI is not already present
   - `--force` - Reinstall even if already present
 
@@ -97,7 +97,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
           """)
       end
     rescue
-      e ->
+      e in [RuntimeError, File.Error] ->
         Mix.shell().error("""
         ✗ Failed to install Claude CLI
 

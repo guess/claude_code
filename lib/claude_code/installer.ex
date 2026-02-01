@@ -45,10 +45,10 @@ defmodule ClaudeCode.Installer do
   @install_script_url "https://claude.ai/install.sh"
   @windows_install_script_url "https://claude.ai/install.ps1"
 
-  # Common installation locations (based on Python SDK patterns)
+  # Common installation locations relative to home directory
+  # Note: /usr/local/bin/claude is checked via System.find_executable in bin_path/0
   @unix_locations [
     ".npm-global/bin/claude",
-    "/usr/local/bin/claude",
     ".local/bin/claude",
     "node_modules/.bin/claude",
     ".yarn/bin/claude",
@@ -63,12 +63,12 @@ defmodule ClaudeCode.Installer do
   @doc """
   Returns the configured CLI version to install.
 
-  Defaults to "latest" if not configured.
+  Defaults to the SDK's tested version (currently "2.1.29") if not configured.
 
   ## Examples
 
       iex> ClaudeCode.Installer.configured_version()
-      "latest"
+      "2.1.29"
   """
   # Default CLI version - update this when releasing new SDK versions
   @default_cli_version "2.1.29"
@@ -172,7 +172,7 @@ defmodule ClaudeCode.Installer do
   def bin_path! do
     case bin_path() do
       {:ok, path} -> path
-      {:error, :not_found} -> raise cli_not_found_error()
+      {:error, :not_found} -> raise cli_not_found_message()
     end
   end
 
@@ -183,7 +183,9 @@ defmodule ClaudeCode.Installer do
 
   ## Options
 
-  - `:version` - Version to install (default: configured version or "latest")
+  - `:version` - Version to install (default: configured version)
+  - `:return_info` - When true, returns `{:ok, info_map}` instead of `:ok` (default: false).
+    The info map contains: `version`, `path`, `size_bytes`, `source_path`.
 
   ## Examples
 
@@ -192,6 +194,9 @@ defmodule ClaudeCode.Installer do
 
       iex> ClaudeCode.Installer.install!(version: "2.1.29")
       :ok
+
+      iex> ClaudeCode.Installer.install!(return_info: true)
+      {:ok, %{version: "2.1.29", path: "/path/to/claude", size_bytes: 1234567, source_path: "/orig/path"}}
   """
   @spec install!(keyword()) :: :ok | {:ok, map()}
   def install!(opts \\ []) do
@@ -222,6 +227,15 @@ defmodule ClaudeCode.Installer do
         else
           :ok
         end
+
+      {:error, {:install_failed, exit_code, output}} ->
+        Logger.error("""
+        Claude CLI installation failed with exit code #{exit_code}.
+        Install script output:
+        #{output}
+        """)
+
+        raise "Failed to install Claude CLI: install script exited with code #{exit_code}"
 
       {:error, reason} ->
         raise "Failed to install Claude CLI: #{inspect(reason)}"
@@ -429,8 +443,13 @@ defmodule ClaudeCode.Installer do
   defp parse_installed_version(output) do
     # Parse "Version: 2.1.29" from install script output
     case Regex.run(~r/Version:\s*(\d+\.\d+\.\d+)/, output) do
-      [_, version] -> version
-      _ -> nil
+      [_, version] ->
+        version
+
+      _ ->
+        Logger.warning("Could not parse version from install script output: #{String.slice(output, 0, 200)}")
+
+        nil
     end
   end
 
@@ -453,8 +472,12 @@ defmodule ClaudeCode.Installer do
 
   defp get_file_size(path) do
     case File.stat(path) do
-      {:ok, %{size: size}} -> size
-      _ -> 0
+      {:ok, %{size: size}} ->
+        size
+
+      {:error, reason} ->
+        Logger.warning("Could not determine file size for #{path}: #{inspect(reason)}")
+        0
     end
   end
 
@@ -468,7 +491,13 @@ defmodule ClaudeCode.Installer do
     |> String.trim_leading("v")
   end
 
-  defp cli_not_found_error do
+  @doc """
+  Returns the error message shown when the CLI binary cannot be found.
+
+  Used by both the Installer and CLI modules to provide consistent error messaging.
+  """
+  @spec cli_not_found_message() :: String.t()
+  def cli_not_found_message do
     """
     Claude CLI not found.
 

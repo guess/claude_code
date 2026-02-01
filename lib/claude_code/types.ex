@@ -16,7 +16,7 @@ defmodule ClaudeCode.Types do
 
   @type session_id :: String.t()
 
-  @type permission_mode :: :default | :accept_edits | :bypass_permissions | :plan
+  @type permission_mode :: :default | :accept_edits | :bypass_permissions | :delegate | :dont_ask | :plan
 
   @type result_subtype ::
           :success

@@ -19,7 +19,7 @@ defmodule ClaudeCode.Message.SystemMessage do
     tools: string[],
     mcp_servers: { name: string, status: string }[],
     model: string,
-    permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "plan",
+    permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "delegate" | "dontAsk" | "plan",
     slash_commands: string[],
     output_style: string,
     claude_code_version: string,
@@ -154,6 +154,8 @@ defmodule ClaudeCode.Message.SystemMessage do
   defp parse_permission_mode("default"), do: :default
   defp parse_permission_mode("acceptEdits"), do: :accept_edits
   defp parse_permission_mode("bypassPermissions"), do: :bypass_permissions
+  defp parse_permission_mode("delegate"), do: :delegate
+  defp parse_permission_mode("dontAsk"), do: :dont_ask
   defp parse_permission_mode("plan"), do: :plan
   defp parse_permission_mode(_), do: :default
 end

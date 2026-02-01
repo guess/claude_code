@@ -145,21 +145,6 @@ defmodule ClaudeCode.CLI do
   end
 
   defp cli_not_found_message do
-    """
-    Claude CLI not found.
-
-    Install it using one of these methods:
-
-    1. Run the mix task:
-       mix claude_code.install
-
-    2. Install manually:
-       curl -fsSL https://claude.ai/install.sh | bash
-
-    3. Configure an explicit path:
-       config :claude_code, cli_path: "/path/to/claude"
-
-    For more information, visit: https://docs.anthropic.com/en/docs/claude-code
-    """
+    Installer.cli_not_found_message()
   end
 end

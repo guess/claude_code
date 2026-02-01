@@ -588,7 +588,9 @@ defmodule ClaudeCode.Options do
     {"--fallback-model", to_string(value)}
   end
 
-  defp convert_option_to_cli_flag(:permission_mode, :default), do: nil
+  defp convert_option_to_cli_flag(:permission_mode, :default) do
+    {"--permission-mode", "default"}
+  end
 
   defp convert_option_to_cli_flag(:permission_mode, :accept_edits) do
     {"--permission-mode", "acceptEdits"}

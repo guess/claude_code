@@ -548,12 +548,12 @@ defmodule ClaudeCode.OptionsTest do
       assert "bypassPermissions" in args
     end
 
-    test "ignores permission_mode when default" do
+    test "converts permission_mode default to --permission-mode default" do
       opts = [permission_mode: :default]
 
       args = Options.to_cli_args(opts)
-      refute "--permission-mode" in args
-      refute "default" in args
+      assert "--permission-mode" in args
+      assert "default" in args
     end
 
     test "converts permission_mode delegate to --permission-mode delegate" do
