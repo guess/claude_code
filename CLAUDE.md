@@ -134,14 +134,18 @@ Quick reference for development:
 
 Key options:
 - `:resume` - Session ID to resume a previous conversation (passed to `start_link/1`)
+- `:continue` - Continue the most recent conversation in the current directory (boolean)
 - `:agents` - Map of custom agent configurations (name -> %{"description" => ..., "prompt" => ..., "tools" => ..., "model" => ...})
 - `:settings` - Team settings (file path, JSON string, or map - auto-encoded to JSON)
 - `:setting_sources` - List of setting sources ([:user, :project, :local])
+- `:plugins` - Plugin configurations (list of paths or maps with type: :local)
 - `:allowed_tools` / `:disallowed_tools` - Tool access control
 - `:system_prompt` / `:append_system_prompt` - Custom system instructions
 - `:model` - Claude model selection
 - `:fallback_model` - Fallback model if primary fails
 - `:max_turns` - Conversation turn limiting
+- `:max_thinking_tokens` - Maximum tokens for thinking blocks
+- `:output_format` - Structured output format (map with type: :json_schema and schema keys)
 - `:mcp_config` / `:permission_prompt_tool` - MCP integration
 - `:add_dir` - Additional accessible directories
 - `:include_partial_messages` - Enable character-level streaming
@@ -163,7 +167,8 @@ All message types follow the official Claude SDK schema:
 # Assistant messages (nested structure)
 %ClaudeCode.Message.Assistant{
   message: %{
-    content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolUseBlock{...}]
+    content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolUseBlock{...}],
+    context_management: %{...}  # Optional context management info from API
   }
 }
 
