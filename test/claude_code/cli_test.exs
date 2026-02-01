@@ -1,10 +1,10 @@
 defmodule ClaudeCode.CLITest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ClaudeCode.CLI
 
-  describe "find_binary/0" do
-    test "finds claude binary when available" do
+  describe "find_binary/1" do
+    test "finds claude binary via cli_path option" do
       # Create a mock claude binary
       mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
       File.mkdir_p!(mock_dir)
@@ -13,26 +13,15 @@ defmodule ClaudeCode.CLITest do
       File.write!(mock_binary, "#!/bin/bash\necho 'mock claude'")
       File.chmod!(mock_binary, 0o755)
 
-      # Add to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
-      assert {:ok, path} = CLI.find_binary()
+      assert {:ok, path} = CLI.find_binary(cli_path: mock_binary)
       assert path == mock_binary
 
       # Cleanup
-      System.put_env("PATH", original_path)
       File.rm_rf!(mock_dir)
     end
 
-    test "returns error when claude binary not found" do
-      # Temporarily clear PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "")
-
-      assert {:error, :not_found} = CLI.find_binary()
-
-      System.put_env("PATH", original_path)
+    test "returns error when cli_path doesn't exist" do
+      assert {:error, :not_found} = CLI.find_binary(cli_path: "/nonexistent/path/claude")
     end
   end
 
@@ -46,12 +35,7 @@ defmodule ClaudeCode.CLITest do
       File.write!(mock_binary, "#!/bin/bash\necho 'mock claude'")
       File.chmod!(mock_binary, 0o755)
 
-      # Add to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
       on_exit(fn ->
-        System.put_env("PATH", original_path)
         File.rm_rf!(mock_dir)
       end)
 
@@ -63,7 +47,8 @@ defmodule ClaudeCode.CLITest do
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          model: "sonnet"
+          model: "sonnet",
+          cli_path: mock_binary
         )
 
       assert executable == mock_binary
@@ -84,7 +69,8 @@ defmodule ClaudeCode.CLITest do
           model: "opus",
           system_prompt: "You are helpful",
           allowed_tools: ["View", "Bash(git:*)"],
-          timeout: 120_000
+          timeout: 120_000,
+          cli_path: mock_binary
         )
 
       assert executable == mock_binary
@@ -105,7 +91,8 @@ defmodule ClaudeCode.CLITest do
           "test prompt",
           "test-api-key",
           model: "sonnet",
-          add_dir: ["/tmp", "/var/log", "/home/user/docs"]
+          add_dir: ["/tmp", "/var/log", "/home/user/docs"],
+          cli_path: mock_binary
         )
 
       assert executable == mock_binary
@@ -124,7 +111,8 @@ defmodule ClaudeCode.CLITest do
           "test prompt",
           "test-api-key",
           model: "sonnet",
-          add_dir: []
+          add_dir: [],
+          cli_path: mock_binary
         )
 
       assert executable == mock_binary
@@ -133,16 +121,16 @@ defmodule ClaudeCode.CLITest do
     end
 
     test "returns error when binary not found" do
-      # Clear PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "")
-
-      result = CLI.build_command("test", "key", model: "sonnet")
+      result =
+        CLI.build_command(
+          "test",
+          "key",
+          model: "sonnet",
+          cli_path: "/nonexistent/path/claude"
+        )
 
       assert {:error, {:cli_not_found, message}} = result
       assert message =~ "Claude CLI not found"
-
-      System.put_env("PATH", original_path)
     end
   end
 
@@ -156,12 +144,7 @@ defmodule ClaudeCode.CLITest do
       File.write!(mock_binary, "#!/bin/bash\necho 'mock claude'")
       File.chmod!(mock_binary, 0o755)
 
-      # Add to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
       on_exit(fn ->
-        System.put_env("PATH", original_path)
         File.rm_rf!(mock_dir)
       end)
 
@@ -173,7 +156,7 @@ defmodule ClaudeCode.CLITest do
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          [model: "sonnet"],
+          [model: "sonnet", cli_path: mock_binary],
           "test-session-123"
         )
 
@@ -188,7 +171,7 @@ defmodule ClaudeCode.CLITest do
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          [model: "sonnet"],
+          [model: "sonnet", cli_path: mock_binary],
           nil
         )
 
@@ -197,12 +180,12 @@ defmodule ClaudeCode.CLITest do
       assert "test prompt" in args
     end
 
-    test "places --resume flag before other options" do
+    test "places --resume flag before other options", %{mock_binary: mock_binary} do
       {:ok, {_executable, args}} =
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          [model: "sonnet", system_prompt: "You are helpful"],
+          [model: "sonnet", system_prompt: "You are helpful", cli_path: mock_binary],
           "test-session-123"
         )
 
@@ -216,14 +199,14 @@ defmodule ClaudeCode.CLITest do
       assert resume_pos < system_pos
     end
 
-    test "handles session_id with special characters" do
+    test "handles session_id with special characters", %{mock_binary: mock_binary} do
       session_id = "session-with-dashes_and_underscores-123"
 
       {:ok, {_executable, args}} =
         CLI.build_command(
           "test prompt",
           "test-api-key",
-          [model: "sonnet"],
+          [model: "sonnet", cli_path: mock_binary],
           session_id
         )
 
@@ -232,7 +215,7 @@ defmodule ClaudeCode.CLITest do
     end
   end
 
-  describe "validate_installation/0" do
+  describe "validate_installation/1" do
     test "validates when claude binary exists and works" do
       # Create a mock claude that responds to --version
       mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
@@ -250,14 +233,9 @@ defmodule ClaudeCode.CLITest do
 
       File.chmod!(mock_binary, 0o755)
 
-      # Add to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
-      assert :ok = CLI.validate_installation()
+      assert :ok = CLI.validate_installation(cli_path: mock_binary)
 
       # Cleanup
-      System.put_env("PATH", original_path)
       File.rm_rf!(mock_dir)
     end
 
@@ -278,25 +256,15 @@ defmodule ClaudeCode.CLITest do
 
       File.chmod!(mock_binary, 0o755)
 
-      # Add to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
-      assert {:error, {:invalid_binary, _}} = CLI.validate_installation()
+      assert {:error, {:invalid_binary, _}} = CLI.validate_installation(cli_path: mock_binary)
 
       # Cleanup
-      System.put_env("PATH", original_path)
       File.rm_rf!(mock_dir)
     end
 
     test "returns error when binary not found" do
-      # Clear PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "")
-
-      assert {:error, {:cli_not_found, _}} = CLI.validate_installation()
-
-      System.put_env("PATH", original_path)
+      assert {:error, {:cli_not_found, _}} =
+               CLI.validate_installation(cli_path: "/nonexistent/path/claude")
     end
   end
 end

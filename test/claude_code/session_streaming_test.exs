@@ -1,5 +1,5 @@
 defmodule ClaudeCode.SessionStreamingTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
@@ -160,8 +160,8 @@ defmodule ClaudeCode.SessionStreamingTest do
       """)
     end
 
-    test "session connects automatically on first query", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "session connects automatically on first query", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       # Adapter should be nil initially (lazy connect)
       state = :sys.get_state(session)
@@ -188,9 +188,9 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       while IFS= read -r line; do
         if echo "$line" | grep -q '"type":"user"'; then
-          sleep 0.02
+          sleep 0.005
           echo '{"type":"assistant","message":{"id":"msg_s1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Stream query response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-query-session"}'
-          sleep 0.02
+          sleep 0.005
           echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Stream query response","session_id":"stream-query-session","total_cost_usd":0.001,"usage":{}}'
         fi
       done
@@ -199,8 +199,8 @@ defmodule ClaudeCode.SessionStreamingTest do
       """)
     end
 
-    test "query_stream returns a stream of messages", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "query_stream returns a stream of messages", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       messages =
         session
@@ -216,8 +216,8 @@ defmodule ClaudeCode.SessionStreamingTest do
       GenServer.stop(session)
     end
 
-    test "query_stream returns messages via Stream", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "query_stream returns messages via Stream", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       messages =
         session
@@ -245,7 +245,7 @@ defmodule ClaudeCode.SessionStreamingTest do
         if echo "$line" | grep -q '"type":"user"'; then
           turn=$((turn + 1))
           echo '{"type":"assistant","message":{"id":"msg_turn_'$turn'","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Turn '$turn' response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"multi-turn-session"}'
-          sleep 0.02
+          sleep 0.005
           echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":'$turn',"result":"Turn '$turn' response","session_id":"multi-turn-session","total_cost_usd":0.001,"usage":{}}'
         fi
       done
@@ -254,8 +254,8 @@ defmodule ClaudeCode.SessionStreamingTest do
       """)
     end
 
-    test "supports multiple queries on same session", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "supports multiple queries on same session", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       # First query
       {:ok, result1} = MockCLI.sync_query(session, "First question")
@@ -281,7 +281,7 @@ defmodule ClaudeCode.SessionStreamingTest do
       while IFS= read -r line; do
         if echo "$line" | grep -q '"type":"user"'; then
           echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
-          sleep 0.02
+          sleep 0.005
           echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
         fi
       done
@@ -290,8 +290,8 @@ defmodule ClaudeCode.SessionStreamingTest do
       """)
     end
 
-    test "captures session ID from streaming response", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "captures session ID from streaming response", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       {:ok, _result} = MockCLI.sync_query(session, "Hello")
 
@@ -331,7 +331,7 @@ defmodule ClaudeCode.SessionStreamingTest do
       while IFS= read -r line; do
         if echo "$line" | grep -q '"type":"user"'; then
           echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Resumed session: '$session_id'"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
-          sleep 0.02
+          sleep 0.005
           echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Resumed session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
         fi
       done
@@ -340,10 +340,11 @@ defmodule ClaudeCode.SessionStreamingTest do
       """)
     end
 
-    test "resume option uses --resume flag", %{mock_dir: _mock_dir} do
+    test "resume option uses --resume flag", %{mock_script: mock_script} do
       {:ok, session} =
         ClaudeCode.start_link(
           api_key: "test-key",
+          cli_path: mock_script,
           resume: "previous-session-xyz"
         )
 

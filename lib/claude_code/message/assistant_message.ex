@@ -85,7 +85,8 @@ defmodule ClaudeCode.Message.AssistantMessage do
             model: message_data["model"],
             stop_reason: parse_stop_reason(message_data["stop_reason"]),
             stop_sequence: message_data["stop_sequence"],
-            usage: parse_usage(message_data["usage"])
+            usage: parse_usage(message_data["usage"]),
+            context_management: message_data["context_management"]
           },
           session_id: parent_json["session_id"],
           uuid: parent_json["uuid"],

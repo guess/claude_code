@@ -1,5 +1,5 @@
 defmodule ClaudeCode.IntegrationTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ClaudeCode.Message.ResultMessage
 
@@ -55,7 +55,6 @@ defmodule ClaudeCode.IntegrationTest do
           *)
             # Normal response
             echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Mock response to: '"$prompt"'"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"int-test-session"}'
-            sleep 0.02
             echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Mock response to: '"$prompt"'","session_id":"int-test-session","total_cost_usd":0.001,"usage":{}}'
             ;;
         esac
@@ -66,20 +65,15 @@ defmodule ClaudeCode.IntegrationTest do
 
       File.chmod!(mock_script, 0o755)
 
-      # Add mock directory to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
       on_exit(fn ->
-        System.put_env("PATH", original_path)
         File.rm_rf!(mock_dir)
       end)
 
-      :ok
+      {:ok, mock_script: mock_script}
     end
 
-    test "successful query returns response" do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
+    test "successful query returns response", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key", cli_path: mock_script)
 
       {:ok, result} = MockCLI.sync_query(session, "Hello, Claude!")
 
@@ -88,8 +82,8 @@ defmodule ClaudeCode.IntegrationTest do
       ClaudeCode.stop(session)
     end
 
-    test "error in prompt returns error" do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
+    test "error in prompt returns error", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key", cli_path: mock_script)
 
       {:error, result} = MockCLI.sync_query(session, "Please error")
 
@@ -98,8 +92,8 @@ defmodule ClaudeCode.IntegrationTest do
       ClaudeCode.stop(session)
     end
 
-    test "authentication error is handled correctly" do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
+    test "authentication error is handled correctly", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key", cli_path: mock_script)
 
       # Use prompt trigger for auth failure simulation
       {:error, result} = MockCLI.sync_query(session, "test auth_fail")
@@ -109,13 +103,13 @@ defmodule ClaudeCode.IntegrationTest do
       ClaudeCode.stop(session)
     end
 
-    test "timeout returns timeout error" do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key")
+    test "timeout returns timeout error", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-api-key", cli_path: mock_script)
 
-      # Use a short timeout - the stream will throw when it times out
+      # Use a very short timeout - the stream will throw when it times out
       thrown =
         session
-        |> ClaudeCode.stream("Please timeout", timeout: 1000)
+        |> ClaudeCode.stream("Please timeout", timeout: 100)
         |> Enum.to_list()
         |> catch_throw()
 
@@ -124,36 +118,29 @@ defmodule ClaudeCode.IntegrationTest do
       ClaudeCode.stop(session)
     end
 
-    test "multiple sessions work independently" do
-      {:ok, _session1} = ClaudeCode.start_link(api_key: "key1", name: :session1)
-      {:ok, _session2} = ClaudeCode.start_link(api_key: "key2", name: :session2)
+    test "multiple sessions work independently", %{mock_script: mock_script} do
+      {:ok, session1} = ClaudeCode.start_link(api_key: "key1", cli_path: mock_script)
+      {:ok, session2} = ClaudeCode.start_link(api_key: "key2", cli_path: mock_script)
 
-      {:ok, result1} = MockCLI.sync_query(:session1, "From session 1")
-      {:ok, result2} = MockCLI.sync_query(:session2, "From session 2")
+      {:ok, result1} = MockCLI.sync_query(session1, "From session 1")
+      {:ok, result2} = MockCLI.sync_query(session2, "From session 2")
 
       assert %ResultMessage{result: "Mock response to: From session 1"} = result1
       assert %ResultMessage{result: "Mock response to: From session 2"} = result2
 
-      ClaudeCode.stop(:session1)
-      ClaudeCode.stop(:session2)
+      ClaudeCode.stop(session1)
+      ClaudeCode.stop(session2)
     end
   end
 
   describe "error cases without mock CLI" do
-    setup do
-      # Set PATH to only system directories (not where claude would be)
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "/bin:/usr/bin")
-
-      on_exit(fn ->
-        System.put_env("PATH", original_path)
-      end)
-
-      :ok
-    end
-
     test "CLI not found returns appropriate error" do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+      # Use cli_path option with nonexistent path to force CLI not found
+      {:ok, session} =
+        ClaudeCode.start_link(
+          api_key: "test-key",
+          cli_path: "/nonexistent/path/to/claude"
+        )
 
       # Stream should throw init error when CLI not found
       error =

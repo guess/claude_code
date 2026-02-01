@@ -19,3 +19,8 @@ Update version to the specified X.Y.Z value.
    - `CHANGELOG.md` → convert Unreleased to `[X.Y.Z] - YYYY-MM-DD`
 
 4. Verify no old versions remain (except CHANGELOG history)
+
+5. Check if CLI version needs updating:
+   - Run `claude --version` to get latest CLI version
+   - Compare with `@default_cli_version` in `lib/claude_code/installer.ex`
+   - Update if newer version available and tested

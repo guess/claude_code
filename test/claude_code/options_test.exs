@@ -174,18 +174,11 @@ defmodule ClaudeCode.OptionsTest do
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_session_options(opts)
     end
 
-    test "validates json_schema as a map" do
+    test "validates output_format option" do
       schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:json_schema] == schema
-    end
-
-    test "validates json_schema as a string" do
-      schema = ~s({"type":"object","properties":{"name":{"type":"string"}}})
-      opts = [json_schema: schema]
-      assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:json_schema] == schema
+      assert validated[:output_format] == %{type: :json_schema, schema: schema}
     end
 
     test "validates max_budget_usd as float" do
@@ -252,6 +245,46 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:resume] == "session-id-123"
       assert validated[:fork_session] == true
     end
+
+    test "validates continue option" do
+      opts = [continue: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:continue] == true
+
+      opts = [continue: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:continue] == false
+    end
+
+    test "defaults continue to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:continue] == false
+    end
+
+    test "validates max_thinking_tokens option" do
+      opts = [max_thinking_tokens: 10_000]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:max_thinking_tokens] == 10_000
+    end
+
+    test "validates plugins option as list of paths" do
+      opts = [plugins: ["./my-plugin", "/path/to/plugin"]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:plugins] == ["./my-plugin", "/path/to/plugin"]
+    end
+
+    test "validates plugins option as list of maps with atom type" do
+      opts = [plugins: [%{type: :local, path: "./my-plugin"}]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:plugins] == [%{type: :local, path: "./my-plugin"}]
+    end
+
+    test "validates plugins option with mixed formats" do
+      opts = [plugins: ["./simple-plugin", %{type: :local, path: "./map-plugin"}]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:plugins] == ["./simple-plugin", %{type: :local, path: "./map-plugin"}]
+    end
   end
 
   describe "validate_query_options/1" do
@@ -306,11 +339,11 @@ defmodule ClaudeCode.OptionsTest do
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_query_options(opts)
     end
 
-    test "validates json_schema in query options" do
+    test "validates output_format in query options" do
       schema = %{"type" => "object", "properties" => %{"result" => %{"type" => "number"}}}
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
       assert {:ok, validated} = Options.validate_query_options(opts)
-      assert validated[:json_schema] == schema
+      assert validated[:output_format] == %{type: :json_schema, schema: schema}
     end
 
     test "validates max_budget_usd in query options" do
@@ -335,6 +368,18 @@ defmodule ClaudeCode.OptionsTest do
       opts = [tools: ["Read", "Write"]]
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:tools] == ["Read", "Write"]
+    end
+
+    test "validates max_thinking_tokens in query options" do
+      opts = [max_thinking_tokens: 5000]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:max_thinking_tokens] == 5000
+    end
+
+    test "validates plugins in query options" do
+      opts = [plugins: ["./my-plugin"]]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:plugins] == ["./my-plugin"]
     end
   end
 
@@ -503,12 +548,12 @@ defmodule ClaudeCode.OptionsTest do
       assert "bypassPermissions" in args
     end
 
-    test "ignores permission_mode when default" do
+    test "converts permission_mode default to --permission-mode default" do
       opts = [permission_mode: :default]
 
       args = Options.to_cli_args(opts)
-      refute "--permission-mode" in args
-      refute "default" in args
+      assert "--permission-mode" in args
+      assert "default" in args
     end
 
     test "converts permission_mode delegate to --permission-mode delegate" do
@@ -562,9 +607,9 @@ defmodule ClaudeCode.OptionsTest do
       assert "/single/path" in args
     end
 
-    test "converts json_schema map to JSON-encoded --json-schema" do
+    test "converts output_format with json_schema to --json-schema" do
       schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
 
       args = Options.to_cli_args(opts)
       assert "--json-schema" in args
@@ -573,23 +618,14 @@ defmodule ClaudeCode.OptionsTest do
       schema_index = Enum.find_index(args, &(&1 == "--json-schema"))
       json_value = Enum.at(args, schema_index + 1)
 
-      # Decode and verify
+      # Decode and verify - only the schema is passed, not the wrapper
       decoded = Jason.decode!(json_value)
       assert decoded["type"] == "object"
       assert decoded["properties"]["name"]["type"] == "string"
       assert decoded["required"] == ["name"]
     end
 
-    test "converts json_schema string directly to --json-schema" do
-      schema = ~s({"type":"object","properties":{"name":{"type":"string"}}})
-      opts = [json_schema: schema]
-
-      args = Options.to_cli_args(opts)
-      assert "--json-schema" in args
-      assert schema in args
-    end
-
-    test "converts json_schema with nested structures" do
+    test "converts output_format with nested schema structures" do
       schema = %{
         "type" => "object",
         "properties" => %{
@@ -600,7 +636,7 @@ defmodule ClaudeCode.OptionsTest do
         }
       }
 
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
 
       args = Options.to_cli_args(opts)
       assert "--json-schema" in args
@@ -611,6 +647,13 @@ defmodule ClaudeCode.OptionsTest do
       decoded = Jason.decode!(json_value)
       assert decoded["properties"]["users"]["type"] == "array"
       assert decoded["properties"]["users"]["items"]["properties"]["id"]["type"] == "integer"
+    end
+
+    test "ignores output_format with unsupported type" do
+      opts = [output_format: %{type: :other, data: "something"}]
+
+      args = Options.to_cli_args(opts)
+      refute "--json-schema" in args
     end
 
     test "converts settings string to --settings" do
@@ -1013,6 +1056,94 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       refute "--resume" in args
       refute "session-id-123" in args
+    end
+
+    test "converts continue true to --continue" do
+      opts = [continue: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--continue" in args
+      # Boolean flag should not have a value
+      refute "true" in args
+    end
+
+    test "does not add flag when continue is false" do
+      opts = [continue: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--continue" in args
+    end
+
+    test "converts max_thinking_tokens to --max-thinking-tokens" do
+      opts = [max_thinking_tokens: 10_000]
+
+      args = Options.to_cli_args(opts)
+      assert "--max-thinking-tokens" in args
+      assert "10000" in args
+    end
+
+    test "combines continue with other options" do
+      opts = [
+        continue: true,
+        model: "opus",
+        max_turns: 10
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--continue" in args
+      assert "--model" in args
+      assert "opus" in args
+      assert "--max-turns" in args
+      assert "10" in args
+    end
+
+    test "converts plugins list of paths to multiple --plugin-dir flags" do
+      opts = [plugins: ["./my-plugin", "/path/to/plugin"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+      assert "/path/to/plugin" in args
+      # Should have multiple --plugin-dir flags
+      plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
+      assert plugin_count == 2
+    end
+
+    test "converts plugins list of maps with atom type to multiple --plugin-dir flags" do
+      opts = [plugins: [%{type: :local, path: "./my-plugin"}, %{type: :local, path: "/other"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+      assert "/other" in args
+      plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
+      assert plugin_count == 2
+    end
+
+    test "converts plugins with atom type" do
+      opts = [plugins: [%{type: :local, path: "./my-plugin"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+    end
+
+    test "handles empty plugins list" do
+      opts = [plugins: []]
+
+      args = Options.to_cli_args(opts)
+      refute "--plugin-dir" in args
+    end
+
+    test "handles mixed plugins formats" do
+      opts = [plugins: ["./simple-path", %{type: :local, path: "./map-path"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./simple-path" in args
+      assert "./map-path" in args
+      plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
+      assert plugin_count == 2
     end
   end
 

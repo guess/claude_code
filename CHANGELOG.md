@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`:max_thinking_tokens` option** - Maximum tokens for thinking blocks (integer)
+  - Available for both session and query options
+  - Maps to `--max-thinking-tokens` CLI flag
+- **`:continue` option** - Continue the most recent conversation in the current directory (boolean)
+  - Maps to `--continue` CLI flag
+  - Aligns with Python/TypeScript SDK `continue` option
+- **`:plugins` option** - Load custom plugins from local paths (list of paths or maps)
+  - Accepts `["./my-plugin"]` or `[%{type: :local, path: "./my-plugin"}]`
+  - Plugin type uses atom `:local` (only supported type currently)
+  - Maps to multiple `--plugin-dir` CLI flags
+  - Aligns with Python/TypeScript SDK `plugins` option
+- **`:output_format` option** - Structured output format configuration (replaces `:json_schema`)
+  - Format: `%{type: :json_schema, schema: %{...}}`
+  - Currently only `:json_schema` type is supported
+  - Maps to `--json-schema` CLI flag
+  - Aligns with Python/TypeScript SDK `outputFormat` option
+- **`context_management` field in AssistantMessage** - Support for context window management metadata in assistant messages ([f4ea348])
+- **CLI installer** - Automatic CLI binary management following phoenixframework/esbuild patterns
+  - `mix claude_code.install` - Mix task to install CLI with `--version`, `--if-missing`, `--force` flags
+  - `ClaudeCode.Installer` module for programmatic CLI management
+  - Uses official Anthropic install scripts (https://claude.ai/install.sh)
+  - Binary resolution checks: explicit path → bundled → PATH → common locations
+- **`:cli_path` option** - Specify a custom path to the Claude CLI binary
+- **Configuration options** for CLI management:
+  - `cli_version` - Version to install (default: SDK's tested version "2.1.29")
+  - `cli_path` - Explicit path to CLI binary (highest priority)
+  - `cli_dir` - Directory for downloaded binary (default: priv/bin/)
+
 ## [0.16.0] - 2026-01-27
 
 ### Added

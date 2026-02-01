@@ -77,17 +77,13 @@ defmodule MockCLI do
     File.write!(mock_script, script_content)
     File.chmod!(mock_script, 0o755)
 
-    # Modify PATH
-    original_path = System.get_env("PATH")
-    System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
     # Register cleanup
     ExUnit.Callbacks.on_exit(fn ->
-      System.put_env("PATH", original_path)
       File.rm_rf!(mock_dir)
     end)
 
-    {:ok, mock_dir: mock_dir}
+    # Return both mock_dir and mock_script for tests to use with cli_path option
+    {:ok, mock_dir: mock_dir, mock_script: mock_script}
   end
 
   @doc """

@@ -85,6 +85,25 @@ response =
 # => "The secret code is 12345"
 ```
 
+## Continuing the Most Recent Conversation
+
+Use `:continue` to automatically resume the most recent conversation in the
+current working directory:
+
+```elixir
+# Continue where you left off (no session ID needed)
+{:ok, session} = ClaudeCode.start_link(continue: true)
+
+response =
+  session
+  |> ClaudeCode.stream("What were we talking about?")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.join()
+```
+
+This is convenient when you want to pick up the last conversation without
+tracking session IDs manually.
+
 ## Forking Sessions
 
 Create a branch from an existing conversation. The fork starts with the same
@@ -260,6 +279,7 @@ Common options for `start_link/1`:
 |--------|------|-------------|
 | `name` | atom | Register with a name for global access |
 | `resume` | string | Session ID to resume |
+| `continue` | boolean | Continue the most recent conversation in current directory |
 | `fork_session` | boolean | Create new session ID when resuming (use with `resume`) |
 | `model` | string | Claude model ("sonnet", "opus", etc.) |
 | `system_prompt` | string | Override system prompt |

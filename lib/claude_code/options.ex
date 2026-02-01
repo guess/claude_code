@@ -26,6 +26,7 @@ defmodule ClaudeCode.Options do
     Overrides the 'agent' setting. Different from `:agents` which defines custom agents.
   - `:betas` - Beta headers to include in API requests (list of strings, optional)
     Example: `["feature-x", "feature-y"]`
+  - `:max_thinking_tokens` - Maximum tokens for thinking blocks (integer, optional)
 
   ### Tool Control
   - `:tools` - Specify the list of available tools from the built-in set (optional)
@@ -50,22 +51,28 @@ defmodule ClaudeCode.Options do
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`, `:delegate`, `:dont_ask`, `:plan`
-  - `:json_schema` - JSON Schema for structured output validation (string or map, optional)
-    When provided as a map, it will be JSON encoded automatically.
-    Example: `%{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}`
+  - `:output_format` - Output format for structured outputs (map, optional)
+    Must have `:type` key (currently only `:json_schema` supported) and `:schema` key with JSON Schema.
+    Example: `%{type: :json_schema, schema: %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}}`
   - `:settings` - Settings configuration (string or map, optional)
     Can be a file path, JSON string, or map that will be JSON encoded
     Example: `%{"feature" => true}` or `"/path/to/settings.json"`
   - `:setting_sources` - List of setting sources to load (list of strings, optional)
     Valid sources: `"user"`, `"project"`, `"local"`
     Example: `["user", "project", "local"]`
+  - `:plugins` - Plugin configurations to load (list of maps or strings, optional)
+    Each plugin can be a path string or a map with `:type` and `:path` keys.
+    Currently only `:local` type is supported.
+    Example: `["./my-plugin"]` or `[%{type: :local, path: "./my-plugin"}]`
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
   - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
+  - `:cli_path` - Custom path to Claude CLI binary (string, optional, highest priority)
   - `:resume` - Session ID to resume a previous conversation (string, optional)
   - `:fork_session` - When resuming, create a new session ID instead of reusing the original (boolean, optional)
     Must be used with `:resume`. Creates a fork of the conversation.
+  - `:continue` - Continue the most recent conversation in the current directory (boolean, optional)
   - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
     Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
   - `:cwd` - Current working directory (string, optional)
@@ -143,11 +150,17 @@ defmodule ClaudeCode.Options do
     api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
+    cli_path: [type: :string, doc: "Custom path to Claude CLI binary (highest priority)"],
     resume: [type: :string, doc: "Session ID to resume a previous conversation"],
     fork_session: [
       type: :boolean,
       default: false,
       doc: "When resuming, create a new session ID instead of reusing the original"
+    ],
+    continue: [
+      type: :boolean,
+      default: false,
+      doc: "Continue the most recent conversation in the current directory"
     ],
     adapter: [
       type: {:tuple, [:atom, :any]},
@@ -220,6 +233,7 @@ defmodule ClaudeCode.Options do
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Maximum dollar amount to spend on API calls"],
     agent: [type: :string, doc: "Agent name for the session (overrides 'agent' setting)"],
     betas: [type: {:list, :string}, doc: "Beta headers to include in API requests"],
+    max_thinking_tokens: [type: :integer, doc: "Maximum tokens for thinking blocks"],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
       doc: "Available tools: :default for all, [] for none, or list of tool names"
@@ -249,9 +263,9 @@ defmodule ClaudeCode.Options do
       doc: "Permission handling mode (:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan)"
     ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
-    json_schema: [
-      type: {:or, [:string, {:map, :string, :any}]},
-      doc: "JSON Schema for structured output validation (JSON string or map)"
+    output_format: [
+      type: :map,
+      doc: "Output format for structured outputs - map with type: :json_schema and schema keys"
     ],
     settings: [
       type: {:or, [:string, {:map, :string, :any}]},
@@ -260,6 +274,10 @@ defmodule ClaudeCode.Options do
     setting_sources: [
       type: {:list, :string},
       doc: "List of setting sources to load (user, project, local)"
+    ],
+    plugins: [
+      type: {:list, {:or, [:string, :map]}},
+      doc: "Plugin configurations - list of paths or maps with type: :local and path keys"
     ],
     include_partial_messages: [
       type: :boolean,
@@ -292,6 +310,7 @@ defmodule ClaudeCode.Options do
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Override max budget for this query"],
     agent: [type: :string, doc: "Override agent for this query"],
     betas: [type: {:list, :string}, doc: "Override beta headers for this query"],
+    max_thinking_tokens: [type: :integer, doc: "Override max thinking tokens for this query"],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
       doc: "Override available tools: :default for all, [] for none, or list"
@@ -317,9 +336,9 @@ defmodule ClaudeCode.Options do
       doc: "Override permission mode for this query"
     ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
-    json_schema: [
-      type: {:or, [:string, {:map, :string, :any}]},
-      doc: "JSON Schema for structured output validation (JSON string or map)"
+    output_format: [
+      type: :map,
+      doc: "Override output format for this query"
     ],
     settings: [
       type: {:or, [:string, {:map, :string, :any}]},
@@ -328,6 +347,10 @@ defmodule ClaudeCode.Options do
     setting_sources: [
       type: {:list, :string},
       doc: "Override setting sources for this query (user, project, local)"
+    ],
+    plugins: [
+      type: {:list, {:or, [:string, :map]}},
+      doc: "Override plugin configurations for this query"
     ],
     include_partial_messages: [
       type: :boolean,
@@ -468,6 +491,7 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:tool_callback, _value), do: nil
   defp convert_option_to_cli_flag(:resume, _value), do: nil
   defp convert_option_to_cli_flag(:adapter, _value), do: nil
+  defp convert_option_to_cli_flag(:cli_path, _value), do: nil
 
   defp convert_option_to_cli_flag(:fork_session, true) do
     # Boolean flag without value - return as list to be flattened
@@ -475,6 +499,13 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:fork_session, false), do: nil
+
+  defp convert_option_to_cli_flag(:continue, true) do
+    # Boolean flag without value - return as list to be flattened
+    ["--continue"]
+  end
+
+  defp convert_option_to_cli_flag(:continue, false), do: nil
 
   defp convert_option_to_cli_flag(_key, nil), do: nil
 
@@ -493,6 +524,10 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:max_budget_usd, value) do
     {"--max-budget-usd", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:max_thinking_tokens, value) do
+    {"--max-thinking-tokens", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:agent, value) do
@@ -553,7 +588,9 @@ defmodule ClaudeCode.Options do
     {"--fallback-model", to_string(value)}
   end
 
-  defp convert_option_to_cli_flag(:permission_mode, :default), do: nil
+  defp convert_option_to_cli_flag(:permission_mode, :default) do
+    {"--permission-mode", "default"}
+  end
 
   defp convert_option_to_cli_flag(:permission_mode, :accept_edits) do
     {"--permission-mode", "acceptEdits"}
@@ -584,14 +621,12 @@ defmodule ClaudeCode.Options do
     end
   end
 
-  defp convert_option_to_cli_flag(:json_schema, value) when is_map(value) do
-    json_string = Jason.encode!(value)
+  defp convert_option_to_cli_flag(:output_format, %{type: :json_schema, schema: schema}) when is_map(schema) do
+    json_string = Jason.encode!(schema)
     {"--json-schema", json_string}
   end
 
-  defp convert_option_to_cli_flag(:json_schema, value) do
-    {"--json-schema", to_string(value)}
-  end
+  defp convert_option_to_cli_flag(:output_format, _value), do: nil
 
   defp convert_option_to_cli_flag(:settings, value) when is_map(value) do
     json_string = Jason.encode!(value)
@@ -605,6 +640,24 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:setting_sources, value) when is_list(value) do
     sources_csv = Enum.join(value, ",")
     {"--setting-sources", sources_csv}
+  end
+
+  defp convert_option_to_cli_flag(:plugins, value) when is_list(value) do
+    if value == [] do
+      nil
+    else
+      # Extract path from each plugin config (string path or map with type: :local)
+      Enum.flat_map(value, fn
+        path when is_binary(path) ->
+          ["--plugin-dir", path]
+
+        %{type: :local, path: path} ->
+          ["--plugin-dir", to_string(path)]
+
+        _other ->
+          []
+      end)
+    end
   end
 
   defp convert_option_to_cli_flag(:agents, value) when is_map(value) do

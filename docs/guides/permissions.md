@@ -17,6 +17,9 @@ The `permission_mode` option controls how Claude handles permission requests:
 | `:default` | CLI prompts for permission on sensitive operations |
 | `:accept_edits` | Automatically accept file edit permissions |
 | `:bypass_permissions` | Skip all permission prompts (use with caution) |
+| `:delegate` | Delegate permission decisions to an MCP tool |
+| `:dont_ask` | Don't ask for permissions, fail operations that would require them |
+| `:plan` | Plan mode - analyze and plan without executing actions |
 
 ## Tool Restrictions
 

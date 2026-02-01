@@ -51,5 +51,8 @@ npm-debug.log
 .env
 .env.*
 
+# Downloaded CLI binary
+/priv/bin/
+
 # Mix lock file (you might want to commit this)
 # mix.lock

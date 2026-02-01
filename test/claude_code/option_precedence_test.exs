@@ -56,12 +56,23 @@ defmodule ClaudeCode.OptionPrecedenceTest do
     end
 
     test "handles empty app config gracefully" do
-      session_opts = [api_key: "sk-test", model: "sonnet"]
+      # Clear any config that might be set (like cli_path in test.exs)
+      original_cli_path = Application.get_env(:claude_code, :cli_path)
 
-      opts_with_config = Options.apply_app_config_defaults(session_opts)
+      try do
+        Application.delete_env(:claude_code, :cli_path)
 
-      # Should return original options unchanged
-      assert opts_with_config == session_opts
+        session_opts = [api_key: "sk-test", model: "sonnet"]
+
+        opts_with_config = Options.apply_app_config_defaults(session_opts)
+
+        # Should return original options unchanged
+        assert opts_with_config == session_opts
+      after
+        if original_cli_path do
+          Application.put_env(:claude_code, :cli_path, original_cli_path)
+        end
+      end
     end
   end
 

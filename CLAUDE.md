@@ -26,9 +26,10 @@ mix coveralls.html              # Generate HTML coverage report
 
 ### Development
 ```bash
-mix deps.get         # Install dependencies
-iex -S mix           # Start interactive shell with project loaded
-mix docs             # Generate documentation
+mix deps.get              # Install dependencies
+mix claude_code.install   # Install CLI binary to priv/bin/
+iex -S mix                # Start interactive shell with project loaded
+mix docs                  # Generate documentation
 ```
 
 ## Architecture
@@ -36,9 +37,10 @@ mix docs             # Generate documentation
 The SDK works by spawning the Claude Code CLI (`claude` command) as a subprocess using a shell wrapper:
 
 1. **ClaudeCode.Session** - GenServer that manages the CLI subprocess lifecycle
-2. **ClaudeCode.CLI** - Finds the claude binary and builds command arguments
-3. **Port** - Uses shell wrapper (`/bin/sh -c`) to prevent CLI hanging
-4. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
+2. **ClaudeCode.Installer** - Manages CLI binary installation and resolution
+3. **ClaudeCode.CLI** - Finds the claude binary and builds command arguments
+4. **Port** - Uses shell wrapper (`/bin/sh -c`) to prevent CLI hanging
+5. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
 
 Key CLI flags used:
 - `--input-format stream-json` - Bidirectional streaming mode (reads from stdin)
@@ -50,6 +52,7 @@ Key CLI flags used:
 **26 features implemented** (96% of core functionality) - See `docs/proposals/FEATURE_MATRIX.md`
 
 Core capabilities:
+- CLI installer with automatic binary management
 - Session management with GenServer
 - Synchronous and async query interface
 - Streaming support with native Elixir Streams
@@ -66,9 +69,7 @@ Core capabilities:
 - Partial message streaming (character-level deltas)
 - Stream utilities (text_deltas, thinking_deltas, buffered_text)
 - Interrupt support for in-progress queries
-
-Planned for v1.0 (🔨):
-- Session forking (P1 - conversation branching)
+- Session forking (via `:fork_session` option with `:resume`)
 
 ## Testing Approach
 
@@ -91,6 +92,7 @@ Planned for v1.0 (🔨):
 
 - `lib/claude_code/` - Main implementation
   - `session.ex` - GenServer for session management with options validation
+  - `installer.ex` - CLI binary installation and resolution
   - `cli.ex` - CLI binary detection and command building with options support
   - `options.ex` - Options validation & CLI conversion (NimbleOptions)
   - `stream.ex` - Stream utilities for real-time processing
@@ -99,6 +101,8 @@ Planned for v1.0 (🔨):
   - `types.ex` - Type definitions matching SDK schema
   - `message/` - Message type modules (system, assistant, user, result)
   - `content/` - Content block modules (text, tool_use, tool_result, thinking)
+- `lib/mix/tasks/` - Mix tasks
+  - `claude_code.install.ex` - CLI installation mix task
 - `test/` - Test files mirror lib structure
 - `docs/proposals/` - Feature planning and roadmap
 - `examples/` - Working examples
@@ -128,42 +132,61 @@ Quick reference for development:
 
 Key options:
 - `:resume` - Session ID to resume a previous conversation (passed to `start_link/1`)
+- `:continue` - Continue the most recent conversation in the current directory (boolean)
 - `:agents` - Map of custom agent configurations (name -> %{"description" => ..., "prompt" => ..., "tools" => ..., "model" => ...})
 - `:settings` - Team settings (file path, JSON string, or map - auto-encoded to JSON)
 - `:setting_sources` - List of setting sources ([:user, :project, :local])
+- `:plugins` - Plugin configurations (list of paths or maps with type: :local)
 - `:allowed_tools` / `:disallowed_tools` - Tool access control
 - `:system_prompt` / `:append_system_prompt` - Custom system instructions
 - `:model` - Claude model selection
 - `:fallback_model` - Fallback model if primary fails
 - `:max_turns` - Conversation turn limiting
+- `:max_thinking_tokens` - Maximum tokens for thinking blocks
+- `:output_format` - Structured output format (map with type: :json_schema and schema keys)
 - `:mcp_config` / `:permission_prompt_tool` - MCP integration
 - `:add_dir` - Additional accessible directories
 - `:include_partial_messages` - Enable character-level streaming
+- `:cli_path` - Custom path to Claude CLI binary (highest priority)
+
+Application config options:
+- `:cli_version` - Version to install (default: SDK's tested version, currently "2.1.29")
+- `:cli_path` - Explicit path to CLI binary (highest priority)
+- `:cli_dir` - Directory for downloaded binary (default: priv/bin/)
 
 ### Message Type Structure
 
 All message types follow the official Claude SDK schema:
 
 ```elixir
-# System messages
-%ClaudeCode.Message.System{message: text}
+# System messages (init)
+%ClaudeCode.Message.SystemMessage{
+  type: :system,
+  subtype: :init,
+  session_id: "uuid",
+  tools: ["Bash", "Read", ...],
+  model: "claude-sonnet-...",
+  permission_mode: :default,
+  ...
+}
 
 # Assistant messages (nested structure)
-%ClaudeCode.Message.Assistant{
+%ClaudeCode.Message.AssistantMessage{
   message: %{
-    content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolUseBlock{...}]
+    content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolUseBlock{...}],
+    context_management: %{...}  # Optional context management info from API
   }
 }
 
 # User messages (nested structure)
-%ClaudeCode.Message.User{
+%ClaudeCode.Message.UserMessage{
   message: %{
     content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolResultBlock{...}]
   }
 }
 
 # Result messages (final response)
-%ClaudeCode.Message.Result{
+%ClaudeCode.Message.ResultMessage{
   result: "final response text",
   is_error: false,
   subtype: nil  # or :error_max_turns, :error_during_execution

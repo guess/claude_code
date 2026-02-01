@@ -45,6 +45,7 @@ All options for `ClaudeCode.start_link/1`:
 | `max_budget_usd` | number | - | Maximum dollar amount to spend on API calls |
 | `agent` | string | - | Agent name for the session |
 | `betas` | list | - | Beta headers for API requests |
+| `max_thinking_tokens` | integer | - | Maximum tokens for thinking blocks |
 
 ### Timeouts
 
@@ -68,6 +69,7 @@ All options for `ClaudeCode.start_link/1`:
 |--------|------|---------|-------------|
 | `resume` | string | - | Session ID to resume |
 | `fork_session` | boolean | false | Create new session ID when resuming |
+| `continue` | boolean | false | Continue most recent conversation in current directory |
 | `mcp_config` | string | - | Path to MCP config file |
 | `strict_mcp_config` | boolean | false | Only use MCP servers from explicit config |
 | `agents` | map | - | Custom agent configurations |
@@ -75,7 +77,8 @@ All options for `ClaudeCode.start_link/1`:
 | `setting_sources` | list | - | Setting source priority |
 | `tool_callback` | function | - | Called after tool executions |
 | `include_partial_messages` | boolean | false | Enable character-level streaming |
-| `json_schema` | map/string | - | JSON Schema for structured output validation |
+| `output_format` | map | - | Structured output format (see Structured Outputs section) |
+| `plugins` | list | - | Plugin configurations to load (paths or maps with type: :local) |
 
 ## Query Options
 
@@ -90,10 +93,12 @@ Options that can be passed to `stream/3`:
 | `max_budget_usd` | number | Maximum dollar amount for this query |
 | `agent` | string | Agent to use for this query |
 | `betas` | list | Beta headers for this query |
+| `max_thinking_tokens` | integer | Maximum tokens for thinking blocks |
 | `tools` | list | Available tools for this query |
 | `allowed_tools` | list | Allowed tools for this query |
 | `disallowed_tools` | list | Disallowed tools for this query |
-| `json_schema` | map/string | JSON Schema for structured output |
+| `output_format` | map | Structured output format for this query |
+| `plugins` | list | Plugin configurations for this query |
 | `include_partial_messages` | boolean | Enable deltas for this query |
 
 Note: `api_key` and `name` cannot be overridden at query time.
@@ -109,6 +114,44 @@ config :claude_code,
   timeout: 180_000,
   system_prompt: "You are a helpful assistant",
   allowed_tools: ["View"]
+```
+
+### CLI Configuration
+
+The SDK can automatically manage the Claude CLI binary:
+
+```elixir
+config :claude_code,
+  cli_version: "latest",           # Version to install ("latest" or "2.1.29")
+  cli_path: nil,                    # Explicit path to CLI binary (highest priority)
+  cli_dir: nil                      # Directory for downloaded binary (default: priv/bin/)
+```
+
+**Binary resolution order:**
+1. `:cli_path` option (explicit override)
+2. Application config `:cli_path`
+3. Bundled binary in `cli_dir` (default: priv/bin/)
+4. System PATH
+5. Common installation locations (~/.local/bin, ~/.npm-global/bin, etc.)
+
+**Install the CLI:**
+```bash
+mix claude_code.install              # Install latest version
+mix claude_code.install --version 2.1.29  # Install specific version
+mix claude_code.install --if-missing # Only if not present
+mix claude_code.install --force      # Force reinstall
+```
+
+**For releases:**
+```elixir
+# Option 1: Pre-install during release build
+# (Run mix claude_code.install before building the release)
+
+# Option 2: Configure writable directory for runtime download
+config :claude_code, cli_dir: "/var/lib/claude_code"
+
+# Option 3: Rely on system-installed CLI in PATH
+# (No configuration needed, just ensure 'claude' is in PATH)
 ```
 
 ### Environment-Specific Configuration
@@ -175,7 +218,7 @@ session
 
 ## Structured Outputs
 
-Use JSON Schema to get validated structured responses:
+Use the `:output_format` option with a JSON Schema to get validated structured responses:
 
 ```elixir
 schema = %{
@@ -190,10 +233,14 @@ schema = %{
 
 session
 |> ClaudeCode.stream("Extract person info from: John is 30 and knows Elixir",
-     json_schema: schema)
+     output_format: %{type: :json_schema, schema: schema})
 |> ClaudeCode.Stream.text_content()
 |> Enum.join()
 ```
+
+The `:output_format` option accepts a map with:
+- `:type` - Currently only `:json_schema` is supported
+- `:schema` - A JSON Schema map defining the expected structure
 
 ## Tool Configuration
 
@@ -310,6 +357,25 @@ See [Agents Guide](agents.md) for more details.
 # Control setting sources
 {:ok, session} = ClaudeCode.start_link(
   setting_sources: [:user, :project, :local]
+)
+```
+
+## Plugins
+
+Load custom plugins to extend Claude's capabilities:
+
+```elixir
+# From a directory path
+{:ok, session} = ClaudeCode.start_link(
+  plugins: ["./my-plugin"]
+)
+
+# With explicit type (currently only :local is supported)
+{:ok, session} = ClaudeCode.start_link(
+  plugins: [
+    %{type: :local, path: "./my-plugin"},
+    "./another-plugin"
+  ]
 )
 ```
 
