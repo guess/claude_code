@@ -383,12 +383,13 @@ defmodule ClaudeCode.Installer do
   end
 
   defp run_windows_install_script(version) do
+    # The PowerShell script accepts $Target as a positional parameter
+    # We use scriptblock to pass the version argument properly
     script_cmd =
       if version == "latest" do
         "irm #{@windows_install_script_url} | iex"
       else
-        # Windows script version handling may differ
-        "irm #{@windows_install_script_url} | iex"
+        "& ([scriptblock]::Create((irm #{@windows_install_script_url}))) '#{version}'"
       end
 
     Logger.debug("Running install script: #{script_cmd}")
@@ -477,7 +478,7 @@ defmodule ClaudeCode.Installer do
 
       {:error, reason} ->
         Logger.warning("Could not determine file size for #{path}: #{inspect(reason)}")
-        0
+        nil
     end
   end
 

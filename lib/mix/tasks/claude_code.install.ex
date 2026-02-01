@@ -81,14 +81,14 @@ defmodule Mix.Tasks.ClaudeCode.Install do
     try do
       case ClaudeCode.Installer.install!(version: version, return_info: true) do
         {:ok, info} ->
-          size_mb = info.size_bytes / (1024 * 1024)
+          size_str = format_size(info.size_bytes)
 
           Mix.shell().info("""
           ✓ Claude CLI installed successfully!
 
             Version: #{info.version || "unknown"}
             Path:    #{info.path}
-            Size:    #{:erlang.float_to_binary(size_mb, decimals: 2)} MB
+            Size:    #{size_str}
           """)
 
         :ok ->
@@ -116,4 +116,12 @@ defmodule Mix.Tasks.ClaudeCode.Install do
 
   defp version_label("latest"), do: ""
   defp version_label(version), do: " v#{version}"
+
+  defp format_size(nil), do: "unknown"
+  defp format_size(0), do: "unknown"
+
+  defp format_size(bytes) when is_integer(bytes) do
+    size_mb = bytes / (1024 * 1024)
+    "#{:erlang.float_to_binary(size_mb, decimals: 2)} MB"
+  end
 end

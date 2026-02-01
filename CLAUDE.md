@@ -69,9 +69,7 @@ Core capabilities:
 - Partial message streaming (character-level deltas)
 - Stream utilities (text_deltas, thinking_deltas, buffered_text)
 - Interrupt support for in-progress queries
-
-Planned for v1.0 (🔨):
-- Session forking (P1 - conversation branching)
+- Session forking (via `:fork_session` option with `:resume`)
 
 ## Testing Approach
 
@@ -161,11 +159,19 @@ Application config options:
 All message types follow the official Claude SDK schema:
 
 ```elixir
-# System messages
-%ClaudeCode.Message.System{message: text}
+# System messages (init)
+%ClaudeCode.Message.SystemMessage{
+  type: :system,
+  subtype: :init,
+  session_id: "uuid",
+  tools: ["Bash", "Read", ...],
+  model: "claude-sonnet-...",
+  permission_mode: :default,
+  ...
+}
 
 # Assistant messages (nested structure)
-%ClaudeCode.Message.Assistant{
+%ClaudeCode.Message.AssistantMessage{
   message: %{
     content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolUseBlock{...}],
     context_management: %{...}  # Optional context management info from API
@@ -173,14 +179,14 @@ All message types follow the official Claude SDK schema:
 }
 
 # User messages (nested structure)
-%ClaudeCode.Message.User{
+%ClaudeCode.Message.UserMessage{
   message: %{
     content: [%ClaudeCode.Content.TextBlock{text: "..."} | %ClaudeCode.Content.ToolResultBlock{...}]
   }
 }
 
 # Result messages (final response)
-%ClaudeCode.Message.Result{
+%ClaudeCode.Message.ResultMessage{
   result: "final response text",
   is_error: false,
   subtype: nil  # or :error_max_turns, :error_during_execution
