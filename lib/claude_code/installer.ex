@@ -16,7 +16,7 @@ defmodule ClaudeCode.Installer do
 
       # config/config.exs
       config :claude_code,
-        cli_version: "latest",           # Version to install
+        cli_version: "2.1.29",           # Version to install (default: SDK's tested version)
         cli_path: nil,                    # Explicit path to binary
         cli_dir: nil                      # Directory for downloaded binary
 
@@ -70,9 +70,12 @@ defmodule ClaudeCode.Installer do
       iex> ClaudeCode.Installer.configured_version()
       "latest"
   """
+  # Default CLI version - update this when releasing new SDK versions
+  @default_cli_version "2.1.29"
+
   @spec configured_version() :: String.t()
   def configured_version do
-    Application.get_env(:claude_code, :cli_version, "latest")
+    Application.get_env(:claude_code, :cli_version, @default_cli_version)
   end
 
   @doc """

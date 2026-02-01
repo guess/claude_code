@@ -4,12 +4,13 @@ defmodule ClaudeCode.InstallerTest do
   alias ClaudeCode.Installer
 
   describe "configured_version/0" do
-    test "returns 'latest' when no config set" do
+    test "returns default version when no config set" do
       original = Application.get_env(:claude_code, :cli_version)
 
       try do
         Application.delete_env(:claude_code, :cli_version)
-        assert Installer.configured_version() == "latest"
+        # Default is the SDK's tested CLI version, not "latest"
+        assert Installer.configured_version() == "2.1.29"
       after
         if original do
           Application.put_env(:claude_code, :cli_version, original)
