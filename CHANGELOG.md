@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`:continue` option** - Continue the most recent conversation in the current directory (boolean)
   - Maps to `--continue` CLI flag
   - Aligns with Python/TypeScript SDK `continue` option
+- **`:plugins` option** - Load custom plugins from local paths (list of paths or maps)
+  - Accepts `["./my-plugin"]` or `[%{type: "local", path: "./my-plugin"}]`
+  - Maps to multiple `--plugin-dir` CLI flags
+  - Aligns with Python/TypeScript SDK `plugins` option
 - **`context_management` field in AssistantMessage** - Support for context window management metadata in assistant messages ([f4ea348])
 - **CLI installer** - Automatic CLI binary management following phoenixframework/esbuild patterns
   - `mix claude_code.install` - Mix task to install CLI with `--version`, `--if-missing`, `--force` flags

@@ -60,6 +60,9 @@ defmodule ClaudeCode.Options do
   - `:setting_sources` - List of setting sources to load (list of strings, optional)
     Valid sources: `"user"`, `"project"`, `"local"`
     Example: `["user", "project", "local"]`
+  - `:plugins` - Plugin configurations to load (list of maps or strings, optional)
+    Each plugin can be a path string or a map with `type` and `path` keys.
+    Example: `["./my-plugin"]` or `[%{type: "local", path: "./my-plugin"}]`
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
@@ -271,6 +274,10 @@ defmodule ClaudeCode.Options do
       type: {:list, :string},
       doc: "List of setting sources to load (user, project, local)"
     ],
+    plugins: [
+      type: {:list, {:or, [:string, :map]}},
+      doc: "Plugin configurations - list of paths or maps with type/path keys"
+    ],
     include_partial_messages: [
       type: :boolean,
       default: false,
@@ -339,6 +346,10 @@ defmodule ClaudeCode.Options do
     setting_sources: [
       type: {:list, :string},
       doc: "Override setting sources for this query (user, project, local)"
+    ],
+    plugins: [
+      type: {:list, {:or, [:string, :map]}},
+      doc: "Override plugin configurations for this query"
     ],
     include_partial_messages: [
       type: :boolean,
@@ -628,6 +639,27 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:setting_sources, value) when is_list(value) do
     sources_csv = Enum.join(value, ",")
     {"--setting-sources", sources_csv}
+  end
+
+  defp convert_option_to_cli_flag(:plugins, value) when is_list(value) do
+    if value == [] do
+      nil
+    else
+      # Extract path from each plugin config (string or map with :path or "path" key)
+      Enum.flat_map(value, fn
+        path when is_binary(path) ->
+          ["--plugin-dir", path]
+
+        %{path: path} ->
+          ["--plugin-dir", to_string(path)]
+
+        %{"path" => path} ->
+          ["--plugin-dir", to_string(path)]
+
+        _other ->
+          []
+      end)
+    end
   end
 
   defp convert_option_to_cli_flag(:agents, value) when is_map(value) do

@@ -270,9 +270,27 @@ defmodule ClaudeCode.OptionsTest do
     end
 
     test "validates max_thinking_tokens option" do
-      opts = [max_thinking_tokens: 10000]
+      opts = [max_thinking_tokens: 10_000]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:max_thinking_tokens] == 10000
+      assert validated[:max_thinking_tokens] == 10_000
+    end
+
+    test "validates plugins option as list of paths" do
+      opts = [plugins: ["./my-plugin", "/path/to/plugin"]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:plugins] == ["./my-plugin", "/path/to/plugin"]
+    end
+
+    test "validates plugins option as list of maps" do
+      opts = [plugins: [%{type: "local", path: "./my-plugin"}]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:plugins] == [%{type: "local", path: "./my-plugin"}]
+    end
+
+    test "validates plugins option with mixed formats" do
+      opts = [plugins: ["./simple-plugin", %{type: "local", path: "./map-plugin"}]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:plugins] == ["./simple-plugin", %{type: "local", path: "./map-plugin"}]
     end
   end
 
@@ -363,6 +381,12 @@ defmodule ClaudeCode.OptionsTest do
       opts = [max_thinking_tokens: 5000]
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:max_thinking_tokens] == 5000
+    end
+
+    test "validates plugins in query options" do
+      opts = [plugins: ["./my-plugin"]]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:plugins] == ["./my-plugin"]
     end
   end
 
@@ -1060,7 +1084,7 @@ defmodule ClaudeCode.OptionsTest do
     end
 
     test "converts max_thinking_tokens to --max-thinking-tokens" do
-      opts = [max_thinking_tokens: 10000]
+      opts = [max_thinking_tokens: 10_000]
 
       args = Options.to_cli_args(opts)
       assert "--max-thinking-tokens" in args
@@ -1080,6 +1104,63 @@ defmodule ClaudeCode.OptionsTest do
       assert "opus" in args
       assert "--max-turns" in args
       assert "10" in args
+    end
+
+    test "converts plugins list of paths to multiple --plugin-dir flags" do
+      opts = [plugins: ["./my-plugin", "/path/to/plugin"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+      assert "/path/to/plugin" in args
+      # Should have multiple --plugin-dir flags
+      plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
+      assert plugin_count == 2
+    end
+
+    test "converts plugins list of maps to multiple --plugin-dir flags" do
+      opts = [plugins: [%{type: "local", path: "./my-plugin"}, %{type: "local", path: "/other"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+      assert "/other" in args
+      plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
+      assert plugin_count == 2
+    end
+
+    test "converts plugins with atom keys in maps" do
+      opts = [plugins: [%{type: "local", path: "./my-plugin"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+    end
+
+    test "converts plugins with string keys in maps" do
+      opts = [plugins: [%{"type" => "local", "path" => "./my-plugin"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+    end
+
+    test "handles empty plugins list" do
+      opts = [plugins: []]
+
+      args = Options.to_cli_args(opts)
+      refute "--plugin-dir" in args
+    end
+
+    test "handles mixed plugins formats" do
+      opts = [plugins: ["./simple-path", %{type: "local", path: "./map-path"}]]
+
+      args = Options.to_cli_args(opts)
+      assert "--plugin-dir" in args
+      assert "./simple-path" in args
+      assert "./map-path" in args
+      plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
+      assert plugin_count == 2
     end
   end
 
