@@ -63,6 +63,7 @@ defmodule ClaudeCode.Options do
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
   - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
+  - `:cli_path` - Custom path to Claude CLI binary (string, optional, highest priority)
   - `:resume` - Session ID to resume a previous conversation (string, optional)
   - `:fork_session` - When resuming, create a new session ID instead of reusing the original (boolean, optional)
     Must be used with `:resume`. Creates a fork of the conversation.
@@ -143,6 +144,7 @@ defmodule ClaudeCode.Options do
     api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
+    cli_path: [type: :string, doc: "Custom path to Claude CLI binary (highest priority)"],
     resume: [type: :string, doc: "Session ID to resume a previous conversation"],
     fork_session: [
       type: :boolean,
@@ -468,6 +470,7 @@ defmodule ClaudeCode.Options do
   defp convert_option_to_cli_flag(:tool_callback, _value), do: nil
   defp convert_option_to_cli_flag(:resume, _value), do: nil
   defp convert_option_to_cli_flag(:adapter, _value), do: nil
+  defp convert_option_to_cli_flag(:cli_path, _value), do: nil
 
   defp convert_option_to_cli_flag(:fork_session, true) do
     # Boolean flag without value - return as list to be flattened

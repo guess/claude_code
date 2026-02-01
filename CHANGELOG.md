@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **CLI installer** - Automatic CLI binary management following phoenixframework/esbuild patterns
+  - `mix claude_code.install` - Mix task to install CLI with `--version`, `--if-missing`, `--force` flags
+  - `ClaudeCode.Installer` module for programmatic CLI management
+  - Uses official Anthropic install scripts (https://claude.ai/install.sh)
+  - Binary resolution checks: explicit path → bundled → PATH → common locations
+- **`:cli_path` option** - Specify a custom path to the Claude CLI binary
+- **Configuration options** for CLI management:
+  - `cli_version` - Version to install (default: "latest")
+  - `cli_path` - Explicit path to CLI binary (highest priority)
+  - `cli_dir` - Directory for downloaded binary (default: priv/bin/)
+
 ## [0.16.0] - 2026-01-27
 
 ### Added

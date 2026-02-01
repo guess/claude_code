@@ -1,5 +1,5 @@
 defmodule ClaudeCode.IntegrationStreamTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
@@ -22,15 +22,15 @@ defmodule ClaudeCode.IntegrationStreamTest do
       # Read from stdin and respond to each query
       while IFS= read -r line; do
         # Simulate streaming response with multiple chunks
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Once upon a time"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":", there was a developer"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":" who loved Elixir. "}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_4","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"The end."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":250,"duration_api_ms":200,"num_turns":1,"result":"Once upon a time, there was a developer who loved Elixir. The end.","session_id":"stream-test","total_cost_usd":0.001,"usage":{}}'
       done
 
@@ -39,20 +39,15 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       File.chmod!(mock_script, 0o755)
 
-      # Add mock directory to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
       on_exit(fn ->
-        System.put_env("PATH", original_path)
         File.rm_rf!(mock_dir)
       end)
 
-      {:ok, mock_dir: mock_dir}
+      {:ok, mock_dir: mock_dir, mock_script: mock_script}
     end
 
-    test "query/3 returns a working stream", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "query/3 returns a working stream", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       messages =
         session
@@ -73,8 +68,8 @@ defmodule ClaudeCode.IntegrationStreamTest do
       ClaudeCode.stop(session)
     end
 
-    test "text_content/1 extracts text properly", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "text_content/1 extracts text properly", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       text_parts =
         session
@@ -92,8 +87,8 @@ defmodule ClaudeCode.IntegrationStreamTest do
       ClaudeCode.stop(session)
     end
 
-    test "filter_type/2 filters correctly", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "filter_type/2 filters correctly", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       # Get only assistant messages
       assistant_messages =
@@ -108,8 +103,8 @@ defmodule ClaudeCode.IntegrationStreamTest do
       ClaudeCode.stop(session)
     end
 
-    test "until_result/1 stops at result message", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "until_result/1 stops at result message", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       messages =
         session
@@ -126,8 +121,8 @@ defmodule ClaudeCode.IntegrationStreamTest do
       ClaudeCode.stop(session)
     end
 
-    test "multiple queries work correctly", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "multiple queries work correctly", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       # First query
       text1 =
@@ -169,13 +164,13 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       # Read from stdin and respond to each query
       while IFS= read -r line; do
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"I'"'"'ll create a file for you."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"tool_use","id":"tool_1","name":"write_file","input":{"path":"test.txt","content":"Hello from Claude!"}}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"File created successfully!"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"tool-test"}'
-        sleep 0.02
+        sleep 0.005
         echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":100,"num_turns":1,"result":"Created test.txt","session_id":"tool-test","total_cost_usd":0.001,"usage":{}}'
       done
 
@@ -184,20 +179,15 @@ defmodule ClaudeCode.IntegrationStreamTest do
 
       File.chmod!(mock_script, 0o755)
 
-      # Add mock directory to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
       on_exit(fn ->
-        System.put_env("PATH", original_path)
         File.rm_rf!(mock_dir)
       end)
 
-      {:ok, mock_dir: mock_dir}
+      {:ok, mock_dir: mock_dir, mock_script: mock_script}
     end
 
-    test "tool_uses/1 extracts tool use blocks", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "tool_uses/1 extracts tool use blocks", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       tool_uses =
         session
@@ -214,8 +204,8 @@ defmodule ClaudeCode.IntegrationStreamTest do
       ClaudeCode.stop(session)
     end
 
-    test "filter by tool_use pseudo-type", %{mock_dir: _mock_dir} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+    test "filter by tool_use pseudo-type", %{mock_script: mock_script} do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
       tool_messages =
         session

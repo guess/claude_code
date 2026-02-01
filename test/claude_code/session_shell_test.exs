@@ -1,5 +1,5 @@
 defmodule ClaudeCode.SessionShellTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
@@ -27,20 +27,15 @@ defmodule ClaudeCode.SessionShellTest do
 
       File.chmod!(mock_script, 0o755)
 
-      # Add mock directory to PATH
-      original_path = System.get_env("PATH")
-      System.put_env("PATH", "#{mock_dir}:#{original_path}")
-
       on_exit(fn ->
-        System.put_env("PATH", original_path)
         File.rm_rf!(mock_dir)
       end)
 
-      {:ok, mock_dir: mock_dir}
+      {:ok, mock_dir: mock_dir, mock_script: mock_script}
     end
 
-    test "handles simple arguments correctly", %{mock_dir: _mock_dir} do
-      {:ok, session} = Session.start_link(api_key: "test-key-123")
+    test "handles simple arguments correctly", %{mock_script: mock_script} do
+      {:ok, session} = Session.start_link(api_key: "test-key-123", cli_path: mock_script)
 
       {:ok, result} = MockCLI.sync_query(session, "Hello Claude")
 
@@ -49,8 +44,8 @@ defmodule ClaudeCode.SessionShellTest do
       GenServer.stop(session)
     end
 
-    test "escapes arguments with special characters", %{mock_dir: _mock_dir} do
-      {:ok, session} = Session.start_link(api_key: "test-key-with-special-$-chars")
+    test "escapes arguments with special characters", %{mock_script: mock_script} do
+      {:ok, session} = Session.start_link(api_key: "test-key-with-special-$-chars", cli_path: mock_script)
 
       {:ok, result} = MockCLI.sync_query(session, "Hello 'Claude' with \"quotes\"")
 
@@ -59,8 +54,8 @@ defmodule ClaudeCode.SessionShellTest do
       GenServer.stop(session)
     end
 
-    test "handles newlines in prompts", %{mock_dir: _mock_dir} do
-      {:ok, session} = Session.start_link(api_key: "test-key")
+    test "handles newlines in prompts", %{mock_script: mock_script} do
+      {:ok, session} = Session.start_link(api_key: "test-key", cli_path: mock_script)
 
       prompt = "Line 1\nLine 2\nLine 3"
       {:ok, result} = MockCLI.sync_query(session, prompt)

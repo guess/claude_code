@@ -26,9 +26,10 @@ mix coveralls.html              # Generate HTML coverage report
 
 ### Development
 ```bash
-mix deps.get         # Install dependencies
-iex -S mix           # Start interactive shell with project loaded
-mix docs             # Generate documentation
+mix deps.get              # Install dependencies
+mix claude_code.install   # Install CLI binary to priv/bin/
+iex -S mix                # Start interactive shell with project loaded
+mix docs                  # Generate documentation
 ```
 
 ## Architecture
@@ -36,9 +37,10 @@ mix docs             # Generate documentation
 The SDK works by spawning the Claude Code CLI (`claude` command) as a subprocess using a shell wrapper:
 
 1. **ClaudeCode.Session** - GenServer that manages the CLI subprocess lifecycle
-2. **ClaudeCode.CLI** - Finds the claude binary and builds command arguments
-3. **Port** - Uses shell wrapper (`/bin/sh -c`) to prevent CLI hanging
-4. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
+2. **ClaudeCode.Installer** - Manages CLI binary installation and resolution
+3. **ClaudeCode.CLI** - Finds the claude binary and builds command arguments
+4. **Port** - Uses shell wrapper (`/bin/sh -c`) to prevent CLI hanging
+5. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
 
 Key CLI flags used:
 - `--input-format stream-json` - Bidirectional streaming mode (reads from stdin)
@@ -50,6 +52,7 @@ Key CLI flags used:
 **26 features implemented** (96% of core functionality) - See `docs/proposals/FEATURE_MATRIX.md`
 
 Core capabilities:
+- CLI installer with automatic binary management
 - Session management with GenServer
 - Synchronous and async query interface
 - Streaming support with native Elixir Streams
@@ -91,6 +94,7 @@ Planned for v1.0 (🔨):
 
 - `lib/claude_code/` - Main implementation
   - `session.ex` - GenServer for session management with options validation
+  - `installer.ex` - CLI binary installation and resolution
   - `cli.ex` - CLI binary detection and command building with options support
   - `options.ex` - Options validation & CLI conversion (NimbleOptions)
   - `stream.ex` - Stream utilities for real-time processing
@@ -99,6 +103,8 @@ Planned for v1.0 (🔨):
   - `types.ex` - Type definitions matching SDK schema
   - `message/` - Message type modules (system, assistant, user, result)
   - `content/` - Content block modules (text, tool_use, tool_result, thinking)
+- `lib/mix/tasks/` - Mix tasks
+  - `claude_code.install.ex` - CLI installation mix task
 - `test/` - Test files mirror lib structure
 - `docs/proposals/` - Feature planning and roadmap
 - `examples/` - Working examples
@@ -139,6 +145,12 @@ Key options:
 - `:mcp_config` / `:permission_prompt_tool` - MCP integration
 - `:add_dir` - Additional accessible directories
 - `:include_partial_messages` - Enable character-level streaming
+- `:cli_path` - Custom path to Claude CLI binary (highest priority)
+
+Application config options:
+- `:cli_version` - Version to install (default: "latest")
+- `:cli_path` - Explicit path to CLI binary (highest priority)
+- `:cli_dir` - Directory for downloaded binary (default: priv/bin/)
 
 ### Message Type Structure
 

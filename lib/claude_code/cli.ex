@@ -6,23 +6,66 @@ defmodule ClaudeCode.CLI do
   - Finding the claude binary
   - Building command arguments from validated options
   - Managing the subprocess lifecycle
+
+  ## Binary Resolution
+
+  The CLI binary is resolved in the following order:
+
+  1. `:cli_path` option passed to the function
+  2. Application config `:cli_path`
+  3. Bundled binary in `cli_dir` (default: priv/bin/)
+  4. System PATH via `System.find_executable/1`
+  5. Common installation locations (npm, yarn, home directory)
+
+  If not found, an error is returned with installation instructions.
   """
 
+  alias ClaudeCode.Installer
   alias ClaudeCode.Options
 
-  @claude_binary "claude"
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
   @doc """
-  Finds the claude binary in the system PATH.
+  Finds the claude binary using multiple resolution strategies.
+
+  ## Options
+
+  - `:cli_path` - Explicit path to the CLI binary (highest priority)
+
+  ## Resolution Order
+
+  1. `:cli_path` option (if provided)
+  2. Application config `:cli_path`
+  3. Bundled binary in `cli_dir`
+  4. System PATH
+  5. Common installation locations
 
   Returns `{:ok, path}` if found, `{:error, :not_found}` otherwise.
+
+  ## Examples
+
+      iex> ClaudeCode.CLI.find_binary()
+      {:ok, "/usr/local/bin/claude"}
+
+      iex> ClaudeCode.CLI.find_binary(cli_path: "/custom/path/claude")
+      {:ok, "/custom/path/claude"}
   """
-  @spec find_binary() :: {:ok, String.t()} | {:error, :not_found}
-  def find_binary do
-    case System.find_executable(@claude_binary) do
-      nil -> {:error, :not_found}
-      path -> {:ok, path}
+  @spec find_binary(keyword()) :: {:ok, String.t()} | {:error, :not_found}
+  def find_binary(opts \\ []) do
+    cli_path = Keyword.get(opts, :cli_path)
+
+    cond do
+      # 1. Explicit cli_path option
+      cli_path && File.exists?(cli_path) ->
+        {:ok, cli_path}
+
+      cli_path ->
+        # cli_path was provided but doesn't exist
+        {:error, :not_found}
+
+      # 2-5. Delegate to Installer for remaining resolution
+      true ->
+        Installer.bin_path()
     end
   end
 
@@ -32,12 +75,16 @@ defmodule ClaudeCode.CLI do
   Accepts validated options from the Options module and converts them to CLI flags.
   If a session_id is provided, automatically adds --resume flag for session continuity.
 
+  ## Options
+
+  - `:cli_path` - Explicit path to the CLI binary
+
   Returns `{:ok, {executable, args}}` or `{:error, reason}`.
   """
   @spec build_command(String.t(), String.t(), keyword(), String.t() | nil) ::
           {:ok, {String.t(), [String.t()]}} | {:error, term()}
   def build_command(prompt, _api_key, opts, session_id \\ nil) do
-    case find_binary() do
+    case find_binary(opts) do
       {:ok, executable} ->
         args = build_args(prompt, opts, session_id)
         {:ok, {executable, args}}
@@ -49,10 +96,14 @@ defmodule ClaudeCode.CLI do
 
   @doc """
   Validates that the Claude CLI is properly installed and accessible.
+
+  ## Options
+
+  - `:cli_path` - Explicit path to the CLI binary
   """
-  @spec validate_installation() :: :ok | {:error, term()}
-  def validate_installation do
-    case find_binary() do
+  @spec validate_installation(keyword()) :: :ok | {:error, term()}
+  def validate_installation(opts \\ []) do
+    case find_binary(opts) do
       {:ok, path} ->
         # Try to run claude --version to verify it's working
         case System.cmd(path, ["--version"], stderr_to_stdout: true) do
@@ -95,14 +146,20 @@ defmodule ClaudeCode.CLI do
 
   defp cli_not_found_message do
     """
-    Claude CLI not found in PATH.
+    Claude CLI not found.
 
-    Please install Claude Code CLI:
-    1. Visit https://claude.ai/code
-    2. Follow the installation instructions for your platform
-    3. Ensure 'claude' is available in your PATH
+    Install it using one of these methods:
 
-    You can verify the installation by running: claude --version
+    1. Run the mix task:
+       mix claude_code.install
+
+    2. Install manually:
+       curl -fsSL https://claude.ai/install.sh | bash
+
+    3. Configure an explicit path:
+       config :claude_code, cli_path: "/path/to/claude"
+
+    For more information, visit: https://docs.anthropic.com/en/docs/claude-code
     """
   end
 end
