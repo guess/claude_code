@@ -252,6 +252,28 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:resume] == "session-id-123"
       assert validated[:fork_session] == true
     end
+
+    test "validates continue option" do
+      opts = [continue: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:continue] == true
+
+      opts = [continue: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:continue] == false
+    end
+
+    test "defaults continue to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:continue] == false
+    end
+
+    test "validates max_thinking_tokens option" do
+      opts = [max_thinking_tokens: 10000]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:max_thinking_tokens] == 10000
+    end
   end
 
   describe "validate_query_options/1" do
@@ -335,6 +357,12 @@ defmodule ClaudeCode.OptionsTest do
       opts = [tools: ["Read", "Write"]]
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:tools] == ["Read", "Write"]
+    end
+
+    test "validates max_thinking_tokens in query options" do
+      opts = [max_thinking_tokens: 5000]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:max_thinking_tokens] == 5000
     end
   end
 
@@ -1013,6 +1041,45 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       refute "--resume" in args
       refute "session-id-123" in args
+    end
+
+    test "converts continue true to --continue" do
+      opts = [continue: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--continue" in args
+      # Boolean flag should not have a value
+      refute "true" in args
+    end
+
+    test "does not add flag when continue is false" do
+      opts = [continue: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--continue" in args
+    end
+
+    test "converts max_thinking_tokens to --max-thinking-tokens" do
+      opts = [max_thinking_tokens: 10000]
+
+      args = Options.to_cli_args(opts)
+      assert "--max-thinking-tokens" in args
+      assert "10000" in args
+    end
+
+    test "combines continue with other options" do
+      opts = [
+        continue: true,
+        model: "opus",
+        max_turns: 10
+      ]
+
+      args = Options.to_cli_args(opts)
+      assert "--continue" in args
+      assert "--model" in args
+      assert "opus" in args
+      assert "--max-turns" in args
+      assert "10" in args
     end
   end
 

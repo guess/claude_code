@@ -26,6 +26,7 @@ defmodule ClaudeCode.Options do
     Overrides the 'agent' setting. Different from `:agents` which defines custom agents.
   - `:betas` - Beta headers to include in API requests (list of strings, optional)
     Example: `["feature-x", "feature-y"]`
+  - `:max_thinking_tokens` - Maximum tokens for thinking blocks (integer, optional)
 
   ### Tool Control
   - `:tools` - Specify the list of available tools from the built-in set (optional)
@@ -67,6 +68,7 @@ defmodule ClaudeCode.Options do
   - `:resume` - Session ID to resume a previous conversation (string, optional)
   - `:fork_session` - When resuming, create a new session ID instead of reusing the original (boolean, optional)
     Must be used with `:resume`. Creates a fork of the conversation.
+  - `:continue` - Continue the most recent conversation in the current directory (boolean, optional)
   - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
     Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
   - `:cwd` - Current working directory (string, optional)
@@ -151,6 +153,11 @@ defmodule ClaudeCode.Options do
       default: false,
       doc: "When resuming, create a new session ID instead of reusing the original"
     ],
+    continue: [
+      type: :boolean,
+      default: false,
+      doc: "Continue the most recent conversation in the current directory"
+    ],
     adapter: [
       type: {:tuple, [:atom, :any]},
       doc: """
@@ -222,6 +229,7 @@ defmodule ClaudeCode.Options do
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Maximum dollar amount to spend on API calls"],
     agent: [type: :string, doc: "Agent name for the session (overrides 'agent' setting)"],
     betas: [type: {:list, :string}, doc: "Beta headers to include in API requests"],
+    max_thinking_tokens: [type: :integer, doc: "Maximum tokens for thinking blocks"],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
       doc: "Available tools: :default for all, [] for none, or list of tool names"
@@ -294,6 +302,7 @@ defmodule ClaudeCode.Options do
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Override max budget for this query"],
     agent: [type: :string, doc: "Override agent for this query"],
     betas: [type: {:list, :string}, doc: "Override beta headers for this query"],
+    max_thinking_tokens: [type: :integer, doc: "Override max thinking tokens for this query"],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
       doc: "Override available tools: :default for all, [] for none, or list"
@@ -479,6 +488,13 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:fork_session, false), do: nil
 
+  defp convert_option_to_cli_flag(:continue, true) do
+    # Boolean flag without value - return as list to be flattened
+    ["--continue"]
+  end
+
+  defp convert_option_to_cli_flag(:continue, false), do: nil
+
   defp convert_option_to_cli_flag(_key, nil), do: nil
 
   # TypeScript SDK aligned options
@@ -496,6 +512,10 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:max_budget_usd, value) do
     {"--max-budget-usd", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:max_thinking_tokens, value) do
+    {"--max-thinking-tokens", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:agent, value) do
