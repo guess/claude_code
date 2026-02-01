@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`context_management` field in AssistantMessage** - Support for context window management metadata in assistant messages ([f4ea348])
 - **CLI installer** - Automatic CLI binary management following phoenixframework/esbuild patterns
   - `mix claude_code.install` - Mix task to install CLI with `--version`, `--if-missing`, `--force` flags
   - `ClaudeCode.Installer` module for programmatic CLI management
