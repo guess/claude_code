@@ -21,6 +21,11 @@ defmodule ClaudeCode.MixProject do
         "coveralls.html": :test,
         "coveralls.github": :test
       ],
+      dialyzer: [
+        plt_file: {:no_warn, "priv/plts/project.plt"},
+        plt_core_path: "priv/plts/core.plt",
+        plt_add_apps: [:mix]
+      ],
 
       # Hex
       package: package(),
@@ -37,7 +42,7 @@ defmodule ClaudeCode.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger]
+      extra_applications: [:logger, :inets, :ssl]
     ]
   end
 
@@ -181,6 +186,9 @@ defmodule ClaudeCode.MixProject do
         "MCP Integration": ~r/ClaudeCode.MCP/,
         Messages: ~r/ClaudeCode.Message/,
         "Content Blocks": ~r/ClaudeCode.Content/,
+        Installation: [
+          ClaudeCode.Installer
+        ],
         Internal: [
           ClaudeCode.Adapter,
           ClaudeCode.Adapter.CLI,
