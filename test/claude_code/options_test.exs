@@ -281,16 +281,16 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:plugins] == ["./my-plugin", "/path/to/plugin"]
     end
 
-    test "validates plugins option as list of maps" do
-      opts = [plugins: [%{type: "local", path: "./my-plugin"}]]
+    test "validates plugins option as list of maps with atom type" do
+      opts = [plugins: [%{type: :local, path: "./my-plugin"}]]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:plugins] == [%{type: "local", path: "./my-plugin"}]
+      assert validated[:plugins] == [%{type: :local, path: "./my-plugin"}]
     end
 
     test "validates plugins option with mixed formats" do
-      opts = [plugins: ["./simple-plugin", %{type: "local", path: "./map-plugin"}]]
+      opts = [plugins: ["./simple-plugin", %{type: :local, path: "./map-plugin"}]]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:plugins] == ["./simple-plugin", %{type: "local", path: "./map-plugin"}]
+      assert validated[:plugins] == ["./simple-plugin", %{type: :local, path: "./map-plugin"}]
     end
   end
 
@@ -1118,8 +1118,8 @@ defmodule ClaudeCode.OptionsTest do
       assert plugin_count == 2
     end
 
-    test "converts plugins list of maps to multiple --plugin-dir flags" do
-      opts = [plugins: [%{type: "local", path: "./my-plugin"}, %{type: "local", path: "/other"}]]
+    test "converts plugins list of maps with atom type to multiple --plugin-dir flags" do
+      opts = [plugins: [%{type: :local, path: "./my-plugin"}, %{type: :local, path: "/other"}]]
 
       args = Options.to_cli_args(opts)
       assert "--plugin-dir" in args
@@ -1129,16 +1129,8 @@ defmodule ClaudeCode.OptionsTest do
       assert plugin_count == 2
     end
 
-    test "converts plugins with atom keys in maps" do
-      opts = [plugins: [%{type: "local", path: "./my-plugin"}]]
-
-      args = Options.to_cli_args(opts)
-      assert "--plugin-dir" in args
-      assert "./my-plugin" in args
-    end
-
-    test "converts plugins with string keys in maps" do
-      opts = [plugins: [%{"type" => "local", "path" => "./my-plugin"}]]
+    test "converts plugins with atom type" do
+      opts = [plugins: [%{type: :local, path: "./my-plugin"}]]
 
       args = Options.to_cli_args(opts)
       assert "--plugin-dir" in args
@@ -1153,7 +1145,7 @@ defmodule ClaudeCode.OptionsTest do
     end
 
     test "handles mixed plugins formats" do
-      opts = [plugins: ["./simple-path", %{type: "local", path: "./map-path"}]]
+      opts = [plugins: ["./simple-path", %{type: :local, path: "./map-path"}]]
 
       args = Options.to_cli_args(opts)
       assert "--plugin-dir" in args
@@ -1261,4 +1253,5 @@ defmodule ClaudeCode.OptionsTest do
       assert result[:model] == "sonnet"
     end
   end
+
 end

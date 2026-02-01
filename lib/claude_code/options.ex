@@ -61,8 +61,9 @@ defmodule ClaudeCode.Options do
     Valid sources: `"user"`, `"project"`, `"local"`
     Example: `["user", "project", "local"]`
   - `:plugins` - Plugin configurations to load (list of maps or strings, optional)
-    Each plugin can be a path string or a map with `type` and `path` keys.
-    Example: `["./my-plugin"]` or `[%{type: "local", path: "./my-plugin"}]`
+    Each plugin can be a path string or a map with `:type` and `:path` keys.
+    Currently only `:local` type is supported.
+    Example: `["./my-plugin"]` or `[%{type: :local, path: "./my-plugin"}]`
 
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
@@ -276,7 +277,7 @@ defmodule ClaudeCode.Options do
     ],
     plugins: [
       type: {:list, {:or, [:string, :map]}},
-      doc: "Plugin configurations - list of paths or maps with type/path keys"
+      doc: "Plugin configurations - list of paths or maps with type: :local and path keys"
     ],
     include_partial_messages: [
       type: :boolean,
@@ -645,15 +646,12 @@ defmodule ClaudeCode.Options do
     if value == [] do
       nil
     else
-      # Extract path from each plugin config (string or map with :path or "path" key)
+      # Extract path from each plugin config (string path or map with type: :local)
       Enum.flat_map(value, fn
         path when is_binary(path) ->
           ["--plugin-dir", path]
 
-        %{path: path} ->
-          ["--plugin-dir", to_string(path)]
-
-        %{"path" => path} ->
+        %{type: :local, path: path} ->
           ["--plugin-dir", to_string(path)]
 
         _other ->
