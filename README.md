@@ -52,18 +52,18 @@ def deps do
 end
 ```
 
-**Step 2:** Install dependencies
+**Step 2:** Install dependencies and CLI
 ```bash
 mix deps.get
+mix claude_code.install  # Downloads and installs the Claude CLI
 ```
 
-**Step 3:** Get the Claude CLI
-```bash
-# Install the Claude Code CLI: https://docs.anthropic.com/en/docs/claude-code
-claude --version  # Verify installation
-```
+> **Note:** The CLI is installed to `priv/bin/` by default. Alternatively, install it manually:
+> ```bash
+> curl -fsSL https://claude.ai/install.sh | bash
+> ```
 
-**Step 4:** Authenticate (choose one)
+**Step 3:** Authenticate (choose one)
 ```bash
 # Option A: Use your Claude subscription (no API key needed)
 claude  # Then type /login to authenticate

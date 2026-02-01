@@ -75,37 +75,30 @@ defmodule Mix.Tasks.ClaudeCode.Install do
   end
 
   defp install_cli(version) do
-    Mix.shell().info("Installing Claude CLI version: #{version}")
-    Mix.shell().info("Target directory: #{ClaudeCode.Installer.cli_dir()}")
+    Mix.shell().info("Installing Claude CLI#{version_label(version)}...")
     Mix.shell().info("")
 
     try do
-      ClaudeCode.Installer.install!(version: version)
+      case ClaudeCode.Installer.install!(version: version, return_info: true) do
+        {:ok, info} ->
+          size_mb = info.size_bytes / (1024 * 1024)
 
-      case ClaudeCode.Installer.installed_version() do
-        {:ok, installed_version} ->
           Mix.shell().info("""
-
           ✓ Claude CLI installed successfully!
 
-          Version: #{installed_version}
-          Path: #{ClaudeCode.Installer.bundled_path()}
-
-          You can now use ClaudeCode in your application.
+            Version: #{info.version || "unknown"}
+            Path:    #{info.path}
+            Size:    #{:erlang.float_to_binary(size_mb, decimals: 2)} MB
           """)
 
-        {:error, _} ->
+        :ok ->
           Mix.shell().info("""
-
           ✓ Claude CLI installed to #{ClaudeCode.Installer.bundled_path()}
-
-          Run `claude --version` to verify the installation.
           """)
       end
     rescue
       e ->
         Mix.shell().error("""
-
         ✗ Failed to install Claude CLI
 
         Error: #{Exception.message(e)}
@@ -120,4 +113,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
         exit({:shutdown, 1})
     end
   end
+
+  defp version_label("latest"), do: ""
+  defp version_label(version), do: " v#{version}"
 end

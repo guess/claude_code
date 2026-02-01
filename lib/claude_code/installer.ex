@@ -190,22 +190,35 @@ defmodule ClaudeCode.Installer do
       iex> ClaudeCode.Installer.install!(version: "2.1.29")
       :ok
   """
-  @spec install!(keyword()) :: :ok
+  @spec install!(keyword()) :: :ok | {:ok, map()}
   def install!(opts \\ []) do
     version = Keyword.get(opts, :version, configured_version())
+    return_info = Keyword.get(opts, :return_info, false)
 
-    Logger.info("Installing Claude CLI version: #{version}")
+    Logger.debug("Installing Claude CLI version: #{version}")
 
     # Create cli_dir if it doesn't exist
     File.mkdir_p!(cli_dir())
 
     # Run the official install script
     case run_install_script(version) do
-      {:ok, installed_path} ->
+      {:ok, installed_path, installed_version} ->
         # Copy the binary to our cli_dir
-        copy_binary_to_cli_dir(installed_path)
-        Logger.info("Claude CLI installed successfully to #{bundled_path()}")
-        :ok
+        dest_path = copy_binary_to_cli_dir(installed_path)
+        size_bytes = get_file_size(dest_path)
+        Logger.debug("Claude CLI installed successfully to #{dest_path}")
+
+        if return_info do
+          {:ok,
+           %{
+             version: installed_version,
+             path: dest_path,
+             size_bytes: size_bytes,
+             source_path: installed_path
+           }}
+        else
+          :ok
+        end
 
       {:error, reason} ->
         raise "Failed to install Claude CLI: #{inspect(reason)}"
@@ -336,10 +349,16 @@ defmodule ClaudeCode.Installer do
 
     Logger.debug("Running install script: #{script_cmd}")
 
-    case System.cmd("bash", ["-c", script_cmd], stderr_to_stdout: true, into: IO.stream()) do
-      {_output, 0} ->
-        # Find where the script installed the binary
-        find_installed_binary()
+    # Capture output to parse the installed version
+    case System.cmd("bash", ["-c", script_cmd], stderr_to_stdout: true) do
+      {output, 0} ->
+        # Parse the installed version from output and find that specific binary
+        installed_version = parse_installed_version(output)
+
+        case find_installed_binary(installed_version) do
+          {:ok, path} -> {:ok, path, installed_version}
+          error -> error
+        end
 
       {output, exit_code} ->
         {:error, {:install_failed, exit_code, output}}
@@ -358,20 +377,57 @@ defmodule ClaudeCode.Installer do
     Logger.debug("Running install script: #{script_cmd}")
 
     case System.cmd("powershell", ["-Command", script_cmd], stderr_to_stdout: true) do
-      {_output, 0} ->
-        find_installed_binary()
+      {output, 0} ->
+        installed_version = parse_installed_version(output)
+
+        case find_installed_binary(installed_version) do
+          {:ok, path} -> {:ok, path, installed_version}
+          error -> error
+        end
 
       {output, exit_code} ->
         {:error, {:install_failed, exit_code, output}}
     end
   end
 
-  defp find_installed_binary do
-    # The official script installs to common locations
-    # Check them in order of likelihood
-    case find_system_cli() do
-      nil -> {:error, :binary_not_found_after_install}
-      path -> {:ok, path}
+  defp find_installed_binary(installed_version) do
+    home = System.user_home!()
+
+    # The install script stores versioned binaries in ~/.local/share/claude/versions/
+    # and creates a symlink at ~/.local/bin/claude
+    # We want the specific version that was just installed, not whatever the symlink points to
+    versioned_path =
+      if installed_version do
+        Path.join([home, ".local", "share", "claude", "versions", installed_version])
+      end
+
+    symlink_path = Path.join([home, ".local", "bin", @claude_binary])
+
+    cond do
+      # First, check for the specific versioned binary
+      versioned_path && File.exists?(versioned_path) ->
+        Logger.debug("Found versioned binary at #{versioned_path}")
+        {:ok, versioned_path}
+
+      # Fallback to symlink location
+      File.exists?(symlink_path) ->
+        Logger.debug("Using symlinked binary at #{symlink_path}")
+        {:ok, symlink_path}
+
+      # Last resort: general search
+      path = find_system_cli() ->
+        {:ok, path}
+
+      true ->
+        {:error, :binary_not_found_after_install}
+    end
+  end
+
+  defp parse_installed_version(output) do
+    # Parse "Version: 2.1.29" from install script output
+    case Regex.run(~r/Version:\s*(\d+\.\d+\.\d+)/, output) do
+      [_, version] -> version
+      _ -> nil
     end
   end
 
@@ -392,12 +448,20 @@ defmodule ClaudeCode.Installer do
     dest_path
   end
 
+  defp get_file_size(path) do
+    case File.stat(path) do
+      {:ok, %{size: size}} -> size
+      _ -> 0
+    end
+  end
+
   defp parse_version_output(output) do
-    # Expected format: "Claude Code v2.1.29" or similar
+    # Expected format: "1.0.24 (Claude Code)" or "2.1.29 (Claude Code)"
+    # Extract the version number which is the first word
     output
     |> String.trim()
     |> String.split(~r/\s+/)
-    |> List.last()
+    |> List.first("")
     |> String.trim_leading("v")
   end
 

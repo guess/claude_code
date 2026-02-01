@@ -111,6 +111,44 @@ config :claude_code,
   allowed_tools: ["View"]
 ```
 
+### CLI Configuration
+
+The SDK can automatically manage the Claude CLI binary:
+
+```elixir
+config :claude_code,
+  cli_version: "latest",           # Version to install ("latest" or "2.1.29")
+  cli_path: nil,                    # Explicit path to CLI binary (highest priority)
+  cli_dir: nil                      # Directory for downloaded binary (default: priv/bin/)
+```
+
+**Binary resolution order:**
+1. `:cli_path` option (explicit override)
+2. Application config `:cli_path`
+3. Bundled binary in `cli_dir` (default: priv/bin/)
+4. System PATH
+5. Common installation locations (~/.local/bin, ~/.npm-global/bin, etc.)
+
+**Install the CLI:**
+```bash
+mix claude_code.install              # Install latest version
+mix claude_code.install --version 2.1.29  # Install specific version
+mix claude_code.install --if-missing # Only if not present
+mix claude_code.install --force      # Force reinstall
+```
+
+**For releases:**
+```elixir
+# Option 1: Pre-install during release build
+# (Run mix claude_code.install before building the release)
+
+# Option 2: Configure writable directory for runtime download
+config :claude_code, cli_dir: "/var/lib/claude_code"
+
+# Option 3: Rely on system-installed CLI in PATH
+# (No configuration needed, just ensure 'claude' is in PATH)
+```
+
 ### Environment-Specific Configuration
 
 ```elixir

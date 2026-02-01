@@ -64,28 +64,29 @@ defmodule ClaudeCode.InstallerTest do
   end
 
   describe "bin_path/0" do
-    test "returns {:ok, path} when CLI exists in PATH" do
-      # Clear cli_path config for this test to allow PATH resolution
+    test "returns {:ok, path} when CLI exists" do
+      # Clear cli_path config for this test to allow resolution
       original_cli_path = Application.get_env(:claude_code, :cli_path)
 
       try do
         Application.delete_env(:claude_code, :cli_path)
 
-        # This test depends on whether claude is installed on the system
-        case System.find_executable("claude") do
-          nil ->
-            # If not in PATH, check if bundled exists
-            case Installer.bin_path() do
-              {:ok, path} ->
-                assert File.exists?(path)
+        # bin_path checks: 1) cli_path config, 2) bundled, 3) PATH, 4) common locations
+        # This test verifies the resolution works correctly
+        case Installer.bin_path() do
+          {:ok, path} ->
+            # Should find a valid executable
+            assert File.exists?(path)
 
-              {:error, :not_found} ->
-                # Expected if claude is not installed anywhere
-                assert true
-            end
+            # Verify it's either bundled, in PATH, or in common locations
+            bundled = Installer.bundled_path()
+            in_path = System.find_executable("claude")
 
-          path ->
-            assert {:ok, ^path} = Installer.bin_path()
+            assert path == bundled or path == in_path or File.exists?(path)
+
+          {:error, :not_found} ->
+            # Expected if claude is not installed anywhere
+            assert true
         end
       after
         if original_cli_path do

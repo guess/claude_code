@@ -20,13 +20,22 @@ elixir --version
 
 The SDK requires the Claude Code CLI to be installed on your system.
 
-**Install the CLI:**
-1. Visit [claude.ai/code](https://claude.ai/code)
-2. Follow the installation instructions for your platform
-3. Verify installation:
-   ```bash
-   claude --version
-   ```
+**Install the CLI (choose one method):**
+
+**Option A: Use the mix task (recommended)**
+```bash
+mix claude_code.install
+```
+
+**Option B: Install manually**
+```bash
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+Verify installation:
+```bash
+claude --version
+```
 
 ### 3. Authentication
 
@@ -55,9 +64,10 @@ def deps do
 end
 ```
 
-Install dependencies:
+Install dependencies and CLI:
 ```bash
 mix deps.get
+mix claude_code.install
 ```
 
 ## Configuration
