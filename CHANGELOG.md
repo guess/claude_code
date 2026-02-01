@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Plugin type uses atom `:local` (only supported type currently)
   - Maps to multiple `--plugin-dir` CLI flags
   - Aligns with Python/TypeScript SDK `plugins` option
+- **`:output_format` option** - Structured output format configuration (replaces `:json_schema`)
+  - Format: `%{type: :json_schema, schema: %{...}}`
+  - Currently only `:json_schema` type is supported
+  - Maps to `--json-schema` CLI flag
+  - Aligns with Python/TypeScript SDK `outputFormat` option
 - **`context_management` field in AssistantMessage** - Support for context window management metadata in assistant messages ([f4ea348])
 - **CLI installer** - Automatic CLI binary management following phoenixframework/esbuild patterns
   - `mix claude_code.install` - Mix task to install CLI with `--version`, `--if-missing`, `--force` flags

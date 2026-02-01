@@ -51,9 +51,9 @@ defmodule ClaudeCode.Options do
   - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
   - `:permission_mode` - Permission handling mode (atom, default: :default)
     Options: `:default`, `:accept_edits`, `:bypass_permissions`, `:delegate`, `:dont_ask`, `:plan`
-  - `:json_schema` - JSON Schema for structured output validation (string or map, optional)
-    When provided as a map, it will be JSON encoded automatically.
-    Example: `%{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}`
+  - `:output_format` - Output format for structured outputs (map, optional)
+    Must have `:type` key (currently only `:json_schema` supported) and `:schema` key with JSON Schema.
+    Example: `%{type: :json_schema, schema: %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}}`
   - `:settings` - Settings configuration (string or map, optional)
     Can be a file path, JSON string, or map that will be JSON encoded
     Example: `%{"feature" => true}` or `"/path/to/settings.json"`
@@ -263,9 +263,9 @@ defmodule ClaudeCode.Options do
       doc: "Permission handling mode (:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan)"
     ],
     add_dir: [type: {:list, :string}, doc: "Additional directories for tool access"],
-    json_schema: [
-      type: {:or, [:string, {:map, :string, :any}]},
-      doc: "JSON Schema for structured output validation (JSON string or map)"
+    output_format: [
+      type: :map,
+      doc: "Output format for structured outputs - map with type: :json_schema and schema keys"
     ],
     settings: [
       type: {:or, [:string, {:map, :string, :any}]},
@@ -336,9 +336,9 @@ defmodule ClaudeCode.Options do
       doc: "Override permission mode for this query"
     ],
     add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
-    json_schema: [
-      type: {:or, [:string, {:map, :string, :any}]},
-      doc: "JSON Schema for structured output validation (JSON string or map)"
+    output_format: [
+      type: :map,
+      doc: "Override output format for this query"
     ],
     settings: [
       type: {:or, [:string, {:map, :string, :any}]},
@@ -619,14 +619,12 @@ defmodule ClaudeCode.Options do
     end
   end
 
-  defp convert_option_to_cli_flag(:json_schema, value) when is_map(value) do
-    json_string = Jason.encode!(value)
+  defp convert_option_to_cli_flag(:output_format, %{type: :json_schema, schema: schema}) when is_map(schema) do
+    json_string = Jason.encode!(schema)
     {"--json-schema", json_string}
   end
 
-  defp convert_option_to_cli_flag(:json_schema, value) do
-    {"--json-schema", to_string(value)}
-  end
+  defp convert_option_to_cli_flag(:output_format, _value), do: nil
 
   defp convert_option_to_cli_flag(:settings, value) when is_map(value) do
     json_string = Jason.encode!(value)

@@ -174,18 +174,11 @@ defmodule ClaudeCode.OptionsTest do
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_session_options(opts)
     end
 
-    test "validates json_schema as a map" do
+    test "validates output_format option" do
       schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:json_schema] == schema
-    end
-
-    test "validates json_schema as a string" do
-      schema = ~s({"type":"object","properties":{"name":{"type":"string"}}})
-      opts = [json_schema: schema]
-      assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:json_schema] == schema
+      assert validated[:output_format] == %{type: :json_schema, schema: schema}
     end
 
     test "validates max_budget_usd as float" do
@@ -346,11 +339,11 @@ defmodule ClaudeCode.OptionsTest do
       assert {:error, %NimbleOptions.ValidationError{}} = Options.validate_query_options(opts)
     end
 
-    test "validates json_schema in query options" do
+    test "validates output_format in query options" do
       schema = %{"type" => "object", "properties" => %{"result" => %{"type" => "number"}}}
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
       assert {:ok, validated} = Options.validate_query_options(opts)
-      assert validated[:json_schema] == schema
+      assert validated[:output_format] == %{type: :json_schema, schema: schema}
     end
 
     test "validates max_budget_usd in query options" do
@@ -614,9 +607,9 @@ defmodule ClaudeCode.OptionsTest do
       assert "/single/path" in args
     end
 
-    test "converts json_schema map to JSON-encoded --json-schema" do
+    test "converts output_format with json_schema to --json-schema" do
       schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}, "required" => ["name"]}
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
 
       args = Options.to_cli_args(opts)
       assert "--json-schema" in args
@@ -625,23 +618,14 @@ defmodule ClaudeCode.OptionsTest do
       schema_index = Enum.find_index(args, &(&1 == "--json-schema"))
       json_value = Enum.at(args, schema_index + 1)
 
-      # Decode and verify
+      # Decode and verify - only the schema is passed, not the wrapper
       decoded = Jason.decode!(json_value)
       assert decoded["type"] == "object"
       assert decoded["properties"]["name"]["type"] == "string"
       assert decoded["required"] == ["name"]
     end
 
-    test "converts json_schema string directly to --json-schema" do
-      schema = ~s({"type":"object","properties":{"name":{"type":"string"}}})
-      opts = [json_schema: schema]
-
-      args = Options.to_cli_args(opts)
-      assert "--json-schema" in args
-      assert schema in args
-    end
-
-    test "converts json_schema with nested structures" do
+    test "converts output_format with nested schema structures" do
       schema = %{
         "type" => "object",
         "properties" => %{
@@ -652,7 +636,7 @@ defmodule ClaudeCode.OptionsTest do
         }
       }
 
-      opts = [json_schema: schema]
+      opts = [output_format: %{type: :json_schema, schema: schema}]
 
       args = Options.to_cli_args(opts)
       assert "--json-schema" in args
@@ -663,6 +647,13 @@ defmodule ClaudeCode.OptionsTest do
       decoded = Jason.decode!(json_value)
       assert decoded["properties"]["users"]["type"] == "array"
       assert decoded["properties"]["users"]["items"]["properties"]["id"]["type"] == "integer"
+    end
+
+    test "ignores output_format with unsupported type" do
+      opts = [output_format: %{type: :other, data: "something"}]
+
+      args = Options.to_cli_args(opts)
+      refute "--json-schema" in args
     end
 
     test "converts settings string to --settings" do
@@ -1253,5 +1244,4 @@ defmodule ClaudeCode.OptionsTest do
       assert result[:model] == "sonnet"
     end
   end
-
 end
