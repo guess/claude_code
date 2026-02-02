@@ -1,0 +1,26 @@
+{
+  "autosave": "on_focus_change",
+  "format_on_save": "on",
+  "languages": {
+    "Elixir": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "mix",
+          "arguments": ["format", "--stdin-filename", "{buffer_path}", "-"],
+        },
+      },
+      "language_servers": ["expert", "!next-ls", "!lexical", "!elixir-ls"],
+    },
+    "HEEX": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "mix",
+          "arguments": ["format", "--stdin-filename", "{buffer_path}", "-"],
+        },
+      },
+      "language_servers": ["expert", "!next-ls", "!lexical", "!elixir-ls"],
+    },
+  },
+}
