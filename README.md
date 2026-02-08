@@ -199,6 +199,13 @@ case ClaudeCode.query("Hello") do
 end
 ```
 
+### Interrupting Queries
+Stop an in-progress query to save tokens when Claude is going in a direction you don't want:
+```elixir
+:ok = ClaudeCode.interrupt(session)
+# Stream terminates cleanly — not an error, no need to rescue
+```
+
 ### Multi-turn Conversations
 Sessions automatically maintain context across queries:
 ```elixir
