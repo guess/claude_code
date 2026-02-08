@@ -1145,6 +1145,71 @@ defmodule ClaudeCode.OptionsTest do
       plugin_count = Enum.count(args, &(&1 == "--plugin-dir"))
       assert plugin_count == 2
     end
+
+    test "converts file list to multiple --file flags" do
+      opts = [file: ["file_abc:doc.txt", "file_def:img.png"]]
+
+      args = Options.to_cli_args(opts)
+      assert "--file" in args
+      assert "file_abc:doc.txt" in args
+      assert "file_def:img.png" in args
+      file_count = Enum.count(args, &(&1 == "--file"))
+      assert file_count == 2
+    end
+
+    test "handles empty file list" do
+      opts = [file: []]
+
+      args = Options.to_cli_args(opts)
+      refute "--file" in args
+    end
+
+    test "converts from_pr string to --from-pr" do
+      opts = [from_pr: "https://github.com/org/repo/pull/123"]
+
+      args = Options.to_cli_args(opts)
+      assert "--from-pr" in args
+      assert "https://github.com/org/repo/pull/123" in args
+    end
+
+    test "converts from_pr integer to --from-pr" do
+      opts = [from_pr: 123]
+
+      args = Options.to_cli_args(opts)
+      assert "--from-pr" in args
+      assert "123" in args
+    end
+
+    test "converts debug true to --debug boolean flag" do
+      opts = [debug: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--debug" in args
+      refute "true" in args
+    end
+
+    test "does not add flag when debug is false" do
+      opts = [debug: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--debug" in args
+    end
+
+    test "converts debug string to --debug with filter value" do
+      opts = [debug: "api,hooks"]
+
+      args = Options.to_cli_args(opts)
+      assert "--debug" in args
+      assert "api,hooks" in args
+    end
+
+    test "converts debug_file to --debug-file" do
+      opts = [debug_file: "/tmp/claude-debug.log"]
+
+      args = Options.to_cli_args(opts)
+      assert "--debug-file" in args
+      assert "/tmp/claude-debug.log" in args
+    end
   end
 
   describe "merge_options/2" do

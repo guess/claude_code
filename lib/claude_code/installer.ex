@@ -68,10 +68,10 @@ defmodule ClaudeCode.Installer do
   ## Examples
 
       iex> ClaudeCode.Installer.configured_version()
-      "2.1.29"
+      "2.1.37"
   """
   # Default CLI version - update this when releasing new SDK versions
-  @default_cli_version "2.1.29"
+  @default_cli_version "2.1.37"
 
   @spec configured_version() :: String.t()
   def configured_version do

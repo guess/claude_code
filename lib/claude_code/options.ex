@@ -297,6 +297,23 @@ defmodule ClaudeCode.Options do
     session_id: [
       type: :string,
       doc: "Use a specific session ID for the conversation (must be a valid UUID)"
+    ],
+    file: [
+      type: {:list, :string},
+      doc:
+        ~s{File resources to download at startup. Format: file_id:relative_path (e.g. ["file_abc:doc.txt", "file_def:img.png"])}
+    ],
+    from_pr: [
+      type: {:or, [:string, :integer]},
+      doc: "Resume a session linked to a PR by PR number or URL"
+    ],
+    debug: [
+      type: {:or, [:boolean, :string]},
+      doc: ~s{Enable debug mode with optional category filtering (e.g. true or "api,hooks" or "!1p,!file")}
+    ],
+    debug_file: [
+      type: :string,
+      doc: "Write debug logs to a specific file path (implicitly enables debug mode)"
     ]
   ]
 
@@ -715,6 +732,29 @@ defmodule ClaudeCode.Options do
 
   defp convert_option_to_cli_flag(:session_id, value) do
     {"--session-id", value}
+  end
+
+  defp convert_option_to_cli_flag(:file, value) when is_list(value) do
+    if value == [] do
+      nil
+    else
+      Enum.flat_map(value, fn spec -> ["--file", to_string(spec)] end)
+    end
+  end
+
+  defp convert_option_to_cli_flag(:from_pr, value) do
+    {"--from-pr", to_string(value)}
+  end
+
+  defp convert_option_to_cli_flag(:debug, true), do: ["--debug"]
+  defp convert_option_to_cli_flag(:debug, false), do: nil
+
+  defp convert_option_to_cli_flag(:debug, value) when is_binary(value) do
+    {"--debug", value}
+  end
+
+  defp convert_option_to_cli_flag(:debug_file, value) do
+    {"--debug-file", to_string(value)}
   end
 
   defp convert_option_to_cli_flag(:input_format, :text) do
