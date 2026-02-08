@@ -180,6 +180,16 @@ Or check the changelog documentation if available at:
 
 ## Common Issues
 
+### Flags to Ignore
+
+When comparing `--help` output, ignore these flags that appear in CLI help but should NOT be added to `options.ex`:
+
+- `--verbose` - Already always enabled by SDK in `cli.ex` (required for streaming)
+- `--output-format` - Already always set to `stream-json` by SDK
+- `--input-format` - Already always set to `stream-json` by SDK
+
+These are SDK-internal flags, not user-configurable options.
+
 ### camelCase vs snake_case
 
 CLI uses camelCase, Elixir uses snake_case:

@@ -42,13 +42,15 @@ Mapping between CLI flags, Elixir options, and implementation details.
 
 ## Always-Enabled Flags
 
-These flags are always passed by the SDK (in `cli.ex`):
+These flags are always passed by the SDK (in `cli.ex`) and should NOT be added to `options.ex`:
 
 | Flag | Value | Reason |
 |------|-------|--------|
 | `--output-format` | `stream-json` | Required for JSON parsing |
-| `--verbose` | (flag) | Get all message types |
+| `--verbose` | (flag) | Required for streaming - get all message types |
 | `--input-format` | `stream-json` | Bidirectional streaming |
+
+**Note**: When `claude --help` shows `--verbose` as an option, ignore it during options comparison. The SDK always enables verbose mode because it's required for streaming to work properly. It is not user-configurable.
 
 ## Elixir-Only Options
 

@@ -43,6 +43,7 @@ Compare CLI help against Options module:
 - Read `lib/claude_code/options.ex`
 - Compare CLI flags against `@session_opts_schema` and `convert_option_to_cli_flag/2` clauses
 - Report new flags not in our schema or deprecated flags we still support
+- **Ignore**: `--verbose`, `--output-format`, `--input-format` (always enabled by SDK in cli.ex, not user-configurable)
 
 ## After Parallel Checks Complete
 
