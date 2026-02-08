@@ -8,6 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`ClaudeCode.interrupt/1`** - Interrupt an in-progress query to stop execution and save tokens ([383dda6])
+  - Sends SIGINT to the CLI subprocess
+  - Stream terminates cleanly (not an error) — no need to rescue
+  - Returns `{:error, :no_active_request}` when no query is running
+- **`ClaudeCode.health/1`** - Check adapter health status ([383dda6])
+  - Returns `:healthy`, `:degraded`, or `{:unhealthy, reason}`
+  - CLI adapter reports `:healthy` when port is alive, `{:unhealthy, :not_connected}` before first query
+- **Adapter behaviour** - Swappable backend interface for running Claude Code in different execution environments ([1582644])
+  - `ClaudeCode.Adapter` behaviour with 5 callbacks: `start_link/2`, `send_query/4`, `interrupt/1`, `health/1`, `stop/1`
+  - Adapters specified as `{Module, config}` tuples: e.g., `adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"}`
+  - Default adapter (`ClaudeCode.Adapter.CLI`) requires no configuration change
+  - Enables future Docker, Cloudflare, and other execution environment adapters
+
+### Changed
+- **Eager adapter provisioning** - Sessions now start the adapter process immediately in `init/1` instead of lazily on first query ([ecf8bee])
+  - Faster failure detection if the backend can't start
+  - `ClaudeCode.start_link/1` returns `{:error, reason}` if adapter provisioning fails
+
+## [0.17.0]
+
+### Added
 - **`:max_thinking_tokens` option** - Maximum tokens for thinking blocks (integer)
   - Available for both session and query options
   - Maps to `--max-thinking-tokens` CLI flag
