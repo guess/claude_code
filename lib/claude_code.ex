@@ -14,6 +14,8 @@ defmodule ClaudeCode do
   | `stop/1` | Stop a session |
   | `stream/3` | Send prompt to session, get message stream |
   | `query/2` | One-off query (auto start/stop) |
+  | `interrupt/1` | Interrupt the current query |
+  | `health/1` | Check adapter health status |
 
   ## Quick Start
 
@@ -245,6 +247,34 @@ defmodule ClaudeCode do
   @spec stream(session(), String.t(), keyword()) :: message_stream()
   def stream(session, prompt, opts \\ []) do
     ClaudeCode.Stream.create(session, prompt, opts)
+  end
+
+  @doc """
+  Interrupts the currently executing query.
+
+  The current stream will end cleanly (not with an error).
+  The session remains alive for subsequent queries.
+
+  ## Examples
+
+      :ok = ClaudeCode.interrupt(session)
+  """
+  @spec interrupt(session()) :: :ok | {:error, term()}
+  def interrupt(session) do
+    GenServer.call(session, :interrupt)
+  end
+
+  @doc """
+  Returns the health status of the session's adapter.
+
+  ## Examples
+
+      :healthy = ClaudeCode.health(session)
+      {:unhealthy, :port_dead} = ClaudeCode.health(session)
+  """
+  @spec health(session()) :: ClaudeCode.Adapter.health()
+  def health(session) do
+    GenServer.call(session, :health)
   end
 
   @doc """

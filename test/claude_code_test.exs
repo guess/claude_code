@@ -215,4 +215,35 @@ defmodule ClaudeCodeTest do
       refute Process.alive?(session)
     end
   end
+
+  describe "interrupt/1" do
+    test "delegates to session" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Hello"),
+          ClaudeCode.Test.result("Hello")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, ClaudeCode})
+
+      assert :ok = ClaudeCode.interrupt(session)
+
+      ClaudeCode.stop(session)
+    end
+  end
+
+  describe "health/1" do
+    test "returns health status from adapter" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [ClaudeCode.Test.result("ok")]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, ClaudeCode})
+
+      assert :healthy = ClaudeCode.health(session)
+
+      ClaudeCode.stop(session)
+    end
+  end
 end
