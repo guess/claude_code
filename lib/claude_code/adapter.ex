@@ -2,42 +2,45 @@ defmodule ClaudeCode.Adapter do
   @moduledoc """
   Behaviour for ClaudeCode adapters.
 
-  Adapters handle the communication layer between Session and Claude.
-  The CLI adapter (`ClaudeCode.Adapter.CLI`) manages a persistent Port subprocess.
-  The Test adapter (`ClaudeCode.Adapter.Test`) provides mock message delivery for testing.
+  Adapters handle the full lifecycle of a Claude Code execution environment:
+  provisioning, communication, health checking, interruption, and cleanup.
 
   ## Message Protocol
 
   Adapters communicate with Session by sending messages:
 
   - `{:adapter_message, request_id, message}` - A parsed message from Claude
-  - `{:adapter_done, request_id}` - Query complete (ResultMessage received)
+  - `{:adapter_done, request_id, reason}` - Query complete (reason: :completed | :interrupted)
   - `{:adapter_error, request_id, reason}` - Error occurred
 
   ## Usage
 
-  To use a custom adapter, pass the `:adapter` option when starting a session:
+  Adapters are specified as `{Module, config}` tuples:
 
-      # For testing with stubs
       {:ok, session} = ClaudeCode.start_link(
-        adapter: {ClaudeCode.Test, MyApp.Chat}
+        adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"},
+        model: "opus"
       )
 
-  The default adapter is `ClaudeCode.Adapter.CLI` which manages the Claude CLI subprocess.
+  The default adapter is `ClaudeCode.Adapter.CLI`.
   """
 
-  @doc """
-  Starts the adapter process.
+  @type adapter_config :: keyword()
+  @type health :: :healthy | :degraded | {:unhealthy, reason :: term()}
+  @type done_reason :: :completed | :interrupted
 
-  The adapter should link to the session for lifecycle management.
-  Returns `{:ok, pid}` on success.
+  @doc """
+  Starts the adapter process and provisions the execution environment.
+
+  This should eagerly provision resources (find binary, start container, etc.)
+  and return `{:error, reason}` immediately if provisioning fails.
 
   ## Parameters
 
   - `session` - PID of the Session GenServer
-  - `opts` - Session options (api_key, model, etc.)
+  - `adapter_config` - Adapter-specific configuration keyword list
   """
-  @callback start_link(session :: pid(), opts :: keyword()) ::
+  @callback start_link(session :: pid(), adapter_config()) ::
               {:ok, pid()} | {:error, term()}
 
   @doc """
@@ -46,7 +49,7 @@ defmodule ClaudeCode.Adapter do
   The adapter should send messages back to the session via `send/2`:
 
   - `{:adapter_message, request_id, message}` for each message
-  - `{:adapter_done, request_id}` when the query completes
+  - `{:adapter_done, request_id, reason}` when the query completes
   - `{:adapter_error, request_id, reason}` on errors
 
   ## Parameters
@@ -54,19 +57,31 @@ defmodule ClaudeCode.Adapter do
   - `adapter` - PID of the adapter process
   - `request_id` - Unique reference for this request
   - `prompt` - The user's query string
-  - `session_id` - Optional session ID for conversation continuity
-  - `opts` - Query options
+  - `opts` - Query options (includes :session_id if resuming)
   """
   @callback send_query(
               adapter :: pid(),
               request_id :: reference(),
               prompt :: String.t(),
-              session_id :: String.t() | nil,
               opts :: keyword()
             ) :: :ok | {:error, term()}
 
   @doc """
-  Stops the adapter gracefully.
+  Interrupts the currently executing query.
+
+  This signals the backend to stop processing (e.g., SIGINT for CLI).
+  The adapter should send `{:adapter_done, request_id, :interrupted}` after
+  the query is interrupted. This is a clean end-of-stream, not an error.
+  """
+  @callback interrupt(adapter :: pid()) :: :ok | {:error, term()}
+
+  @doc """
+  Returns the health status of the adapter's execution environment.
+  """
+  @callback health(adapter :: pid()) :: health()
+
+  @doc """
+  Stops the adapter and cleans up resources.
   """
   @callback stop(adapter :: pid()) :: :ok
 end
