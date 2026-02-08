@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CLI Sync skill** - New `.claude/skills/cli-sync/` skill for detecting schema drift, comparing CLI options, and managing bundled CLI version ([5c903e1], [734794c])
+  - Dispatches parallel agents for version, schema, and options checks
+  - Runs multiple test scenarios (basic, partial streaming, tool use) for comprehensive coverage
+  - Documents SDK-internal flags (`--verbose`, `--output-format`, `--input-format`) to ignore
+- **New CLI options** - Added support for additional CLI flags ([d6c1869])
+  - `:file` - File resources (repeatable, format: file_id:path)
+  - `:from_pr` - Resume session linked to PR
+  - `:debug` - Debug mode with optional filter
+  - `:debug_file` - Debug log file path
 - **`ClaudeCode.interrupt/1`** - Interrupt an in-progress query to stop execution and save tokens ([383dda6])
   - Sends SIGINT to the CLI subprocess
   - Stream terminates cleanly (not an error) — no need to rescue
