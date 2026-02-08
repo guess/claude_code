@@ -20,9 +20,19 @@ defmodule ClaudeCode.Adapter.Test do
   end
 
   @impl ClaudeCode.Adapter
-  def send_query(adapter, request_id, prompt, _session_id, opts) do
+  def send_query(adapter, request_id, prompt, opts) do
     GenServer.cast(adapter, {:query, request_id, prompt, opts})
     :ok
+  end
+
+  @impl ClaudeCode.Adapter
+  def interrupt(_adapter) do
+    :ok
+  end
+
+  @impl ClaudeCode.Adapter
+  def health(_adapter) do
+    :healthy
   end
 
   @impl ClaudeCode.Adapter
@@ -62,7 +72,7 @@ defmodule ClaudeCode.Adapter.Test do
       send(state.session, {:adapter_message, request_id, msg})
     end)
 
-    send(state.session, {:adapter_done, request_id})
+    send(state.session, {:adapter_done, request_id, :completed})
 
     {:noreply, state}
   end
