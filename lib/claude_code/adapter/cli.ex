@@ -81,6 +81,7 @@ defmodule ClaudeCode.Adapter.CLI do
   @impl GenServer
   def handle_call({:query, request_id, prompt, opts}, _from, state) do
     session_id = Keyword.get(opts, :session_id)
+
     case ensure_connected(state) do
       {:ok, connected_state} ->
         # Send query to CLI

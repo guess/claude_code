@@ -160,18 +160,19 @@ defmodule ClaudeCode.SessionStreamingTest do
       """)
     end
 
-    test "session connects automatically on first query", %{mock_script: mock_script} do
+    test "session connects eagerly on start", %{mock_script: mock_script} do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
 
-      # Adapter should be nil initially (lazy connect)
+      # Adapter should be started eagerly during init
       state = :sys.get_state(session)
-      assert state.adapter_pid == nil
+      assert state.adapter_pid != nil
+      assert is_pid(state.adapter_pid)
 
-      # First query triggers connection
+      # Queries work on the already-connected session
       {:ok, result} = MockCLI.sync_query(session, "Hello")
       assert %ResultMessage{result: "Streaming response"} = result
 
-      # Adapter should now be running
+      # Adapter is still running after the query
       state = :sys.get_state(session)
       assert state.adapter_pid != nil
 

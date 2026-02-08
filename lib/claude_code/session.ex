@@ -277,7 +277,7 @@ defmodule ClaudeCode.Session do
 
       {module, config} when is_atom(module) and is_list(config) ->
         # New pattern: {Module, adapter_config_keyword_list}
-        adapter_opts = Keyword.merge(config, callers: callers)
+        adapter_opts = Keyword.put(config, :callers, callers)
         {module, adapter_opts}
 
       {module, _name} ->
