@@ -1,5 +1,5 @@
 ---
-name: CLI Sync
+name: cli-sync
 description: This skill should be used when the user asks to "check CLI schema", "sync CLI version", "check for new CLI options", "update bundled CLI", "compare SDK structs", "check schema drift", "align message structs", "verify CLI compatibility", or mentions CLI compatibility, schema alignment, or wants to ensure the SDK matches the current Claude CLI. Consolidates schema checking, options validation, and version management into a single workflow.
 version: 1.0.0
 ---
@@ -43,16 +43,31 @@ grep -E "@default_cli_version|cli_version:" lib/claude_code/installer.ex
 
 ### Step 2: Schema Comparison
 
-Run a test query with `--verbose` to capture all message types.
+Run multiple test scenarios to capture different message types:
 
+**Scenario A: Basic query** (triggers: system, assistant, result, text_block)
 ```bash
-# Run test query capturing full JSON output
 echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 2>/dev/null
 ```
+
+**Scenario B: Partial streaming** (triggers: partial_assistant)
+```bash
+echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 2>/dev/null
+```
+
+**Scenario C: Tool use** (triggers: tool_use_block, tool_result_block, user_message)
+```bash
+echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 2>/dev/null
+```
+
+**Exceptional cases** (rely on SDK docs, not live testing):
+- `compact_boundary_message` - Only during context compaction
+- `thinking_block` - Requires extended thinking configuration
 
 Parse the output and compare against struct definitions in:
 
 **Message Types** (in `lib/claude_code/message/`):
+
 - `system_message.ex` - Init messages with session_id, tools, model, etc.
 - `assistant_message.ex` - Messages with nested `message.content` blocks
 - `user_message.ex` - User input with tool results
@@ -61,6 +76,7 @@ Parse the output and compare against struct definitions in:
 - `compact_boundary_message.ex` - Context compaction boundaries
 
 **Content Blocks** (in `lib/claude_code/content/`):
+
 - `text_block.ex` - Text content with type: "text"
 - `tool_use_block.ex` - Tool invocations with id, name, input
 - `tool_result_block.ex` - Tool outputs with tool_use_id, content, is_error
@@ -92,6 +108,7 @@ Options module comparison points in `lib/claude_code/options.ex`:
 4. Check for deprecated flags we still support
 
 For each new flag found, suggest:
+
 - The `:snake_case_atom` option name
 - NimbleOptions type definition
 - `convert_option_to_cli_flag/2` clause
@@ -104,6 +121,7 @@ Check official SDK documentation for type definitions. Note that CLI output is t
 **Python SDK**: https://platform.claude.com/docs/en/agent-sdk/python
 
 WebFetch can retrieve these pages to check for:
+
 - Message type definitions
 - Content block schemas
 - New option descriptions
@@ -157,6 +175,7 @@ gh release list --repo anthropics/anthropic-quickstarts --limit 10
 ```
 
 Or check the changelog documentation if available at:
+
 - https://docs.anthropic.com/en/docs/claude-code/changelog
 
 ## Common Issues
@@ -164,6 +183,7 @@ Or check the changelog documentation if available at:
 ### camelCase vs snake_case
 
 CLI uses camelCase, Elixir uses snake_case:
+
 - `"inputTokens"` -> `:input_tokens`
 - `"isError"` -> `:is_error`
 - `"toolUseId"` -> `:tool_use_id`
@@ -171,12 +191,14 @@ CLI uses camelCase, Elixir uses snake_case:
 ### Nested Message Structure
 
 Assistant and User messages have nested structure:
+
 - Access content via `message.message.content`, not `message.content`
 - The outer `message` is our struct, inner `message` is from CLI JSON
 
 ### Result vs Assistant Content
 
 Final response text comes from ResultMessage, not AssistantMessage:
+
 - Use `result.result` for the final answer
 - AssistantMessage contains intermediate tool use and thinking
 

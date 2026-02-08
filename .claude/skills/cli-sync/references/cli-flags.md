@@ -35,6 +35,10 @@ Mapping between CLI flags, Elixir options, and implementation details.
 | `--disable-slash-commands` | `:disable_slash_commands` | boolean | Disable skills |
 | `--no-session-persistence` | `:no_session_persistence` | boolean | Don't persist session |
 | `--session-id` | `:session_id` | string | Specific session ID |
+| `--file` | `:file` | list | File resources (repeatable, format: file_id:path) |
+| `--from-pr` | `:from_pr` | string/integer | Resume session linked to PR |
+| `--debug` | `:debug` | boolean/string | Debug mode with optional filter |
+| `--debug-file` | `:debug_file` | string | Debug log file path |
 
 ## Always-Enabled Flags
 

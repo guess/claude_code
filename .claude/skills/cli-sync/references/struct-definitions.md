@@ -2,6 +2,23 @@
 
 Complete field mappings for all message and content types in the ClaudeCode SDK.
 
+## Test Coverage Matrix
+
+| Type | Scenario A (Basic) | Scenario B (Partial) | Scenario C (Tool) | Exceptional |
+|------|:------------------:|:--------------------:|:-----------------:|:-----------:|
+| system_message | ✓ | ✓ | ✓ | |
+| assistant_message | ✓ | ✓ | ✓ | |
+| user_message | | | ✓ | |
+| result_message | ✓ | ✓ | ✓ | |
+| partial_assistant_message | | ✓ | | |
+| compact_boundary_message | | | | ✓ |
+| text_block | ✓ | ✓ | ✓ | |
+| tool_use_block | | | ✓ | |
+| tool_result_block | | | ✓ | |
+| thinking_block | | | | ✓ |
+
+**Exceptional cases** rely on SDK documentation rather than live testing.
+
 ## Message Types
 
 ### SystemMessage (`lib/claude_code/message/system_message.ex`)
