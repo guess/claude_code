@@ -167,6 +167,17 @@ defmodule ClaudeCode.Adapter.CLITest do
     end
   end
 
+  describe "new behaviour callbacks" do
+    test "implements all ClaudeCode.Adapter callbacks" do
+      callbacks = ClaudeCode.Adapter.behaviour_info(:callbacks)
+
+      Enum.each(callbacks, fn {fun, arity} ->
+        assert function_exported?(ClaudeCode.Adapter.CLI, fun, arity),
+               "Missing callback: #{fun}/#{arity}"
+      end)
+    end
+  end
+
   # ============================================================================
   # Environment Variable Tests
   # ============================================================================

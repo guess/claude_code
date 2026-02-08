@@ -38,8 +38,18 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @impl ClaudeCode.Adapter
-  def send_query(adapter, request_id, prompt, session_id, opts) do
-    GenServer.call(adapter, {:query, request_id, prompt, session_id, opts})
+  def send_query(adapter, request_id, prompt, opts) do
+    GenServer.call(adapter, {:query, request_id, prompt, opts})
+  end
+
+  @impl ClaudeCode.Adapter
+  def interrupt(adapter) do
+    GenServer.call(adapter, :interrupt)
+  end
+
+  @impl ClaudeCode.Adapter
+  def health(adapter) do
+    GenServer.call(adapter, :health)
   end
 
   @impl ClaudeCode.Adapter
@@ -69,7 +79,8 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @impl GenServer
-  def handle_call({:query, request_id, prompt, session_id, _opts}, _from, state) do
+  def handle_call({:query, request_id, prompt, opts}, _from, state) do
+    session_id = Keyword.get(opts, :session_id)
     case ensure_connected(state) do
       {:ok, connected_state} ->
         # Send query to CLI
@@ -82,6 +93,40 @@ defmodule ClaudeCode.Adapter.CLI do
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
+  end
+
+  @impl GenServer
+  def handle_call(:interrupt, _from, %{port: port, current_request: request_id} = state)
+      when not is_nil(port) and not is_nil(request_id) do
+    case Port.info(port, :os_pid) do
+      {:os_pid, os_pid} ->
+        System.cmd("kill", ["-INT", to_string(os_pid)])
+        send(state.session, {:adapter_done, request_id, :interrupted})
+        {:reply, :ok, %{state | current_request: nil}}
+
+      nil ->
+        {:reply, {:error, :port_not_running}, state}
+    end
+  end
+
+  def handle_call(:interrupt, _from, state) do
+    {:reply, {:error, :no_active_request}, state}
+  end
+
+  @impl GenServer
+  def handle_call(:health, _from, %{port: port} = state) when not is_nil(port) do
+    health =
+      if Port.info(port) do
+        :healthy
+      else
+        {:unhealthy, :port_dead}
+      end
+
+    {:reply, health, state}
+  end
+
+  def handle_call(:health, _from, state) do
+    {:reply, {:unhealthy, :not_connected}, state}
   end
 
   @impl GenServer
@@ -292,7 +337,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
         # Check if this is the final message
         if result_message?(message) do
-          send(state.session, {:adapter_done, state.current_request})
+          send(state.session, {:adapter_done, state.current_request, :completed})
           %{state | current_request: nil}
         else
           state
