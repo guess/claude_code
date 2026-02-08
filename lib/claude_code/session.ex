@@ -57,7 +57,7 @@ defmodule ClaudeCode.Session do
   @doc """
   Starts a new session GenServer.
 
-  The session lazily connects to the adapter on the first query.
+  The session eagerly starts the adapter process during init.
   """
   def start_link(opts) do
     {name, session_opts} = Keyword.pop(opts, :name)
@@ -103,7 +103,14 @@ defmodule ClaudeCode.Session do
       callers: callers
     }
 
-    {:ok, state}
+    # Eagerly start the adapter
+    case adapter_module.start_link(self(), adapter_opts) do
+      {:ok, pid} ->
+        {:ok, %{state | adapter_pid: pid}}
+
+      {:error, reason} ->
+        {:stop, reason}
+    end
   end
 
   @impl true
@@ -154,6 +161,16 @@ defmodule ClaudeCode.Session do
     {:reply, :ok, %{state | session_id: nil}}
   end
 
+  def handle_call(:interrupt, _from, state) do
+    result = state.adapter_module.interrupt(state.adapter_pid)
+    {:reply, result, state}
+  end
+
+  def handle_call(:health, _from, state) do
+    health = state.adapter_module.health(state.adapter_pid)
+    {:reply, health, state}
+  end
+
   @impl true
   def handle_cast({:stream_cleanup, request_ref}, state) do
     new_requests = Map.delete(state.requests, request_ref)
@@ -187,7 +204,7 @@ defmodule ClaudeCode.Session do
     end
   end
 
-  def handle_info({:adapter_done, request_id}, state) do
+  def handle_info({:adapter_done, request_id, _reason}, state) do
     case Map.get(state.requests, request_id) do
       nil ->
         {:noreply, state}
@@ -250,53 +267,37 @@ defmodule ClaudeCode.Session do
   defp resolve_adapter(opts, callers) do
     case Keyword.get(opts, :adapter) do
       nil ->
-        # Default: CLI adapter
+        # Default: CLI adapter with session opts as adapter config
         {ClaudeCode.Adapter.CLI, opts}
 
       {ClaudeCode.Test, stub_name} ->
-        # Test adapter with stub name and callers for stub lookup
+        # Test adapter — backward compatible
         adapter_opts = opts |> Keyword.put(:stub_name, stub_name) |> Keyword.put(:callers, callers)
         {ClaudeCode.Adapter.Test, adapter_opts}
 
-      {module, _name} = _adapter ->
-        # Custom adapter (for future extensibility)
+      {module, config} when is_atom(module) and is_list(config) ->
+        # New pattern: {Module, adapter_config_keyword_list}
+        adapter_opts = Keyword.merge(config, callers: callers)
+        {module, adapter_opts}
+
+      {module, _name} ->
+        # Legacy custom adapter pattern
         {module, opts}
     end
   end
-
-  defp ensure_adapter(%{adapter_pid: nil} = state) do
-    case state.adapter_module.start_link(self(), state.adapter_opts) do
-      {:ok, pid} ->
-        {:ok, %{state | adapter_pid: pid}}
-
-      {:error, reason} ->
-        Logger.error("Failed to start adapter: #{inspect(reason)}")
-        {:error, reason}
-    end
-  end
-
-  defp ensure_adapter(state), do: {:ok, state}
 
   # ============================================================================
   # Private Functions - Request Management
   # ============================================================================
 
   defp enqueue_or_execute(request, prompt, opts, state) do
-    case ensure_adapter(state) do
-      {:ok, connected_state} ->
-        if has_active_request?(connected_state) do
-          # Queue this request
-          queued_request = %{request | status: :queued}
-          queue = :queue.in({request, prompt, opts}, connected_state.query_queue)
-          new_requests = Map.put(connected_state.requests, request.id, queued_request)
-          {:ok, %{connected_state | query_queue: queue, requests: new_requests}}
-        else
-          # Execute immediately
-          execute_request(request, prompt, opts, connected_state)
-        end
-
-      {:error, reason} ->
-        {:error, reason, state}
+    if has_active_request?(state) do
+      queued_request = %{request | status: :queued}
+      queue = :queue.in({request, prompt, opts}, state.query_queue)
+      new_requests = Map.put(state.requests, request.id, queued_request)
+      {:ok, %{state | query_queue: queue, requests: new_requests}}
+    else
+      execute_request(request, prompt, opts, state)
     end
   end
 
@@ -305,17 +306,22 @@ defmodule ClaudeCode.Session do
   end
 
   defp execute_request(request, prompt, opts, state) do
-    # Merge options
     {:ok, validated_opts} = Options.validate_query_options(opts)
-    _final_opts = Options.merge_options(state.session_options, validated_opts)
+    merged_opts = Options.merge_options(state.session_options, validated_opts)
 
-    # Send query to adapter
+    # Merge session_id into opts for the adapter
+    query_opts =
+      if state.session_id do
+        Keyword.put(merged_opts, :session_id, state.session_id)
+      else
+        merged_opts
+      end
+
     case state.adapter_module.send_query(
            state.adapter_pid,
            request.id,
            prompt,
-           state.session_id,
-           validated_opts
+           query_opts
          ) do
       :ok ->
         schedule_request_timeout(request.id)
