@@ -21,10 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Default adapter (`ClaudeCode.Adapter.CLI`) requires no configuration change
   - Enables future Docker, Cloudflare, and other execution environment adapters
 
+### Fixed
+- **Silently skip unknown system subtypes** - CLI hook messages (`hook_started`, `hook_response`) no longer produce "Failed to parse line" log noise ([482c603])
+
 ### Changed
 - **Eager adapter provisioning** - Sessions now start the adapter process immediately in `init/1` instead of lazily on first query ([ecf8bee])
   - Faster failure detection if the backend can't start
   - `ClaudeCode.start_link/1` returns `{:error, reason}` if adapter provisioning fails
+- **Schema alignment with CLI v2.1.37** ([482c603])
+  - `ResultMessage` now includes `stop_reason` field
+  - `AssistantMessage` usage now includes `inference_geo` field
+  - `SystemMessage` `plugins` field supports object format `%{name, path}` (backwards compatible with strings)
 
 ## [0.17.0]
 
