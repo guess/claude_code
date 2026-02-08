@@ -188,6 +188,25 @@ defmodule ClaudeCode.Message.ResultMessageTest do
     end
   end
 
+  describe "stop_reason" do
+    test "parses stop_reason from result message" do
+      json = Map.put(valid_result_json(), "stop_reason", "end_turn")
+      assert {:ok, message} = ResultMessage.new(json)
+      assert message.stop_reason == :end_turn
+    end
+
+    test "handles nil stop_reason" do
+      json = Map.put(valid_result_json(), "stop_reason", nil)
+      assert {:ok, message} = ResultMessage.new(json)
+      assert message.stop_reason == nil
+    end
+
+    test "handles missing stop_reason" do
+      assert {:ok, message} = ResultMessage.new(valid_result_json())
+      assert message.stop_reason == nil
+    end
+  end
+
   defp valid_result_json do
     %{
       "type" => "result",

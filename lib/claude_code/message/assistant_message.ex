@@ -114,7 +114,8 @@ defmodule ClaudeCode.Message.AssistantMessage do
       cache_creation_input_tokens: usage_data["cache_creation_input_tokens"],
       cache_read_input_tokens: usage_data["cache_read_input_tokens"],
       cache_creation: parse_cache_creation(usage_data["cache_creation"]),
-      service_tier: usage_data["service_tier"]
+      service_tier: usage_data["service_tier"],
+      inference_geo: usage_data["inference_geo"]
     }
   end
 
@@ -125,7 +126,8 @@ defmodule ClaudeCode.Message.AssistantMessage do
       cache_creation_input_tokens: nil,
       cache_read_input_tokens: nil,
       cache_creation: nil,
-      service_tier: nil
+      service_tier: nil,
+      inference_geo: nil
     }
   end
 

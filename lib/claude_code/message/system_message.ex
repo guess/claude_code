@@ -25,7 +25,7 @@ defmodule ClaudeCode.Message.SystemMessage do
     claude_code_version: string,
     agents: string[],
     skills: string[],
-    plugins: string[]
+    plugins: { name: string, path: string }[]
   }
   ```
   """
@@ -78,7 +78,7 @@ defmodule ClaudeCode.Message.SystemMessage do
           output_style: String.t(),
           agents: [String.t()],
           skills: [String.t()],
-          plugins: [String.t()]
+          plugins: [Types.plugin()]
         }
 
   @doc """
@@ -124,7 +124,7 @@ defmodule ClaudeCode.Message.SystemMessage do
         output_style: json["output_style"] || "default",
         agents: json["agents"] || [],
         skills: json["skills"] || [],
-        plugins: json["plugins"] || []
+        plugins: parse_plugins(json["plugins"])
       }
 
       {:ok, message}
@@ -150,6 +150,18 @@ defmodule ClaudeCode.Message.SystemMessage do
       }
     end)
   end
+
+  defp parse_plugins(plugins) when is_list(plugins) do
+    plugins
+    |> Enum.map(fn
+      %{"name" => name, "path" => path} -> %{name: name, path: path}
+      plugin when is_binary(plugin) -> plugin
+      _ -> nil
+    end)
+    |> Enum.reject(&is_nil/1)
+  end
+
+  defp parse_plugins(_), do: []
 
   defp parse_permission_mode("default"), do: :default
   defp parse_permission_mode("acceptEdits"), do: :accept_edits

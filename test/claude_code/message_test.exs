@@ -204,8 +204,13 @@ defmodule ClaudeCode.MessageTest do
       assert {:error, :missing_type} = Message.parse(data)
     end
 
-    test "returns error for invalid system subtype" do
+    test "returns error for unknown system subtype" do
       data = %{"type" => "system", "subtype" => "invalid"}
+      assert {:error, :unknown_system_subtype} = Message.parse(data)
+    end
+
+    test "returns error for system message without subtype" do
+      data = %{"type" => "system"}
       assert {:error, :invalid_system_subtype} = Message.parse(data)
     end
   end

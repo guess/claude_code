@@ -67,6 +67,8 @@ defmodule ClaudeCode.Types do
           status: String.t()
         }
 
+  @type plugin :: %{name: String.t(), path: String.t()} | String.t()
+
   @type message_content :: String.t() | [Content.t()]
 
   @type context_management :: map() | nil

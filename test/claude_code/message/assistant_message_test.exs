@@ -240,6 +240,35 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
     end
   end
 
+  describe "usage fields" do
+    test "parses inference_geo from usage" do
+      json = valid_assistant_json()
+      json = put_in(json, ["message", "usage", "inference_geo"], "not_available")
+
+      assert {:ok, message} = AssistantMessage.new(json)
+      assert message.message.usage.inference_geo == "not_available"
+    end
+
+    test "handles missing inference_geo" do
+      assert {:ok, message} = AssistantMessage.new(valid_assistant_json())
+      assert message.message.usage.inference_geo == nil
+    end
+
+    test "parses cache_creation from usage" do
+      json = valid_assistant_json()
+
+      json =
+        put_in(json, ["message", "usage", "cache_creation"], %{
+          "ephemeral_5m_input_tokens" => 100,
+          "ephemeral_1h_input_tokens" => 200
+        })
+
+      assert {:ok, message} = AssistantMessage.new(json)
+      assert message.message.usage.cache_creation.ephemeral_5m_input_tokens == 100
+      assert message.message.usage.cache_creation.ephemeral_1h_input_tokens == 200
+    end
+  end
+
   defp valid_assistant_json do
     %{
       "type" => "assistant",

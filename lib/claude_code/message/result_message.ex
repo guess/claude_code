@@ -24,6 +24,7 @@ defmodule ClaudeCode.Message.ResultMessage do
     is_error: boolean,
     num_turns: int,
     result: string,
+    stop_reason: string | null,
     session_id: string,
     total_cost_usd: float,
     usage: object,
@@ -78,6 +79,7 @@ defmodule ClaudeCode.Message.ResultMessage do
     :total_cost_usd,
     :usage,
     :uuid,
+    :stop_reason,
     :model_usage,
     :permission_denials,
     :structured_output,
@@ -96,6 +98,7 @@ defmodule ClaudeCode.Message.ResultMessage do
           total_cost_usd: float(),
           usage: Types.usage(),
           uuid: String.t() | nil,
+          stop_reason: Types.stop_reason(),
           model_usage: %{String.t() => Types.model_usage()},
           permission_denials: [Types.permission_denial()],
           structured_output: any() | nil,
@@ -141,6 +144,7 @@ defmodule ClaudeCode.Message.ResultMessage do
         total_cost_usd: parse_float(json["total_cost_usd"]),
         usage: parse_usage(json["usage"]),
         uuid: json["uuid"],
+        stop_reason: parse_stop_reason(json["stop_reason"]),
         model_usage: parse_model_usage(json["modelUsage"]),
         permission_denials: parse_permission_denials(json["permission_denials"]),
         structured_output: json["structured_output"],
@@ -168,6 +172,13 @@ defmodule ClaudeCode.Message.ResultMessage do
   defp parse_subtype("error_max_budget_usd"), do: :error_max_budget_usd
   defp parse_subtype("error_max_structured_output_retries"), do: :error_max_structured_output_retries
   defp parse_subtype(other) when is_binary(other), do: String.to_atom(other)
+
+  defp parse_stop_reason(nil), do: nil
+  defp parse_stop_reason("end_turn"), do: :end_turn
+  defp parse_stop_reason("max_tokens"), do: :max_tokens
+  defp parse_stop_reason("stop_sequence"), do: :stop_sequence
+  defp parse_stop_reason("tool_use"), do: :tool_use
+  defp parse_stop_reason(other) when is_binary(other), do: String.to_atom(other)
 
   defp parse_float(value) when is_float(value), do: value
   defp parse_float(value) when is_integer(value), do: value * 1.0

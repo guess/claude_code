@@ -110,6 +110,43 @@ defmodule ClaudeCode.Message.SystemMessageTest do
     end
   end
 
+  describe "plugins parsing" do
+    test "parses plugins as objects with name and path" do
+      json =
+        Map.put(valid_system_json(), "plugins", [
+          %{"name" => "my-plugin", "path" => "/path/to/plugin"},
+          %{"name" => "other", "path" => "/path/to/other"}
+        ])
+
+      assert {:ok, message} = SystemMessage.new(json)
+      assert length(message.plugins) == 2
+      assert hd(message.plugins) == %{name: "my-plugin", path: "/path/to/plugin"}
+    end
+
+    test "parses plugins as strings for backwards compatibility" do
+      json = Map.put(valid_system_json(), "plugins", ["plugin-a", "plugin-b"])
+
+      assert {:ok, message} = SystemMessage.new(json)
+      assert message.plugins == ["plugin-a", "plugin-b"]
+    end
+
+    test "handles mixed plugin formats" do
+      json = Map.put(valid_system_json(), "plugins", [%{"name" => "obj-plugin", "path" => "/path"}, "string-plugin"])
+
+      assert {:ok, message} = SystemMessage.new(json)
+      assert length(message.plugins) == 2
+      assert Enum.at(message.plugins, 0) == %{name: "obj-plugin", path: "/path"}
+      assert Enum.at(message.plugins, 1) == "string-plugin"
+    end
+
+    test "handles nil plugins" do
+      json = Map.delete(valid_system_json(), "plugins")
+
+      assert {:ok, message} = SystemMessage.new(json)
+      assert message.plugins == []
+    end
+  end
+
   defp valid_system_json do
     %{
       "type" => "system",

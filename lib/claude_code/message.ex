@@ -130,5 +130,6 @@ defmodule ClaudeCode.Message do
     CompactBoundaryMessage.new(data)
   end
 
+  defp parse_system(%{"subtype" => _}), do: {:error, :unknown_system_subtype}
   defp parse_system(_), do: {:error, :invalid_system_subtype}
 end
