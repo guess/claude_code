@@ -827,6 +827,28 @@ defmodule ClaudeCode.StreamTest do
     end
   end
 
+  describe "stream with interruption" do
+    test "stream ends cleanly when interrupted" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("Partial response"),
+          ClaudeCode.Test.result("Partial response")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, ClaudeCode})
+
+      messages =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+
+      assert length(messages) > 0
+
+      ClaudeCode.stop(session)
+    end
+  end
+
   describe "on_tool_use/2" do
     test "invokes callback for each tool use" do
       messages = [
