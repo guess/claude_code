@@ -239,45 +239,60 @@ defmodule ClaudeCode.SessionAdapterTest do
   # ============================================================================
 
   describe "health delegation" do
-    test "session delegates health check to adapter" do
-      defmodule HealthReportingAdapter do
-        @moduledoc false
-        @behaviour ClaudeCode.Adapter
+    defmodule HealthyAdapter do
+      @moduledoc false
+      @behaviour ClaudeCode.Adapter
 
-        use GenServer
+      use GenServer
 
-        @impl ClaudeCode.Adapter
-        def start_link(session, opts) do
-          GenServer.start_link(__MODULE__, {session, opts})
-        end
+      @impl ClaudeCode.Adapter
+      def start_link(session, opts), do: GenServer.start_link(__MODULE__, {session, opts})
 
-        @impl ClaudeCode.Adapter
-        def send_query(_adapter, _req_id, _prompt, _opts), do: :ok
+      @impl ClaudeCode.Adapter
+      def send_query(_adapter, _req_id, _prompt, _opts), do: :ok
 
-        @impl ClaudeCode.Adapter
-        def interrupt(_adapter), do: :ok
+      @impl ClaudeCode.Adapter
+      def interrupt(_adapter), do: :ok
 
-        @impl ClaudeCode.Adapter
-        def health(adapter), do: GenServer.call(adapter, :health)
+      @impl ClaudeCode.Adapter
+      def health(adapter), do: GenServer.call(adapter, :health)
 
-        @impl ClaudeCode.Adapter
-        def stop(adapter), do: GenServer.stop(adapter, :normal)
+      @impl ClaudeCode.Adapter
+      def stop(adapter), do: GenServer.stop(adapter, :normal)
 
-        @impl GenServer
-        def init({session, _opts}) do
-          Process.link(session)
-          {:ok, %{session: session}}
-        end
-
-        @impl GenServer
-        def handle_call(:health, _from, state) do
-          {:reply, :healthy, state}
-        end
+      @impl GenServer
+      def init({session, opts}) do
+        Process.link(session)
+        {:ok, %{session: session, health: Keyword.get(opts, :health_status, :healthy)}}
       end
 
-      {:ok, session} = Session.start_link(adapter: {HealthReportingAdapter, []})
+      @impl GenServer
+      def handle_call(:health, _from, state) do
+        {:reply, state.health, state}
+      end
+    end
+
+    test "session passes through :healthy from adapter" do
+      {:ok, session} = Session.start_link(adapter: {HealthyAdapter, [health_status: :healthy]})
 
       assert :healthy = ClaudeCode.health(session)
+
+      GenServer.stop(session)
+    end
+
+    test "session passes through {:unhealthy, reason} from adapter" do
+      {:ok, session} =
+        Session.start_link(adapter: {HealthyAdapter, [health_status: {:unhealthy, :some_reason}]})
+
+      assert {:unhealthy, :some_reason} = ClaudeCode.health(session)
+
+      GenServer.stop(session)
+    end
+
+    test "session passes through :degraded from adapter" do
+      {:ok, session} = Session.start_link(adapter: {HealthyAdapter, [health_status: :degraded]})
+
+      assert :degraded = ClaudeCode.health(session)
 
       GenServer.stop(session)
     end

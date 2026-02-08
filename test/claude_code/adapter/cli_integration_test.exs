@@ -33,7 +33,7 @@ defmodule ClaudeCode.Adapter.CLIIntegrationTest do
       """)
     end
 
-    test "returns :ok when successfully interrupting an active query", %{
+    test "returns :ok and terminates stream without result message", %{
       mock_script: mock_script
     } do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
@@ -50,40 +50,14 @@ defmodule ClaudeCode.Adapter.CLIIntegrationTest do
       Process.sleep(300)
 
       # Interrupt the active query
-      result = ClaudeCode.interrupt(session)
-      assert result == :ok
+      assert :ok = ClaudeCode.interrupt(session)
 
       # The stream should terminate (not hang forever)
       messages = Task.await(stream_task, 5_000)
 
-      # Stream should have ended - the key assertion is that it didn't hang
+      # Stream ended without a result message (interrupted before result arrived)
       assert is_list(messages)
-
-      GenServer.stop(session)
-    end
-
-    test "sends :interrupted signal causing stream to terminate cleanly", %{
-      mock_script: mock_script
-    } do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
-
-      stream_task =
-        Task.async(fn ->
-          session
-          |> ClaudeCode.stream("slow query")
-          |> Enum.to_list()
-        end)
-
-      Process.sleep(300)
-
-      :ok = ClaudeCode.interrupt(session)
-
-      # Stream should terminate without hanging
-      messages = Task.await(stream_task, 5_000)
-
-      # The stream ended without a result message (interrupted before result arrived)
-      result = Enum.find(messages, &match?(%ResultMessage{}, &1))
-      assert result == nil
+      refute Enum.any?(messages, &match?(%ResultMessage{}, &1))
 
       GenServer.stop(session)
     end
