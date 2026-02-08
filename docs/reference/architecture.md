@@ -58,19 +58,19 @@ defmodule ClaudeCode.Session do
   use GenServer
 
   # State includes:
-  # - port: Persistent CLI subprocess (nil until first query)
-  # - buffer: JSON parsing buffer for stdout data
+  # - adapter_module: The adapter module (e.g., ClaudeCode.Adapter.CLI)
+  # - adapter_opts: Adapter-specific configuration
+  # - adapter_pid: PID of the adapter process (started eagerly in init)
   # - requests: Map of request_ref => Request struct
   # - query_queue: Queue of pending queries (for serial execution)
-  # - api_key: Authentication key
   # - session_id: Claude session ID for conversation continuity
   # - session_options: Validated session-level options
 
   # Each Request tracks:
-  # - type: :sync | :async | :stream
-  # - caller_pid: PID to notify for async/stream
-  # - from: GenServer reply target (sync only)
-  # - status: :active | :completed
+  # - id: Unique reference
+  # - subscribers: Waiting callers
+  # - messages: Buffered messages
+  # - status: :active | :queued | :completed
 end
 ```
 
@@ -85,7 +85,36 @@ defmodule ClaudeCode.Options do
 end
 ```
 
-The Session GenServer uses a persistent CLI subprocess with a query queue for serial execution. This ensures efficient multi-turn conversations while maintaining conversation context.
+The Session GenServer delegates communication to an adapter and uses a query queue for serial execution. This ensures efficient multi-turn conversations while maintaining conversation context.
+
+#### Adapter Layer (`ClaudeCode.Adapter`)
+
+The adapter layer provides a swappable backend interface. All adapters implement the `ClaudeCode.Adapter` behaviour:
+
+```elixir
+defmodule ClaudeCode.Adapter do
+  # Callbacks:
+  # - start_link/2: Provision the backend resource
+  # - send_query/4: Send a prompt to Claude
+  # - interrupt/1: Stop an in-progress query (sends SIGINT)
+  # - health/1: Check backend health (:healthy | :degraded | {:unhealthy, reason})
+  # - stop/1: Clean up resources
+end
+```
+
+Adapters are specified as `{Module, config}` tuples:
+```elixir
+# Default CLI adapter (no config needed)
+ClaudeCode.start_link(model: "opus")
+
+# Explicit adapter config
+ClaudeCode.start_link(adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"})
+```
+
+The adapter communicates back to the session via messages:
+- `{:adapter_message, request_id, message}` — parsed message
+- `{:adapter_done, request_id, reason}` — query complete (`:completed` or `:interrupted`)
+- `{:adapter_error, request_id, reason}` — error occurred
 
 #### CLI Module (`ClaudeCode.CLI`)
 ```elixir
@@ -94,8 +123,6 @@ defmodule ClaudeCode.CLI do
   # - Finding the claude binary
   # - Building command arguments from validated options
   # - Converting Elixir options to CLI flags
-  # - Spawning the process
-  # - Managing stdin/stdout/stderr
 end
 ```
 
@@ -226,9 +253,9 @@ end
 ```
 
 Key design decisions:
-- **Persistent Connection**: Single CLI subprocess for all queries (auto-connects on first query)
+- **Eager Provisioning**: Adapter starts immediately in `init/1` — fast failure if backend can't start
+- **Persistent Connection**: Single CLI subprocess for all queries
 - **Query Queue**: Queries are executed serially to maintain conversation context
-- **Automatic Reconnection**: CLI is restarted if it exits unexpectedly
 - **Session Continuity**: Session ID is captured and used for conversation context
 
 ### Process Management
@@ -316,8 +343,8 @@ This will:
 1. Validate all options using NimbleOptions
 2. Apply application config defaults
 3. Start a GenServer with validated configuration
-4. Find the CLI binary
-5. Ready for queries (no subprocess yet)
+4. Eagerly start the adapter (which finds and prepares the CLI binary)
+5. Return `{:error, reason}` if the adapter fails to start
 
 Options are validated early to provide immediate feedback on configuration errors.
 
@@ -326,10 +353,9 @@ Options are validated early to provide immediate feedback on configuration error
 1. **Query starts**:
    - Validate query-level options using NimbleOptions
    - Merge session and query options (query takes precedence)
-   - Ensure CLI subprocess is connected (lazy connect on first query)
    - Generate unique request reference
    - Queue query if another is in progress, otherwise execute immediately
-   - Write query JSON to CLI stdin
+   - Delegate to adapter's `send_query/4`
    - Register request in `requests` map
 2. **Stream messages**:
    - Parse JSON lines from stdout buffer
@@ -419,9 +445,9 @@ echo '{"type": "done"}'
 
 1. **Persistent Connection**: Single CLI subprocess avoids spawn overhead between queries
 2. **Serial Execution**: Query queue ensures conversation context is maintained
-3. **Lazy Connect**: CLI is only spawned on first query (not on session start)
-4. **Auto-Reconnect**: CLI is automatically restarted if it exits unexpectedly
-5. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
+3. **Eager Provisioning**: Adapter starts immediately — fast failure if backend is unavailable
+4. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
+5. **Interrupt Support**: Stop in-progress queries with `ClaudeCode.interrupt/1` to save tokens
 
 ## Security
 

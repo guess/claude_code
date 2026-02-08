@@ -67,6 +67,7 @@ All options for `ClaudeCode.start_link/1`:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
+| `adapter` | tuple | CLI adapter | Backend adapter as `{Module, config}` tuple |
 | `resume` | string | - | Session ID to resume |
 | `fork_session` | boolean | false | Create new session ID when resuming |
 | `continue` | boolean | false | Continue most recent conversation in current directory |

@@ -214,15 +214,53 @@ Use atoms for easy access across your application:
 :assistant |> ClaudeCode.stream("Hello!") |> Stream.run()
 ```
 
+## Interrupting a Query
+
+Stop an in-progress query to save tokens when Claude is going in a direction you don't want:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+
+# Start a streaming query in a task
+task = Task.async(fn ->
+  session
+  |> ClaudeCode.stream("Write a very long essay")
+  |> Enum.to_list()
+end)
+
+# Interrupt mid-stream
+:ok = ClaudeCode.interrupt(session)
+
+# Stream terminates cleanly (not an error — no need to rescue)
+messages = Task.await(task)
+```
+
+Interrupt returns `{:error, :no_active_request}` if no query is running.
+
+## Health Checking
+
+Check the health of the underlying adapter:
+
+```elixir
+ClaudeCode.health(session)
+# => :healthy | :degraded | {:unhealthy, reason}
+```
+
+The CLI adapter reports:
+- `:healthy` — port process is alive
+- `{:unhealthy, :not_connected}` — port hasn't connected yet
+- `{:unhealthy, :port_dead}` — port process has died
+
 ## Session Lifecycle
 
 | Event | Behavior |
 |-------|----------|
-| `start_link/1` | Creates GenServer, CLI not started yet |
-| First query | CLI subprocess spawns (lazy connect) |
-| Subsequent queries | Reuses existing CLI connection |
-| `stop/1` | Terminates GenServer and CLI |
-| Process crash | GenServer exits, CLI terminates |
+| `start_link/1` | Creates GenServer, adapter starts eagerly |
+| First query | Sent to already-running adapter |
+| Subsequent queries | Reuses existing adapter connection |
+| `interrupt/1` | Stops current query, stream ends cleanly |
+| `stop/1` | Terminates GenServer and adapter |
+| Process crash | GenServer exits, adapter terminates |
 
 ## Checking Session State
 
@@ -232,6 +270,9 @@ ClaudeCode.alive?(session)
 
 # Get current session ID (nil if no queries yet)
 session_id = ClaudeCode.get_session_id(session)
+
+# Check adapter health
+ClaudeCode.health(session)
 ```
 
 ## Wrapping in GenServer

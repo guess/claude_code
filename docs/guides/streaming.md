@@ -227,6 +227,28 @@ end
 
 See [Phoenix Integration](../integration/phoenix.md) for complete LiveView examples.
 
+## Interrupting a Stream
+
+Stop an in-progress stream with `ClaudeCode.interrupt/1`. The stream terminates cleanly — this is not an error and doesn't require rescuing:
+
+```elixir
+# Start streaming in a task
+task = Task.async(fn ->
+  session
+  |> ClaudeCode.stream("Write a long analysis")
+  |> ClaudeCode.Stream.text_content()
+  |> Enum.to_list()
+end)
+
+# Stop when you've seen enough
+:ok = ClaudeCode.interrupt(session)
+
+# Stream terminates without a result message
+partial_text = Task.await(task)
+```
+
+This is useful for saving tokens when Claude is going in a direction you don't want.
+
 ## Error Handling
 
 Streams throw on infrastructure errors. Use `catch` to handle them:
