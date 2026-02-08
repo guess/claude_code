@@ -69,7 +69,10 @@ defmodule ClaudeCode.MixProject do
       {:ex_doc, "~> 0.34", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:mox, "~> 1.1", only: :test},
-      {:stream_data, "~> 1.1", only: [:test, :dev]}
+      {:stream_data, "~> 1.1", only: [:test, :dev]},
+      # Tidewave
+      {:bandit, "~> 1.0", only: :dev},
+      {:tidewave, "~> 0.5", only: :dev}
     ]
   end
 
@@ -86,7 +89,9 @@ defmodule ClaudeCode.MixProject do
       "test.all": [
         "test --cover",
         "coveralls.html"
-      ]
+      ],
+      # Run tidewave mcp in development
+      tidewave: "run --no-halt -e 'Agent.start(fn -> Bandit.start_link(plug: Tidewave, port: 4000) end)'"
     ]
   end
 
