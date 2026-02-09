@@ -45,7 +45,6 @@ defmodule ClaudeCode.Installer do
   @windows_install_script_url "https://claude.ai/install.ps1"
 
   # Common installation locations relative to home directory
-  # Note: /usr/local/bin/claude is checked via System.find_executable in bin_path/0
   @unix_locations [
     ".npm-global/bin/claude",
     ".local/bin/claude",
@@ -110,76 +109,6 @@ defmodule ClaudeCode.Installer do
   end
 
   @doc """
-  Returns the path to the CLI binary, checking multiple locations.
-
-  This is used internally by the installer and mix task. For session-level
-  resolution, use `ClaudeCode.CLI.find_binary/1` which respects the `:cli_path`
-  option modes (`:bundled`, `:global`, or explicit path).
-
-  Resolution order:
-  1. Application config `:cli_path` (if a string path)
-  2. Bundled binary in `cli_dir`
-  3. System PATH
-  4. Common installation locations
-
-  ## Examples
-
-      iex> ClaudeCode.Installer.bin_path()
-      {:ok, "/usr/local/bin/claude"}
-
-      iex> ClaudeCode.Installer.bin_path()
-      {:error, :not_found}
-  """
-  @spec bin_path() :: {:ok, String.t()} | {:error, :not_found}
-  def bin_path do
-    config_path = Application.get_env(:claude_code, :cli_path)
-
-    cond do
-      # 1. Explicit config path (only when string, skip :bundled/:global atoms)
-      is_binary(config_path) && File.exists?(config_path) ->
-        {:ok, config_path}
-
-      is_binary(config_path) ->
-        {:error, :not_found}
-
-      # 2. Bundled binary
-      File.exists?(bundled_path()) ->
-        {:ok, bundled_path()}
-
-      # 3. System PATH
-      path = System.find_executable(@claude_binary) ->
-        {:ok, path}
-
-      # 4. Common locations
-      path = find_in_common_locations() ->
-        {:ok, path}
-
-      # Not found
-      true ->
-        {:error, :not_found}
-    end
-  end
-
-  @doc """
-  Finds the CLI binary or raises an error with installation instructions.
-
-  ## Examples
-
-      iex> ClaudeCode.Installer.bin_path!()
-      "/usr/local/bin/claude"
-
-      iex> ClaudeCode.Installer.bin_path!()
-      ** (RuntimeError) Claude CLI not found...
-  """
-  @spec bin_path!() :: String.t()
-  def bin_path! do
-    case bin_path() do
-      {:ok, path} -> path
-      {:error, :not_found} -> raise cli_not_found_message()
-    end
-  end
-
-  @doc """
   Installs the Claude CLI using the official Anthropic install script.
 
   The binary is installed to the configured `cli_dir` (default: priv/bin/).
@@ -229,25 +158,6 @@ defmodule ClaudeCode.Installer do
   end
 
   @doc """
-  Ensures the CLI is installed, installing it if necessary.
-
-  This is the lazy installation pattern - called automatically when
-  the CLI is needed but not found.
-
-  ## Examples
-
-      iex> ClaudeCode.Installer.ensure_installed!()
-      :ok
-  """
-  @spec ensure_installed!() :: :ok
-  def ensure_installed! do
-    case bin_path() do
-      {:ok, _path} -> :ok
-      {:error, :not_found} -> install!()
-    end
-  end
-
-  @doc """
   Returns the version of the CLI binary at the given path.
 
   Runs `claude --version` and parses the output.
@@ -271,25 +181,6 @@ defmodule ClaudeCode.Installer do
   end
 
   @doc """
-  Returns the version of the installed CLI binary.
-
-  ## Examples
-
-      iex> ClaudeCode.Installer.installed_version()
-      {:ok, "#{@default_cli_version}"}
-
-      iex> ClaudeCode.Installer.installed_version()
-      {:error, :not_found}
-  """
-  @spec installed_version() :: {:ok, String.t()} | {:error, term()}
-  def installed_version do
-    case bin_path() do
-      {:ok, path} -> version_of(path)
-      {:error, :not_found} -> {:error, :not_found}
-    end
-  end
-
-  @doc """
   Searches for the CLI in common installation locations.
 
   Returns the path if found, `nil` otherwise.
@@ -304,20 +195,6 @@ defmodule ClaudeCode.Installer do
       path = Path.join(home, relative_path)
       if File.exists?(path), do: path
     end)
-  end
-
-  @doc """
-  Searches for the CLI installed by the official script.
-
-  The official script typically installs to:
-  - Unix: ~/.local/bin/claude or ~/.claude/local/claude
-  - Windows: %USERPROFILE%\\.local\\bin\\claude.exe
-
-  Returns the path if found, `nil` otherwise.
-  """
-  @spec find_system_cli() :: String.t() | nil
-  def find_system_cli do
-    System.find_executable(@claude_binary) || find_in_common_locations()
   end
 
   # Private functions
