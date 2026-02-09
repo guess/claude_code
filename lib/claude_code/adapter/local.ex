@@ -66,7 +66,7 @@ defmodule ClaudeCode.Adapter.Local do
 
   @impl ClaudeCode.Adapter
   def send_control_request(adapter, subtype, params) do
-    GenServer.call(adapter, {:control_request, subtype, params})
+    GenServer.call(adapter, {:control_request, subtype, params}, @control_timeout + 5_000)
   end
 
   @impl ClaudeCode.Adapter
