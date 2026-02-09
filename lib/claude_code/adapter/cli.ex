@@ -13,6 +13,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
   use GenServer
 
+  alias ClaudeCode.Adapter
   alias ClaudeCode.CLI
   alias ClaudeCode.Message
   alias ClaudeCode.Message.ResultMessage
@@ -25,7 +26,8 @@ defmodule ClaudeCode.Adapter.CLI do
     :port,
     :buffer,
     :current_request,
-    :api_key
+    :api_key,
+    status: :provisioning
   ]
 
   # ============================================================================
@@ -69,12 +71,27 @@ defmodule ClaudeCode.Adapter.CLI do
       port: nil,
       buffer: "",
       current_request: nil,
-      api_key: Keyword.get(opts, :api_key)
+      api_key: Keyword.get(opts, :api_key),
+      status: :provisioning
     }
 
     Process.link(session)
+    Adapter.notify_status(session, :provisioning)
 
-    {:ok, state}
+    {:ok, state, {:continue, :connect}}
+  end
+
+  @impl GenServer
+  def handle_continue(:connect, state) do
+    case spawn_cli(state) do
+      {:ok, port} ->
+        Adapter.notify_status(state.session, :ready)
+        {:noreply, %{state | port: port, buffer: "", status: :ready}}
+
+      {:error, reason} ->
+        Adapter.notify_status(state.session, {:error, reason})
+        {:noreply, %{state | status: :disconnected}}
+    end
   end
 
   @impl GenServer
@@ -101,7 +118,7 @@ defmodule ClaudeCode.Adapter.CLI do
     case Port.info(port, :os_pid) do
       {:os_pid, os_pid} ->
         System.cmd("kill", ["-INT", to_string(os_pid)])
-        send(state.session, {:adapter_done, request_id, :interrupted})
+        Adapter.notify_done(state.session, request_id, :interrupted)
         {:reply, :ok, %{state | current_request: nil}}
 
       nil ->
@@ -114,6 +131,10 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @impl GenServer
+  def handle_call(:health, _from, %{status: :provisioning} = state) do
+    {:reply, {:unhealthy, :provisioning}, state}
+  end
+
   def handle_call(:health, _from, %{port: port} = state) when not is_nil(port) do
     health =
       if Port.info(port) do
@@ -146,20 +167,20 @@ defmodule ClaudeCode.Adapter.CLI do
     Logger.debug("CLI exited with status #{status}")
 
     if state.current_request do
-      send(state.session, {:adapter_error, state.current_request, {:cli_exit, status}})
+      Adapter.notify_error(state.session, state.current_request, {:cli_exit, status})
     end
 
-    {:noreply, %{state | port: nil, current_request: nil, buffer: ""}}
+    {:noreply, %{state | port: nil, current_request: nil, buffer: "", status: :disconnected}}
   end
 
   def handle_info({:DOWN, _ref, :port, port, reason}, %{port: port} = state) do
     Logger.error("CLI port closed: #{inspect(reason)}")
 
     if state.current_request do
-      send(state.session, {:adapter_error, state.current_request, {:port_closed, reason}})
+      Adapter.notify_error(state.session, state.current_request, {:port_closed, reason})
     end
 
-    {:noreply, %{state | port: nil, current_request: nil, buffer: ""}}
+    {:noreply, %{state | port: nil, current_request: nil, buffer: "", status: :disconnected}}
   end
 
   def handle_info({port, :eof}, %{port: port} = state) do
@@ -187,13 +208,18 @@ defmodule ClaudeCode.Adapter.CLI do
   # Private Functions - Port Management
   # ============================================================================
 
-  defp ensure_connected(%{port: nil} = state) do
+  defp ensure_connected(%{status: :provisioning} = _state) do
+    {:error, :provisioning}
+  end
+
+  defp ensure_connected(%{port: nil, status: :disconnected} = state) do
     case spawn_cli(state) do
       {:ok, port} ->
-        {:ok, %{state | port: port, buffer: ""}}
+        Adapter.notify_status(state.session, :ready)
+        {:ok, %{state | port: port, buffer: "", status: :ready}}
 
       {:error, reason} ->
-        Logger.error("Failed to connect to CLI: #{inspect(reason)}")
+        Logger.error("Failed to reconnect to CLI: #{inspect(reason)}")
         {:error, reason}
     end
   end
@@ -341,11 +367,11 @@ defmodule ClaudeCode.Adapter.CLI do
          {:ok, message} <- Message.parse(json) do
       if state.current_request do
         # Send message to session
-        send(state.session, {:adapter_message, state.current_request, message})
+        Adapter.notify_message(state.session, state.current_request, message)
 
         # Check if this is the final message
         if result_message?(message) do
-          send(state.session, {:adapter_done, state.current_request, :completed})
+          Adapter.notify_done(state.session, state.current_request, :completed)
           %{state | current_request: nil}
         else
           state

@@ -179,6 +179,93 @@ defmodule ClaudeCode.Adapter.CLITest do
   end
 
   # ============================================================================
+  # Adapter Status Lifecycle Tests
+  # ============================================================================
+
+  describe "adapter status lifecycle" do
+    test "starts in provisioning status and transitions to ready" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        CLI.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      state = :sys.get_state(adapter)
+      assert state.status == :ready
+      assert state.port != nil
+
+      GenServer.stop(adapter)
+    end
+
+    test "transitions to disconnected on provisioning failure" do
+      session = self()
+
+      {:ok, adapter} =
+        CLI.start_link(session,
+          api_key: "test-key",
+          cli_path: "/nonexistent/path/to/claude"
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, {:error, _reason}}, 5000
+
+      state = :sys.get_state(adapter)
+      assert state.status == :disconnected
+      assert state.port == nil
+
+      GenServer.stop(adapter)
+    end
+
+    test "ensure_connected returns error during provisioning" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        CLI.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      # Simulate provisioning state by replacing the adapter's state
+      # This tests the ensure_connected guard clause directly
+      :sys.replace_state(adapter, fn state ->
+        %{state | status: :provisioning, port: nil}
+      end)
+
+      result = CLI.send_query(adapter, make_ref(), "test", [])
+
+      assert {:error, :provisioning} = result
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  # ============================================================================
   # Environment Variable Tests
   # ============================================================================
 
