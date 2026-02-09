@@ -20,6 +20,8 @@ defmodule ClaudeCode.Adapter.CLI do
 
   require Logger
 
+  @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
+
   defstruct [
     :session,
     :session_options,
@@ -68,11 +70,8 @@ defmodule ClaudeCode.Adapter.CLI do
     state = %__MODULE__{
       session: session,
       session_options: opts,
-      port: nil,
       buffer: "",
-      current_request: nil,
-      api_key: Keyword.get(opts, :api_key),
-      status: :provisioning
+      api_key: Keyword.get(opts, :api_key)
     }
 
     Process.link(session)
@@ -96,16 +95,13 @@ defmodule ClaudeCode.Adapter.CLI do
 
   @impl GenServer
   def handle_call({:query, request_id, prompt, opts}, _from, state) do
-    session_id = Keyword.get(opts, :session_id)
+    session_id = Keyword.get(opts, :session_id, "default")
 
     case ensure_connected(state) do
       {:ok, connected_state} ->
-        # Send query to CLI
-        message = ClaudeCode.Input.user_message(prompt, session_id || "default")
+        message = ClaudeCode.Input.user_message(prompt, session_id)
         Port.command(connected_state.port, message <> "\n")
-
-        new_state = %{connected_state | current_request: request_id}
-        {:reply, :ok, new_state}
+        {:reply, :ok, %{connected_state | current_request: request_id}}
 
       {:error, reason} ->
         {:reply, {:error, reason}, state}
@@ -131,29 +127,20 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @impl GenServer
-  def handle_call(:health, _from, %{status: :provisioning} = state) do
-    {:reply, {:unhealthy, :provisioning}, state}
-  end
-
-  def handle_call(:health, _from, %{port: port} = state) when not is_nil(port) do
+  def handle_call(:health, _from, state) do
     health =
-      if Port.info(port) do
-        :healthy
-      else
-        {:unhealthy, :port_dead}
+      case state do
+        %{status: :provisioning} -> {:unhealthy, :provisioning}
+        %{port: port} when not is_nil(port) -> if(Port.info(port), do: :healthy, else: {:unhealthy, :port_dead})
+        _ -> {:unhealthy, :not_connected}
       end
 
     {:reply, health, state}
   end
 
-  def handle_call(:health, _from, state) do
-    {:reply, {:unhealthy, :not_connected}, state}
-  end
-
   @impl GenServer
   def handle_info({port, {:data, data}}, %{port: port} = state) do
-    buffer = state.buffer <> data
-    {lines, remaining_buffer} = extract_lines(buffer)
+    {lines, remaining_buffer} = extract_lines(state.buffer <> data)
 
     new_state =
       Enum.reduce(lines, %{state | buffer: remaining_buffer}, fn line, acc_state ->
@@ -165,26 +152,15 @@ defmodule ClaudeCode.Adapter.CLI do
 
   def handle_info({port, {:exit_status, status}}, %{port: port} = state) do
     Logger.debug("CLI exited with status #{status}")
-
-    if state.current_request do
-      Adapter.notify_error(state.session, state.current_request, {:cli_exit, status})
-    end
-
-    {:noreply, %{state | port: nil, current_request: nil, buffer: "", status: :disconnected}}
+    {:noreply, handle_port_disconnect(state, {:cli_exit, status})}
   end
 
   def handle_info({:DOWN, _ref, :port, port, reason}, %{port: port} = state) do
     Logger.error("CLI port closed: #{inspect(reason)}")
-
-    if state.current_request do
-      Adapter.notify_error(state.session, state.current_request, {:port_closed, reason})
-    end
-
-    {:noreply, %{state | port: nil, current_request: nil, buffer: "", status: :disconnected}}
+    {:noreply, handle_port_disconnect(state, {:port_closed, reason})}
   end
 
   def handle_info({port, :eof}, %{port: port} = state) do
-    # EOF received - this is expected when stdin is closed
     {:noreply, state}
   end
 
@@ -208,9 +184,15 @@ defmodule ClaudeCode.Adapter.CLI do
   # Private Functions - Port Management
   # ============================================================================
 
-  defp ensure_connected(%{status: :provisioning} = _state) do
-    {:error, :provisioning}
+  defp handle_port_disconnect(state, error) do
+    if state.current_request do
+      Adapter.notify_error(state.session, state.current_request, error)
+    end
+
+    %{state | port: nil, current_request: nil, buffer: "", status: :disconnected}
   end
+
+  defp ensure_connected(%{status: :provisioning}), do: {:error, :provisioning}
 
   defp ensure_connected(%{port: nil, status: :disconnected} = state) do
     case spawn_cli(state) do
@@ -232,8 +214,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
     case CLI.build_command("", state.api_key, streaming_opts, resume_session_id) do
       {:ok, {executable, args}} ->
-        args_without_prompt = List.delete_at(args, -1)
-        open_cli_port(executable, args_without_prompt, state, streaming_opts)
+        open_cli_port(executable, List.delete_at(args, -1), state, streaming_opts)
 
       {:error, reason} ->
         {:error, reason}
@@ -242,7 +223,6 @@ defmodule ClaudeCode.Adapter.CLI do
 
   defp open_cli_port(executable, args, state, opts) do
     shell_path = :os.find_executable(~c"sh") || raise "sh not found"
-
     cmd_string = build_shell_command(executable, args, state, opts)
 
     port =
@@ -259,10 +239,10 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   defp build_shell_command(executable, args, state, opts) do
-    env_vars = prepare_env(state)
-
     env_prefix =
-      Enum.map_join(env_vars, " ", fn {key, value} ->
+      state
+      |> prepare_env()
+      |> Enum.map_join(" ", fn {key, value} ->
         "#{key}=#{shell_escape(to_string(value))}"
       end)
 
@@ -278,15 +258,9 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   defp prepare_env(state) do
-    # Merge precedence (lowest to highest):
-    # 1. All system environment variables (base)
-    # 2. User-provided :env option (overrides)
-    # 3. SDK-required variables (always set)
-    # 4. API key override (if provided via :api_key option)
     state.session_options
     |> build_env(state.api_key)
     |> Map.to_list()
-    |> Enum.map(fn {key, value} -> {String.to_charlist(key), String.to_charlist(value)} end)
   end
 
   # ============================================================================
@@ -294,7 +268,6 @@ defmodule ClaudeCode.Adapter.CLI do
   # ============================================================================
 
   @doc false
-  # Returns the SDK-required environment variables that are always set.
   def sdk_env_vars do
     %{
       "CLAUDE_CODE_ENTRYPOINT" => "sdk-ex",
@@ -303,23 +276,21 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @doc false
-  # Prepares the environment for the CLI subprocess with proper merge order.
-  # Exposed for testing - see prepare_env/1 for the private implementation.
   def build_env(session_options, api_key) do
     user_env = Keyword.get(session_options, :env, %{})
 
     System.get_env()
     |> Map.merge(user_env)
     |> Map.merge(sdk_env_vars())
-    |> maybe_put_api_override_map(api_key)
+    |> maybe_put_api_key(api_key)
     |> maybe_put_file_checkpointing(session_options)
   end
 
-  defp maybe_put_api_override_map(env, api_key) when is_binary(api_key) do
+  defp maybe_put_api_key(env, api_key) when is_binary(api_key) do
     Map.put(env, "ANTHROPIC_API_KEY", api_key)
   end
 
-  defp maybe_put_api_override_map(env, _), do: env
+  defp maybe_put_api_key(env, _), do: env
 
   defp maybe_put_file_checkpointing(env, opts) do
     if Keyword.get(opts, :enable_file_checkpointing, false) do
@@ -330,12 +301,10 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @doc false
-  # Escapes a string for safe use in shell commands.
-  # Uses single-quote escaping which handles most special characters.
-  # NOTE: `;` must be escaped because it's a command separator in shell.
-  # This is critical when passing through system env vars like LS_COLORS.
+  # Semicolons must be escaped because they are command separators in shell.
+  # This is critical for system env vars like LS_COLORS that contain semicolons.
   def shell_escape(str) when is_binary(str) do
-    if str == "" or String.contains?(str, ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]) do
+    if str == "" or String.contains?(str, @shell_special_chars) do
       "'" <> String.replace(str, "'", "'\\''") <> "'"
     else
       str
@@ -345,14 +314,10 @@ defmodule ClaudeCode.Adapter.CLI do
   def shell_escape(str), do: shell_escape(to_string(str))
 
   @doc false
-  # Extracts complete lines from a buffer, returning {complete_lines, remaining_buffer}.
-  # Used for processing newline-delimited JSON from the CLI.
   def extract_lines(buffer) do
-    lines = String.split(buffer, "\n")
-
-    case List.pop_at(lines, -1) do
-      {incomplete, complete_lines} ->
-        {complete_lines, incomplete || ""}
+    case String.split(buffer, "\n") do
+      [incomplete] -> {[], incomplete}
+      lines -> {List.delete_at(lines, -1), List.last(lines)}
     end
   end
 
@@ -362,30 +327,36 @@ defmodule ClaudeCode.Adapter.CLI do
 
   defp process_line("", state), do: state
 
+  defp process_line(line, %{current_request: nil} = state) do
+    parse_line(line)
+    state
+  end
+
   defp process_line(line, state) do
-    with {:ok, json} <- Jason.decode(line),
-         {:ok, message} <- Message.parse(json) do
-      if state.current_request do
-        # Send message to session
+    case parse_line(line) do
+      {:ok, message} ->
         Adapter.notify_message(state.session, state.current_request, message)
 
-        # Check if this is the final message
-        if result_message?(message) do
+        if match?(%ResultMessage{}, message) do
           Adapter.notify_done(state.session, state.current_request, :completed)
           %{state | current_request: nil}
         else
           state
         end
-      else
-        state
-      end
-    else
+
       {:error, _} ->
-        Logger.debug("Failed to parse line: #{line}")
         state
     end
   end
 
-  defp result_message?(%ResultMessage{}), do: true
-  defp result_message?(_), do: false
+  defp parse_line(line) do
+    with {:ok, json} <- Jason.decode(line),
+         {:ok, message} <- Message.parse(json) do
+      {:ok, message}
+    else
+      {:error, reason} ->
+        Logger.debug("Failed to parse line: #{line}")
+        {:error, reason}
+    end
+  end
 end
