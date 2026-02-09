@@ -308,8 +308,8 @@ defmodule ClaudeCode.SessionTest do
 
       {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
 
-      # Wait a bit for async start
-      Process.sleep(100)
+      # Wait for provisioning + initialize handshake + query execution
+      Process.sleep(3000)
 
       # Check that request exists
       state = :sys.get_state(session)
@@ -771,6 +771,72 @@ defmodule ClaudeCode.SessionTest do
       assert %ResultMessage{result: "Response 1"} = result
 
       GenServer.stop(session)
+    end
+  end
+
+  describe "control protocol" do
+    test "forwards control request to adapter" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            if echo "$line" | grep -q '"subtype":"mcp_status"'; then
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"servers\\\":[{\\\"name\\\":\\\"test\\\",\\\"status\\\":\\\"connected\\\"}]}}}"
+            else
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      {:ok, session} = ClaudeCode.start_link(cli_path: context[:mock_script], api_key: "test")
+
+      # Wait for ready (provisioning + initialize handshake)
+      Process.sleep(3000)
+
+      assert {:ok, %{"servers" => _}} = GenServer.call(session, {:control, :mcp_status, %{}})
+
+      ClaudeCode.stop(session)
+    end
+
+    test "returns :not_supported when adapter lacks control callbacks" do
+      ClaudeCode.Test.stub(:no_control, fn _prompt, _opts ->
+        [ClaudeCode.Test.result("ok")]
+      end)
+
+      {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, :no_control})
+
+      assert {:error, :not_supported} = GenServer.call(session, {:control, :mcp_status, %{}})
+
+      ClaudeCode.stop(session)
+    end
+
+    test "get_server_info returns cached server info" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"version\\\":\\\"1.0\\\"}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      {:ok, session} = ClaudeCode.start_link(cli_path: context[:mock_script], api_key: "test")
+      Process.sleep(3000)
+
+      assert {:ok, %{"version" => "1.0"}} = GenServer.call(session, :get_server_info)
+
+      ClaudeCode.stop(session)
     end
   end
 

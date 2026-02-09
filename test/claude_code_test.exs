@@ -216,6 +216,76 @@ defmodule ClaudeCodeTest do
     end
   end
 
+  describe "control API" do
+    setup do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            SUBTYPE=$(echo "$line" | grep -o '"subtype":"[^"]*"' | head -1 | cut -d'"' -f4)
+            case "$SUBTYPE" in
+              mcp_status)
+                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"servers\\\":[]}}}"
+                ;;
+              set_model)
+                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"model\\\":\\\"updated\\\"}}}"
+                ;;
+              set_permission_mode)
+                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"mode\\\":\\\"updated\\\"}}}"
+                ;;
+              rewind_files)
+                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"rewound\\\":true}}}"
+                ;;
+              *)
+                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+                ;;
+            esac
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      {:ok, session} = ClaudeCode.start_link(cli_path: context[:mock_script], api_key: "test")
+      Process.sleep(3000)
+
+      on_exit(fn ->
+        try do
+          ClaudeCode.stop(session)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      {:ok, session: session}
+    end
+
+    test "set_model/2 sends set_model control request", %{session: session} do
+      assert {:ok, %{"model" => "updated"}} =
+               ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+    end
+
+    test "set_permission_mode/2 sends control request", %{session: session} do
+      assert {:ok, %{"mode" => "updated"}} =
+               ClaudeCode.set_permission_mode(session, :bypass_permissions)
+    end
+
+    test "get_mcp_status/1 sends mcp_status control request", %{session: session} do
+      assert {:ok, %{"servers" => []}} = ClaudeCode.get_mcp_status(session)
+    end
+
+    test "get_server_info/1 returns cached server info", %{session: session} do
+      assert {:ok, _info} = ClaudeCode.get_server_info(session)
+    end
+
+    test "rewind_files/2 sends rewind_files control request", %{session: session} do
+      assert {:ok, %{"rewound" => true}} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+    end
+  end
+
   describe "health/1" do
     test "returns health status from adapter" do
       ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->

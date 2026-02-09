@@ -178,6 +178,16 @@ defmodule ClaudeCode.Adapter.LocalTest do
     end
   end
 
+  describe "control adapter callbacks" do
+    test "Adapter.Local exports send_control_request/3" do
+      assert function_exported?(ClaudeCode.Adapter.Local, :send_control_request, 3)
+    end
+
+    test "Adapter.Local exports get_server_info/1" do
+      assert function_exported?(ClaudeCode.Adapter.Local, :get_server_info, 1)
+    end
+  end
+
   # ============================================================================
   # Adapter Status Lifecycle Tests
   # ============================================================================

@@ -168,6 +168,23 @@ defmodule ClaudeCode.Session do
     {:reply, health, state}
   end
 
+  def handle_call({:control, subtype, params}, _from, state) do
+    if supports_control?(state.adapter_module) do
+      result = state.adapter_module.send_control_request(state.adapter_pid, subtype, params)
+      {:reply, result, state}
+    else
+      {:reply, {:error, :not_supported}, state}
+    end
+  end
+
+  def handle_call(:get_server_info, _from, state) do
+    if supports_control?(state.adapter_module) do
+      {:reply, state.adapter_module.get_server_info(state.adapter_pid), state}
+    else
+      {:reply, {:error, :not_supported}, state}
+    end
+  end
+
   @impl true
   def handle_cast({:stream_cleanup, request_ref}, state) do
     new_requests = Map.delete(state.requests, request_ref)
@@ -253,6 +270,12 @@ defmodule ClaudeCode.Session do
       _completed ->
         {:noreply, state}
     end
+  end
+
+  def handle_info({:adapter_control_request, request_id, request}, state) do
+    Logger.warning("Received unhandled control request from adapter: #{inspect(request)} (#{request_id})")
+
+    {:noreply, state}
   end
 
   def handle_info(msg, state) do
@@ -448,4 +471,8 @@ defmodule ClaudeCode.Session do
   defp extract_session_id(%AssistantMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(%ResultMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(_), do: nil
+
+  defp supports_control?(adapter_module) do
+    function_exported?(adapter_module, :send_control_request, 3)
+  end
 end

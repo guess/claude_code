@@ -3,11 +3,13 @@ defmodule ClaudeCode.Adapter.TestAdapterTest do
 
   alias ClaudeCode.Adapter.Test
 
-  test "implements all ClaudeCode.Adapter callbacks" do
+  test "implements all required ClaudeCode.Adapter callbacks" do
     Code.ensure_loaded!(Test)
-    callbacks = ClaudeCode.Adapter.behaviour_info(:callbacks)
+    all_callbacks = ClaudeCode.Adapter.behaviour_info(:callbacks)
+    optional_callbacks = ClaudeCode.Adapter.behaviour_info(:optional_callbacks)
+    required_callbacks = all_callbacks -- optional_callbacks
 
-    Enum.each(callbacks, fn {fun, arity} ->
+    Enum.each(required_callbacks, fn {fun, arity} ->
       assert function_exported?(Test, fun, arity),
              "Missing callback: #{fun}/#{arity}"
     end)

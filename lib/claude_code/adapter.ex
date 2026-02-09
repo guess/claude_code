@@ -77,6 +77,24 @@ defmodule ClaudeCode.Adapter do
   """
   @callback stop(adapter :: pid()) :: :ok
 
+  @doc """
+  Sends a control request to the adapter and waits for a response.
+
+  This is an optional callback — adapters that don't support the control
+  protocol simply don't implement it. Use `function_exported?/3` to check.
+  """
+  @callback send_control_request(adapter :: pid(), subtype :: atom(), params :: map()) ::
+              {:ok, map()} | {:error, term()}
+
+  @doc """
+  Returns cached server initialization info from the control handshake.
+
+  This is an optional callback.
+  """
+  @callback get_server_info(adapter :: pid()) :: {:ok, map() | nil} | {:error, term()}
+
+  @optional_callbacks [send_control_request: 3, get_server_info: 1]
+
   # ============================================================================
   # Notification Helpers
   # ============================================================================
@@ -119,6 +137,15 @@ defmodule ClaudeCode.Adapter do
   @spec notify_status(pid(), :provisioning | :ready | {:error, term()}) :: :ok
   def notify_status(session, status) do
     send(session, {:adapter_status, status})
+    :ok
+  end
+
+  @doc """
+  Forwards an inbound control request from adapter to session.
+  """
+  @spec notify_control_request(pid(), String.t(), map()) :: :ok
+  def notify_control_request(session, request_id, request) do
+    send(session, {:adapter_control_request, request_id, request})
     :ok
   end
 end

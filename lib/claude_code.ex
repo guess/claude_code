@@ -345,6 +345,66 @@ defmodule ClaudeCode do
   end
 
   @doc """
+  Changes the model mid-conversation.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+  """
+  @spec set_model(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  def set_model(session, model) do
+    GenServer.call(session, {:control, :set_model, %{model: model}})
+  end
+
+  @doc """
+  Changes the permission mode mid-conversation.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+  """
+  @spec set_permission_mode(session(), atom()) :: {:ok, map()} | {:error, term()}
+  def set_permission_mode(session, mode) do
+    GenServer.call(session, {:control, :set_permission_mode, %{mode: mode}})
+  end
+
+  @doc """
+  Queries MCP server connection status.
+
+  ## Examples
+
+      {:ok, %{"servers" => servers}} = ClaudeCode.get_mcp_status(session)
+  """
+  @spec get_mcp_status(session()) :: {:ok, map()} | {:error, term()}
+  def get_mcp_status(session) do
+    GenServer.call(session, {:control, :mcp_status, %{}})
+  end
+
+  @doc """
+  Gets server initialization info cached from the control handshake.
+
+  ## Examples
+
+      {:ok, info} = ClaudeCode.get_server_info(session)
+  """
+  @spec get_server_info(session()) :: {:ok, map() | nil} | {:error, term()}
+  def get_server_info(session) do
+    GenServer.call(session, :get_server_info)
+  end
+
+  @doc """
+  Rewinds tracked files to the state at a specific user message checkpoint.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+  """
+  @spec rewind_files(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  def rewind_files(session, user_message_id) do
+    GenServer.call(session, {:control, :rewind_files, %{user_message_id: user_message_id}})
+  end
+
+  @doc """
   Reads conversation history from a session's JSONL file.
 
   Accepts either a session ID string or a running session reference.

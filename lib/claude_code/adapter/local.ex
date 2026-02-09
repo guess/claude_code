@@ -64,6 +64,16 @@ defmodule ClaudeCode.Adapter.Local do
     GenServer.stop(adapter, :normal)
   end
 
+  @impl ClaudeCode.Adapter
+  def send_control_request(adapter, subtype, params) do
+    GenServer.call(adapter, {:control_request, subtype, params})
+  end
+
+  @impl ClaudeCode.Adapter
+  def get_server_info(adapter) do
+    GenServer.call(adapter, :get_server_info)
+  end
+
   # ============================================================================
   # Server Callbacks
   # ============================================================================
