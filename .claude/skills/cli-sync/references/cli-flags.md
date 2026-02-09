@@ -130,9 +130,23 @@ end
 | Repeated flags | `--flag val1 --flag val2` |
 | CSV flags | `--flag val1,val2,val3` |
 
-## SDK Documentation URLs
+## SDK Documentation
 
-For reference (may not be current):
+### Python SDK Source (via `gh`)
+
+Fetch the Python SDK's CLI flag mapping directly — this is the most reliable reference:
+
+```bash
+# Options→CLI flag mapping (the _build_command method):
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_internal/transport/subprocess_cli.py --jq '.content' | base64 -d
+
+# Options type definitions:
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' | base64 -d
+```
+
+### Documentation URLs
+
+For additional reference (may not be current):
 
 - **TypeScript SDK**: https://platform.claude.com/docs/en/agent-sdk/typescript
 - **Python SDK**: https://platform.claude.com/docs/en/agent-sdk/python

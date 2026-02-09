@@ -23,7 +23,10 @@ Complete field mappings for all message and content types in the ClaudeCode SDK.
 
 ### SystemMessage (`lib/claude_code/message/system_message.ex`)
 
-Sent once at session start with initialization data.
+Handles all system subtypes: `init`, `hook_started`, `hook_response`, and any future subtypes.
+Mirrors the Python SDK's generic `SystemMessage(subtype=str, data=dict)` approach.
+
+For `init` subtype, dedicated fields are populated. For other subtypes, extra fields are stored in the `data` map.
 
 | JSON Key | Struct Field | Type | Notes |
 |----------|--------------|------|-------|
@@ -43,6 +46,7 @@ Sent once at session start with initialization data.
 | `effectiveGitRoot` | `:effective_git_root` | string or nil | Git repository root |
 | `environmentPlan` | `:environment_plan` | map | Plan configuration |
 | `userType` | `:user_type` | atom | User tier |
+| *(remaining)* | `:data` | map | Extra fields for non-init subtypes (atom-keyed) |
 
 ### AssistantMessage (`lib/claude_code/message/assistant_message.ex`)
 
@@ -54,8 +58,12 @@ Claude's responses with content blocks.
 | `message` | `:message` | map | Nested message object |
 | `message.content` | via `:message` | list | Content blocks |
 | `message.context_management` | via `:message` | map or nil | Context management info |
+| `error` | `:error` | atom or nil | Error type from Python SDK AssistantMessageError |
 
 **Important**: Access content via `message.message["content"]` or parse the nested structure.
+
+The `error` field matches the Python SDK's `AssistantMessageError` type:
+`:authentication_failed`, `:billing_error`, `:rate_limit`, `:invalid_request`, `:server_error`, `:unknown`
 
 ### UserMessage (`lib/claude_code/message/user_message.ex`)
 
@@ -66,6 +74,7 @@ User input and tool results.
 | `type` | `:type` | `:user` atom | Always "user" |
 | `message` | `:message` | map | Nested message object |
 | `message.content` | via `:message` | list | Content blocks (text or tool_result) |
+| `tool_use_result` | `:tool_use_result` | map or nil | Rich metadata about tool result (file info, etc.) |
 
 ### ResultMessage (`lib/claude_code/message/result_message.ex`)
 

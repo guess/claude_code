@@ -17,6 +17,8 @@ The Claude CLI evolves independently of this SDK. This skill provides a systemat
 3. **Check SDK documentation** - Reference TypeScript/Python SDK docs for type information
 4. **Update bundled version** - Sync the installer to the current CLI version
 
+**Important**: The Python SDK (`claude-agent-sdk-python`) is a thin wrapper around the CLI — it spawns `claude` as a subprocess and communicates via streaming JSON, just like our SDK. This makes it the closest reference for what is possible and appropriate to implement. Its `types.py` defines the canonical message types, content blocks, and options that a CLI-wrapping SDK should support. When in doubt about whether a field or option belongs in our SDK, check the Python SDK first.
+
 ## Quick Start
 
 For a full sync, execute these steps in order:
@@ -102,9 +104,9 @@ Parse the output and compare against struct definitions in:
 
 **Message Types** (in `lib/claude_code/message/`):
 
-- `system_message.ex` - Init messages with session_id, tools, model, etc.
-- `assistant_message.ex` - Messages with nested `message.content` blocks
-- `user_message.ex` - User input with tool results
+- `system_message.ex` - All system subtypes: init (with dedicated fields), hook_started, hook_response, etc. (non-init use `data` map)
+- `assistant_message.ex` - Messages with nested `message.content` blocks, optional `error` field
+- `user_message.ex` - User input with tool results, optional `tool_use_result` metadata
 - `result_message.ex` - Final response with result text and is_error flag
 - `partial_assistant_message.ex` - Streaming partial content
 - `compact_boundary_message.ex` - Context compaction boundaries
@@ -149,13 +151,57 @@ For each new flag found, suggest:
 
 ### Step 4: SDK Documentation Reference
 
-Check official SDK documentation for type definitions and options. Note that CLI output is the authoritative source - SDK docs may lag behind.
+Check official SDK source code and documentation for type definitions and options. Note that CLI output is the authoritative source - SDK docs may lag behind.
 
-**TypeScript SDK Options**: https://platform.claude.com/docs/en/agent-sdk/typescript#options
-**Python SDK Options**: https://platform.claude.com/docs/en/agent-sdk/python#claude-agent-options
-**Python SDK Source** (opts→CLI flag mapping): https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/transport/subprocess_cli.py
+#### Fetching Python SDK Source via `gh`
 
-WebFetch these pages to compare options and types against our SDK. The Python source is especially useful since docs can lag behind - the `subprocess_cli.py` file shows exactly which options are converted to CLI flags.
+Use the `gh` CLI to fetch file contents directly from the Python SDK repository. This is more reliable than WebFetch and allows you to inspect any file in the repo:
+
+```bash
+# Fetch any file from the Python SDK repo:
+gh api repos/anthropics/claude-agent-sdk-python/contents/PATH/TO/FILE --jq '.content' | base64 -d
+
+# List directory contents to discover files:
+gh api repos/anthropics/claude-agent-sdk-python/contents/PATH/TO/DIR --jq '.[].name'
+```
+
+**Key files to fetch for options comparison:**
+
+```bash
+# CLI flag mapping (opts→CLI flags) - THE most useful file for options sync:
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_internal/transport/subprocess_cli.py --jq '.content' | base64 -d
+
+# Types/schema definitions (message types, content blocks, options) - THE canonical reference:
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' | base64 -d
+```
+
+**Key files to fetch for message/content type comparison:**
+
+```bash
+# Discover available type modules:
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk --jq '.[].name'
+
+# Errors and type definitions:
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_errors.py --jq '.content' | base64 -d
+```
+
+The `subprocess_cli.py` file shows exactly which options are converted to CLI flags in `_build_command()`.
+
+The `types.py` file is the canonical reference for message schemas — since the Python SDK is also a CLI wrapper, its type definitions map directly to what our structs should support. Key types to compare:
+- `UserMessage` — has `tool_use_result: dict[str, Any] | None`
+- `AssistantMessage` — has `error: AssistantMessageError | None`
+- `SystemMessage` — generic `subtype: str` + `data: dict[str, Any]` (handles all subtypes)
+- `ResultMessage`, `StreamEvent`, content blocks (`TextBlock`, `ThinkingBlock`, `ToolUseBlock`, `ToolResultBlock`)
+- `ClaudeAgentOptions` — all available SDK options
+
+#### SDK Documentation Pages
+
+For additional context, these doc pages can be checked via WebFetch:
+
+- **TypeScript SDK Options**: https://platform.claude.com/docs/en/agent-sdk/typescript#options
+- **Python SDK Options**: https://platform.claude.com/docs/en/agent-sdk/python#claude-agent-options
+
+#### What to Compare
 
 - **Options comparison**: Check which CLI flags the official SDKs expose as options. If a CLI flag is NOT present in either official SDK, it likely doesn't make sense for our SDK (e.g., `--chrome`, `--ide`, `--replay-user-messages` are CLI-only).
 - **Message type definitions**: Compare `SDKMessage` union types against our message structs.
