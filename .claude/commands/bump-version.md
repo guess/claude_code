@@ -28,3 +28,8 @@ Update version to the specified X.Y.Z value.
    - Run `claude --version` to get latest CLI version
    - Compare with `@default_cli_version` in `lib/claude_code/installer.ex`
    - Update if newer version available and tested
+
+7. Tag and release:
+   - Create git tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
+   - Push tag: `git push origin vX.Y.Z`
+   - Create GitHub release: `gh release create vX.Y.Z --generate-notes --title "vX.Y.Z"`
