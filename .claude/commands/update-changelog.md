@@ -85,11 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Bug fix description ([def456])
 
-## [1.0.0] - 2024-01-15
+## [1.0.0] - 2024-01-15 | CC 2.1.37
 
 ### Added
 - Initial release features
 ```
+
+**Version header format**: `## [X.Y.Z] - YYYY-MM-DD | CC A.B.C` where `CC A.B.C` is the bundled Claude Code CLI version from `@default_cli_version` in `lib/claude_code/installer.ex`. This helps users know which CLI version each SDK release was tested against.
 
 ## Implementation Details
 

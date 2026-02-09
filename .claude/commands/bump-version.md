@@ -16,11 +16,15 @@ Update version to the specified X.Y.Z value.
 3. Update all matches (preserve existing format):
    - Full versions `"X.Y.Z"` → new full version
    - Dependency specs `"~> X.Y"` → new major.minor
-   - `CHANGELOG.md` → convert Unreleased to `[X.Y.Z] - YYYY-MM-DD`
 
-4. Verify no old versions remain (except CHANGELOG history)
+4. Update `CHANGELOG.md`:
+   - Get the bundled CLI version from `@default_cli_version` in `lib/claude_code/installer.ex`
+   - Convert Unreleased to `[X.Y.Z] - YYYY-MM-DD | CC A.B.C` where A.B.C is the CLI version
+   - Example: `## [0.18.0] - 2026-02-08 | CC 2.1.37`
 
-5. Check if CLI version needs updating:
+5. Verify no old versions remain (except CHANGELOG history)
+
+6. Check if CLI version needs updating:
    - Run `claude --version` to get latest CLI version
    - Compare with `@default_cli_version` in `lib/claude_code/installer.ex`
    - Update if newer version available and tested

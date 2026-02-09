@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AssistantMessage` usage now includes `inference_geo` field
   - `SystemMessage` `plugins` field supports object format `%{name, path}` (backwards compatible with strings)
 
-## [0.17.0]
+## [0.17.0] | CC 2.1.29
 
 ### Added
 - **`:max_thinking_tokens` option** - Maximum tokens for thinking blocks (integer)
