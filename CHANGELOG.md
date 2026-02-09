@@ -9,41 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 
-- **`:cli_path` defaults to `:bundled`** - The SDK now uses the bundled CLI binary in `priv/bin/` by default, auto-installing if missing. Previously it searched for a global install first and fell back to the bundled binary. To use a global install instead, set `cli_path: :global`, or pass an explicit path string like `cli_path: "/usr/local/bin/claude"`.
-- **`:agents` option now sent via control protocol** - Agents are no longer passed as a `--agents` CLI flag. They are now sent through the initialize handshake, matching the Python SDK behavior. No API change required — this is transparent to users, but the CLI must support the control protocol. ([2a4473b])
+- **`:cli_path` defaults to `:bundled`** - The SDK now uses the bundled CLI binary in `priv/bin/` by default, auto-installing if missing. Previously it searched for a global install first and fell back to the bundled binary. To use a global install instead, set `cli_path: :global`, or pass an explicit path string like `cli_path: "/usr/local/bin/claude"`. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
+- **`:agents` option now sent via control protocol** - Agents are no longer passed as a `--agents` CLI flag. They are now sent through the initialize handshake, matching the Python SDK behavior. No API change required — this is transparent to users, but the CLI must support the control protocol. See [Subagents Guide](docs/guides/subagents.md). ([2a4473b])
 
 ### Added
 
-- **Bidirectional control protocol** - Full control channel between the SDK and CLI, enabling dynamic mid-conversation control ([7ba2007], [228c57f])
+- **Bidirectional control protocol** - Full control channel between the SDK and CLI, enabling dynamic mid-conversation control. See [Sessions Guide — Runtime Control](docs/guides/sessions.md#runtime-control). ([7ba2007], [228c57f])
   - `ClaudeCode.set_model/2` - Change the model mid-conversation
   - `ClaudeCode.set_permission_mode/2` - Change the permission mode mid-conversation
   - `ClaudeCode.get_mcp_status/1` - Query live MCP server connection status
   - `ClaudeCode.get_server_info/1` - Get server initialization info cached from handshake
-  - `ClaudeCode.rewind_files/2` - Rewind tracked files to a user message checkpoint
+  - `ClaudeCode.rewind_files/2` - Rewind tracked files to a user message checkpoint. See [File Checkpointing Guide](docs/guides/file-checkpointing.md).
   - Returns `{:error, :not_supported}` when used with adapters that don't implement the control protocol
-- **Initialize handshake** - Adapter now performs a control protocol handshake before transitioning to `:ready` ([228c57f])
+- **Initialize handshake** - Adapter now performs a control protocol handshake before transitioning to `:ready`. See [Architecture](docs/reference/architecture.md). ([228c57f])
   - New `:initializing` adapter status between `:provisioning` and `:ready`
   - Server info from the handshake response is cached and available via `get_server_info/1`
   - Agents configuration is sent through the handshake (not as a CLI flag)
 
-- **`:sandbox` option** - Sandbox configuration for bash command isolation ([5f48858])
+- **`:sandbox` option** - Sandbox configuration for bash command isolation. See [Secure Deployment Guide](docs/guides/secure-deployment.md). ([5f48858])
   - Accepts a map that is merged into `--settings` for the CLI
   - Useful for restricting file system access and network in sandboxed environments
-- **`:enable_file_checkpointing` option** - Enable file checkpointing during sessions ([5f48858])
+- **`:enable_file_checkpointing` option** - Enable file checkpointing during sessions. See [File Checkpointing Guide](docs/guides/file-checkpointing.md). ([5f48858])
   - Sets the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable
   - Tracks file changes made during Claude Code sessions
-- **`:allow_dangerously_skip_permissions` option** - Safety guard required when using `permission_mode: :bypass_permissions` ([c9dc6fa])
+- **`:allow_dangerously_skip_permissions` option** - Safety guard required when using `permission_mode: :bypass_permissions`. See [Permissions Guide](docs/guides/permissions.md). ([c9dc6fa])
   - Matches TypeScript SDK's `allowDangerouslySkipPermissions` option
   - Recommended only for sandboxed environments with no internet access
-- **New CLI options** - Added support for additional CLI flags ([d6c1869])
+- **New CLI options** - Added support for additional CLI flags. See [Configuration Guide](docs/advanced/configuration.md). ([d6c1869])
   - `:file` - File resources (repeatable, format: file_id:path)
   - `:from_pr` - Resume session linked to PR
   - `:debug` - Debug mode with optional filter
   - `:debug_file` - Debug log file path
-- **`ClaudeCode.health/1`** - Check adapter health status ([383dda6])
+- **`ClaudeCode.health/1`** - Check adapter health status. See [Hosting Guide](docs/guides/hosting.md). ([383dda6])
   - Returns `:healthy`, `:degraded`, or `{:unhealthy, reason}`
   - CLI adapter reports `:healthy` when port is alive, `{:unhealthy, :not_connected}` before first query
-- **Adapter behaviour** - Swappable backend interface for running Claude Code in different execution environments ([1582644])
+- **Adapter behaviour** - Swappable backend interface for running Claude Code in different execution environments. See [Architecture](docs/reference/architecture.md). ([1582644])
   - `ClaudeCode.Adapter` behaviour with 4 callbacks: `start_link/2`, `send_query/4`, `health/1`, `stop/1`
   - Adapters specified as `{Module, config}` tuples: e.g., `adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"}`
   - Default adapter (`ClaudeCode.Adapter.CLI`) requires no configuration change
@@ -57,7 +57,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **`:cli_path` option now supports resolution modes** - Replaces the previous string-only option ([94b5143])
+- **`:cli_path` option now supports resolution modes** - Replaces the previous string-only option. See [Configuration Guide — CLI Configuration](docs/advanced/configuration.md#cli-configuration). ([94b5143])
   - `:bundled` (default) — Use `priv/bin/` binary, auto-install if missing, verify version matches
   - `:global` — Find existing system install via PATH, no auto-install
   - `"/path/to/claude"` — Use exact binary path (existing behavior)
