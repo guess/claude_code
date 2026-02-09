@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **SDK bundles its own CLI binary by default** - The SDK now downloads and manages its own Claude CLI in `priv/bin/`, auto-installing on first use. To use a globally installed CLI instead, set `cli_path: :global` or pass an explicit path like `cli_path: "/usr/local/bin/claude"`. The bundled version defaults to the latest CLI version tested with the SDK, configurable via `cli_version`. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
 
+```ex
+# config.exs
+config :claude_code, cli_path: :global
+```
+
 ### Added
 
 #### Control protocol
@@ -44,6 +49,7 @@ Swappable backends for different execution environments. See [Architecture](docs
 
 #### CLI management
 
+- **`mix claude_code.install`** - Install the bundled CLI binary, auto-updating on version mismatch. ([6e7c837])
 - **`mix claude_code.path`** - Print resolved binary path, e.g. `$(mix claude_code.path) /login` ([94b5143])
 - **`mix claude_code.uninstall`** - Remove the bundled CLI binary ([6e7c837])
 
@@ -51,7 +57,6 @@ Swappable backends for different execution environments. See [Architecture](docs
 
 - **`:cli_path` resolution modes** - `:bundled` (default), `:global`, or explicit path string. See [Configuration](docs/advanced/configuration.md#cli-configuration). ([94b5143])
 - **Async adapter provisioning** - `start_link/1` returns immediately; CLI setup runs in the background. Queries queue until ready. ([f1a0875], [91ee60d], [6a60eb4])
-- **`mix claude_code.install`** - Auto-updates on version mismatch. Removed `--if-missing` flag. ([6e7c837])
 - **Schema alignment with CLI v2.1.37** - New fields across message types ([482c603], [42b6c27])
   - `AssistantMessage.error` (`:authentication_failed`, `:billing_error`, `:rate_limit`, `:invalid_request`, `:server_error`, `:unknown`)
   - `UserMessage.tool_use_result`, `ResultMessage.stop_reason`, `AssistantMessage` usage `inference_geo`
