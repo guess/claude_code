@@ -114,12 +114,34 @@ defmodule ClaudeCode.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
-        # Guides
-        "docs/guides/getting-started.md",
-        "docs/guides/streaming.md",
+        # Getting Started
+        "docs/guides/overview.md",
+        "docs/guides/quickstart.md",
+        # Queries and Streaming
+        "docs/guides/streaming-vs-single-mode.md",
+        "docs/guides/streaming-output.md",
+        "docs/guides/stop-reasons.md",
+        "docs/guides/structured-outputs.md",
+        # Sessions and State
         "docs/guides/sessions.md",
+        "docs/guides/user-input.md",
+        "docs/guides/file-checkpointing.md",
+        # Permissions and Security
         "docs/guides/permissions.md",
-        # Testing
+        "docs/guides/secure-deployment.md",
+        # Customization
+        "docs/guides/modifying-system-prompts.md",
+        "docs/guides/hooks.md",
+        "docs/guides/cost-tracking.md",
+        # Tools and Extensions
+        "docs/guides/mcp.md",
+        "docs/guides/custom-tools.md",
+        "docs/guides/subagents.md",
+        "docs/guides/slash-commands.md",
+        "docs/guides/skills.md",
+        "docs/guides/plugins.md",
+        # Production
+        "docs/guides/hosting.md",
         "docs/guides/testing.md",
         # Integration
         "docs/integration/phoenix.md",
@@ -137,14 +159,39 @@ defmodule ClaudeCode.MixProject do
       groups_for_extras: [
         Introduction: [
           "README.md",
-          "docs/guides/getting-started.md"
+          "docs/guides/overview.md",
+          "docs/guides/quickstart.md"
         ],
-        Guides: [
-          "docs/guides/streaming.md",
+        "Queries & Streaming": [
+          "docs/guides/streaming-vs-single-mode.md",
+          "docs/guides/streaming-output.md",
+          "docs/guides/stop-reasons.md",
+          "docs/guides/structured-outputs.md"
+        ],
+        "Sessions & State": [
           "docs/guides/sessions.md",
-          "docs/guides/permissions.md"
+          "docs/guides/user-input.md",
+          "docs/guides/file-checkpointing.md"
         ],
-        Testing: [
+        "Permissions & Security": [
+          "docs/guides/permissions.md",
+          "docs/guides/secure-deployment.md"
+        ],
+        Customization: [
+          "docs/guides/modifying-system-prompts.md",
+          "docs/guides/hooks.md",
+          "docs/guides/cost-tracking.md"
+        ],
+        "Tools & Extensions": [
+          "docs/guides/mcp.md",
+          "docs/guides/custom-tools.md",
+          "docs/guides/subagents.md",
+          "docs/guides/slash-commands.md",
+          "docs/guides/skills.md",
+          "docs/guides/plugins.md"
+        ],
+        Production: [
+          "docs/guides/hosting.md",
           "docs/guides/testing.md"
         ],
         Integration: [

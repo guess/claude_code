@@ -1,103 +1,135 @@
-# Permissions Guide
+# Permissions
 
-ClaudeCode provides several options to control what actions Claude can perform during a session.
+Control what tools Claude can use and how permission prompts are handled.
 
 ## Permission Modes
 
-The `permission_mode` option controls how Claude handles permission requests:
+Set the permission mode when starting a session:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  permission_mode: :accept_edits
+  permission_mode: :default
 )
 ```
 
 | Mode | Description |
 |------|-------------|
-| `:default` | CLI prompts for permission on sensitive operations |
-| `:accept_edits` | Automatically accept file edit permissions |
-| `:bypass_permissions` | Skip all permission prompts (use with caution) |
-| `:delegate` | Delegate permission decisions to an MCP tool |
-| `:dont_ask` | Don't ask for permissions, fail operations that would require them |
-| `:plan` | Plan mode - analyze and plan without executing actions |
+| `:default` | Prompt the user for dangerous operations. |
+| `:accept_edits` | Auto-accept file edits, prompt for other dangerous operations. |
+| `:plan` | Read-only mode. Claude can only read files and think. |
+| `:bypass_permissions` | Skip all permission checks. **Requires** `allow_dangerously_skip_permissions: true`. |
+| `:dont_ask` | Reject operations that would require permission. |
+| `:delegate` | Delegate permission decisions to an MCP tool (see `permission_prompt_tool:`). |
 
-## Tool Restrictions
-
-Control which tools Claude can use with `allowed_tools` and `disallowed_tools`:
+### Bypass Permissions (Sandboxed Environments)
 
 ```elixir
-# Allow only specific tools
 {:ok, session} = ClaudeCode.start_link(
-  allowed_tools: ["View", "Edit"]
-)
-
-# Allow tools with patterns
-{:ok, session} = ClaudeCode.start_link(
-  allowed_tools: ["View", "Bash(git:*)"]  # Only git commands in Bash
-)
-
-# Disallow specific tools
-{:ok, session} = ClaudeCode.start_link(
-  disallowed_tools: ["Bash", "Edit"]
+  permission_mode: :bypass_permissions,
+  allow_dangerously_skip_permissions: true
 )
 ```
 
-### Common Tool Names
+> **Warning**: Only use `:bypass_permissions` in sandboxed environments with no internet access. This disables all safety checks.
 
-- `View` - Read files
-- `Edit` - Modify files
-- `Write` - Create new files
-- `Bash` - Execute shell commands
-- `Glob` - Search for files
-- `Grep` - Search file contents
+## Tool Control
 
-### Tool Patterns
+### Allowed Tools
 
-Use patterns to allow subsets of tool functionality:
-
-```elixir
-# Only allow git commands
-allowed_tools: ["Bash(git:*)"]
-
-# Only allow npm and git
-allowed_tools: ["Bash(git:*)", "Bash(npm:*)"]
-```
-
-## Directory Access
-
-Restrict which directories Claude can access:
+Restrict Claude to a specific set of tools:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  add_dir: ["/path/to/allowed/directory"]
+  allowed_tools: ["Read", "Glob", "Grep"]
 )
 ```
 
-## Security Considerations
-
-1. **Production environments**: Use `permission_mode: :accept_edits` or stricter
-2. **Untrusted input**: Always restrict tools when processing user-provided prompts
-3. **File access**: Use `add_dir` to limit directory access
-4. **Shell commands**: Use `allowed_tools: ["Bash(git:*)"]` patterns to restrict commands
-
-## Example: Restricted Code Review
+Supports glob patterns for granular control:
 
 ```elixir
-# Safe configuration for automated code review
+# Only allow git commands via Bash
+allowed_tools: ["Read", "Bash(git:*)"]
+
+# Allow all MCP tools from a specific server
+allowed_tools: ["Read", "mcp__my_server__*"]
+```
+
+### Disallowed Tools
+
+Block specific tools while allowing everything else:
+
+```elixir
 {:ok, session} = ClaudeCode.start_link(
-  permission_mode: :default,
-  allowed_tools: ["View", "Glob", "Grep"],  # Read-only tools
-  add_dir: ["/app/src"]  # Only access source directory
+  disallowed_tools: ["Bash", "Write"]
+)
+```
+
+### Available Tools Set
+
+Control the set of built-in tools available:
+
+```elixir
+# Use all default tools
+{:ok, session} = ClaudeCode.start_link(tools: :default)
+
+# Only specific tools from the built-in set
+{:ok, session} = ClaudeCode.start_link(tools: ["Bash", "Read", "Edit"])
+
+# Disable all built-in tools (useful with MCP-only setups)
+{:ok, session} = ClaudeCode.start_link(tools: [])
+```
+
+### Per-Query Overrides
+
+Tool restrictions can be changed per query:
+
+```elixir
+# Session allows Read and Write
+{:ok, session} = ClaudeCode.start_link(allowed_tools: ["Read", "Write"])
+
+# But this specific query is read-only
+session
+|> ClaudeCode.stream("Review this code", allowed_tools: ["Read"])
+|> ClaudeCode.Stream.text_content()
+|> Enum.join()
+```
+
+## Read-Only Agent Example
+
+Create an agent that can only read and analyze code:
+
+```elixir
+{:ok, reviewer} = ClaudeCode.start_link(
+  name: :code_reviewer,
+  system_prompt: "You are a code reviewer. Analyze code and suggest improvements.",
+  permission_mode: :plan,
+  allowed_tools: ["Read", "Glob", "Grep"]
 )
 
-review =
-  session
-  |> ClaudeCode.stream("Review the code for security issues")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
+:code_reviewer
+|> ClaudeCode.stream("Review the error handling in lib/my_app/api.ex")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+```
+
+## Permission Denials
+
+When tools are denied due to permission settings, the `ResultMessage` tracks them:
+
+```elixir
+session
+|> ClaudeCode.stream("Edit some files")
+|> Enum.each(fn
+  %ClaudeCode.Message.ResultMessage{permission_denials: denials} when denials != [] ->
+    Enum.each(denials, fn denial ->
+      IO.puts("Denied: #{denial.tool_name} (#{inspect(denial.tool_input)})")
+    end)
+
+  _ -> :ok
+end)
 ```
 
 ## Next Steps
 
-- [Configuration Guide](../advanced/configuration.md) - All configuration options
-- [Tool Callbacks](../integration/tool-callbacks.md) - Monitor tool usage
+- [Secure Deployment](secure-deployment.md) - Sandboxing and production security
+- [User Input](user-input.md) - Multi-turn interactions and interrupts

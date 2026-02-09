@@ -3,7 +3,7 @@
 Code patterns and recipes for common ClaudeCode use cases.
 
 For specific topics, see the dedicated guides:
-- [Streaming](../guides/streaming.md) - Real-time response streaming
+- [Streaming Output](../guides/streaming-output.md) - Real-time response streaming
 - [Sessions](../guides/sessions.md) - Multi-turn conversations
 - [Phoenix](../integration/phoenix.md) - LiveView and controller integration
 - [MCP](../integration/mcp.md) - Custom tools with Hermes MCP
@@ -328,6 +328,6 @@ end
 
 ## Next Steps
 
-- [Getting Started](../guides/getting-started.md) - Installation and setup
+- [Quickstart](../guides/quickstart.md) - Installation and setup
 - [Configuration](../advanced/configuration.md) - All options
 - [Troubleshooting](troubleshooting.md) - Common issues

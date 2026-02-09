@@ -228,6 +228,6 @@ end
 
 ## Next Steps
 
-- [Streaming Guide](../guides/streaming.md) - Detailed streaming patterns
+- [Streaming Output](../guides/streaming-output.md) - Detailed streaming patterns
 - [Supervision Guide](../advanced/supervision.md) - Production setup
 - [Tool Callbacks](tool-callbacks.md) - Monitor Claude's actions

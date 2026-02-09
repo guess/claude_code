@@ -1,6 +1,6 @@
-# Sessions Guide
+# Sessions
 
-Sessions are the core abstraction in ClaudeCode. A session maintains a persistent connection to Claude and preserves conversation context across queries.
+Sessions maintain a persistent connection to Claude and preserve conversation context across queries.
 
 ## Starting a Session
 
@@ -26,51 +26,25 @@ Sessions automatically maintain conversation context:
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
 
-# Claude remembers each exchange
 session |> ClaudeCode.stream("My name is Alice") |> Stream.run()
-session |> ClaudeCode.stream("I'm learning Elixir") |> Stream.run()
 
 response =
   session
-  |> ClaudeCode.stream("What's my name and what am I learning?")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
-# => "Your name is Alice and you're learning Elixir!"
+  |> ClaudeCode.stream("What's my name?")
+  |> ClaudeCode.Stream.final_text()
+# => "Your name is Alice!"
 
 ClaudeCode.stop(session)
 ```
 
-### Streaming Multi-Turn
-
-Use `stream/3` for real-time responses while maintaining context:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link()
-
-# First turn with streaming
-session
-|> ClaudeCode.stream("My name is Alice")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-
-# Second turn - context is preserved
-session
-|> ClaudeCode.stream("What is my name?")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-# => "Your name is Alice"
-
-ClaudeCode.stop(session)
-```
-
-## Resuming Sessions
+## Session IDs and Resuming
 
 Save and resume conversations across process restarts:
 
 ```elixir
 # Get the session ID after a conversation
 {:ok, session} = ClaudeCode.start_link()
-session |> ClaudeCode.stream("Remember: the secret code is 12345") |> Stream.run()
+session |> ClaudeCode.stream("Remember: the code is 12345") |> Stream.run()
 session_id = ClaudeCode.get_session_id(session)
 ClaudeCode.stop(session)
 
@@ -79,277 +53,163 @@ ClaudeCode.stop(session)
 
 response =
   session
-  |> ClaudeCode.stream("What was the secret code?")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
-# => "The secret code is 12345"
+  |> ClaudeCode.stream("What was the code?")
+  |> ClaudeCode.Stream.final_text()
+# => "The code is 12345"
 ```
 
 ## Continuing the Most Recent Conversation
 
-Use `:continue` to automatically resume the most recent conversation in the
-current working directory:
+Use `:continue` to automatically resume the last conversation in the current directory:
 
 ```elixir
-# Continue where you left off (no session ID needed)
 {:ok, session} = ClaudeCode.start_link(continue: true)
 
-response =
-  session
-  |> ClaudeCode.stream("What were we talking about?")
-  |> ClaudeCode.Stream.text_content()
-  |> Enum.join()
+session
+|> ClaudeCode.stream("What were we talking about?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
 ```
-
-This is convenient when you want to pick up the last conversation without
-tracking session IDs manually.
 
 ## Forking Sessions
 
-Create a branch from an existing conversation. The fork starts with the same
-context but gets a new session ID after the first query:
+Create a branch from an existing conversation:
 
 ```elixir
-# Original conversation
 {:ok, session} = ClaudeCode.start_link()
-
-session
-|> ClaudeCode.stream("My name is Mike")
-|> Stream.run()
-
+session |> ClaudeCode.stream("My name is Mike") |> Stream.run()
 session_id = ClaudeCode.get_session_id(session)
-# => "eec9f765-06fb-437f-8e48-c4fef8bc3096"
 
-# Fork the conversation - creates a new branch
+# Fork the conversation
 {:ok, forked} = ClaudeCode.start_link(
   resume: session_id,
   fork_session: true
 )
 
-# Forked session has same context initially
+# Fork has the same context but gets its own session ID
 forked
 |> ClaudeCode.stream("What is my name?")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
+|> ClaudeCode.Stream.final_text()
 # => "Your name is Mike."
 
-# After first query, fork gets its own session ID
-ClaudeCode.get_session_id(forked)
-# => "196dd288-4024-4a50-a3a1-0ae38000e76f"
-
-# Original session unchanged
-ClaudeCode.get_session_id(session)
-# => "eec9f765-06fb-437f-8e48-c4fef8bc3096"
-```
-
-This is useful for exploring alternative conversation paths without affecting
-the original session.
-
-## Reading Session History
-
-Claude Code stores conversation history in `~/.claude/projects/`. You can read
-past conversations without starting a new session:
-
-```elixir
-# Get conversation (user + assistant messages) by session ID
-{:ok, messages} = ClaudeCode.History.conversation("abc123-def456")
-
-Enum.each(messages, fn msg ->
-  IO.puts("#{msg.type}: #{msg}")
-end)
-```
-
-### Listing Projects and Sessions
-
-```elixir
-# List all projects with history
-{:ok, projects} = ClaudeCode.History.list_projects()
-# => ["/Users/me/project1", "/Users/me/project2"]
-
-# List sessions for a project
-{:ok, sessions} = ClaudeCode.History.list_sessions("/Users/me/project1")
-# => ["abc123-def456", "ghi789-jkl012"]
-```
-
-### Low-Level Access
-
-For metadata and non-conversation entries:
-
-```elixir
-# Read all entries (includes system events, summaries, file snapshots)
-{:ok, entries} = ClaudeCode.History.read_session("abc123-def456")
-
-# Get session summary if available
-{:ok, summary} = ClaudeCode.History.summary("abc123-def456")
-# => "User asked about Elixir GenServers..."
-```
-
-### Searching in a Specific Project
-
-```elixir
-# Faster lookup when you know the project
-{:ok, messages} = ClaudeCode.History.conversation(
-  "abc123-def456",
-  project_path: "/Users/me/my-project"
-)
+# After first query, fork has a new session ID
+ClaudeCode.get_session_id(forked) != session_id
+# => true
 ```
 
 ## Clearing Context
 
-Start fresh within the same session:
+Reset conversation history without stopping the session:
 
 ```elixir
 ClaudeCode.clear(session)
-# Conversation history is cleared, but session stays alive
+
+# Next query starts fresh
+session
+|> ClaudeCode.stream("Hello!")
+|> ClaudeCode.Stream.final_text()
+```
+
+## Reading Conversation History
+
+Access past conversations stored in `~/.claude/projects/`:
+
+```elixir
+# By session ID
+{:ok, messages} = ClaudeCode.conversation("abc123-def456")
+
+Enum.each(messages, fn
+  %ClaudeCode.Message.UserMessage{} = msg ->
+    IO.puts("User: #{inspect(msg.message.content)}")
+  %ClaudeCode.Message.AssistantMessage{message: %{content: blocks}} ->
+    text = Enum.map_join(blocks, "", fn
+      %ClaudeCode.Content.TextBlock{text: t} -> t
+      _ -> ""
+    end)
+    IO.puts("Assistant: #{text}")
+end)
+
+# From a running session
+{:ok, messages} = ClaudeCode.conversation(session)
 ```
 
 ## Named Sessions
 
-Use atoms for easy access across your application:
+Register sessions with atoms for easy access:
 
 ```elixir
 {:ok, _} = ClaudeCode.start_link(name: :assistant)
 
-# Use from anywhere
-:assistant |> ClaudeCode.stream("Hello!") |> Stream.run()
+# Use from anywhere in your app
+:assistant
+|> ClaudeCode.stream("Hello!")
+|> ClaudeCode.Stream.final_text()
 ```
-
-## Interrupting a Query
-
-Stop an in-progress query to save tokens when Claude is going in a direction you don't want:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link()
-
-# Start a streaming query in a task
-task = Task.async(fn ->
-  session
-  |> ClaudeCode.stream("Write a very long essay")
-  |> Enum.to_list()
-end)
-
-# Interrupt mid-stream
-:ok = ClaudeCode.interrupt(session)
-
-# Stream terminates cleanly (not an error — no need to rescue)
-messages = Task.await(task)
-```
-
-Interrupt returns `{:error, :no_active_request}` if no query is running.
-
-## Health Checking
-
-Check the health of the underlying adapter:
-
-```elixir
-ClaudeCode.health(session)
-# => :healthy | :degraded | {:unhealthy, reason}
-```
-
-The CLI adapter reports:
-- `:healthy` — port process is alive
-- `{:unhealthy, :not_connected}` — port hasn't connected yet
-- `{:unhealthy, :port_dead}` — port process has died
-
-## Session Lifecycle
-
-| Event | Behavior |
-|-------|----------|
-| `start_link/1` | Creates GenServer, adapter starts eagerly |
-| First query | Sent to already-running adapter |
-| Subsequent queries | Reuses existing adapter connection |
-| `interrupt/1` | Stops current query, stream ends cleanly |
-| `stop/1` | Terminates GenServer and adapter |
-| Process crash | GenServer exits, adapter terminates |
-
-## Checking Session State
-
-```elixir
-# Check if session is alive
-ClaudeCode.alive?(session)
-
-# Get current session ID (nil if no queries yet)
-session_id = ClaudeCode.get_session_id(session)
-
-# Check adapter health
-ClaudeCode.health(session)
-```
-
-## Wrapping in GenServer
-
-For production use, wrap sessions in your own GenServer:
-
-```elixir
-defmodule ChatAgent do
-  use GenServer
-
-  def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
-  end
-
-  def chat(message) do
-    GenServer.call(__MODULE__, {:chat, message}, 60_000)
-  end
-
-  def init(opts) do
-    {:ok, session} = ClaudeCode.start_link(opts)
-    {:ok, %{session: session}}
-  end
-
-  def handle_call({:chat, message}, _from, %{session: session} = state) do
-    result =
-      session
-      |> ClaudeCode.stream(message)
-      |> ClaudeCode.Stream.text_content()
-      |> Enum.join()
-
-    {:reply, {:ok, result}, state}
-  end
-
-  def terminate(_reason, %{session: session}) do
-    ClaudeCode.stop(session)
-  end
-end
-```
-
-## Session Options
-
-Common options for `start_link/1`:
-
-| Option | Type | Description |
-|--------|------|-------------|
-| `name` | atom | Register with a name for global access |
-| `resume` | string | Session ID to resume |
-| `continue` | boolean | Continue the most recent conversation in current directory |
-| `fork_session` | boolean | Create new session ID when resuming (use with `resume`) |
-| `model` | string | Claude model ("sonnet", "opus", etc.) |
-| `system_prompt` | string | Override system prompt |
-| `timeout` | integer | Query timeout in ms (default: 300_000) |
-| `allowed_tools` | list | Tools Claude can use |
-
-See [Configuration Guide](../advanced/configuration.md) for all options.
 
 ## Supervised Sessions
 
 For production fault tolerance, use `ClaudeCode.Supervisor`:
 
 ```elixir
-# In application.ex
 children = [
   {ClaudeCode.Supervisor, [
-    [name: :assistant],
-    [name: :code_reviewer, system_prompt: "You review code"]
+    [name: :assistant, system_prompt: "General helper"],
+    [name: :code_reviewer, system_prompt: "You review Elixir code"]
   ]}
 ]
+
+Supervisor.start_link(children, strategy: :one_for_one)
 
 # Sessions restart automatically on crashes
 :assistant |> ClaudeCode.stream("Hello!") |> Stream.run()
 ```
 
-See [Supervision Guide](../advanced/supervision.md) for full production patterns.
+### Dynamic Session Management
+
+```elixir
+{:ok, supervisor} = ClaudeCode.Supervisor.start_link([])
+
+# Add sessions on demand
+ClaudeCode.Supervisor.start_session(supervisor, [
+  name: :temp_session,
+  system_prompt: "Temporary helper"
+])
+
+# Remove when done
+ClaudeCode.Supervisor.terminate_session(supervisor, :temp_session)
+
+# List active sessions
+ClaudeCode.Supervisor.list_sessions(supervisor)
+```
+
+## Session Options Reference
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `name` | atom | Register with a name for global access |
+| `resume` | string | Session ID to resume |
+| `continue` | boolean | Continue the most recent conversation |
+| `fork_session` | boolean | Create new session ID when resuming (use with `resume`) |
+| `session_id` | string | Use a specific session ID (must be a valid UUID) |
+| `no_session_persistence` | boolean | Don't save sessions to disk |
+| `model` | string | Claude model ("sonnet", "opus", etc.) |
+| `system_prompt` | string | Override system prompt |
+| `timeout` | integer | Query timeout in ms (default: 300,000) |
+
+## Session Lifecycle
+
+| Event | Behavior |
+|-------|----------|
+| `start_link/1` | Creates GenServer, CLI adapter starts eagerly |
+| First query | Sent to the already-running CLI subprocess |
+| Subsequent queries | Reuses existing CLI connection with session context |
+| `interrupt/1` | Stops current query, stream ends cleanly |
+| `clear/1` | Resets session ID, next query starts fresh |
+| `stop/1` | Terminates GenServer and CLI subprocess |
+| Process crash | Supervisor restarts if supervised |
 
 ## Next Steps
 
-- [Streaming Guide](streaming.md) - Real-time response streaming
-- [Supervision Guide](../advanced/supervision.md) - Production patterns
-- [Configuration Guide](../advanced/configuration.md) - All options
+- [Streaming Output](streaming-output.md) - Real-time character-level streaming
+- [Hosting](hosting.md) - Production deployment with OTP
+- [File Checkpointing](file-checkpointing.md) - Track and revert file changes
