@@ -9,7 +9,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
     test "parses --version flag" do
       # Verify option parsing works correctly
       {opts, _args} =
-        OptionParser.parse!(["--version", "2.1.29"],
+        OptionParser.parse!(["--version", "2.0.0"],
           strict: [
             version: :string,
             if_missing: :boolean,
@@ -17,7 +17,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
           ]
         )
 
-      assert opts[:version] == "2.1.29"
+      assert opts[:version] == "2.0.0"
     end
 
     test "parses --if-missing flag" do

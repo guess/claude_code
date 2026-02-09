@@ -48,24 +48,29 @@ grep -E "@default_cli_version|cli_version:" lib/claude_code/installer.ex
 Run multiple test scenarios to capture different message types. Each scenario targets specific structs. The `-p` flag enables non-interactive (print) mode.
 
 **Scenario A: Basic query** (triggers: system_message/init, assistant_message, result_message/success, text_block)
+
 ```bash
 echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
 ```
 
 **Scenario B: Partial streaming** (triggers: partial_assistant_message/stream_event)
+
 ```bash
 echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 -p 2>/dev/null
 ```
 
 **Scenario C: Tool use** (triggers: tool_use_block, tool_result_block, user_message)
+
 ```bash
 echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
 ```
 
 **Scenario D: Error result - max turns** (triggers: result_message/error_max_turns)
+
 ```bash
 echo "Create a file called /tmp/test_sync.txt with hello world, then read it back" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
 ```
+
 This should hit the turn limit mid-task and produce a result with `"subtype": "error_max_turns"`.
 
 **Scenario E: Hook messages** (triggers: system_message/hook_started, system_message/hook_response)
@@ -73,12 +78,15 @@ This should hit the turn limit mid-task and produce a result with `"subtype": "e
 If the project has hooks configured (e.g., SessionStart hooks), Scenario A will already emit these. Check the output for `"subtype": "hook_started"` and `"subtype": "hook_response"` messages. If no hooks are configured, skip this - but still ensure the parser handles unknown system subtypes gracefully.
 
 **Scenario F: Extended thinking** (triggers: thinking_block)
+
 ```bash
 echo "Think step by step about why 17 is prime" | claude --output-format stream-json --verbose --max-turns 1 --model claude-opus-4-6 -p 2>/dev/null
 ```
+
 Note: Extended thinking availability depends on model and account configuration. If thinking blocks appear, compare against `thinking_block.ex`. The block has `type`, `thinking`, and `signature` fields.
 
 **Exceptional cases** (rely on SDK docs, not live testing):
+
 - `compact_boundary_message` - Only during context compaction in long conversations. Cannot be reliably triggered in a single query. Check the TypeScript SDK `SDKCompactBoundaryMessage` type for the expected shape: `type: "system"`, `subtype: "compact_boundary"`, `compact_metadata: {trigger, pre_tokens}`.
 - `result_message/error_max_budget_usd` - Requires a budget to be exceeded. Check SDK docs for the `error_max_budget_usd` and `error_max_structured_output_retries` subtypes.
 
@@ -188,6 +196,7 @@ gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_e
 The `subprocess_cli.py` file shows exactly which options are converted to CLI flags in `_build_command()`.
 
 The `types.py` file is the canonical reference for message schemas — since the Python SDK is also a CLI wrapper, its type definitions map directly to what our structs should support. Key types to compare:
+
 - `UserMessage` — has `tool_use_result: dict[str, Any] | None`
 - `AssistantMessage` — has `error: AssistantMessageError | None`
 - `SystemMessage` — generic `subtype: str` + `data: dict[str, Any]` (handles all subtypes)
@@ -212,18 +221,14 @@ For additional context, these doc pages can be checked via WebFetch:
 
 After confirming compatibility, update the bundled CLI version.
 
-Edit `lib/claude_code/installer.ex`:
+The **single source of truth** for the CLI version is `@default_cli_version` in `lib/claude_code/installer.ex`. This is the only place that needs updating:
 
 ```elixir
 # Update @default_cli_version to match installed CLI
 @default_cli_version "X.Y.Z"
 ```
 
-Also update the moduledoc comment showing the version:
-
-```elixir
-cli_version: "X.Y.Z",           # Version to install (default: SDK's tested version)
-```
+No other files should hardcode the CLI version. Docs, comments, and config examples use generic placeholders like `"x.y.z"`.
 
 ### Step 6: Verify and Test
 
@@ -267,12 +272,14 @@ Or check the changelog documentation if available at:
 When comparing `--help` output, ignore these flags that appear in CLI help but should NOT be added to `options.ex`:
 
 **SDK-internal flags** (always set by the SDK automatically):
+
 - `--verbose` - Already always enabled by SDK in `cli.ex` (required for streaming)
 - `--output-format` - Already always set to `stream-json` by SDK
 - `--input-format` - Already always set to `stream-json` by SDK
 - `--print` / `-p` - Internal print mode flag
 
 **CLI-only flags** (not in either official SDK, not relevant for programmatic use):
+
 - `--chrome` / `--no-chrome` - Browser integration for interactive terminal
 - `--ide` - IDE auto-connect for interactive terminal
 - `--replay-user-messages` - Internal streaming protocol flag (handled transparently by SDKs)

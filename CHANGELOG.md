@@ -68,7 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Binary resolution checks: explicit path → bundled → PATH → common locations
 - **`:cli_path` option** - Specify a custom path to the Claude CLI binary
 - **Configuration options** for CLI management:
-  - `cli_version` - Version to install (default: SDK's tested version "2.1.29")
+  - `cli_version` - Version to install (default: SDK's tested version)
   - `cli_path` - Explicit path to CLI binary (highest priority)
   - `cli_dir` - Directory for downloaded binary (default: priv/bin/)
 

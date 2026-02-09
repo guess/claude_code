@@ -10,7 +10,9 @@ defmodule ClaudeCode.InstallerTest do
       try do
         Application.delete_env(:claude_code, :cli_version)
         # Default is the SDK's tested CLI version, not "latest"
-        assert Installer.configured_version() == "2.1.37"
+        version = Installer.configured_version()
+        assert is_binary(version)
+        assert version =~ ~r/^\d+\.\d+\.\d+$/
       after
         if original do
           Application.put_env(:claude_code, :cli_version, original)

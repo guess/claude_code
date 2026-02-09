@@ -16,7 +16,7 @@ defmodule ClaudeCode.Installer do
 
       # config/config.exs
       config :claude_code,
-        cli_version: "2.1.29",           # Version to install (default: SDK's tested version)
+        cli_version: "x.y.z",            # Version to install (default: SDK's tested version)
         cli_path: nil,                    # Explicit path to binary
         cli_dir: nil                      # Directory for downloaded binary
 
@@ -60,19 +60,19 @@ defmodule ClaudeCode.Installer do
     "AppData/Local/Claude/claude.exe"
   ]
 
+  # Default CLI version - update this when releasing new SDK versions
+  @default_cli_version "2.1.37"
+
   @doc """
   Returns the configured CLI version to install.
 
-  Defaults to the SDK's tested version (currently "2.1.29") if not configured.
+  Defaults to the SDK's tested version if not configured.
 
   ## Examples
 
       iex> ClaudeCode.Installer.configured_version()
-      "2.1.37"
+      "#{@default_cli_version}"
   """
-  # Default CLI version - update this when releasing new SDK versions
-  @default_cli_version "2.1.37"
-
   @spec configured_version() :: String.t()
   def configured_version do
     Application.get_env(:claude_code, :cli_version, @default_cli_version)
@@ -192,11 +192,11 @@ defmodule ClaudeCode.Installer do
       iex> ClaudeCode.Installer.install!()
       :ok
 
-      iex> ClaudeCode.Installer.install!(version: "2.1.29")
+      iex> ClaudeCode.Installer.install!(version: "#{@default_cli_version}")
       :ok
 
       iex> ClaudeCode.Installer.install!(return_info: true)
-      {:ok, %{version: "2.1.29", path: "/path/to/claude", size_bytes: 1234567, source_path: "/orig/path"}}
+      {:ok, %{version: "#{@default_cli_version}", path: "/path/to/claude", size_bytes: 1234567, source_path: "/orig/path"}}
   """
   @spec install!(keyword()) :: :ok | {:ok, map()}
   def install!(opts \\ []) do
@@ -267,7 +267,7 @@ defmodule ClaudeCode.Installer do
   ## Examples
 
       iex> ClaudeCode.Installer.installed_version()
-      {:ok, "2.1.29"}
+      {:ok, "#{@default_cli_version}"}
 
       iex> ClaudeCode.Installer.installed_version()
       {:error, :not_found}
@@ -356,7 +356,7 @@ defmodule ClaudeCode.Installer do
   defp run_unix_install_script(version) do
     # Build the install command
     # The install script accepts: stable|latest|VERSION as first positional arg
-    # Example: curl -fsSL https://claude.ai/install.sh | bash -s -- 2.1.29
+    # Example: curl -fsSL https://claude.ai/install.sh | bash -s -- x.y.z
     script_cmd =
       if version == "latest" do
         "curl -fsSL #{@install_script_url} | bash"
@@ -442,7 +442,7 @@ defmodule ClaudeCode.Installer do
   end
 
   defp parse_installed_version(output) do
-    # Parse "Version: 2.1.29" from install script output
+    # Parse "Version: x.y.z" from install script output
     case Regex.run(~r/Version:\s*(\d+\.\d+\.\d+)/, output) do
       [_, version] ->
         version
@@ -483,7 +483,7 @@ defmodule ClaudeCode.Installer do
   end
 
   defp parse_version_output(output) do
-    # Expected format: "1.0.24 (Claude Code)" or "2.1.29 (Claude Code)"
+    # Expected format: "x.y.z (Claude Code)"
     # Extract the version number which is the first word
     output
     |> String.trim()

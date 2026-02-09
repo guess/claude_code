@@ -20,7 +20,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
       mix claude_code.install
 
       # Install a specific version
-      mix claude_code.install --version 2.1.29
+      mix claude_code.install --version x.y.z
 
       # Only install if not present (useful in CI)
       mix claude_code.install --if-missing
@@ -33,7 +33,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
   You can configure the default version in your config:
 
       config :claude_code,
-        cli_version: "2.1.29",     # Default version to install
+        cli_version: "x.y.z",      # Default version to install
         cli_dir: "/custom/path"    # Custom installation directory
 
   The CLI binary is installed to `priv/bin/` by default.

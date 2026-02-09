@@ -150,7 +150,7 @@ Key options:
 - `:cli_path` - Custom path to Claude CLI binary (highest priority)
 
 Application config options:
-- `:cli_version` - Version to install (default: SDK's tested version, currently "2.1.29")
+- `:cli_version` - Version to install (default: SDK's tested version)
 - `:cli_path` - Explicit path to CLI binary (highest priority)
 - `:cli_dir` - Directory for downloaded binary (default: priv/bin/)
 
