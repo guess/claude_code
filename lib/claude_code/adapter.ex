@@ -19,11 +19,11 @@ defmodule ClaudeCode.Adapter do
   Adapters are specified as `{Module, config}` tuples:
 
       {:ok, session} = ClaudeCode.start_link(
-        adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"},
+        adapter: {ClaudeCode.Adapter.Local, cli_path: "/usr/bin/claude"},
         model: "opus"
       )
 
-  The default adapter is `ClaudeCode.Adapter.CLI`.
+  The default adapter is `ClaudeCode.Adapter.Local`.
   """
 
   @type adapter_config :: keyword()

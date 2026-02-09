@@ -6,7 +6,7 @@ defmodule ClaudeCode.Session do
   request queuing, subscriber management, and session continuity.
 
   The session uses adapters for communication:
-  - `ClaudeCode.Adapter.CLI` (default) - Manages a CLI subprocess via Port
+  - `ClaudeCode.Adapter.Local` (default) - Manages a CLI subprocess via Port
   - `ClaudeCode.Adapter.Test` - Delivers mock messages for testing
   """
 
@@ -284,7 +284,7 @@ defmodule ClaudeCode.Session do
     case Keyword.get(opts, :adapter) do
       nil ->
         # Default: CLI adapter with session opts as adapter config
-        {ClaudeCode.Adapter.CLI, opts}
+        {ClaudeCode.Adapter.Local, opts}
 
       {ClaudeCode.Test, stub_name} ->
         # Test adapter — backward compatible

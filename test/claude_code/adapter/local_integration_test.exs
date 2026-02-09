@@ -1,10 +1,10 @@
-defmodule ClaudeCode.Adapter.CLIIntegrationTest do
+defmodule ClaudeCode.Adapter.LocalIntegrationTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message.ResultMessage
 
   # ============================================================================
-  # CLI Adapter interrupt/1 Tests
+  # Local Adapter interrupt/1 Tests
   # ============================================================================
 
   describe "interrupt/1 with no active query" do
@@ -64,7 +64,7 @@ defmodule ClaudeCode.Adapter.CLIIntegrationTest do
   end
 
   # ============================================================================
-  # CLI Adapter health/1 Tests
+  # Local Adapter health/1 Tests
   # ============================================================================
 
   describe "health/1 during provisioning" do

@@ -1,6 +1,6 @@
-defmodule ClaudeCode.Adapter.CLI do
+defmodule ClaudeCode.Adapter.Local do
   @moduledoc """
-  CLI adapter that manages a persistent Port connection to the Claude CLI.
+  Local CLI adapter that manages a persistent Port connection to the Claude CLI.
 
   This adapter:
   - Spawns the CLI subprocess with `--input-format stream-json`
@@ -244,7 +244,7 @@ defmodule ClaudeCode.Adapter.CLI do
     end
   end
 
-  # Synchronous spawn — resolves binary and opens port in the same process.
+  # Synchronous spawn -- resolves binary and opens port in the same process.
   # Used by ensure_connected for reconnection (binary already installed, fast path).
   defp spawn_cli(state) do
     case resolve_cli(state.session_options, state.api_key) do
