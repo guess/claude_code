@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **`:cli_path` defaults to `:bundled`** - The SDK now uses the bundled CLI binary in `priv/bin/` by default, auto-installing if missing. Previously it searched for a global install first and fell back to the bundled binary. To use a global install instead, set `cli_path: :global`, or pass an explicit path string like `cli_path: "/usr/local/bin/claude"`.
+
 ### Added
 
 - **`:sandbox` option** - Sandbox configuration for bash command isolation ([5f48858])
@@ -35,12 +39,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Adapters specified as `{Module, config}` tuples: e.g., `adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"}`
   - Default adapter (`ClaudeCode.Adapter.CLI`) requires no configuration change
   - Enables future Docker, Cloudflare, and other execution environment adapters
+- **`mix claude_code.path`** - Print the resolved CLI binary path for shell usage ([94b5143])
+  - Useful in shell commands: `$(mix claude_code.path) /login`
+- **`mix claude_code.uninstall`** - Remove the bundled CLI binary ([6e7c837])
+- **Adapter notification helpers** - Public API for adapter authors ([1704326])
+  - `Adapter.notify_message/2`, `notify_done/2`, `notify_error/2`, `notify_status/2`
+  - Consistent adapter-to-session communication protocol
 
 ### Changed
 
-- **Eager adapter provisioning** - Sessions now start the adapter process immediately in `init/1` instead of lazily on first query ([ecf8bee])
-  - Faster failure detection if the backend can't start
-  - `ClaudeCode.start_link/1` returns `{:error, reason}` if adapter provisioning fails
+- **`:cli_path` option now supports resolution modes** - Replaces the previous string-only option ([94b5143])
+  - `:bundled` (default) — Use `priv/bin/` binary, auto-install if missing, verify version matches
+  - `:global` — Find existing system install via PATH, no auto-install
+  - `"/path/to/claude"` — Use exact binary path (existing behavior)
+  - Can also be set via application config: `config :claude_code, cli_path: :global`
+- **Async adapter provisioning** - Sessions no longer block during CLI binary resolution ([f1a0875], [91ee60d])
+  - `start_link/1` returns immediately; CLI download/verification happens in the background
+  - Queries sent before the adapter is ready are automatically queued and processed once ready ([6a60eb4])
+  - If provisioning fails, queued queries receive `{:error, {:provisioning_failed, reason}}`
+- **`mix claude_code.install` improvements** - Auto-updates when installed version doesn't match configured version ([6e7c837])
+  - Removed `--if-missing` flag (default behavior is already idempotent)
 - **Schema alignment with CLI v2.1.37 and Python SDK** ([482c603], [42b6c27])
   - `SystemMessage` now handles all system subtypes (init, hook_started, hook_response, and future subtypes) — non-init subtypes store extra fields in the `data` map
   - `AssistantMessage` now includes `error` field matching Python SDK's `AssistantMessageError` type (`:authentication_failed`, `:billing_error`, `:rate_limit`, `:invalid_request`, `:server_error`, `:unknown`)
