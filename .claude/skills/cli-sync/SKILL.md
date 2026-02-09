@@ -43,26 +43,60 @@ grep -E "@default_cli_version|cli_version:" lib/claude_code/installer.ex
 
 ### Step 2: Schema Comparison
 
-Run multiple test scenarios to capture different message types:
+Run multiple test scenarios to capture different message types. Each scenario targets specific structs. The `-p` flag enables non-interactive (print) mode.
 
-**Scenario A: Basic query** (triggers: system, assistant, result, text_block)
+**Scenario A: Basic query** (triggers: system_message/init, assistant_message, result_message/success, text_block)
 ```bash
-echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 2>/dev/null
+echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
 ```
 
-**Scenario B: Partial streaming** (triggers: partial_assistant)
+**Scenario B: Partial streaming** (triggers: partial_assistant_message/stream_event)
 ```bash
-echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 2>/dev/null
+echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 -p 2>/dev/null
 ```
 
 **Scenario C: Tool use** (triggers: tool_use_block, tool_result_block, user_message)
 ```bash
-echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 2>/dev/null
+echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
 ```
 
+**Scenario D: Error result - max turns** (triggers: result_message/error_max_turns)
+```bash
+echo "Create a file called /tmp/test_sync.txt with hello world, then read it back" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
+```
+This should hit the turn limit mid-task and produce a result with `"subtype": "error_max_turns"`.
+
+**Scenario E: Hook messages** (triggers: system_message/hook_started, system_message/hook_response)
+
+If the project has hooks configured (e.g., SessionStart hooks), Scenario A will already emit these. Check the output for `"subtype": "hook_started"` and `"subtype": "hook_response"` messages. If no hooks are configured, skip this - but still ensure the parser handles unknown system subtypes gracefully.
+
+**Scenario F: Extended thinking** (triggers: thinking_block)
+```bash
+echo "Think step by step about why 17 is prime" | claude --output-format stream-json --verbose --max-turns 1 --model claude-opus-4-6 -p 2>/dev/null
+```
+Note: Extended thinking availability depends on model and account configuration. If thinking blocks appear, compare against `thinking_block.ex`. The block has `type`, `thinking`, and `signature` fields.
+
 **Exceptional cases** (rely on SDK docs, not live testing):
-- `compact_boundary_message` - Only during context compaction
-- `thinking_block` - Requires extended thinking configuration
+- `compact_boundary_message` - Only during context compaction in long conversations. Cannot be reliably triggered in a single query. Check the TypeScript SDK `SDKCompactBoundaryMessage` type for the expected shape: `type: "system"`, `subtype: "compact_boundary"`, `compact_metadata: {trigger, pre_tokens}`.
+- `result_message/error_max_budget_usd` - Requires a budget to be exceeded. Check SDK docs for the `error_max_budget_usd` and `error_max_structured_output_retries` subtypes.
+
+#### Coverage Checklist
+
+After running scenarios, verify you have captured output covering:
+
+- [ ] `SystemMessage` (subtype: init) - Scenario A
+- [ ] `SystemMessage` (subtype: hook_started) - Scenario E (if hooks configured)
+- [ ] `SystemMessage` (subtype: hook_response) - Scenario E (if hooks configured)
+- [ ] `AssistantMessage` with nested message.content - Scenario A
+- [ ] `UserMessage` with tool results - Scenario C
+- [ ] `ResultMessage` (subtype: success) - Scenario A
+- [ ] `ResultMessage` (subtype: error_max_turns) - Scenario D
+- [ ] `PartialAssistantMessage` (stream_event) - Scenario B
+- [ ] `TextBlock` - Scenario A
+- [ ] `ToolUseBlock` - Scenario C
+- [ ] `ToolResultBlock` - Scenario C
+- [ ] `ThinkingBlock` - Scenario F (if available)
+- [ ] `CompactBoundaryMessage` - SDK docs only
 
 Parse the output and compare against struct definitions in:
 
@@ -115,16 +149,18 @@ For each new flag found, suggest:
 
 ### Step 4: SDK Documentation Reference
 
-Check official SDK documentation for type definitions. Note that CLI output is the authoritative source - SDK docs may lag behind.
+Check official SDK documentation for type definitions and options. Note that CLI output is the authoritative source - SDK docs may lag behind.
 
-**TypeScript SDK**: https://platform.claude.com/docs/en/agent-sdk/typescript
-**Python SDK**: https://platform.claude.com/docs/en/agent-sdk/python
+**TypeScript SDK Options**: https://platform.claude.com/docs/en/agent-sdk/typescript#options
+**Python SDK Options**: https://platform.claude.com/docs/en/agent-sdk/python#claude-agent-options
+**Python SDK Source** (opts→CLI flag mapping): https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/transport/subprocess_cli.py
 
-WebFetch can retrieve these pages to check for:
+WebFetch these pages to compare options and types against our SDK. The Python source is especially useful since docs can lag behind - the `subprocess_cli.py` file shows exactly which options are converted to CLI flags.
 
-- Message type definitions
-- Content block schemas
-- New option descriptions
+- **Options comparison**: Check which CLI flags the official SDKs expose as options. If a CLI flag is NOT present in either official SDK, it likely doesn't make sense for our SDK (e.g., `--chrome`, `--ide`, `--replay-user-messages` are CLI-only).
+- **Message type definitions**: Compare `SDKMessage` union types against our message structs.
+- **Content block schemas**: Compare content block types against our content modules.
+- **New option descriptions**: Check for options added in official SDKs that we should also support.
 
 ### Step 5: Update Bundled Version
 
@@ -184,11 +220,18 @@ Or check the changelog documentation if available at:
 
 When comparing `--help` output, ignore these flags that appear in CLI help but should NOT be added to `options.ex`:
 
+**SDK-internal flags** (always set by the SDK automatically):
 - `--verbose` - Already always enabled by SDK in `cli.ex` (required for streaming)
 - `--output-format` - Already always set to `stream-json` by SDK
 - `--input-format` - Already always set to `stream-json` by SDK
+- `--print` / `-p` - Internal print mode flag
 
-These are SDK-internal flags, not user-configurable options.
+**CLI-only flags** (not in either official SDK, not relevant for programmatic use):
+- `--chrome` / `--no-chrome` - Browser integration for interactive terminal
+- `--ide` - IDE auto-connect for interactive terminal
+- `--replay-user-messages` - Internal streaming protocol flag (handled transparently by SDKs)
+
+Cross-reference against official SDK options pages to confirm whether new flags belong in the SDK.
 
 ### camelCase vs snake_case
 
