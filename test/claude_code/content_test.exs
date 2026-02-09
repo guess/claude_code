@@ -1,6 +1,7 @@
 defmodule ClaudeCode.ContentTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Content
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ThinkingBlock
@@ -11,7 +12,7 @@ defmodule ClaudeCode.ContentTest do
     test "parses text content blocks" do
       data = %{"type" => "text", "text" => "Hello!"}
 
-      assert {:ok, %TextBlock{text: "Hello!"}} = Content.parse(data)
+      assert {:ok, %TextBlock{text: "Hello!"}} = Parser.parse_content(data)
     end
 
     test "parses thinking content blocks" do
@@ -22,19 +23,19 @@ defmodule ClaudeCode.ContentTest do
       }
 
       assert {:ok, %ThinkingBlock{thinking: "Let me reason through this...", signature: "sig_abc123"}} =
-               Content.parse(data)
+               Parser.parse_content(data)
     end
 
     test "returns error for thinking block missing signature" do
       data = %{"type" => "thinking", "thinking" => "Some reasoning"}
 
-      assert {:error, {:missing_fields, [:signature]}} = Content.parse(data)
+      assert {:error, {:missing_fields, [:signature]}} = Parser.parse_content(data)
     end
 
     test "returns error for thinking block missing thinking field" do
       data = %{"type" => "thinking", "signature" => "sig_123"}
 
-      assert {:error, {:missing_fields, [:thinking]}} = Content.parse(data)
+      assert {:error, {:missing_fields, [:thinking]}} = Parser.parse_content(data)
     end
 
     test "parses tool use content blocks" do
@@ -45,7 +46,7 @@ defmodule ClaudeCode.ContentTest do
         "input" => %{"file" => "test.txt"}
       }
 
-      assert {:ok, %ToolUseBlock{id: "toolu_123", name: "Read"}} = Content.parse(data)
+      assert {:ok, %ToolUseBlock{id: "toolu_123", name: "Read"}} = Parser.parse_content(data)
     end
 
     test "parses tool result content blocks" do
@@ -55,19 +56,19 @@ defmodule ClaudeCode.ContentTest do
         "content" => "Success"
       }
 
-      assert {:ok, %ToolResultBlock{tool_use_id: "toolu_123"}} = Content.parse(data)
+      assert {:ok, %ToolResultBlock{tool_use_id: "toolu_123"}} = Parser.parse_content(data)
     end
 
     test "returns error for unknown content type" do
       data = %{"type" => "unknown", "data" => "something"}
 
-      assert {:error, {:unknown_content_type, "unknown"}} = Content.parse(data)
+      assert {:error, {:unknown_content_type, "unknown"}} = Parser.parse_content(data)
     end
 
     test "returns error for missing type field" do
       data = %{"text" => "Hello"}
 
-      assert {:error, :missing_type} = Content.parse(data)
+      assert {:error, :missing_type} = Parser.parse_content(data)
     end
   end
 
@@ -79,7 +80,7 @@ defmodule ClaudeCode.ContentTest do
         %{"type" => "text", "text" => "Done!"}
       ]
 
-      assert {:ok, [text1, tool_use, text2]} = Content.parse_all(data)
+      assert {:ok, [text1, tool_use, text2]} = Parser.parse_all_contents(data)
       assert %TextBlock{text: "I'll help you."} = text1
       assert %ToolUseBlock{name: "Read"} = tool_use
       assert %TextBlock{text: "Done!"} = text2
@@ -92,11 +93,11 @@ defmodule ClaudeCode.ContentTest do
         %{"type" => "text", "text" => "More"}
       ]
 
-      assert {:error, {:parse_error, 1, _}} = Content.parse_all(data)
+      assert {:error, {:parse_error, 1, _}} = Parser.parse_all_contents(data)
     end
 
     test "handles empty list" do
-      assert {:ok, []} = Content.parse_all([])
+      assert {:ok, []} = Parser.parse_all_contents([])
     end
   end
 

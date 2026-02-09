@@ -6,9 +6,7 @@ defmodule ClaudeCode.CLI.Command do
   - Converting Elixir options to CLI flags (`to_cli_args/1`)
   - Assembling the full argument list for a CLI invocation (`build_args/3`)
 
-  It is used by both `ClaudeCode.CLI` (for local subprocess management) and
-  `ClaudeCode.Options` (which delegates `to_cli_args/1` here for backward
-  compatibility).
+  It is used by `ClaudeCode.Adapter.Local` for local subprocess management.
   """
 
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]

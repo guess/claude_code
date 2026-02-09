@@ -244,7 +244,6 @@ defmodule ClaudeCode.MixProject do
         Internal: [
           ClaudeCode.Adapter,
           ClaudeCode.Adapter.Local,
-          ClaudeCode.CLI,
           ClaudeCode.CLI.Input
         ]
       ]

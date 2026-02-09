@@ -6,6 +6,8 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   either successful results or error messages.
   """
 
+  alias ClaudeCode.CLI.Parser
+
   @enforce_keys [:type, :tool_use_id, :content, :is_error]
   defstruct [:type, :tool_use_id, :content, :is_error]
 
@@ -64,7 +66,7 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   # Private helpers
 
   defp parse_content(content) when is_binary(content), do: {:ok, content}
-  defp parse_content(content) when is_list(content), do: ClaudeCode.Content.parse_all(content)
+  defp parse_content(content) when is_list(content), do: Parser.parse_all_contents(content)
   defp parse_content(_), do: {:error, :invalid_content}
 end
 

@@ -462,21 +462,6 @@ defmodule ClaudeCode.Options do
   end
 
   @doc """
-  Converts Elixir options to CLI arguments.
-
-  Ignores internal options like :api_key, :name, and :timeout that are not CLI flags.
-
-  ## Examples
-
-      iex> ClaudeCode.Options.to_cli_args([system_prompt: "You are helpful"])
-      ["--system-prompt", "You are helpful"]
-
-      iex> ClaudeCode.Options.to_cli_args([allowed_tools: ["View", "Bash(git:*)"]])
-      ["--allowedTools", "View,Bash(git:*)"]
-  """
-  defdelegate to_cli_args(opts), to: ClaudeCode.CLI.Command
-
-  @doc """
   Merges session and query options with query taking precedence.
 
   ## Examples

@@ -27,9 +27,11 @@ defmodule Mix.Tasks.ClaudeCode.Path do
 
   use Mix.Task
 
+  alias ClaudeCode.Adapter.Local.Resolver
+
   @impl Mix.Task
   def run(_args) do
-    case ClaudeCode.CLI.find_binary() do
+    case Resolver.find_binary() do
       {:ok, path} ->
         Mix.shell().info(path)
 

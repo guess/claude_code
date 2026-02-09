@@ -19,7 +19,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
   ```
   """
 
-  alias ClaudeCode.Content
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Types
 
   @enforce_keys [
@@ -85,7 +85,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
   def assistant_message?(_), do: false
 
   defp parse_message(message_data, parent_json) do
-    case Content.parse_all(message_data["content"] || []) do
+    case Parser.parse_all_contents(message_data["content"] || []) do
       {:ok, content} ->
         message_struct = %__MODULE__{
           type: :assistant,

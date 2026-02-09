@@ -18,7 +18,7 @@ defmodule ClaudeCode.Message.UserMessage do
   ```
   """
 
-  alias ClaudeCode.Content
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Types
 
   @enforce_keys [:type, :message, :session_id]
@@ -94,7 +94,7 @@ defmodule ClaudeCode.Message.UserMessage do
   end
 
   defp parse_content(content) when is_binary(content), do: {:ok, content}
-  defp parse_content(content) when is_list(content), do: Content.parse_all(content)
+  defp parse_content(content) when is_list(content), do: Parser.parse_all_contents(content)
   defp parse_content(_), do: {:ok, []}
 end
 

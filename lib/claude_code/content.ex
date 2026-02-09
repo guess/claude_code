@@ -6,38 +6,12 @@ defmodule ClaudeCode.Content do
   This module provides functions to parse and work with any content type.
   """
 
-  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ThinkingBlock
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
 
   @type t :: TextBlock.t() | ThinkingBlock.t() | ToolUseBlock.t() | ToolResultBlock.t()
-
-  @doc """
-  Parses a content block from JSON data based on its type.
-
-  Delegates to `ClaudeCode.CLI.Parser.parse_content/1`.
-
-  ## Examples
-
-      iex> Content.parse(%{"type" => "text", "text" => "Hello"})
-      {:ok, %TextBlock{type: :text, text: "Hello"}}
-
-      iex> Content.parse(%{"type" => "unknown"})
-      {:error, {:unknown_content_type, "unknown"}}
-  """
-  defdelegate parse(data), to: Parser, as: :parse_content
-
-  @doc """
-  Parses a list of content blocks.
-
-  Delegates to `ClaudeCode.CLI.Parser.parse_all_contents/1`.
-
-  Returns {:ok, contents} if all blocks parse successfully,
-  or {:error, {:parse_error, index, error}} for the first failure.
-  """
-  defdelegate parse_all(blocks), to: Parser, as: :parse_all_contents
 
   @doc """
   Checks if a value is any type of content block.

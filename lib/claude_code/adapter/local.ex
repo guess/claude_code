@@ -14,7 +14,10 @@ defmodule ClaudeCode.Adapter.Local do
   use GenServer
 
   alias ClaudeCode.Adapter
-  alias ClaudeCode.CLI
+  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Local.Resolver
+  alias ClaudeCode.CLI.Command
+  alias ClaudeCode.CLI.Input
   alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.ResultMessage
 
@@ -103,7 +106,7 @@ defmodule ClaudeCode.Adapter.Local do
 
     case ensure_connected(state) do
       {:ok, connected_state} ->
-        message = CLI.Input.user_message(prompt, session_id)
+        message = Input.user_message(prompt, session_id)
         Port.command(connected_state.port, message <> "\n")
         {:reply, :ok, %{connected_state | current_request: request_id}}
 
@@ -231,16 +234,20 @@ defmodule ClaudeCode.Adapter.Local do
 
   # Resolves the CLI binary and builds the command. This may trigger auto-install
   # which can take seconds, so call from a Task during initial provisioning.
-  defp resolve_cli(session_options, api_key) do
+  defp resolve_cli(session_options, _api_key) do
     streaming_opts = Keyword.put(session_options, :input_format, :stream_json)
     resume_session_id = Keyword.get(session_options, :resume)
 
-    case CLI.build_command("", api_key, streaming_opts, resume_session_id) do
-      {:ok, {executable, args}} ->
+    case Resolver.find_binary(streaming_opts) do
+      {:ok, executable} ->
+        args = Command.build_args("", streaming_opts, resume_session_id)
         {:ok, {executable, List.delete_at(args, -1), streaming_opts}}
 
+      {:error, :not_found} ->
+        {:error, {:cli_not_found, Installer.cli_not_found_message()}}
+
       {:error, reason} ->
-        {:error, reason}
+        {:error, {:cli_not_found, "CLI resolution failed: #{inspect(reason)}"}}
     end
   end
 

@@ -22,7 +22,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## CLI Resolution Modes
 
-  The `:cli_path` option controls how the CLI binary is found (see `ClaudeCode.CLI.find_binary/1`):
+  The `:cli_path` option controls how the CLI binary is found (see `ClaudeCode.Adapter.Local.Resolver.find_binary/1`):
 
   - `:bundled` (default) — Uses priv/bin/ binary. Auto-installs if missing.
     Verifies version matches the SDK's pinned version and re-installs on mismatch.

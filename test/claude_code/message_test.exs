@@ -1,6 +1,7 @@
 defmodule ClaudeCode.MessageTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
@@ -25,7 +26,7 @@ defmodule ClaudeCode.MessageTest do
         "outputStyle" => "default"
       }
 
-      assert {:ok, %SystemMessage{}} = Message.parse(data)
+      assert {:ok, %SystemMessage{}} = Parser.parse_message(data)
     end
 
     test "parses system compact_boundary messages" do
@@ -40,7 +41,7 @@ defmodule ClaudeCode.MessageTest do
         }
       }
 
-      assert {:ok, %CompactBoundaryMessage{subtype: :compact_boundary}} = Message.parse(data)
+      assert {:ok, %CompactBoundaryMessage{subtype: :compact_boundary}} = Parser.parse_message(data)
     end
 
     test "parses assistant messages with uuid" do
@@ -67,7 +68,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %AssistantMessage{uuid: "msg-uuid-123"}} = Message.parse(data)
+      assert {:ok, %AssistantMessage{uuid: "msg-uuid-123"}} = Parser.parse_message(data)
     end
 
     test "parses assistant messages without uuid" do
@@ -93,7 +94,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %AssistantMessage{uuid: nil}} = Message.parse(data)
+      assert {:ok, %AssistantMessage{uuid: nil}} = Parser.parse_message(data)
     end
 
     test "parses user messages with uuid and parent_tool_use_id" do
@@ -115,7 +116,7 @@ defmodule ClaudeCode.MessageTest do
       }
 
       assert {:ok, %UserMessage{uuid: "user-uuid-456", parent_tool_use_id: "tool-parent-123"}} =
-               Message.parse(data)
+               Parser.parse_message(data)
     end
 
     test "parses user messages with tool_use_result metadata" do
@@ -146,7 +147,7 @@ defmodule ClaudeCode.MessageTest do
         }
       }
 
-      assert {:ok, %UserMessage{tool_use_result: tool_use_result}} = Message.parse(data)
+      assert {:ok, %UserMessage{tool_use_result: tool_use_result}} = Parser.parse_message(data)
       assert tool_use_result["type"] == "text"
       assert tool_use_result["file"]["filePath"] == "/path/to/file.ex"
     end
@@ -162,7 +163,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %UserMessage{tool_use_result: nil}} = Message.parse(data)
+      assert {:ok, %UserMessage{tool_use_result: nil}} = Parser.parse_message(data)
     end
 
     test "parses assistant messages with error field" do
@@ -187,7 +188,7 @@ defmodule ClaudeCode.MessageTest do
         "error" => "rate_limit"
       }
 
-      assert {:ok, %AssistantMessage{error: :rate_limit}} = Message.parse(data)
+      assert {:ok, %AssistantMessage{error: :rate_limit}} = Parser.parse_message(data)
     end
 
     test "parses assistant messages without error field" do
@@ -211,7 +212,7 @@ defmodule ClaudeCode.MessageTest do
         "session_id" => "123"
       }
 
-      assert {:ok, %AssistantMessage{error: nil}} = Message.parse(data)
+      assert {:ok, %AssistantMessage{error: nil}} = Parser.parse_message(data)
     end
 
     test "parses result messages with new fields" do
@@ -257,7 +258,7 @@ defmodule ClaudeCode.MessageTest do
                 model_usage: model_usage,
                 permission_denials: denials,
                 structured_output: output
-              }} = Message.parse(data)
+              }} = Parser.parse_message(data)
 
       assert model_usage != nil
       assert denials != nil
@@ -287,17 +288,17 @@ defmodule ClaudeCode.MessageTest do
       }
 
       assert {:ok, %ResultMessage{subtype: :error_max_turns, errors: ["Error 1", "Error 2"]}} =
-               Message.parse(data)
+               Parser.parse_message(data)
     end
 
     test "returns error for unknown message type" do
       data = %{"type" => "unknown"}
-      assert {:error, {:unknown_message_type, "unknown"}} = Message.parse(data)
+      assert {:error, {:unknown_message_type, "unknown"}} = Parser.parse_message(data)
     end
 
     test "returns error for missing type" do
       data = %{"subtype" => "init"}
-      assert {:error, :missing_type} = Message.parse(data)
+      assert {:error, :missing_type} = Parser.parse_message(data)
     end
 
     test "parses hook_started system messages" do
@@ -318,7 +319,7 @@ defmodule ClaudeCode.MessageTest do
                 session_id: "session-1",
                 uuid: "event-uuid-1",
                 data: data_map
-              }} = Message.parse(data)
+              }} = Parser.parse_message(data)
 
       assert data_map.hook_id == "abc-123"
       assert data_map.hook_name == "SessionStart:startup"
@@ -345,7 +346,7 @@ defmodule ClaudeCode.MessageTest do
               %SystemMessage{
                 subtype: :hook_response,
                 data: data_map
-              }} = Message.parse(data)
+              }} = Parser.parse_message(data)
 
       assert data_map.hook_id == "abc-123"
       assert data_map.exit_code == 0
@@ -361,12 +362,12 @@ defmodule ClaudeCode.MessageTest do
         "custom_field" => "custom_value"
       }
 
-      assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Message.parse(data)
+      assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Parser.parse_message(data)
     end
 
     test "returns error for system message without subtype" do
       data = %{"type" => "system"}
-      assert {:error, :invalid_system_subtype} = Message.parse(data)
+      assert {:error, :invalid_system_subtype} = Parser.parse_message(data)
     end
   end
 
@@ -438,7 +439,7 @@ defmodule ClaudeCode.MessageTest do
       ]
 
       assert {:ok, [%SystemMessage{}, %AssistantMessage{}, %CompactBoundaryMessage{}, %ResultMessage{}]} =
-               Message.parse_all(data)
+               Parser.parse_all_messages(data)
     end
 
     test "returns error if any message fails to parse" do
@@ -448,11 +449,11 @@ defmodule ClaudeCode.MessageTest do
         %{"type" => "assistant"}
       ]
 
-      assert {:error, {:parse_error, 0, _}} = Message.parse_all(data)
+      assert {:error, {:parse_error, 0, _}} = Parser.parse_all_messages(data)
     end
 
     test "handles empty list" do
-      assert {:ok, []} = Message.parse_all([])
+      assert {:ok, []} = Parser.parse_all_messages([])
     end
   end
 
@@ -465,7 +466,7 @@ defmodule ClaudeCode.MessageTest do
       {"type":"result","subtype":"success","uuid":"result-uuid","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Hello","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
 
-      assert {:ok, messages} = Message.parse_stream(stream)
+      assert {:ok, messages} = Parser.parse_stream(stream)
       assert length(messages) == 4
       assert [%SystemMessage{}, %AssistantMessage{}, %CompactBoundaryMessage{}, %ResultMessage{}] = messages
     end
@@ -477,7 +478,7 @@ defmodule ClaudeCode.MessageTest do
       {"type":"result","subtype":"success","uuid":"result-uuid","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Done","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
 
-      assert {:ok, messages} = Message.parse_stream(stream)
+      assert {:ok, messages} = Parser.parse_stream(stream)
       assert length(messages) == 2
     end
 
@@ -487,7 +488,7 @@ defmodule ClaudeCode.MessageTest do
       {invalid json}
       """
 
-      assert {:error, {:json_decode_error, 1, _}} = Message.parse_stream(stream)
+      assert {:error, {:json_decode_error, 1, _}} = Parser.parse_stream(stream)
     end
   end
 
@@ -585,7 +586,7 @@ defmodule ClaudeCode.MessageTest do
       fixture_path = "test/fixtures/cli_messages/simple_hello.jsonl"
       content = File.read!(fixture_path)
 
-      assert {:ok, messages} = Message.parse_stream(content)
+      assert {:ok, messages} = Parser.parse_stream(content)
       assert length(messages) == 3
 
       assert [%SystemMessage{}, %AssistantMessage{}, %ResultMessage{}] = messages

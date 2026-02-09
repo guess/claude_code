@@ -1,7 +1,7 @@
 defmodule ClaudeCode.Message.PartialAssistantMessageTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Message
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.PartialAssistantMessage
 
   describe "new/1" do
@@ -184,7 +184,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
     end
   end
 
-  describe "Message.parse/1 integration" do
+  describe "Parser.parse_message/1 integration" do
     test "parses stream_event type" do
       json = %{
         "type" => "stream_event",
@@ -196,7 +196,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
         "session_id" => "test-123"
       }
 
-      assert {:ok, %PartialAssistantMessage{}} = Message.parse(json)
+      assert {:ok, %PartialAssistantMessage{}} = Parser.parse_message(json)
     end
   end
 

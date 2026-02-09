@@ -7,7 +7,6 @@ defmodule ClaudeCode.Message do
   This module provides functions to parse and work with any message type.
   """
 
-  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
@@ -22,40 +21,6 @@ defmodule ClaudeCode.Message do
           | UserMessage.t()
           | ResultMessage.t()
           | PartialAssistantMessage.t()
-
-  @doc """
-  Parses a message from JSON data based on its type.
-
-  Delegates to `ClaudeCode.CLI.Parser.parse_message/1`.
-
-  ## Examples
-
-      iex> Message.parse(%{"type" => "system", ...})
-      {:ok, %SystemMessage{...}}
-
-      iex> Message.parse(%{"type" => "unknown"})
-      {:error, {:unknown_message_type, "unknown"}}
-  """
-  defdelegate parse(data), to: Parser, as: :parse_message
-
-  @doc """
-  Parses a list of messages.
-
-  Delegates to `ClaudeCode.CLI.Parser.parse_all_messages/1`.
-
-  Returns {:ok, messages} if all messages parse successfully,
-  or {:error, {:parse_error, index, error}} for the first failure.
-  """
-  defdelegate parse_all(messages), to: Parser, as: :parse_all_messages
-
-  @doc """
-  Parses a newline-delimited JSON stream from the CLI.
-
-  Delegates to `ClaudeCode.CLI.Parser.parse_stream/1`.
-
-  This is the format output by the CLI with --output-format stream-json.
-  """
-  defdelegate parse_stream(stream), to: Parser
 
   @doc """
   Checks if a value is any type of message.
