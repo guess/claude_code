@@ -131,36 +131,35 @@ mix compile
 
 **Error message:**
 ```
-{:error, {:cli_not_found, "claude command not found in PATH"}}
+{:error, {:cli_not_found, "Claude CLI not found."}}
 ```
 
 **Solutions:**
 
-1. **Install the Claude CLI:**
-   - Visit [claude.ai/code](https://claude.ai/code)
-   - Follow installation instructions for your platform
-
-2. **Verify installation:**
+1. **Use the default bundled mode** (auto-installs to priv/bin/):
    ```bash
-   which claude
-   claude --version
+   mix claude_code.install
+   ```
+   With the default `cli_path: :bundled`, the SDK auto-installs the CLI on first use.
+   If auto-install fails (e.g., no network), pre-install with the mix task.
+
+2. **Use a global installation:**
+   ```bash
+   # Install the CLI system-wide
+   curl -fsSL https://claude.ai/install.sh | bash
+
+   # Then configure the SDK to use it
+   config :claude_code, cli_path: :global
    ```
 
-3. **Add to PATH if needed:**
-   ```bash
-   # For bash/zsh
-   export PATH="$PATH:/path/to/claude/bin"
-
-   # Or create a symlink
-   ln -s /path/to/claude/bin/claude /usr/local/bin/claude
+3. **Use an explicit path:**
+   ```elixir
+   config :claude_code, cli_path: "/path/to/claude"
    ```
 
-4. **Check PATH configuration:**
+4. **Check the resolved path:**
    ```bash
-   # Verify claude is in your PATH
-   echo $PATH
-   # Add claude location to PATH if needed
-   export PATH="$PATH:/path/to/claude/directory"
+   mix claude_code.path
    ```
 
 ### CLI Version Compatibility

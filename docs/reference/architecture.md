@@ -309,15 +309,16 @@ Messages from the CLI look like:
 
 ### Finding the CLI
 
-The SDK will search for `claude` in:
-1. System PATH (via `System.find_executable/1`)
-2. Common npm global locations:
-   - `~/.npm-global/bin/claude`
-   - `/usr/local/bin/claude`
-   - `~/.local/bin/claude`
-3. Local node_modules:
-   - `./node_modules/.bin/claude`
-   - `~/node_modules/.bin/claude`
+The `:cli_path` option controls how the CLI binary is resolved:
+
+- **`:bundled`** (default) — Uses `priv/bin/claude`. Auto-installs if missing. Verifies the installed version matches the SDK's pinned version and re-installs on mismatch.
+- **`:global`** — Finds an existing system install via `System.find_executable/1` or common locations (`~/.npm-global/bin/claude`, `~/.claude/local/claude`, etc.). No auto-install.
+- **`"/path/to/claude"`** — Uses that exact binary path.
+
+Configure via application config or session option:
+```elixir
+config :claude_code, cli_path: :global
+```
 
 ### Environment Variables
 

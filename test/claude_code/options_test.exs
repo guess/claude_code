@@ -57,6 +57,25 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:include_partial_messages] == false
     end
 
+    test "validates cli_path with :bundled atom" do
+      assert {:ok, validated} = Options.validate_session_options(cli_path: :bundled)
+      assert validated[:cli_path] == :bundled
+    end
+
+    test "validates cli_path with :global atom" do
+      assert {:ok, validated} = Options.validate_session_options(cli_path: :global)
+      assert validated[:cli_path] == :global
+    end
+
+    test "validates cli_path with string path" do
+      assert {:ok, validated} = Options.validate_session_options(cli_path: "/usr/bin/claude")
+      assert validated[:cli_path] == "/usr/bin/claude"
+    end
+
+    test "rejects invalid cli_path atom" do
+      assert {:error, _} = Options.validate_session_options(cli_path: :invalid)
+    end
+
     test "validates strict_mcp_config option" do
       opts = [strict_mcp_config: true]
       assert {:ok, validated} = Options.validate_session_options(opts)

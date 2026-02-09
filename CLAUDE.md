@@ -147,13 +147,13 @@ Key options:
 - `:mcp_config` / `:permission_prompt_tool` - MCP integration
 - `:add_dir` - Additional accessible directories
 - `:include_partial_messages` - Enable character-level streaming
-- `:cli_path` - Custom path to Claude CLI binary (highest priority)
+- `:cli_path` - CLI binary resolution mode: `:bundled` (default), `:global`, or explicit path string
 - `:sandbox` - Sandbox settings for bash command isolation (map, merged into --settings)
 - `:enable_file_checkpointing` - Enable file checkpointing (boolean, set via env var)
 
 Application config options:
 - `:cli_version` - Version to install (default: SDK's tested version)
-- `:cli_path` - Explicit path to CLI binary (highest priority)
+- `:cli_path` - CLI binary resolution mode: `:bundled` (default), `:global`, or explicit path
 - `:cli_dir` - Directory for downloaded binary (default: priv/bin/)
 
 ### Message Type Structure

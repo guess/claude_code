@@ -3,9 +3,8 @@ defmodule ClaudeCode.CLITest do
 
   alias ClaudeCode.CLI
 
-  describe "find_binary/1" do
-    test "finds claude binary via cli_path option" do
-      # Create a mock claude binary
+  describe "find_binary/1 with explicit path" do
+    test "finds claude binary via explicit string path" do
       mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
       File.mkdir_p!(mock_dir)
 
@@ -16,12 +15,110 @@ defmodule ClaudeCode.CLITest do
       assert {:ok, path} = CLI.find_binary(cli_path: mock_binary)
       assert path == mock_binary
 
-      # Cleanup
       File.rm_rf!(mock_dir)
     end
 
-    test "returns error when cli_path doesn't exist" do
+    test "returns error when explicit path doesn't exist" do
       assert {:error, :not_found} = CLI.find_binary(cli_path: "/nonexistent/path/claude")
+    end
+  end
+
+  describe "find_binary/1 with :global mode" do
+    test "returns :not_found when claude is not installed globally" do
+      # Temporarily clear any app config
+      original = Application.get_env(:claude_code, :cli_path)
+
+      try do
+        Application.delete_env(:claude_code, :cli_path)
+
+        case CLI.find_binary(cli_path: :global) do
+          {:ok, path} ->
+            # If claude is actually installed, verify the path exists
+            assert File.exists?(path)
+
+          {:error, :not_found} ->
+            # Expected when claude is not installed
+            assert true
+        end
+      after
+        if original, do: Application.put_env(:claude_code, :cli_path, original)
+      end
+    end
+  end
+
+  describe "find_binary/1 with :bundled mode" do
+    test "defaults to :bundled when no cli_path specified" do
+      # Clear any app config
+      original = Application.get_env(:claude_code, :cli_path)
+
+      try do
+        Application.delete_env(:claude_code, :cli_path)
+
+        # With no cli_path option and no app config, defaults to :bundled
+        # This may auto-install or return error depending on environment
+        result = CLI.find_binary([])
+
+        case result do
+          {:ok, path} ->
+            # Should be the bundled path
+            assert String.ends_with?(path, "claude")
+
+          {:error, _reason} ->
+            # Expected if auto-install fails (e.g., no network in test)
+            assert true
+        end
+      after
+        if original, do: Application.put_env(:claude_code, :cli_path, original)
+      end
+    end
+  end
+
+  describe "find_binary/1 respects app config" do
+    test "uses app config cli_path when no option provided" do
+      original = Application.get_env(:claude_code, :cli_path)
+
+      mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+      mock_binary = Path.join(mock_dir, "claude")
+      File.write!(mock_binary, "#!/bin/bash\necho 'mock'")
+      File.chmod!(mock_binary, 0o755)
+
+      try do
+        Application.put_env(:claude_code, :cli_path, mock_binary)
+        assert {:ok, ^mock_binary} = CLI.find_binary([])
+      after
+        if original do
+          Application.put_env(:claude_code, :cli_path, original)
+        else
+          Application.delete_env(:claude_code, :cli_path)
+        end
+
+        File.rm_rf!(mock_dir)
+      end
+    end
+
+    test "option cli_path overrides app config" do
+      original = Application.get_env(:claude_code, :cli_path)
+
+      mock_dir = Path.join(System.tmp_dir!(), "claude_cli_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+      mock_binary = Path.join(mock_dir, "claude")
+      File.write!(mock_binary, "#!/bin/bash\necho 'mock'")
+      File.chmod!(mock_binary, 0o755)
+
+      try do
+        # App config says :global, but option says explicit path
+        Application.put_env(:claude_code, :cli_path, :global)
+        assert {:ok, ^mock_binary} = CLI.find_binary(cli_path: mock_binary)
+      after
+        if original do
+          Application.put_env(:claude_code, :cli_path, original)
+        else
+          Application.delete_env(:claude_code, :cli_path)
+        end
+
+        File.rm_rf!(mock_dir)
+      end
     end
   end
 

@@ -68,7 +68,7 @@ defmodule ClaudeCode.Options do
   ### Elixir-Specific Options
   - `:name` - GenServer process name (atom, optional)
   - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
-  - `:cli_path` - Custom path to Claude CLI binary (string, optional, highest priority)
+  - `:cli_path` - CLI binary resolution mode: `:bundled` (default), `:global`, or explicit path string
   - `:resume` - Session ID to resume a previous conversation (string, optional)
   - `:fork_session` - When resuming, create a new session ID instead of reusing the original (boolean, optional)
     Must be used with `:resume`. Creates a fork of the conversation.
@@ -150,7 +150,18 @@ defmodule ClaudeCode.Options do
     api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
-    cli_path: [type: :string, doc: "Custom path to Claude CLI binary (highest priority)"],
+    cli_path: [
+      type: {:or, [{:in, [:bundled, :global]}, :string]},
+      doc: """
+      CLI binary resolution mode.
+
+      - `:bundled` (default) — Use priv/bin/ binary, auto-install if missing, verify version matches SDK's pinned version
+      - `:global` — Find existing system install via PATH or common locations, no auto-install
+      - `"/path/to/claude"` — Use exact binary path
+
+      Can also be set via application config: `config :claude_code, cli_path: :global`
+      """
+    ],
     resume: [type: :string, doc: "Session ID to resume a previous conversation"],
     fork_session: [
       type: :boolean,

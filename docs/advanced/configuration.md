@@ -119,43 +119,49 @@ config :claude_code,
 
 ### CLI Configuration
 
-The SDK can automatically manage the Claude CLI binary:
+The SDK manages the Claude CLI binary via the `:cli_path` option:
 
 ```elixir
 config :claude_code,
-  cli_version: "latest",           # Version to install ("latest" or specific version)
-  cli_path: nil,                    # Explicit path to CLI binary (highest priority)
+  cli_path: :bundled,               # :bundled (default), :global, or "/path/to/claude"
+  cli_version: "x.y.z",            # Version to install (default: SDK's tested version)
   cli_dir: nil                      # Directory for downloaded binary (default: priv/bin/)
 ```
 
-**Binary resolution order:**
+**Resolution modes:**
 
-1. `:cli_path` option (explicit override)
-2. Application config `:cli_path`
-3. Bundled binary in `cli_dir` (default: priv/bin/)
-4. System PATH
-5. Common installation locations (~/.local/bin, ~/.npm-global/bin, etc.)
+| Mode | Value | Behavior |
+|------|-------|----------|
+| Bundled | `:bundled` (default) | Uses priv/bin/ binary. Auto-installs if missing. Verifies version matches SDK's pinned version. |
+| Global | `:global` | Finds existing system install via PATH or common locations. No auto-install. |
+| Explicit | `"/path/to/claude"` | Uses that exact binary. Error if not found. |
 
 **Install the CLI:**
 
 ```bash
-mix claude_code.install              # Install latest version
+mix claude_code.install              # Install SDK's tested version to priv/bin/
 mix claude_code.install --version x.y.z   # Install specific version
 mix claude_code.install --if-missing # Only if not present
 mix claude_code.install --force      # Force reinstall
 ```
 
+**Check the resolved binary path:**
+
+```bash
+mix claude_code.path                 # Print the path to the resolved CLI binary
+```
+
 **For releases:**
 
 ```elixir
-# Option 1: Pre-install during release build
+# Option 1: Pre-install during release build (recommended)
 # (Run mix claude_code.install before building the release)
 
 # Option 2: Configure writable directory for runtime download
 config :claude_code, cli_dir: "/var/lib/claude_code"
 
-# Option 3: Rely on system-installed CLI in PATH
-# (No configuration needed, just ensure 'claude' is in PATH)
+# Option 3: Use system-installed CLI
+config :claude_code, cli_path: :global
 ```
 
 ### Environment-Specific Configuration

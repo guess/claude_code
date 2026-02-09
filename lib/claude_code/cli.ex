@@ -9,89 +9,103 @@ defmodule ClaudeCode.CLI do
 
   ## Binary Resolution
 
-  The CLI binary is resolved in the following order:
+  The `:cli_path` option controls how the CLI binary is found:
 
-  1. `:cli_path` option passed to the function
-  2. Application config `:cli_path`
-  3. Bundled binary in `cli_dir` (default: priv/bin/)
-  4. System PATH via `System.find_executable/1`
-  5. Common installation locations (npm, yarn, home directory)
+  - `:bundled` (default) — Uses the binary in priv/bin/. Auto-installs if missing.
+    Verifies version matches the SDK's pinned version and re-installs on mismatch.
+  - `:global` — Finds an existing system install via PATH or common locations. No auto-install.
+  - `"/path/to/claude"` — Uses that exact binary path.
 
-  If not found, an error is returned with installation instructions.
+  Can also be configured via application config:
+
+      config :claude_code, cli_path: :global
   """
 
   alias ClaudeCode.Installer
   alias ClaudeCode.Options
 
+  require Logger
+
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
   @doc """
-  Finds the claude binary using multiple resolution strategies.
+  Finds the claude binary using the configured resolution mode.
 
-  ## Options
+  ## Resolution Modes
 
-  - `:cli_path` - Explicit path to the CLI binary (highest priority)
+  The `:cli_path` option (or app config) determines how the binary is found:
 
-  ## Resolution Order
-
-  1. `:cli_path` option (if provided)
-  2. Application config `:cli_path`
-  3. Bundled binary in `cli_dir`
-  4. System PATH
-  5. Common installation locations
-
-  Returns `{:ok, path}` if found, `{:error, :not_found}` otherwise.
+  - `:bundled` (default) — Use priv/bin/ binary. Auto-installs if missing.
+    Verifies the installed version matches `Installer.configured_version()` and
+    re-installs on mismatch.
+  - `:global` — Finds an existing system install via PATH or common locations.
+    Does not auto-install. Returns `{:error, :not_found}` if not found.
+  - `"/path/to/claude"` — Uses that exact binary. Returns `{:error, :not_found}`
+    if it doesn't exist.
 
   ## Examples
 
       iex> ClaudeCode.CLI.find_binary()
+      {:ok, "/path/to/priv/bin/claude"}
+
+      iex> ClaudeCode.CLI.find_binary(cli_path: :global)
       {:ok, "/usr/local/bin/claude"}
 
       iex> ClaudeCode.CLI.find_binary(cli_path: "/custom/path/claude")
       {:ok, "/custom/path/claude"}
   """
-  @spec find_binary(keyword()) :: {:ok, String.t()} | {:error, :not_found}
+  @spec find_binary(keyword()) :: {:ok, String.t()} | {:error, term()}
   def find_binary(opts \\ []) do
-    cli_path = Keyword.get(opts, :cli_path)
+    mode = Keyword.get(opts, :cli_path) || Application.get_env(:claude_code, :cli_path, :bundled)
 
-    cond do
-      cli_path && File.exists?(cli_path) ->
-        {:ok, cli_path}
-
-      cli_path ->
-        {:error, :not_found}
-
-      path = Application.get_env(:claude_code, :cli_path) ->
-        if File.exists?(path), do: {:ok, path}, else: {:error, :not_found}
-
-      true ->
-        ensure_bundled_or_fallback()
+    case mode do
+      :bundled -> find_bundled()
+      :global -> find_global()
+      path when is_binary(path) -> find_explicit(path)
     end
   end
 
-  # Downloads the CLI to priv/bin/ on first use if not already bundled.
-  # Falls back to system PATH / common locations if install fails.
-  defp ensure_bundled_or_fallback do
+  defp find_bundled do
     bundled = Installer.bundled_path()
 
     if File.exists?(bundled) do
-      {:ok, bundled}
-    else
-      case auto_install() do
-        {:ok, _} = result -> result
-        {:error, _} -> Installer.bin_path()
+      case check_bundled_version(bundled) do
+        :ok -> {:ok, bundled}
+        {:error, _} -> install_bundled()
       end
+    else
+      install_bundled()
     end
   end
 
-  defp auto_install do
+  defp find_global do
+    cond do
+      path = System.find_executable("claude") -> {:ok, path}
+      path = Installer.find_in_common_locations() -> {:ok, path}
+      true -> {:error, :not_found}
+    end
+  end
+
+  defp find_explicit(path) do
+    if File.exists?(path), do: {:ok, path}, else: {:error, :not_found}
+  end
+
+  defp check_bundled_version(path) do
+    expected = Installer.configured_version()
+
+    case Installer.version_of(path) do
+      {:ok, ^expected} -> :ok
+      {:ok, _other} -> {:error, :version_mismatch}
+      {:error, _} -> {:error, :version_check_failed}
+    end
+  end
+
+  defp install_bundled do
     Installer.install!()
     bundled = Installer.bundled_path()
     if File.exists?(bundled), do: {:ok, bundled}, else: {:error, :install_failed}
   rescue
     e ->
-      require Logger
-
       Logger.warning("Auto-install of Claude CLI failed: #{Exception.message(e)}")
       {:error, :install_failed}
   end
@@ -101,10 +115,6 @@ defmodule ClaudeCode.CLI do
 
   Accepts validated options from the Options module and converts them to CLI flags.
   If a session_id is provided, automatically adds --resume flag for session continuity.
-
-  ## Options
-
-  - `:cli_path` - Explicit path to the CLI binary
 
   Returns `{:ok, {executable, args}}` or `{:error, reason}`.
   """
@@ -118,15 +128,14 @@ defmodule ClaudeCode.CLI do
 
       {:error, :not_found} ->
         {:error, {:cli_not_found, cli_not_found_message()}}
+
+      {:error, reason} ->
+        {:error, {:cli_not_found, "CLI resolution failed: #{inspect(reason)}"}}
     end
   end
 
   @doc """
   Validates that the Claude CLI is properly installed and accessible.
-
-  ## Options
-
-  - `:cli_path` - Explicit path to the CLI binary
   """
   @spec validate_installation(keyword()) :: :ok | {:error, term()}
   def validate_installation(opts \\ []) do
@@ -147,6 +156,9 @@ defmodule ClaudeCode.CLI do
 
       {:error, :not_found} ->
         {:error, {:cli_not_found, cli_not_found_message()}}
+
+      {:error, reason} ->
+        {:error, {:cli_not_found, "CLI resolution failed: #{inspect(reason)}"}}
     end
   end
 

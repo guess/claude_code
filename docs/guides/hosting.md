@@ -75,7 +75,13 @@ config :claude_code,
   model: System.get_env("CLAUDE_MODEL", "sonnet")
 ```
 
-The `mix claude_code.install` task downloads the CLI to `priv/bin/` which is automatically included in releases.
+The default `cli_path: :bundled` mode uses the CLI binary in `priv/bin/`, which is automatically included in releases. Pre-install it during your release build:
+
+```bash
+mix claude_code.install
+```
+
+For alternative setups, see the [CLI Configuration](../advanced/configuration.md#cli-configuration) docs.
 
 ## Resource Considerations
 

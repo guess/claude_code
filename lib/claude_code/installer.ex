@@ -8,27 +8,26 @@ defmodule ClaudeCode.Installer do
 
   ## Installation Methods
 
-  1. **Automatic** - CLI is installed on first use via `ensure_installed!/0`
-  2. **Manual** - Run `mix claude_code.install` before using the SDK
-  3. **Pre-installed** - Use system CLI from PATH or configure `:cli_path`
+  1. **Automatic** - CLI is auto-installed to priv/bin/ on first use when `cli_path: :bundled` (the default)
+  2. **Manual** - Run `mix claude_code.install` to pre-install the CLI
+  3. **Pre-installed** - Use a system CLI with `cli_path: :global` or `cli_path: "/path/to/claude"`
 
   ## Configuration
 
       # config/config.exs
       config :claude_code,
+        cli_path: :bundled,               # :bundled (default), :global, or "/path/to/claude"
         cli_version: "x.y.z",            # Version to install (default: SDK's tested version)
-        cli_path: nil,                    # Explicit path to binary
         cli_dir: nil                      # Directory for downloaded binary
 
-  ## Resolution Order
+  ## CLI Resolution Modes
 
-  When finding the CLI binary, the following locations are checked in order:
+  The `:cli_path` option controls how the CLI binary is found (see `ClaudeCode.CLI.find_binary/1`):
 
-  1. `:cli_path` option (explicit override)
-  2. Application config `:cli_path`
-  3. Bundled binary in `cli_dir` (default: priv/bin/)
-  4. System PATH via `System.find_executable/1`
-  5. Common installation locations (npm, yarn, home directory)
+  - `:bundled` (default) — Uses priv/bin/ binary. Auto-installs if missing.
+    Verifies version matches the SDK's pinned version and re-installs on mismatch.
+  - `:global` — Finds existing system install via PATH or common locations. No auto-install.
+  - `"/path/to/claude"` — Uses that exact binary path.
 
   ## Release Configuration
 
@@ -36,7 +35,7 @@ defmodule ClaudeCode.Installer do
 
   1. **Pre-install during build** - Run `mix claude_code.install` in your release build
   2. **Configure writable directory** - Set `:cli_dir` to a writable runtime location
-  3. **Use system CLI** - Install via official scripts and rely on PATH
+  3. **Use system CLI** - Set `cli_path: :global` and ensure `claude` is in PATH
   """
 
   require Logger
@@ -113,13 +112,15 @@ defmodule ClaudeCode.Installer do
   @doc """
   Returns the path to the CLI binary, checking multiple locations.
 
+  This is used internally by the installer and mix task. For session-level
+  resolution, use `ClaudeCode.CLI.find_binary/1` which respects the `:cli_path`
+  option modes (`:bundled`, `:global`, or explicit path).
+
   Resolution order:
-  1. Application config `:cli_path` (explicit override)
+  1. Application config `:cli_path` (if a string path)
   2. Bundled binary in `cli_dir`
   3. System PATH
   4. Common installation locations
-
-  Returns `nil` if no binary is found.
 
   ## Examples
 
@@ -131,10 +132,15 @@ defmodule ClaudeCode.Installer do
   """
   @spec bin_path() :: {:ok, String.t()} | {:error, :not_found}
   def bin_path do
+    config_path = Application.get_env(:claude_code, :cli_path)
+
     cond do
-      # 1. Explicit config path
-      path = Application.get_env(:claude_code, :cli_path) ->
-        if File.exists?(path), do: {:ok, path}, else: {:error, :not_found}
+      # 1. Explicit config path (only when string, skip :bundled/:global atoms)
+      is_binary(config_path) && File.exists?(config_path) ->
+        {:ok, config_path}
+
+      is_binary(config_path) ->
+        {:error, :not_found}
 
       # 2. Bundled binary
       File.exists?(bundled_path()) ->
@@ -242,6 +248,29 @@ defmodule ClaudeCode.Installer do
   end
 
   @doc """
+  Returns the version of the CLI binary at the given path.
+
+  Runs `claude --version` and parses the output.
+
+  ## Examples
+
+      iex> ClaudeCode.Installer.version_of("/usr/local/bin/claude")
+      {:ok, "#{@default_cli_version}"}
+
+      iex> ClaudeCode.Installer.version_of("/nonexistent")
+      {:error, {:execution_failed, "enoent"}}
+  """
+  @spec version_of(String.t()) :: {:ok, String.t()} | {:error, term()}
+  def version_of(path) do
+    case System.cmd(path, ["--version"], stderr_to_stdout: true) do
+      {output, 0} -> {:ok, parse_version_output(output)}
+      {error, _code} -> {:error, {:cli_error, error}}
+    end
+  rescue
+    e -> {:error, {:execution_failed, Exception.message(e)}}
+  end
+
+  @doc """
   Returns the version of the installed CLI binary.
 
   ## Examples
@@ -254,12 +283,9 @@ defmodule ClaudeCode.Installer do
   """
   @spec installed_version() :: {:ok, String.t()} | {:error, term()}
   def installed_version do
-    with {:ok, path} <- bin_path(),
-         {output, 0} <- System.cmd(path, ["--version"], stderr_to_stdout: true) do
-      {:ok, parse_version_output(output)}
-    else
+    case bin_path() do
+      {:ok, path} -> version_of(path)
       {:error, :not_found} -> {:error, :not_found}
-      {error, _code} -> {:error, {:cli_error, error}}
     end
   end
 
@@ -452,11 +478,12 @@ defmodule ClaudeCode.Installer do
 
     Install it using one of these methods:
 
-    1. Run the mix task:
+    1. Run the mix task (installs to priv/bin/):
        mix claude_code.install
 
-    2. Install manually:
+    2. Install manually and use global mode:
        curl -fsSL https://claude.ai/install.sh | bash
+       # then: config :claude_code, cli_path: :global
 
     3. Configure an explicit path:
        config :claude_code, cli_path: "/path/to/claude"

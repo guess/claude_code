@@ -62,7 +62,7 @@ mix claude_code.install  # Downloads and installs the Claude CLI to priv/bin/
 **Step 3:** Authenticate (choose one)
 ```bash
 # Option A: Use your Claude subscription (no API key needed)
-claude  # Then type /login to authenticate
+$(mix claude_code.path) /login   # Authenticate using the SDK's bundled CLI
 
 # Option B: Use an API key
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
@@ -183,7 +183,7 @@ try do
   |> Enum.to_list()
 catch
   {:stream_timeout, _ref} -> IO.puts("Request timed out")
-  {:stream_init_error, {:cli_not_found, msg}} -> IO.puts("CLI error: #{msg}")
+  {:stream_error, {:provisioning_failed, reason}} -> IO.puts("CLI error: #{inspect(reason)}")
   {:stream_error, reason} -> IO.puts("Stream error: #{inspect(reason)}")
 end
 

@@ -21,16 +21,14 @@ mix deps.get
 mix claude_code.install
 ```
 
-## Set Your API Key
+## Authenticate
 
 ```bash
+# Option A: Use your Claude subscription (no API key needed)
+$(mix claude_code.path) /login
+
+# Option B: Use an API key
 export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-Or pass it directly in code:
-
-```elixir
-ClaudeCode.query("Hello", api_key: "sk-ant-...")
 ```
 
 ## Your First Query

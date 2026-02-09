@@ -175,6 +175,49 @@ defmodule ClaudeCode.InstallerTest do
     end
   end
 
+  describe "version_of/1" do
+    test "returns version from a binary that outputs version info" do
+      mock_dir = Path.join(System.tmp_dir!(), "claude_version_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_binary = Path.join(mock_dir, "claude")
+
+      File.write!(mock_binary, """
+      #!/bin/bash
+      echo "2.1.37 (Claude Code)"
+      """)
+
+      File.chmod!(mock_binary, 0o755)
+
+      assert {:ok, "2.1.37"} = Installer.version_of(mock_binary)
+
+      File.rm_rf!(mock_dir)
+    end
+
+    test "returns error when binary doesn't exist" do
+      assert {:error, {:execution_failed, _}} = Installer.version_of("/nonexistent/binary")
+    end
+
+    test "returns error when binary fails" do
+      mock_dir = Path.join(System.tmp_dir!(), "claude_version_test_#{:rand.uniform(100_000)}")
+      File.mkdir_p!(mock_dir)
+
+      mock_binary = Path.join(mock_dir, "claude")
+
+      File.write!(mock_binary, """
+      #!/bin/bash
+      echo "error" >&2
+      exit 1
+      """)
+
+      File.chmod!(mock_binary, 0o755)
+
+      assert {:error, {:cli_error, _}} = Installer.version_of(mock_binary)
+
+      File.rm_rf!(mock_dir)
+    end
+  end
+
   describe "installed_version/0" do
     test "returns version when CLI is installed" do
       case Installer.bin_path() do
