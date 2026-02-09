@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`:sandbox` option** - Sandbox configuration for bash command isolation ([5f48858])
+  - Accepts a map that is merged into `--settings` for the CLI
+  - Useful for restricting file system access and network in sandboxed environments
+- **`:enable_file_checkpointing` option** - Enable file checkpointing during sessions ([5f48858])
+  - Sets the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable
+  - Tracks file changes made during Claude Code sessions
 - **`:allow_dangerously_skip_permissions` option** - Safety guard required when using `permission_mode: :bypass_permissions` ([c9dc6fa])
   - Matches TypeScript SDK's `allowDangerouslySkipPermissions` option
   - Recommended only for sandboxed environments with no internet access
