@@ -82,15 +82,19 @@ defmodule ClaudeCode.Adapter.CLI do
 
   @impl GenServer
   def handle_continue(:connect, state) do
-    case spawn_cli(state) do
-      {:ok, port} ->
-        Adapter.notify_status(state.session, :ready)
-        {:noreply, %{state | port: port, buffer: "", status: :ready}}
+    # Resolve the CLI binary in a separate process so the GenServer stays
+    # responsive during potentially slow auto-install (curl | bash).
+    # Port opening must happen back in our process for ownership.
+    adapter = self()
+    session_options = state.session_options
+    api_key = state.api_key
 
-      {:error, reason} ->
-        Adapter.notify_status(state.session, {:error, reason})
-        {:noreply, %{state | status: :disconnected}}
-    end
+    Task.start_link(fn ->
+      result = resolve_cli(session_options, api_key)
+      send(adapter, {:cli_resolved, result})
+    end)
+
+    {:noreply, state}
   end
 
   @impl GenServer
@@ -139,6 +143,23 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   @impl GenServer
+  def handle_info({:cli_resolved, {:ok, {executable, args, streaming_opts}}}, state) do
+    case open_cli_port(executable, args, state, streaming_opts) do
+      {:ok, port} ->
+        Adapter.notify_status(state.session, :ready)
+        {:noreply, %{state | port: port, buffer: "", status: :ready}}
+
+      {:error, reason} ->
+        Adapter.notify_status(state.session, {:error, reason})
+        {:noreply, %{state | status: :disconnected}}
+    end
+  end
+
+  def handle_info({:cli_resolved, {:error, reason}}, state) do
+    Adapter.notify_status(state.session, {:error, reason})
+    {:noreply, %{state | status: :disconnected}}
+  end
+
   def handle_info({port, {:data, data}}, %{port: port} = state) do
     {lines, remaining_buffer} = extract_lines(state.buffer <> data)
 
@@ -208,13 +229,27 @@ defmodule ClaudeCode.Adapter.CLI do
 
   defp ensure_connected(state), do: {:ok, state}
 
-  defp spawn_cli(state) do
-    streaming_opts = Keyword.put(state.session_options, :input_format, :stream_json)
-    resume_session_id = Keyword.get(state.session_options, :resume)
+  # Resolves the CLI binary and builds the command. This may trigger auto-install
+  # which can take seconds, so call from a Task during initial provisioning.
+  defp resolve_cli(session_options, api_key) do
+    streaming_opts = Keyword.put(session_options, :input_format, :stream_json)
+    resume_session_id = Keyword.get(session_options, :resume)
 
-    case CLI.build_command("", state.api_key, streaming_opts, resume_session_id) do
+    case CLI.build_command("", api_key, streaming_opts, resume_session_id) do
       {:ok, {executable, args}} ->
-        open_cli_port(executable, List.delete_at(args, -1), state, streaming_opts)
+        {:ok, {executable, List.delete_at(args, -1), streaming_opts}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Synchronous spawn — resolves binary and opens port in the same process.
+  # Used by ensure_connected for reconnection (binary already installed, fast path).
+  defp spawn_cli(state) do
+    case resolve_cli(state.session_options, state.api_key) do
+      {:ok, {executable, args, streaming_opts}} ->
+        open_cli_port(executable, args, state, streaming_opts)
 
       {:error, reason} ->
         {:error, reason}

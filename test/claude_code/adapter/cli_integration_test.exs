@@ -67,13 +67,12 @@ defmodule ClaudeCode.Adapter.CLIIntegrationTest do
   # CLI Adapter health/1 Tests
   # ============================================================================
 
-  describe "health/1 before connection" do
-    test "returns {:unhealthy, :not_connected} before any query" do
-      # The CLI adapter starts with port: nil and only connects on first query.
+  describe "health/1 during provisioning" do
+    test "returns {:unhealthy, :provisioning} while adapter is starting up" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
       health = ClaudeCode.health(session)
-      assert {:unhealthy, :not_connected} = health
+      assert {:unhealthy, :provisioning} = health
 
       GenServer.stop(session)
     end
