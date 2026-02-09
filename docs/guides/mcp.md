@@ -1,5 +1,7 @@
 # MCP (Model Context Protocol)
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/mcp). Examples are adapted for Elixir.
+
 Extend Claude's capabilities with MCP servers that provide custom tools.
 
 ## Hermes MCP Servers (Elixir)

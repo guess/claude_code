@@ -1,5 +1,7 @@
 # Skills
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/skills). Examples are adapted for Elixir.
+
 Skills are project-level capabilities that Claude can use during a conversation. They are defined in project configuration files and loaded via setting sources.
 
 ## Loading Skills

@@ -1,5 +1,7 @@
 # Subagents
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/subagents). Examples are adapted for Elixir.
+
 Define and invoke subagents to isolate context, run tasks in parallel, and apply specialized instructions.
 
 ## Overview

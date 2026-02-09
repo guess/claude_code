@@ -1,5 +1,7 @@
 # Hooks
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hooks). Examples are adapted for Elixir.
+
 Monitor and audit tool execution with the `tool_callback` option.
 
 ## Tool Callback

@@ -1,5 +1,7 @@
 # Permissions
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/permissions). Examples are adapted for Elixir.
+
 Control what tools Claude can use and how permission prompts are handled.
 
 ## Permission Modes

@@ -1,5 +1,7 @@
 # Quickstart
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/quickstart). Examples are adapted for Elixir.
+
 Get up and running with the ClaudeCode Elixir SDK in under 5 minutes.
 
 ## Installation

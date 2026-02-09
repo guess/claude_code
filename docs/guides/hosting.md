@@ -1,5 +1,7 @@
 # Hosting
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hosting). Examples are adapted for Elixir.
+
 Deploy ClaudeCode sessions in production using OTP supervision trees and Elixir releases.
 
 ## Supervision Trees

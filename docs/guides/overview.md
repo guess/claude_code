@@ -1,5 +1,7 @@
 # Overview
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/overview). Examples are adapted for Elixir.
+
 The ClaudeCode Elixir SDK provides an idiomatic Elixir interface to the Claude Code CLI. It spawns `claude` as a subprocess and communicates via streaming JSON, giving you full access to Claude's agentic capabilities from Elixir applications.
 
 ## Core API

@@ -1,5 +1,7 @@
 # Plugins
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/plugins). Examples are adapted for Elixir.
+
 Plugins extend Claude Code with additional capabilities. They can be loaded from local directories.
 
 ## Loading Plugins

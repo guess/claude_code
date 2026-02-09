@@ -1,5 +1,7 @@
 # Secure Deployment
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/secure-deployment). Examples are adapted for Elixir.
+
 Harden your ClaudeCode deployment for production use.
 
 ## Sandbox Configuration

@@ -1,110 +1,150 @@
 # Streaming vs Single Mode
 
-The SDK offers two ways to interact with Claude: single-shot queries and streaming sessions.
+Understanding the two input modes for the Claude Code Elixir SDK and when to use each.
 
-## Single Mode: `ClaudeCode.query/2`
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/streaming-vs-single-mode). Examples are adapted for Elixir.
 
-Best for one-off questions where you just need the final answer.
+---
+
+## Overview
+
+The Claude Code SDK supports two distinct input modes for interacting with agents:
+
+- **Session-Based Streaming** (Default & Recommended) - A persistent, interactive session
+- **Single-Shot Queries** - One-off queries that use session state and resuming
+
+This guide explains the differences, benefits, and use cases for each mode to help you choose the right approach for your application.
+
+## Session-Based Streaming (Recommended)
+
+Session-based streaming is the **preferred** way to use the Claude Code SDK. It provides full access to the agent's capabilities and enables rich, interactive experiences.
+
+It allows the agent to operate as a long-lived process that takes in user input, handles interruptions, surfaces permission requests, and handles session management.
+
+### How It Works
+
+```mermaid
+sequenceDiagram
+    participant App as Your Application
+    participant Session as Claude Session
+    participant Tools as Tools/Hooks
+    participant FS as Environment/<br/>File System
+
+    App->>Session: start_link(options)
+    activate Session
+
+    App->>Session: stream("Message 1")
+    Session->>Tools: Execute tools
+    Tools->>FS: Read files
+    FS-->>Tools: File contents
+    Tools->>FS: Write/Edit files
+    FS-->>Tools: Success/Error
+    Session-->>App: Stream partial response
+    Session-->>App: Stream more content...
+    Session->>App: Complete Message 1
+
+    App->>Session: stream("Message 2")
+    Session->>Tools: Process & execute
+    Tools->>FS: Access filesystem
+    FS-->>Tools: Operation results
+    Session-->>App: Stream response 2
+
+    App->>Session: stream("Message 3")
+    App->>Session: Interrupt/Cancel
+    Session->>App: Handle interruption
+
+    Note over App,Session: Session stays alive
+    Note over Tools,FS: Persistent file system<br/>state maintained
+
+    deactivate Session
+```
+
+### Benefits
+
+- **Tool Integration** - Full access to all tools and custom MCP servers during the session
+- **Hooks Support** - Use lifecycle hooks to customize behavior at various points
+- **Real-time Feedback** - See responses as they're generated, not just final results
+- **Context Persistence** - Maintain conversation context across multiple turns naturally
+- **Session Management** - Resume, continue, or fork previous conversations
+- **Multi-turn Conversations** - Natural conversation flow with maintained context
+
+### Implementation Example
 
 ```elixir
-{:ok, result} = ClaudeCode.query("What is 2 + 2?")
-IO.puts(result)
-# => "4"
-
-# With options
-{:ok, result} = ClaudeCode.query("Summarize this code",
-  model: "opus",
-  system_prompt: "Be concise"
+# Start a persistent session with tools
+{:ok, session} = ClaudeCode.start_link(
+  allowed_tools: ["Read", "Grep"]
 )
-```
 
-`query/2` automatically starts a session, sends the prompt, collects the result, and stops the session. The return value is a `ResultMessage` struct (which implements `String.Chars`).
-
-### Error Handling
-
-```elixir
-case ClaudeCode.query("Do something complex") do
-  {:ok, result} ->
-    IO.puts(result.result)
-
-  {:error, %ClaudeCode.Message.ResultMessage{is_error: true} = result} ->
-    IO.puts("Claude error: #{result.result}")
-
-  {:error, reason} ->
-    IO.puts("SDK error: #{inspect(reason)}")
-end
-```
-
-## Streaming Mode: `start_link/1` + `stream/3`
-
-Best for multi-turn conversations, real-time output, and production use.
-
-```elixir
-{:ok, session} = ClaudeCode.start_link()
-
-# First turn
+# First message
 session
-|> ClaudeCode.stream("Create a GenServer module")
+|> ClaudeCode.stream("Analyze this codebase for security issues")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 
-# Follow-up turn (maintains conversation context)
+# Wait for conditions or user input
+Process.sleep(2000)
+
+# Follow-up message - context is maintained
 session
-|> ClaudeCode.stream("Add a handle_cast for incrementing")
+|> ClaudeCode.stream("Now check the authentication module specifically")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 
+# Clean shutdown
 ClaudeCode.stop(session)
 ```
 
-`stream/3` returns a lazy Elixir `Stream` that emits messages as they arrive. The stream completes when Claude finishes responding.
+## Single-Shot Queries
 
-### Collecting Results
+Single-shot mode is simpler but more limited.
+
+### When to Use Single-Shot Queries
+
+Use single-shot queries when:
+
+- You need a one-shot response
+- You do not need hooks, real-time streaming, etc.
+- You need to operate in a stateless environment, such as a serverless function
+
+### Limitations
+
+<div class="warning">
+
+Single-shot mode does **not** support:
+- Real-time streaming to your application (blocks until completion)
+- Hook integration
+- Natural multi-turn conversations (requires explicit session management)
+
+**Note:** Image attachments are not currently supported by the SDK.
+
+</div>
+
+### Implementation Example
 
 ```elixir
-# Get just the final text
-text = session
-|> ClaudeCode.stream("Explain OTP")
-|> ClaudeCode.Stream.final_text()
+# Simple one-shot query
+result =
+  ClaudeCode.query("Explain the authentication flow",
+    allowed_tools: ["Read", "Grep"]
+  )
 
-# Get a structured summary
-summary = session
-|> ClaudeCode.stream("Create some files")
-|> ClaudeCode.Stream.collect()
+case result do
+  {:ok, response} -> IO.puts(response.result)
+  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
+end
 
-IO.puts(summary.text)
-IO.puts("Tools used: #{length(summary.tool_calls)}")
-IO.puts("Final: #{summary.result}")
+# Continue conversation with session management
+result =
+  ClaudeCode.query("Now explain the authorization process",
+    continue: true
+  )
+
+case result do
+  {:ok, response} -> IO.puts(response.result)
+  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
+end
 ```
-
-### Per-Query Option Overrides
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  model: "sonnet",
-  system_prompt: "You are an Elixir expert"
-)
-
-# Override options for a specific query
-session
-|> ClaudeCode.stream("Complex analysis",
-     model: "opus",
-     system_prompt: "Provide detailed analysis",
-     max_turns: 20)
-|> ClaudeCode.Stream.text_content()
-|> Enum.join()
-```
-
-## When to Use Which
-
-| Use Case | Recommended |
-|----------|------------|
-| Single question, need answer | `query/2` |
-| Multi-turn conversation | `start_link` + `stream/3` |
-| Real-time UI updates | `start_link` + `stream/3` |
-| Background processing | `start_link` + `stream/3` |
-| Production supervision | `start_link` + `stream/3` |
-| Script or one-off task | `query/2` |
 
 ## Next Steps
 

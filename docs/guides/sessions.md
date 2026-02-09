@@ -1,5 +1,7 @@
 # Sessions
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/sessions). Examples are adapted for Elixir.
+
 Sessions maintain a persistent connection to Claude and preserve conversation context across queries.
 
 ## Starting a Session

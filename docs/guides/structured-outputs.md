@@ -1,5 +1,7 @@
 # Structured Outputs
 
+> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/structured-outputs). Examples are adapted for Elixir.
+
 Get Claude's responses as structured JSON instead of free-form text.
 
 ## Basic Usage
