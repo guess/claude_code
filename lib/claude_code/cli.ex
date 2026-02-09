@@ -91,6 +91,7 @@ defmodule ClaudeCode.CLI do
   rescue
     e ->
       require Logger
+
       Logger.warning("Auto-install of Claude CLI failed: #{Exception.message(e)}")
       {:error, :install_failed}
   end
