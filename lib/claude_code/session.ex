@@ -33,7 +33,9 @@ defmodule ClaudeCode.Session do
     :requests,
     :query_queue,
     # Caller chain for test adapter stub lookup
-    :callers
+    :callers,
+    # Adapter status (fields with defaults must come last)
+    adapter_status: :provisioning
   ]
 
   @request_timeout 300_000
@@ -182,6 +184,20 @@ defmodule ClaudeCode.Session do
   # ============================================================================
 
   @impl true
+  def handle_info({:adapter_status, :ready}, state) do
+    new_state = %{state | adapter_status: :ready}
+    {:noreply, process_next_in_queue(new_state)}
+  end
+
+  def handle_info({:adapter_status, :provisioning}, state) do
+    {:noreply, %{state | adapter_status: :provisioning}}
+  end
+
+  def handle_info({:adapter_status, {:error, reason}}, state) do
+    new_state = fail_queued_requests(state, {:provisioning_failed, reason})
+    {:noreply, %{new_state | adapter_status: {:error, reason}}}
+  end
+
   def handle_info({:adapter_message, request_id, message}, state) do
     # Extract session ID if present
     new_session_id = extract_session_id(message) || state.session_id
@@ -291,14 +307,23 @@ defmodule ClaudeCode.Session do
   # ============================================================================
 
   defp enqueue_or_execute(request, prompt, opts, state) do
-    if has_active_request?(state) do
-      queued_request = %{request | status: :queued}
-      queue = :queue.in({request, prompt, opts}, state.query_queue)
-      new_requests = Map.put(state.requests, request.id, queued_request)
-      {:ok, %{state | query_queue: queue, requests: new_requests}}
-    else
-      execute_request(request, prompt, opts, state)
+    cond do
+      state.adapter_status != :ready ->
+        enqueue_request(request, prompt, opts, state)
+
+      has_active_request?(state) ->
+        enqueue_request(request, prompt, opts, state)
+
+      true ->
+        execute_request(request, prompt, opts, state)
     end
+  end
+
+  defp enqueue_request(request, prompt, opts, state) do
+    queued_request = %{request | status: :queued}
+    queue = :queue.in({request, prompt, opts}, state.query_queue)
+    new_requests = Map.put(state.requests, request.id, queued_request)
+    {:ok, %{state | query_queue: queue, requests: new_requests}}
   end
 
   defp has_active_request?(state) do
@@ -355,6 +380,35 @@ defmodule ClaudeCode.Session do
 
       {:empty, _queue} ->
         state
+    end
+  end
+
+  defp fail_queued_requests(state, reason) do
+    {items, empty_queue} = drain_queue(state.query_queue)
+
+    new_requests =
+      Enum.reduce(items, state.requests, fn {request, _prompt, _opts}, requests ->
+        case Map.get(requests, request.id) do
+          nil ->
+            requests
+
+          tracked_request ->
+            notify_error(tracked_request, reason)
+            Map.put(requests, request.id, %{tracked_request | status: :completed})
+        end
+      end)
+
+    %{state | requests: new_requests, query_queue: empty_queue}
+  end
+
+  defp drain_queue(queue) do
+    drain_queue(queue, [])
+  end
+
+  defp drain_queue(queue, acc) do
+    case :queue.out(queue) do
+      {{:value, item}, rest} -> drain_queue(rest, [item | acc])
+      {:empty, empty} -> {Enum.reverse(acc), empty}
     end
   end
 

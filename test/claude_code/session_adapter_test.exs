@@ -235,6 +235,168 @@ defmodule ClaudeCode.SessionAdapterTest do
   end
 
   # ============================================================================
+  # Adapter status handling (provisioning → ready / error)
+  # ============================================================================
+
+  describe "adapter status handling" do
+    defmodule SlowProvisioningAdapter do
+      @moduledoc false
+      @behaviour ClaudeCode.Adapter
+
+      use GenServer
+
+      alias ClaudeCode.Adapter
+
+      @impl ClaudeCode.Adapter
+      def start_link(session, opts), do: GenServer.start_link(__MODULE__, {session, opts})
+
+      @impl ClaudeCode.Adapter
+      def send_query(adapter, request_id, prompt, opts) do
+        GenServer.cast(adapter, {:query, request_id, prompt, opts})
+        :ok
+      end
+
+      @impl ClaudeCode.Adapter
+      def interrupt(_adapter), do: :ok
+
+      @impl ClaudeCode.Adapter
+      def health(_adapter), do: :healthy
+
+      @impl ClaudeCode.Adapter
+      def stop(adapter), do: GenServer.stop(adapter, :normal)
+
+      @impl GenServer
+      def init({session, opts}) do
+        Process.link(session)
+        delay = Keyword.get(opts, :provisioning_delay, 200)
+        Adapter.notify_status(session, :provisioning)
+        {:ok, %{session: session, delay: delay}, {:continue, :provision}}
+      end
+
+      @impl GenServer
+      def handle_continue(:provision, state) do
+        Process.sleep(state.delay)
+        Adapter.notify_status(state.session, :ready)
+        {:noreply, state}
+      end
+
+      @impl GenServer
+      def handle_cast({:query, request_id, _prompt, _opts}, state) do
+        Adapter.notify_message(state.session, request_id, %ClaudeCode.Message.ResultMessage{
+          type: :result,
+          result: "provisioned response",
+          is_error: false,
+          subtype: :success,
+          session_id: "test-session",
+          duration_ms: 50.0,
+          duration_api_ms: 40.0,
+          num_turns: 1,
+          total_cost_usd: 0.001,
+          usage: %{}
+        })
+
+        Adapter.notify_done(state.session, request_id, :completed)
+        {:noreply, state}
+      end
+    end
+
+    test "queries sent during provisioning are queued and executed after ready" do
+      {:ok, session} =
+        ClaudeCode.Session.start_link(adapter: {SlowProvisioningAdapter, [provisioning_delay: 200]})
+
+      result =
+        session
+        |> ClaudeCode.stream("test")
+        |> ClaudeCode.Stream.final_text()
+
+      assert result == "provisioned response"
+
+      GenServer.stop(session)
+    end
+
+    test "multiple queries during provisioning all get processed" do
+      {:ok, session} =
+        ClaudeCode.Session.start_link(adapter: {SlowProvisioningAdapter, [provisioning_delay: 200]})
+
+      tasks =
+        Enum.map(1..3, fn _i ->
+          Task.async(fn ->
+            session
+            |> ClaudeCode.stream("test")
+            |> ClaudeCode.Stream.final_text()
+          end)
+        end)
+
+      results = Enum.map(tasks, &Task.await(&1, 5000))
+
+      assert Enum.all?(results, &(&1 == "provisioned response"))
+
+      GenServer.stop(session)
+    end
+
+    defmodule FailingProvisioningAdapter do
+      @moduledoc false
+      @behaviour ClaudeCode.Adapter
+
+      use GenServer
+
+      alias ClaudeCode.Adapter
+
+      @impl ClaudeCode.Adapter
+      def start_link(session, opts), do: GenServer.start_link(__MODULE__, {session, opts})
+
+      @impl ClaudeCode.Adapter
+      def send_query(adapter, request_id, prompt, opts) do
+        GenServer.cast(adapter, {:query, request_id, prompt, opts})
+        :ok
+      end
+
+      @impl ClaudeCode.Adapter
+      def interrupt(_adapter), do: :ok
+
+      @impl ClaudeCode.Adapter
+      def health(_adapter), do: :healthy
+
+      @impl ClaudeCode.Adapter
+      def stop(adapter), do: GenServer.stop(adapter, :normal)
+
+      @impl GenServer
+      def init({session, _opts}) do
+        Process.link(session)
+        Adapter.notify_status(session, :provisioning)
+        {:ok, %{session: session}, {:continue, :provision}}
+      end
+
+      @impl GenServer
+      def handle_continue(:provision, state) do
+        Process.sleep(100)
+        Adapter.notify_status(state.session, {:error, :sandbox_unavailable})
+        {:noreply, state}
+      end
+
+      @impl GenServer
+      def handle_cast({:query, _request_id, _prompt, _opts}, state) do
+        {:noreply, state}
+      end
+    end
+
+    test "queued queries fail when provisioning fails" do
+      {:ok, session} =
+        ClaudeCode.Session.start_link(adapter: {FailingProvisioningAdapter, []})
+
+      thrown =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+        |> catch_throw()
+
+      assert {:stream_error, {:provisioning_failed, :sandbox_unavailable}} = thrown
+
+      GenServer.stop(session)
+    end
+  end
+
+  # ============================================================================
   # Session health delegation to adapter
   # ============================================================================
 

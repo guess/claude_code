@@ -142,14 +142,17 @@ defmodule ClaudeCode.IntegrationTest do
           cli_path: "/nonexistent/path/to/claude"
         )
 
-      # Stream should throw init error when CLI not found
+      # Stream should throw error when CLI not found during async provisioning.
+      # The CLI adapter provisions asynchronously and reports status via
+      # {:adapter_status, {:error, reason}}, which the session translates to
+      # {:provisioning_failed, reason} for queued requests.
       error =
         session
         |> ClaudeCode.stream("Hello")
         |> Enum.to_list()
         |> catch_throw()
 
-      assert {:stream_init_error, {:cli_not_found, _message}} = error
+      assert {:stream_error, {:provisioning_failed, {:cli_not_found, _message}}} = error
 
       ClaudeCode.stop(session)
     end
