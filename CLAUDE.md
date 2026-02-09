@@ -34,13 +34,19 @@ mix docs                  # Generate documentation
 
 ## Architecture
 
-The SDK works by spawning the Claude Code CLI (`claude` command) as a subprocess using a shell wrapper:
+The SDK is organized in three layers:
 
-1. **ClaudeCode.Session** - GenServer that manages the CLI subprocess lifecycle
-2. **ClaudeCode.Installer** - Manages CLI binary installation and resolution
-3. **ClaudeCode.CLI** - Finds the claude binary and builds command arguments
-4. **Port** - Uses shell wrapper (`/bin/sh -c`) to prevent CLI hanging
-5. **JSON Streaming** - CLI outputs newline-delimited JSON messages (system, assistant, result)
+1. **Adapter-agnostic** — Session, Stream, Options (validation), Types, Message/Content structs
+2. **CLI protocol** — CLI.Command (flags), CLI.Input (stdin), CLI.Parser (JSON parsing)
+3. **Local adapter** — Adapter.Local (Port), Adapter.Local.Resolver (binary), Adapter.Local.Installer (download)
+
+Key modules:
+- **ClaudeCode.Session** - GenServer that manages the adapter subprocess lifecycle
+- **ClaudeCode.Adapter.Local** - Port-based adapter that spawns the CLI as a local subprocess
+- **ClaudeCode.CLI** - Thin facade: binary resolution + command building (delegates to Resolver + Command)
+- **ClaudeCode.CLI.Command** - Converts Elixir options to CLI flags and builds argument lists
+- **ClaudeCode.CLI.Parser** - Parses newline-delimited JSON from CLI output into structs
+- **ClaudeCode.Adapter.Local.Installer** - CLI binary download and version management
 
 Key CLI flags used:
 - `--input-format stream-json` - Bidirectional streaming mode (reads from stdin)
@@ -92,19 +98,30 @@ Core capabilities:
 
 - `lib/claude_code/` - Main implementation
   - `session.ex` - GenServer for session management with options validation
-  - `installer.ex` - CLI binary installation and resolution
-  - `cli.ex` - CLI binary detection and command building with options support
-  - `options.ex` - Options validation & CLI conversion (NimbleOptions)
+  - `options.ex` - Options validation (NimbleOptions); `to_cli_args` delegates to CLI.Command
   - `stream.ex` - Stream utilities for real-time processing
-  - `message.ex` - Unified message parsing
-  - `content.ex` - Content block parsing
   - `types.ex` - Type definitions matching SDK schema
-  - `message/` - Message type modules (system, assistant, user, result)
+  - `message.ex` - Message type union + helpers; `parse` delegates to CLI.Parser
+  - `content.ex` - Content type union + helpers; `parse` delegates to CLI.Parser
+  - `message/` - Message type modules (system, assistant, user, result, partial, compact_boundary)
   - `content/` - Content block modules (text, tool_use, tool_result, thinking)
+  - `adapter.ex` - Adapter behaviour definition + notification helpers
+  - `adapter/`
+    - `local.ex` - Local CLI adapter GenServer (Port, shell, env, reconnect)
+    - `local/`
+      - `installer.ex` - CLI binary download and installation
+      - `resolver.ex` - CLI binary resolution and validation
+    - `test.ex` - Test adapter (mock)
+  - `cli.ex` - Thin facade: find_binary + build_command (delegates to Resolver + Command)
+  - `cli/`
+    - `command.ex` - CLI flag conversion and argument building (shared CLI protocol)
+    - `input.ex` - stream-json stdin message builders (shared CLI protocol)
+    - `parser.ex` - JSON → struct parsing (shared CLI protocol)
 - `lib/mix/tasks/` - Mix tasks
   - `claude_code.install.ex` - CLI installation mix task
+  - `claude_code.path.ex` - CLI binary path resolution
 - `test/` - Test files mirror lib structure
-- `docs/proposals/` - Feature planning and roadmap
+- `docs/plans/` - Design documents and implementation plans
 - `examples/` - Working examples
 
 ## Development Workflow
