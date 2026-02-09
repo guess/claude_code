@@ -90,10 +90,7 @@ defmodule ClaudeCode.Installer do
   """
   @spec cli_dir() :: String.t()
   def cli_dir do
-    case Application.get_env(:claude_code, :cli_dir) do
-      nil -> default_cli_dir()
-      dir -> dir
-    end
+    Application.get_env(:claude_code, :cli_dir) || default_cli_dir()
   end
 
   @doc """
@@ -185,7 +182,7 @@ defmodule ClaudeCode.Installer do
 
   - `:version` - Version to install (default: configured version)
   - `:return_info` - When true, returns `{:ok, info_map}` instead of `:ok` (default: false).
-    The info map contains: `version`, `path`, `size_bytes`, `source_path`.
+    The info map contains: `version`, `path`, `size_bytes`.
 
   ## Examples
 
@@ -196,7 +193,7 @@ defmodule ClaudeCode.Installer do
       :ok
 
       iex> ClaudeCode.Installer.install!(return_info: true)
-      {:ok, %{version: "#{@default_cli_version}", path: "/path/to/claude", size_bytes: 1234567, source_path: "/orig/path"}}
+      {:ok, %{version: "#{@default_cli_version}", path: "/path/to/claude", size_bytes: 1234567}}
   """
   @spec install!(keyword()) :: :ok | {:ok, map()}
   def install!(opts \\ []) do
@@ -204,37 +201,20 @@ defmodule ClaudeCode.Installer do
     return_info = Keyword.get(opts, :return_info, false)
 
     Logger.debug("Installing Claude CLI version: #{version}")
-
-    # Create cli_dir if it doesn't exist
     File.mkdir_p!(cli_dir())
 
-    # Run the official install script
     case run_install_script(version) do
-      {:ok, installed_path, installed_version} ->
-        # Copy the binary to our cli_dir
-        dest_path = copy_binary_to_cli_dir(installed_path)
-        size_bytes = get_file_size(dest_path)
+      {:ok, dest_path, installed_version} ->
         Logger.debug("Claude CLI installed successfully to #{dest_path}")
 
         if return_info do
-          {:ok,
-           %{
-             version: installed_version,
-             path: dest_path,
-             size_bytes: size_bytes,
-             source_path: installed_path
-           }}
+          {:ok, %{version: installed_version, path: dest_path, size_bytes: get_file_size(dest_path)}}
         else
           :ok
         end
 
       {:error, {:install_failed, exit_code, output}} ->
-        Logger.error("""
-        Claude CLI installation failed with exit code #{exit_code}.
-        Install script output:
-        #{output}
-        """)
-
+        Logger.error("Claude CLI installation failed (exit #{exit_code}): #{output}")
         raise "Failed to install Claude CLI: install script exited with code #{exit_code}"
 
       {:error, reason} ->
@@ -274,19 +254,12 @@ defmodule ClaudeCode.Installer do
   """
   @spec installed_version() :: {:ok, String.t()} | {:error, term()}
   def installed_version do
-    case bin_path() do
-      {:ok, path} ->
-        case System.cmd(path, ["--version"], stderr_to_stdout: true) do
-          {output, 0} ->
-            version = parse_version_output(output)
-            {:ok, version}
-
-          {error, _code} ->
-            {:error, {:cli_error, error}}
-        end
-
-      {:error, :not_found} ->
-        {:error, :not_found}
+    with {:ok, path} <- bin_path(),
+         {output, 0} <- System.cmd(path, ["--version"], stderr_to_stdout: true) do
+      {:ok, parse_version_output(output)}
+    else
+      {:error, :not_found} -> {:error, :not_found}
+      {error, _code} -> {:error, {:cli_error, error}}
     end
   end
 
@@ -318,11 +291,7 @@ defmodule ClaudeCode.Installer do
   """
   @spec find_system_cli() :: String.t() | nil
   def find_system_cli do
-    # First check PATH
-    case System.find_executable(@claude_binary) do
-      nil -> find_in_common_locations()
-      path -> path
-    end
+    System.find_executable(@claude_binary) || find_in_common_locations()
   end
 
   # Private functions
@@ -339,12 +308,7 @@ defmodule ClaudeCode.Installer do
     end
   end
 
-  defp windows? do
-    case :os.type() do
-      {:win32, _} -> true
-      _ -> false
-    end
-  end
+  defp windows?, do: match?({:win32, _}, :os.type())
 
   defp run_install_script(version) do
     case :os.type() do
@@ -354,9 +318,6 @@ defmodule ClaudeCode.Installer do
   end
 
   defp run_unix_install_script(version) do
-    # Build the install command
-    # The install script accepts: stable|latest|VERSION as first positional arg
-    # Example: curl -fsSL https://claude.ai/install.sh | bash -s -- x.y.z
     script_cmd =
       if version == "latest" do
         "curl -fsSL #{@install_script_url} | bash"
@@ -364,27 +325,14 @@ defmodule ClaudeCode.Installer do
         "curl -fsSL #{@install_script_url} | bash -s -- #{version}"
       end
 
-    Logger.debug("Running install script: #{script_cmd}")
-
-    # Capture output to parse the installed version
-    case System.cmd("bash", ["-c", script_cmd], stderr_to_stdout: true) do
-      {output, 0} ->
-        # Parse the installed version from output and find that specific binary
-        installed_version = parse_installed_version(output)
-
-        case find_installed_binary(installed_version) do
-          {:ok, path} -> {:ok, path, installed_version}
-          error -> error
-        end
-
-      {output, exit_code} ->
-        {:error, {:install_failed, exit_code, output}}
-    end
+    run_install_in_temp_dir(
+      shell: {"bash", ["-c", script_cmd]},
+      env: fn tmp_dir -> [{"HOME", tmp_dir}] end,
+      post_copy: fn dest -> File.chmod!(dest, 0o755) end
+    )
   end
 
   defp run_windows_install_script(version) do
-    # The PowerShell script accepts $Target as a positional parameter
-    # We use scriptblock to pass the version argument properly
     script_cmd =
       if version == "latest" do
         "irm #{@windows_install_script_url} | iex"
@@ -392,53 +340,70 @@ defmodule ClaudeCode.Installer do
         "& ([scriptblock]::Create((irm #{@windows_install_script_url}))) '#{version}'"
       end
 
-    Logger.debug("Running install script: #{script_cmd}")
+    run_install_in_temp_dir(
+      shell: {"powershell", ["-Command", script_cmd]},
+      env: fn tmp_dir -> [{"USERPROFILE", tmp_dir}, {"HOME", tmp_dir}] end
+    )
+  end
 
-    case System.cmd("powershell", ["-Command", script_cmd], stderr_to_stdout: true) do
-      {output, 0} ->
-        installed_version = parse_installed_version(output)
+  # Shared installation flow: create temp dir, run script, copy binary, clean up.
+  defp run_install_in_temp_dir(opts) do
+    {shell, args} = Keyword.fetch!(opts, :shell)
+    env_fn = Keyword.fetch!(opts, :env)
+    post_copy = Keyword.get(opts, :post_copy)
 
-        case find_installed_binary(installed_version) do
-          {:ok, path} -> {:ok, path, installed_version}
-          error -> error
-        end
+    tmp_dir = create_temp_dir()
+    env = env_fn.(tmp_dir)
 
-      {output, exit_code} ->
-        {:error, {:install_failed, exit_code, output}}
+    Logger.debug("Running install script in #{tmp_dir}: #{shell} #{inspect(args)}")
+
+    result =
+      with {output, 0} <- System.cmd(shell, args, stderr_to_stdout: true, env: env),
+           version = parse_installed_version(output),
+           {:ok, path} <- find_installed_binary_in(tmp_dir, version) do
+        dest = bundled_path()
+        File.mkdir_p!(cli_dir())
+        File.cp!(path, dest)
+        if post_copy, do: post_copy.(dest)
+        {:ok, dest, version}
+      else
+        {output, exit_code} when is_integer(exit_code) ->
+          {:error, {:install_failed, exit_code, output}}
+
+        {:error, _} = error ->
+          error
+      end
+
+    File.rm_rf(tmp_dir)
+    result
+  end
+
+  defp find_installed_binary_in(home_dir, installed_version) do
+    binary_name = if windows?(), do: "claude.exe", else: @claude_binary
+
+    # The install script stores versioned binaries in <home>/.local/share/claude/versions/
+    # and creates a symlink at <home>/.local/bin/claude
+    versioned_path =
+      if installed_version do
+        Path.join([home_dir, ".local", "share", "claude", "versions", installed_version])
+      end
+
+    symlink_path = Path.join([home_dir, ".local", "bin", binary_name])
+    claude_local_path = Path.join([home_dir, ".claude", "local", binary_name])
+
+    candidate_paths = Enum.reject([versioned_path, symlink_path, claude_local_path], &is_nil/1)
+
+    case Enum.find(candidate_paths, &File.exists?/1) do
+      nil -> {:error, :binary_not_found_after_install}
+      path -> {:ok, path}
     end
   end
 
-  defp find_installed_binary(installed_version) do
-    home = System.user_home!()
-
-    # The install script stores versioned binaries in ~/.local/share/claude/versions/
-    # and creates a symlink at ~/.local/bin/claude
-    # We want the specific version that was just installed, not whatever the symlink points to
-    versioned_path =
-      if installed_version do
-        Path.join([home, ".local", "share", "claude", "versions", installed_version])
-      end
-
-    symlink_path = Path.join([home, ".local", "bin", @claude_binary])
-
-    cond do
-      # First, check for the specific versioned binary
-      versioned_path && File.exists?(versioned_path) ->
-        Logger.debug("Found versioned binary at #{versioned_path}")
-        {:ok, versioned_path}
-
-      # Fallback to symlink location
-      File.exists?(symlink_path) ->
-        Logger.debug("Using symlinked binary at #{symlink_path}")
-        {:ok, symlink_path}
-
-      # Last resort: general search
-      path = find_system_cli() ->
-        {:ok, path}
-
-      true ->
-        {:error, :binary_not_found_after_install}
-    end
+  defp create_temp_dir do
+    tmp_base = System.tmp_dir!()
+    tmp_dir = Path.join(tmp_base, "claude_code_install_#{:rand.uniform(1_000_000)}")
+    File.mkdir_p!(tmp_dir)
+    tmp_dir
   end
 
   defp parse_installed_version(output) do
@@ -452,23 +417,6 @@ defmodule ClaudeCode.Installer do
 
         nil
     end
-  end
-
-  defp copy_binary_to_cli_dir(source_path) do
-    dest_path = bundled_path()
-
-    # Ensure directory exists
-    File.mkdir_p!(cli_dir())
-
-    # Copy the binary
-    File.cp!(source_path, dest_path)
-
-    # Make it executable on Unix
-    if !windows?() do
-      File.chmod!(dest_path, 0o755)
-    end
-
-    dest_path
   end
 
   defp get_file_size(path) do
