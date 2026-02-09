@@ -17,6 +17,7 @@ defmodule ClaudeCode.Adapter.Local do
   alias ClaudeCode.Adapter.Local.Installer
   alias ClaudeCode.Adapter.Local.Resolver
   alias ClaudeCode.CLI.Command
+  alias ClaudeCode.CLI.Control
   alias ClaudeCode.CLI.Input
   alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.ResultMessage
@@ -24,6 +25,7 @@ defmodule ClaudeCode.Adapter.Local do
   require Logger
 
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
+  @control_timeout 30_000
 
   defstruct [
     :session,
@@ -32,7 +34,10 @@ defmodule ClaudeCode.Adapter.Local do
     :buffer,
     :current_request,
     :api_key,
-    status: :provisioning
+    :server_info,
+    status: :provisioning,
+    control_counter: 0,
+    pending_control_requests: %{}
   ]
 
   # ============================================================================
@@ -123,6 +128,30 @@ defmodule ClaudeCode.Adapter.Local do
   end
 
   @impl GenServer
+  def handle_call({:control_request, subtype, params}, from, state) do
+    case state.port do
+      nil ->
+        {:reply, {:error, :not_connected}, state}
+
+      port ->
+        {request_id, new_counter} = next_request_id(state.control_counter)
+        json = build_control_json(subtype, request_id, params)
+
+        Port.command(port, json <> "\n")
+
+        pending = Map.put(state.pending_control_requests, request_id, from)
+        schedule_control_timeout(request_id)
+
+        {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
+    end
+  end
+
+  @impl GenServer
+  def handle_call(:get_server_info, _from, state) do
+    {:reply, {:ok, state.server_info}, state}
+  end
+
+  @impl GenServer
   def handle_info({:cli_resolved, {:ok, {executable, args, streaming_opts}}}, state) do
     case open_cli_port(executable, args, state, streaming_opts) do
       {:ok, port} ->
@@ -165,6 +194,17 @@ defmodule ClaudeCode.Adapter.Local do
     {:noreply, state}
   end
 
+  def handle_info({:control_timeout, request_id}, state) do
+    case Map.pop(state.pending_control_requests, request_id) do
+      {nil, _} ->
+        {:noreply, state}
+
+      {from, remaining} ->
+        GenServer.reply(from, {:error, :control_timeout})
+        {:noreply, %{state | pending_control_requests: remaining}}
+    end
+  end
+
   def handle_info(msg, state) do
     Logger.debug("CLI Adapter unhandled message: #{inspect(msg)}")
     {:noreply, state}
@@ -186,11 +226,15 @@ defmodule ClaudeCode.Adapter.Local do
   # ============================================================================
 
   defp handle_port_disconnect(state, error) do
+    for {_req_id, from} <- state.pending_control_requests do
+      GenServer.reply(from, {:error, error})
+    end
+
     if state.current_request do
       Adapter.notify_error(state.session, state.current_request, error)
     end
 
-    %{state | port: nil, current_request: nil, buffer: "", status: :disconnected}
+    %{state | port: nil, current_request: nil, buffer: "", status: :disconnected, pending_control_requests: %{}}
   end
 
   defp ensure_connected(%{status: :provisioning}), do: {:error, :provisioning}
@@ -346,13 +390,32 @@ defmodule ClaudeCode.Adapter.Local do
 
   defp process_line("", state), do: state
 
-  defp process_line(line, %{current_request: nil} = state) do
-    parse_line(line)
+  defp process_line(line, state) do
+    case Jason.decode(line) do
+      {:ok, json} ->
+        case Control.classify(json) do
+          {:control_response, msg} ->
+            handle_control_response(msg, state)
+
+          {:control_request, msg} ->
+            handle_inbound_control_request(msg, state)
+
+          {:message, json_msg} ->
+            handle_sdk_message(json_msg, state)
+        end
+
+      {:error, _} ->
+        Logger.debug("Failed to decode JSON: #{line}")
+        state
+    end
+  end
+
+  defp handle_sdk_message(_json, %{current_request: nil} = state) do
     state
   end
 
-  defp process_line(line, state) do
-    case parse_line(line) do
+  defp handle_sdk_message(json, state) do
+    case Parser.parse_message(json) do
       {:ok, message} ->
         Adapter.notify_message(state.session, state.current_request, message)
 
@@ -364,18 +427,74 @@ defmodule ClaudeCode.Adapter.Local do
         end
 
       {:error, _} ->
+        Logger.debug("Failed to parse message: #{inspect(json)}")
         state
     end
   end
 
-  defp parse_line(line) do
-    with {:ok, json} <- Jason.decode(line),
-         {:ok, message} <- Parser.parse_message(json) do
-      {:ok, message}
-    else
-      {:error, reason} ->
-        Logger.debug("Failed to parse line: #{line}")
-        {:error, reason}
+  defp handle_control_response(msg, state) do
+    case Control.parse_control_response(msg) do
+      {:ok, request_id, response} ->
+        case Map.pop(state.pending_control_requests, request_id) do
+          {nil, _} ->
+            Logger.warning("Received control response for unknown request: #{request_id}")
+            state
+
+          {from, remaining} ->
+            GenServer.reply(from, {:ok, response})
+            %{state | pending_control_requests: remaining}
+        end
+
+      {:error, request_id, error_msg} ->
+        case Map.pop(state.pending_control_requests, request_id) do
+          {nil, _} ->
+            Logger.warning("Received control error for unknown request: #{request_id}")
+            state
+
+          {from, remaining} ->
+            GenServer.reply(from, {:error, error_msg})
+            %{state | pending_control_requests: remaining}
+        end
     end
+  end
+
+  defp handle_inbound_control_request(msg, state) do
+    request_id = get_in(msg, ["request_id"])
+    subtype = get_in(msg, ["request", "subtype"])
+    Logger.warning("Received unhandled control request: #{subtype}")
+
+    response = Control.error_response(request_id, "Not implemented: #{subtype}")
+    if state.port, do: Port.command(state.port, response <> "\n")
+    state
+  end
+
+  defp next_request_id(counter) do
+    {Control.generate_request_id(counter), counter + 1}
+  end
+
+  defp build_control_json(:initialize, request_id, params) do
+    hooks = Map.get(params, :hooks)
+    agents = Map.get(params, :agents)
+    Control.initialize_request(request_id, hooks, agents)
+  end
+
+  defp build_control_json(:set_model, request_id, %{model: model}) do
+    Control.set_model_request(request_id, model)
+  end
+
+  defp build_control_json(:set_permission_mode, request_id, %{mode: mode}) do
+    Control.set_permission_mode_request(request_id, to_string(mode))
+  end
+
+  defp build_control_json(:rewind_files, request_id, %{user_message_id: id}) do
+    Control.rewind_files_request(request_id, id)
+  end
+
+  defp build_control_json(:mcp_status, request_id, _params) do
+    Control.mcp_status_request(request_id)
+  end
+
+  defp schedule_control_timeout(request_id) do
+    Process.send_after(self(), {:control_timeout, request_id}, @control_timeout)
   end
 end

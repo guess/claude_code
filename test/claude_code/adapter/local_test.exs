@@ -423,4 +423,183 @@ defmodule ClaudeCode.Adapter.LocalTest do
       refute Map.has_key?(env, "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING")
     end
   end
+
+  # ============================================================================
+  # Control Message Routing Tests (Task 4)
+  # ============================================================================
+
+  describe "control message routing" do
+    test "control_response messages do not reach session as adapter_message" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        # Immediately emit a control_response then handle stdin
+        echo '{"type":"control_response","response":{"subtype":"success","request_id":"req_0_test","response":{}}}'
+        while IFS= read -r line; do
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      # We should NOT receive the control_response as an adapter_message
+      refute_receive {:adapter_message, _, _}, 500
+
+      GenServer.stop(adapter)
+    end
+
+    test "regular messages still reach session as adapter_message" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-123"}'
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test-123","total_cost_usd":0.001,"usage":{}}'
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      req_ref = make_ref()
+      :ok = Local.send_query(adapter, req_ref, "hello", [])
+
+      assert_receive {:adapter_message, ^req_ref, _msg}, 5000
+      assert_receive {:adapter_done, ^req_ref, :completed}, 5000
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  # ============================================================================
+  # Outbound Control Request Tests (Task 5)
+  # ============================================================================
+
+  describe "outbound control requests" do
+    test "send_control_request sends control message and resolves on response" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"status\\\":\\\"ok\\\"}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      assert {:ok, %{"status" => "ok"}} =
+               GenServer.call(adapter, {:control_request, :mcp_status, %{}})
+
+      GenServer.stop(adapter)
+    end
+
+    test "send_control_request returns error on error response" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"error\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"error\\\":\\\"Something went wrong\\\"}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      assert {:error, "Something went wrong"} =
+               GenServer.call(adapter, {:control_request, :set_model, %{model: "opus"}})
+
+      GenServer.stop(adapter)
+    end
+
+    test "control request times out when no response received" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            true
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      task =
+        Task.async(fn ->
+          GenServer.call(adapter, {:control_request, :mcp_status, %{}}, 5000)
+        end)
+
+      # Wait for the request to be sent
+      Process.sleep(200)
+
+      # Get the pending request ID and trigger timeout manually
+      state = :sys.get_state(adapter)
+      [req_id | _] = Map.keys(state.pending_control_requests)
+      send(adapter, {:control_timeout, req_id})
+
+      assert {:error, :control_timeout} = Task.await(task)
+
+      GenServer.stop(adapter)
+    end
+  end
 end
