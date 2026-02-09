@@ -12,7 +12,8 @@ defmodule ClaudeCode.Message.UserMessage do
     uuid?: string,
     message: MessageParam,  # from Anthropic SDK
     session_id: string,
-    parent_tool_use_id?: string | null
+    parent_tool_use_id?: string | null,
+    tool_use_result?: object | null  # Rich metadata about the tool result
   }
   ```
   """
@@ -26,7 +27,8 @@ defmodule ClaudeCode.Message.UserMessage do
     :message,
     :session_id,
     :uuid,
-    :parent_tool_use_id
+    :parent_tool_use_id,
+    :tool_use_result
   ]
 
   @type t :: %__MODULE__{
@@ -34,7 +36,8 @@ defmodule ClaudeCode.Message.UserMessage do
           message: Types.message_param(),
           session_id: Types.session_id(),
           uuid: String.t() | nil,
-          parent_tool_use_id: String.t() | nil
+          parent_tool_use_id: String.t() | nil,
+          tool_use_result: map() | nil
         }
 
   @doc """
@@ -79,7 +82,8 @@ defmodule ClaudeCode.Message.UserMessage do
           },
           session_id: parent_json["session_id"],
           uuid: parent_json["uuid"],
-          parent_tool_use_id: parent_json["parent_tool_use_id"]
+          parent_tool_use_id: parent_json["parent_tool_use_id"],
+          tool_use_result: parent_json["tool_use_result"]
         }
 
         {:ok, message_struct}

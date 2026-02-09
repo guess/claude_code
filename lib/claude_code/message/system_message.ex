@@ -1,33 +1,20 @@
 defmodule ClaudeCode.Message.SystemMessage do
   @moduledoc """
-  Represents a system initialization message from the Claude CLI.
+  Represents a system message from the Claude CLI.
 
-  System messages provide session setup information including available tools,
-  MCP servers, model, and permission mode.
+  System messages cover multiple subtypes:
+
+  - `:init` - Session initialization with tools, model, MCP servers, etc.
+  - `:hook_started` - Hook execution started
+  - `:hook_response` - Hook execution completed with output
+  - Any future subtypes the CLI may add
+
+  For `:init` messages, all the dedicated fields (tools, model, mcp_servers, etc.)
+  are populated. For other subtypes, extra fields are stored in the `data` map.
 
   For conversation compaction boundaries, use `ClaudeCode.Message.CompactBoundaryMessage`.
 
-  Matches the official SDK schema:
-  ```
-  {
-    type: "system",
-    subtype: "init",
-    uuid: string,
-    apiKeySource: string,
-    cwd: string,
-    session_id: string,
-    tools: string[],
-    mcp_servers: { name: string, status: string }[],
-    model: string,
-    permissionMode: "default" | "acceptEdits" | "bypassPermissions" | "delegate" | "dontAsk" | "plan",
-    slash_commands: string[],
-    output_style: string,
-    claude_code_version: string,
-    agents: string[],
-    skills: string[],
-    plugins: { name: string, path: string }[]
-  }
-  ```
+  Mirrors the Python SDK's generic approach: `SystemMessage(subtype=str, data=dict)`.
   """
 
   alias ClaudeCode.Types
@@ -35,13 +22,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   @enforce_keys [
     :type,
     :subtype,
-    :cwd,
-    :session_id,
-    :tools,
-    :mcp_servers,
-    :model,
-    :permission_mode,
-    :api_key_source
+    :session_id
   ]
   defstruct [
     :type,
@@ -59,40 +40,48 @@ defmodule ClaudeCode.Message.SystemMessage do
     output_style: "default",
     agents: [],
     skills: [],
-    plugins: []
+    plugins: [],
+    data: %{}
   ]
 
   @type t :: %__MODULE__{
           type: :system,
-          subtype: :init,
-          uuid: String.t(),
-          cwd: String.t(),
+          subtype: atom(),
+          uuid: String.t() | nil,
+          cwd: String.t() | nil,
           session_id: Types.session_id(),
-          tools: [String.t()],
-          mcp_servers: [Types.mcp_server()],
-          model: String.t(),
-          permission_mode: Types.permission_mode(),
-          api_key_source: String.t(),
+          tools: [String.t()] | nil,
+          mcp_servers: [Types.mcp_server()] | nil,
+          model: String.t() | nil,
+          permission_mode: Types.permission_mode() | nil,
+          api_key_source: String.t() | nil,
           claude_code_version: String.t() | nil,
           slash_commands: [String.t()],
           output_style: String.t(),
           agents: [String.t()],
           skills: [String.t()],
-          plugins: [Types.plugin()]
+          plugins: [Types.plugin()],
+          data: map()
         }
 
   @doc """
   Creates a new SystemMessage from JSON data.
 
+  For `init` subtypes, validates required fields and populates dedicated struct fields.
+  For all other subtypes, stores extra fields in the `data` map.
+
   ## Examples
 
       iex> SystemMessage.new(%{"type" => "system", "subtype" => "init", ...})
-      {:ok, %SystemMessage{...}}
+      {:ok, %SystemMessage{subtype: :init, ...}}
+
+      iex> SystemMessage.new(%{"type" => "system", "subtype" => "hook_started", ...})
+      {:ok, %SystemMessage{subtype: :hook_started, data: %{...}}}
 
       iex> SystemMessage.new(%{"type" => "assistant"})
       {:error, :invalid_message_type}
   """
-  @spec new(map()) :: {:ok, t()} | {:error, :invalid_message_type | {:missing_fields, [atom()]}}
+  @spec new(map()) :: {:ok, t()} | {:error, :invalid_message_type | :missing_session_id | {:missing_fields, [atom()]}}
   def new(%{"type" => "system", "subtype" => "init"} = json) do
     required_fields = [
       "subtype",
@@ -133,6 +122,28 @@ defmodule ClaudeCode.Message.SystemMessage do
     end
   end
 
+  def new(%{"type" => "system", "subtype" => subtype} = json) do
+    case json do
+      %{"session_id" => session_id} ->
+        data =
+          json
+          |> Map.drop(["type", "subtype", "session_id", "uuid"])
+          |> atomize_top_level_keys()
+
+        {:ok,
+         %__MODULE__{
+           type: :system,
+           subtype: String.to_atom(subtype),
+           session_id: session_id,
+           uuid: json["uuid"],
+           data: data
+         }}
+
+      _ ->
+        {:error, :missing_session_id}
+    end
+  end
+
   def new(_), do: {:error, :invalid_message_type}
 
   @doc """
@@ -170,6 +181,13 @@ defmodule ClaudeCode.Message.SystemMessage do
   defp parse_permission_mode("dontAsk"), do: :dont_ask
   defp parse_permission_mode("plan"), do: :plan
   defp parse_permission_mode(_), do: :default
+
+  defp atomize_top_level_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_binary(key) -> {String.to_atom(key), value}
+      {key, value} -> {key, value}
+    end)
+  end
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Message.SystemMessage do

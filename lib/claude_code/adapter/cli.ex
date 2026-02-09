@@ -347,10 +347,6 @@ defmodule ClaudeCode.Adapter.CLI do
         state
       end
     else
-      {:error, :unknown_system_subtype} ->
-        # Silently skip system subtypes we don't handle (e.g., hook_started, hook_response)
-        state
-
       {:error, _} ->
         Logger.debug("Failed to parse line: #{line}")
         state

@@ -118,6 +118,102 @@ defmodule ClaudeCode.MessageTest do
                Message.parse(data)
     end
 
+    test "parses user messages with tool_use_result metadata" do
+      data = %{
+        "type" => "user",
+        "uuid" => "user-uuid-789",
+        "message" => %{
+          "role" => "user",
+          "content" => [
+            %{
+              "type" => "tool_result",
+              "tool_use_id" => "tool-123",
+              "content" => "file contents here"
+            }
+          ]
+        },
+        "parent_tool_use_id" => nil,
+        "session_id" => "123",
+        "tool_use_result" => %{
+          "type" => "text",
+          "file" => %{
+            "filePath" => "/path/to/file.ex",
+            "content" => "defmodule Foo do\nend\n",
+            "numLines" => 2,
+            "startLine" => 1,
+            "totalLines" => 2
+          }
+        }
+      }
+
+      assert {:ok, %UserMessage{tool_use_result: tool_use_result}} = Message.parse(data)
+      assert tool_use_result["type"] == "text"
+      assert tool_use_result["file"]["filePath"] == "/path/to/file.ex"
+    end
+
+    test "parses user messages without tool_use_result" do
+      data = %{
+        "type" => "user",
+        "uuid" => "user-uuid-790",
+        "message" => %{
+          "role" => "user",
+          "content" => "Hello"
+        },
+        "session_id" => "123"
+      }
+
+      assert {:ok, %UserMessage{tool_use_result: nil}} = Message.parse(data)
+    end
+
+    test "parses assistant messages with error field" do
+      data = %{
+        "type" => "assistant",
+        "uuid" => "msg-uuid-err",
+        "message" => %{
+          "id" => "msg_err",
+          "type" => "message",
+          "role" => "assistant",
+          "model" => "claude",
+          "content" => [],
+          "stop_reason" => nil,
+          "stop_sequence" => nil,
+          "usage" => %{
+            "input_tokens" => 0,
+            "output_tokens" => 0
+          }
+        },
+        "parent_tool_use_id" => nil,
+        "session_id" => "123",
+        "error" => "rate_limit"
+      }
+
+      assert {:ok, %AssistantMessage{error: :rate_limit}} = Message.parse(data)
+    end
+
+    test "parses assistant messages without error field" do
+      data = %{
+        "type" => "assistant",
+        "uuid" => "msg-uuid-ok",
+        "message" => %{
+          "id" => "msg_ok",
+          "type" => "message",
+          "role" => "assistant",
+          "model" => "claude",
+          "content" => [%{"type" => "text", "text" => "Hello"}],
+          "stop_reason" => nil,
+          "stop_sequence" => nil,
+          "usage" => %{
+            "input_tokens" => 1,
+            "output_tokens" => 1
+          }
+        },
+        "parent_tool_use_id" => nil,
+        "session_id" => "123"
+      }
+
+      assert {:ok, %AssistantMessage{error: nil}} = Message.parse(data)
+    end
+
     test "parses result messages with new fields" do
       data = %{
         "type" => "result",
@@ -204,9 +300,68 @@ defmodule ClaudeCode.MessageTest do
       assert {:error, :missing_type} = Message.parse(data)
     end
 
-    test "returns error for unknown system subtype" do
-      data = %{"type" => "system", "subtype" => "invalid"}
-      assert {:error, :unknown_system_subtype} = Message.parse(data)
+    test "parses hook_started system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "hook_started",
+        "hook_id" => "abc-123",
+        "hook_name" => "SessionStart:startup",
+        "hook_event" => "SessionStart",
+        "uuid" => "event-uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok,
+              %SystemMessage{
+                type: :system,
+                subtype: :hook_started,
+                session_id: "session-1",
+                uuid: "event-uuid-1",
+                data: data_map
+              }} = Message.parse(data)
+
+      assert data_map.hook_id == "abc-123"
+      assert data_map.hook_name == "SessionStart:startup"
+      assert data_map.hook_event == "SessionStart"
+    end
+
+    test "parses hook_response system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "hook_response",
+        "hook_id" => "abc-123",
+        "hook_name" => "SessionStart:startup",
+        "hook_event" => "SessionStart",
+        "output" => "hook output",
+        "stdout" => "hook stdout",
+        "stderr" => "",
+        "exit_code" => 0,
+        "outcome" => "success",
+        "uuid" => "event-uuid-2",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok,
+              %SystemMessage{
+                subtype: :hook_response,
+                data: data_map
+              }} = Message.parse(data)
+
+      assert data_map.hook_id == "abc-123"
+      assert data_map.exit_code == 0
+      assert data_map.outcome == "success"
+    end
+
+    test "parses unknown system subtypes as SystemMessage" do
+      data = %{
+        "type" => "system",
+        "subtype" => "some_future_subtype",
+        "uuid" => "event-uuid",
+        "session_id" => "session-1",
+        "custom_field" => "custom_value"
+      }
+
+      assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Message.parse(data)
     end
 
     test "returns error for system message without subtype" do
@@ -368,6 +523,19 @@ defmodule ClaudeCode.MessageTest do
         })
 
       assert Message.message?(compact)
+    end
+
+    test "message?/1 returns true for non-init system messages" do
+      {:ok, event} =
+        SystemMessage.new(%{
+          "type" => "system",
+          "subtype" => "hook_started",
+          "uuid" => "event-uuid",
+          "session_id" => "1",
+          "hook_id" => "hook-1"
+        })
+
+      assert Message.message?(event)
     end
 
     test "message?/1 returns false for non-messages" do

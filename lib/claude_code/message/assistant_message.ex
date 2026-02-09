@@ -12,7 +12,9 @@ defmodule ClaudeCode.Message.AssistantMessage do
     uuid: string,
     message: { ... },  # Anthropic SDK Message type
     session_id: string,
-    parent_tool_use_id?: string | null
+    parent_tool_use_id?: string | null,
+    error?: "authentication_failed" | "billing_error" | "rate_limit"
+            | "invalid_request" | "server_error" | "unknown" | null
   }
   ```
   """
@@ -30,15 +32,25 @@ defmodule ClaudeCode.Message.AssistantMessage do
     :message,
     :session_id,
     :uuid,
-    :parent_tool_use_id
+    :parent_tool_use_id,
+    :error
   ]
+
+  @type assistant_message_error ::
+          :authentication_failed
+          | :billing_error
+          | :rate_limit
+          | :invalid_request
+          | :server_error
+          | :unknown
 
   @type t :: %__MODULE__{
           type: :assistant,
           message: Types.message(),
           session_id: String.t(),
           uuid: String.t() | nil,
-          parent_tool_use_id: String.t() | nil
+          parent_tool_use_id: String.t() | nil,
+          error: assistant_message_error() | nil
         }
 
   @doc """
@@ -90,7 +102,8 @@ defmodule ClaudeCode.Message.AssistantMessage do
           },
           session_id: parent_json["session_id"],
           uuid: parent_json["uuid"],
-          parent_tool_use_id: parent_json["parent_tool_use_id"]
+          parent_tool_use_id: parent_json["parent_tool_use_id"],
+          error: parse_error(parent_json["error"])
         }
 
         {:ok, message_struct}
@@ -136,6 +149,15 @@ defmodule ClaudeCode.Message.AssistantMessage do
   end
 
   defp parse_cache_creation(_), do: nil
+
+  defp parse_error(nil), do: nil
+  defp parse_error("authentication_failed"), do: :authentication_failed
+  defp parse_error("billing_error"), do: :billing_error
+  defp parse_error("rate_limit"), do: :rate_limit
+  defp parse_error("invalid_request"), do: :invalid_request
+  defp parse_error("server_error"), do: :server_error
+  defp parse_error("unknown"), do: :unknown
+  defp parse_error(other) when is_binary(other), do: String.to_atom(other)
 end
 
 defimpl String.Chars, for: ClaudeCode.Message.AssistantMessage do

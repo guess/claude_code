@@ -122,14 +122,13 @@ defmodule ClaudeCode.Message do
 
   # Private
 
-  defp parse_system(%{"subtype" => "init"} = data) do
-    SystemMessage.new(data)
-  end
-
   defp parse_system(%{"subtype" => "compact_boundary"} = data) do
     CompactBoundaryMessage.new(data)
   end
 
-  defp parse_system(%{"subtype" => _}), do: {:error, :unknown_system_subtype}
+  defp parse_system(%{"subtype" => _} = data) do
+    SystemMessage.new(data)
+  end
+
   defp parse_system(_), do: {:error, :invalid_system_subtype}
 end
