@@ -66,7 +66,7 @@
 | `output_format` (JSON schema) | ✅ | ✅ | |
 | `settings` | ✅ | ✅ | |
 | `setting_sources` | ✅ | ✅ | |
-| `agents` (custom agents) | ✅ | ✅ | Python sends via initialize; Elixir via `--agents` CLI flag |
+| `agents` (custom agents) | ✅ | ✅ | Both send via initialize handshake |
 | `plugins` | ✅ | ✅ | |
 | `include_partial_messages` | ✅ | ✅ | |
 | `fork_session` | ✅ | ✅ | |
@@ -104,16 +104,16 @@
 
 | Feature | Python | Elixir | Notes |
 |---------|--------|--------|-------|
-| Initialize handshake | ✅ `initialize` control request | ❌ | Python sends hooks + agents via control protocol |
+| Initialize handshake | ✅ `initialize` control request | ✅ `CLI.Control.initialize_request/3` | Both send agents via control protocol; Elixir also caches server_info |
 | Interrupt generation | ✅ `client.interrupt()` | ❌ | Dynamic interrupt during generation |
-| Set permission mode dynamically | ✅ `client.set_permission_mode()` | ❌ | Change mid-conversation |
-| Set model dynamically | ✅ `client.set_model()` | ❌ | Change mid-conversation |
-| Rewind files | ✅ `client.rewind_files()` | ❌ | Rewind to file checkpoint |
-| Get MCP status | ✅ `client.get_mcp_status()` | ❌ | Live MCP server status |
-| Get server info | ✅ `client.get_server_info()` | ❌ | Server initialization info |
-| Control request/response routing | ✅ full bidirectional | ❌ | Separate control channel from messages |
-| Control request timeout | ✅ configurable | ❌ | |
-| Control error responses | ✅ | ❌ | |
+| Set permission mode dynamically | ✅ `client.set_permission_mode()` | ✅ `ClaudeCode.set_permission_mode/2` | Change mid-conversation |
+| Set model dynamically | ✅ `client.set_model()` | ✅ `ClaudeCode.set_model/2` | Change mid-conversation |
+| Rewind files | ✅ `client.rewind_files()` | ✅ `ClaudeCode.rewind_files/2` | Rewind to file checkpoint |
+| Get MCP status | ✅ `client.get_mcp_status()` | ✅ `ClaudeCode.get_mcp_status/1` | Live MCP server status |
+| Get server info | ✅ `client.get_server_info()` | ✅ `ClaudeCode.get_server_info/1` | Server initialization info |
+| Control request/response routing | ✅ full bidirectional | ✅ `CLI.Control.classify/1` | Separate control channel from messages |
+| Control request timeout | ✅ configurable | ✅ 30s default | |
+| Control error responses | ✅ | ✅ | |
 
 ---
 
@@ -349,18 +349,16 @@
 
 ### Features Python Has That Elixir Lacks
 
-1. **Control Protocol** - Full bidirectional control channel (initialize, interrupt, set_permission_mode, set_model, rewind_files, mcp_status, server_info)
+1. **Interrupt Generation** - `client.interrupt()` to dynamically interrupt during generation
 2. **Tool Permission Callbacks** (`can_use_tool`) - Allow/deny/modify tool execution with rich permission update types
 3. **Hook System** - 10 event types with Python function callbacks, sync/async output, pattern matching
 4. **In-Process MCP Servers** (`create_sdk_mcp_server`, `@tool` decorator) - Run MCP tools in the same process
-5. **Dynamic Mid-Conversation Control** - Change model, permission mode, interrupt generation
-6. **File Rewind** - Rewind tracked files to a checkpoint
-7. **`extra_args`** - Pass arbitrary CLI flags not covered by named options
-8. **`stderr` callback** - Capture CLI stderr output
-9. **`user` impersonation** - Run subprocess as different OS user
-10. **Write serialization lock** - Prevent concurrent write races
-11. **`max_buffer_size`** - JSON buffer overflow protection
-12. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
+5. **`extra_args`** - Pass arbitrary CLI flags not covered by named options
+6. **`stderr` callback** - Capture CLI stderr output
+7. **`user` impersonation** - Run subprocess as different OS user
+8. **Write serialization lock** - Prevent concurrent write races
+9. **`max_buffer_size`** - JSON buffer overflow protection
+10. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
 
 ### Features Elixir Has That Python Lacks
 
@@ -369,7 +367,7 @@
 3. **Supervisor** - OTP supervision tree for multiple sessions
 4. **Health Checks** - Adapter health monitoring
 5. **Tool Callback** - Post-execution tool use/result correlation
-6. **Adapter Status Lifecycle** - Provisioning -> ready -> error transitions
+6. **Adapter Status Lifecycle** - Provisioning -> initializing -> ready -> error transitions
 7. **Test Adapter** - Dedicated mock adapter for testing
 8. **Named Sessions** - Process registry via OTP
 9. **Query Queuing** - Queue queries when adapter busy
@@ -378,3 +376,4 @@
 12. **Richer Message Parsing** - Direct struct fields for SystemMessage (vs Python's `data` dict)
 13. **Richer ResultMessage** - model_usage, permission_denials, stop_reason, errors fields
 14. **Validate Installation** - CLI binary validation function
+15. **Optional Adapter Callbacks** - Control protocol support via `@optional_callbacks` for gradual adoption
