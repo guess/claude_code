@@ -65,6 +65,53 @@ defmodule ClaudeCode.CLI do
     end
   end
 
+  @doc """
+  Builds the command and arguments for running the Claude CLI.
+
+  Accepts validated options from the Options module and converts them to CLI flags.
+  If a session_id is provided, automatically adds --resume flag for session continuity.
+
+  The `api_key` parameter is accepted for interface compatibility but is not used
+  directly -- API keys are passed via environment variables by the adapter.
+
+  Returns `{:ok, {executable, args}}` or `{:error, reason}`.
+  """
+  @spec build_command(String.t(), String.t(), keyword(), String.t() | nil) ::
+          {:ok, {String.t(), [String.t()]}} | {:error, term()}
+  def build_command(prompt, _api_key, opts, session_id \\ nil) do
+    case find_binary(opts) do
+      {:ok, executable} ->
+        args = build_args(prompt, opts, session_id)
+        {:ok, {executable, args}}
+
+      {:error, reason} ->
+        {:error, wrap_not_found(reason)}
+    end
+  end
+
+  @doc """
+  Validates that the Claude CLI is properly installed and accessible.
+  """
+  @spec validate_installation(keyword()) :: :ok | {:error, term()}
+  def validate_installation(opts \\ []) do
+    with {:ok, path} <- find_binary(opts),
+         {output, 0} <- System.cmd(path, ["--version"], stderr_to_stdout: true),
+         true <- String.contains?(output, "Claude Code") do
+      :ok
+    else
+      false ->
+        {:error, {:invalid_binary, "Binary does not appear to be Claude CLI"}}
+
+      {error_output, exit_code} when is_integer(exit_code) ->
+        {:error, {:cli_error, error_output}}
+
+      {:error, reason} ->
+        {:error, wrap_not_found(reason)}
+    end
+  end
+
+  # -- Private: binary resolution -----------------------------------------------
+
   defp find_bundled do
     bundled = Installer.bundled_path()
 
@@ -110,78 +157,22 @@ defmodule ClaudeCode.CLI do
       {:error, :install_failed}
   end
 
-  @doc """
-  Builds the command and arguments for running the Claude CLI.
-
-  Accepts validated options from the Options module and converts them to CLI flags.
-  If a session_id is provided, automatically adds --resume flag for session continuity.
-
-  Returns `{:ok, {executable, args}}` or `{:error, reason}`.
-  """
-  @spec build_command(String.t(), String.t(), keyword(), String.t() | nil) ::
-          {:ok, {String.t(), [String.t()]}} | {:error, term()}
-  def build_command(prompt, _api_key, opts, session_id \\ nil) do
-    case find_binary(opts) do
-      {:ok, executable} ->
-        args = build_args(prompt, opts, session_id)
-        {:ok, {executable, args}}
-
-      {:error, :not_found} ->
-        {:error, {:cli_not_found, cli_not_found_message()}}
-
-      {:error, reason} ->
-        {:error, {:cli_not_found, "CLI resolution failed: #{inspect(reason)}"}}
-    end
-  end
-
-  @doc """
-  Validates that the Claude CLI is properly installed and accessible.
-  """
-  @spec validate_installation(keyword()) :: :ok | {:error, term()}
-  def validate_installation(opts \\ []) do
-    case find_binary(opts) do
-      {:ok, path} ->
-        # Try to run claude --version to verify it's working
-        case System.cmd(path, ["--version"], stderr_to_stdout: true) do
-          {output, 0} ->
-            if String.contains?(output, "Claude Code") do
-              :ok
-            else
-              {:error, {:invalid_binary, "Binary at #{path} does not appear to be Claude CLI"}}
-            end
-
-          {error_output, _exit_code} ->
-            {:error, {:cli_error, error_output}}
-        end
-
-      {:error, :not_found} ->
-        {:error, {:cli_not_found, cli_not_found_message()}}
-
-      {:error, reason} ->
-        {:error, {:cli_not_found, "CLI resolution failed: #{inspect(reason)}"}}
-    end
-  end
+  # -- Private: argument building -----------------------------------------------
 
   defp build_args(prompt, opts, session_id) do
-    # Start with required flags
-    base_args = @required_flags
-
-    # Add resume flag if session_id is provided
-    resume_args =
-      if session_id do
-        ["--resume", session_id]
-      else
-        []
-      end
-
-    # Convert options to CLI flags using Options module
+    resume_args = if session_id, do: ["--resume", session_id], else: []
     option_args = Options.to_cli_args(opts)
 
-    # Combine all arguments: base flags, resume (if any), options, then prompt
-    base_args ++ resume_args ++ option_args ++ [prompt]
+    @required_flags ++ resume_args ++ option_args ++ [prompt]
   end
 
-  defp cli_not_found_message do
-    Installer.cli_not_found_message()
+  # -- Private: error helpers ---------------------------------------------------
+
+  defp wrap_not_found(:not_found) do
+    {:cli_not_found, Installer.cli_not_found_message()}
+  end
+
+  defp wrap_not_found(reason) do
+    {:cli_not_found, "CLI resolution failed: #{inspect(reason)}"}
   end
 end
