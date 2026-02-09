@@ -9,72 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 
-- **`:cli_path` defaults to `:bundled`** - The SDK now uses the bundled CLI binary in `priv/bin/` by default, auto-installing if missing. Previously it searched for a global install first and fell back to the bundled binary. To use a global install instead, set `cli_path: :global`, or pass an explicit path string like `cli_path: "/usr/local/bin/claude"`. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
-- **`:agents` option now sent via control protocol** - Agents are no longer passed as a `--agents` CLI flag. They are now sent through the initialize handshake, matching the Python SDK behavior. No API change required — this is transparent to users, but the CLI must support the control protocol. See [Subagents Guide](docs/guides/subagents.md). ([2a4473b])
+- **`:cli_path` defaults to `:bundled`** - Uses `priv/bin/` binary by default, auto-installing if missing. Set `cli_path: :global` for system install, or pass an explicit path. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
+- **`:agents` sent via control protocol** - No longer passed as `--agents` CLI flag. Sent through the initialize handshake instead, matching the Python SDK. No API change required. See [Subagents Guide](docs/guides/subagents.md). ([2a4473b])
 
 ### Added
 
-- **Bidirectional control protocol** - Full control channel between the SDK and CLI, enabling dynamic mid-conversation control. See [Sessions Guide — Runtime Control](docs/guides/sessions.md#runtime-control). ([7ba2007], [228c57f])
-  - `ClaudeCode.set_model/2` - Change the model mid-conversation
-  - `ClaudeCode.set_permission_mode/2` - Change the permission mode mid-conversation
-  - `ClaudeCode.get_mcp_status/1` - Query live MCP server connection status
-  - `ClaudeCode.get_server_info/1` - Get server initialization info cached from handshake
-  - `ClaudeCode.rewind_files/2` - Rewind tracked files to a user message checkpoint. See [File Checkpointing Guide](docs/guides/file-checkpointing.md).
-  - Returns `{:error, :not_supported}` when used with adapters that don't implement the control protocol
-- **Initialize handshake** - Adapter now performs a control protocol handshake before transitioning to `:ready`. See [Architecture](docs/reference/architecture.md). ([228c57f])
-  - New `:initializing` adapter status between `:provisioning` and `:ready`
-  - Server info from the handshake response is cached and available via `get_server_info/1`
-  - Agents configuration is sent through the handshake (not as a CLI flag)
+#### Control protocol
 
-- **`:sandbox` option** - Sandbox configuration for bash command isolation. See [Secure Deployment Guide](docs/guides/secure-deployment.md). ([5f48858])
-  - Accepts a map that is merged into `--settings` for the CLI
-  - Useful for restricting file system access and network in sandboxed environments
-- **`:enable_file_checkpointing` option** - Enable file checkpointing during sessions. See [File Checkpointing Guide](docs/guides/file-checkpointing.md). ([5f48858])
-  - Sets the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable
-  - Tracks file changes made during Claude Code sessions
-- **`:allow_dangerously_skip_permissions` option** - Safety guard required when using `permission_mode: :bypass_permissions`. See [Permissions Guide](docs/guides/permissions.md). ([c9dc6fa])
-  - Matches TypeScript SDK's `allowDangerouslySkipPermissions` option
-  - Recommended only for sandboxed environments with no internet access
-- **New CLI options** - Added support for additional CLI flags. See [Configuration Guide](docs/advanced/configuration.md). ([d6c1869])
-  - `:file` - File resources (repeatable, format: file_id:path)
-  - `:from_pr` - Resume session linked to PR
-  - `:debug` - Debug mode with optional filter
-  - `:debug_file` - Debug log file path
-- **`ClaudeCode.health/1`** - Check adapter health status. See [Hosting Guide](docs/guides/hosting.md). ([383dda6])
-  - Returns `:healthy`, `:degraded`, or `{:unhealthy, reason}`
-  - CLI adapter reports `:healthy` when port is alive, `{:unhealthy, :not_connected}` before first query
-- **Adapter behaviour** - Swappable backend interface for running Claude Code in different execution environments. See [Architecture](docs/reference/architecture.md). ([1582644])
-  - `ClaudeCode.Adapter` behaviour with 4 callbacks: `start_link/2`, `send_query/4`, `health/1`, `stop/1`
-  - Adapters specified as `{Module, config}` tuples: e.g., `adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/claude"}`
-  - Default adapter (`ClaudeCode.Adapter.CLI`) requires no configuration change
-  - Enables future Docker, Cloudflare, and other execution environment adapters
-- **`mix claude_code.path`** - Print the resolved CLI binary path for shell usage ([94b5143])
-  - Useful in shell commands: `$(mix claude_code.path) /login`
+Runtime control of sessions without restarting. See [Sessions — Runtime Control](docs/guides/sessions.md#runtime-control).
+
+- `ClaudeCode.set_model/2` - Change the model mid-conversation ([7ba2007])
+- `ClaudeCode.set_permission_mode/2` - Change the permission mode mid-conversation ([7ba2007])
+- `ClaudeCode.get_mcp_status/1` - Query MCP server connection status ([7ba2007])
+- `ClaudeCode.get_server_info/1` - Get server info cached from handshake ([228c57f])
+- `ClaudeCode.rewind_files/2` - Rewind files to a checkpoint. See [File Checkpointing](docs/guides/file-checkpointing.md). ([7ba2007])
+- Returns `{:error, :not_supported}` for adapters without control protocol support
+- **Initialize handshake** - Adapter sends `initialize` request on startup, transitions through `:initializing` → `:ready`. See [Architecture](docs/reference/architecture.md). ([228c57f])
+
+#### New options
+
+- **`:sandbox`** - Sandbox config for bash isolation (map merged into `--settings`). See [Secure Deployment](docs/guides/secure-deployment.md). ([5f48858])
+- **`:enable_file_checkpointing`** - Track file changes for rewinding. See [File Checkpointing](docs/guides/file-checkpointing.md). ([5f48858])
+- **`:allow_dangerously_skip_permissions`** - Required guard for `permission_mode: :bypass_permissions`. See [Permissions](docs/guides/permissions.md). ([c9dc6fa])
+- **`:file`** - File resources (repeatable, format: `file_id:path`) ([d6c1869])
+- **`:from_pr`** - Resume session linked to a PR ([d6c1869])
+- **`:debug` / `:debug_file`** - Debug mode with optional filter and log file ([d6c1869])
+
+#### Adapter system
+
+Swappable backends for different execution environments. See [Architecture](docs/reference/architecture.md).
+
+- **`ClaudeCode.Adapter` behaviour** - 4 callbacks: `start_link/2`, `send_query/4`, `health/1`, `stop/1` ([1582644])
+- **Adapter notification helpers** - `notify_message/2`, `notify_done/2`, `notify_error/2`, `notify_status/2` ([1704326])
+- **`ClaudeCode.health/1`** - Check adapter health (`:healthy` | `:degraded` | `{:unhealthy, reason}`). See [Hosting](docs/guides/hosting.md). ([383dda6])
+
+#### CLI management
+
+- **`mix claude_code.path`** - Print resolved binary path, e.g. `$(mix claude_code.path) /login` ([94b5143])
 - **`mix claude_code.uninstall`** - Remove the bundled CLI binary ([6e7c837])
-- **Adapter notification helpers** - Public API for adapter authors ([1704326])
-  - `Adapter.notify_message/2`, `notify_done/2`, `notify_error/2`, `notify_status/2`
-  - Consistent adapter-to-session communication protocol
 
 ### Changed
 
-- **`:cli_path` option now supports resolution modes** - Replaces the previous string-only option. See [Configuration Guide — CLI Configuration](docs/advanced/configuration.md#cli-configuration). ([94b5143])
-  - `:bundled` (default) — Use `priv/bin/` binary, auto-install if missing, verify version matches
-  - `:global` — Find existing system install via PATH, no auto-install
-  - `"/path/to/claude"` — Use exact binary path (existing behavior)
-  - Can also be set via application config: `config :claude_code, cli_path: :global`
-- **Async adapter provisioning** - Sessions no longer block during CLI binary resolution ([f1a0875], [91ee60d])
-  - `start_link/1` returns immediately; CLI download/verification happens in the background
-  - Queries sent before the adapter is ready are automatically queued and processed once ready ([6a60eb4])
-  - If provisioning fails, queued queries receive `{:error, {:provisioning_failed, reason}}`
-- **`mix claude_code.install` improvements** - Auto-updates when installed version doesn't match configured version ([6e7c837])
-  - Removed `--if-missing` flag (default behavior is already idempotent)
-- **Schema alignment with CLI v2.1.37 and Python SDK** ([482c603], [42b6c27])
-  - `SystemMessage` now handles all system subtypes (init, hook_started, hook_response, and future subtypes) — non-init subtypes store extra fields in the `data` map
-  - `AssistantMessage` now includes `error` field matching Python SDK's `AssistantMessageError` type (`:authentication_failed`, `:billing_error`, `:rate_limit`, `:invalid_request`, `:server_error`, `:unknown`)
-  - `UserMessage` now includes `tool_use_result` field for rich tool result metadata
-  - `ResultMessage` now includes `stop_reason` field
-  - `AssistantMessage` usage now includes `inference_geo` field
-  - `SystemMessage` `plugins` field supports object format `%{name, path}` (backwards compatible with strings)
+- **`:cli_path` resolution modes** - `:bundled` (default), `:global`, or explicit path string. See [Configuration](docs/advanced/configuration.md#cli-configuration). ([94b5143])
+- **Async adapter provisioning** - `start_link/1` returns immediately; CLI setup runs in the background. Queries queue until ready. ([f1a0875], [91ee60d], [6a60eb4])
+- **`mix claude_code.install`** - Auto-updates on version mismatch. Removed `--if-missing` flag. ([6e7c837])
+- **Schema alignment with CLI v2.1.37** - New fields across message types ([482c603], [42b6c27])
+  - `AssistantMessage.error` (`:authentication_failed`, `:billing_error`, `:rate_limit`, `:invalid_request`, `:server_error`, `:unknown`)
+  - `UserMessage.tool_use_result`, `ResultMessage.stop_reason`, `AssistantMessage` usage `inference_geo`
+  - `SystemMessage` handles all subtypes (init, hook_started, hook_response); `plugins` supports object format
 
 ## [0.17.0] 2026-02-01 | CC 2.1.29
 
