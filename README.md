@@ -46,19 +46,17 @@ ClaudeCode.stop(session)
 
 ## 📦 Installation
 
-**Step 1:** Add to your `mix.exs`
+**Step 1:** Add to your `mix.exs` and fetch dependencies
 ```elixir
 def deps do
   [{:claude_code, "~> 0.17"}]
 end
 ```
-
-**Step 2:** Install dependencies
 ```bash
 mix deps.get
 ```
 
-**Step 3:** Authenticate (choose one)
+**Step 2:** Authenticate (choose one)
 ```bash
 # Option A: Use your Claude subscription (no API key needed)
 claude  # Then type /login to authenticate
@@ -67,7 +65,7 @@ claude  # Then type /login to authenticate
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 ```
 
-🎉 **Ready to go!** The CLI installs automatically on first use.
+🎉 **Ready to go!** Try the quick demo above.
 
 ## ⚡ Quick Examples
 
