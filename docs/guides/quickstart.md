@@ -14,12 +14,13 @@ defp deps do
 end
 ```
 
-Fetch dependencies and install the CLI binary:
+Fetch dependencies:
 
 ```bash
 mix deps.get
-mix claude_code.install
 ```
+
+The Claude CLI binary is automatically installed to `priv/bin/` on first use. To pre-install it (e.g., for CI or releases), run `mix claude_code.install`.
 
 ## Authenticate
 

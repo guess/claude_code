@@ -2,7 +2,7 @@
 
 The Elixir SDK for building AI agents with Claude Code.
 
-- **📦 Bundled CLI**: Automatic Claude CLI installation via mix task - no manual setup
+- **📦 Bundled CLI**: Automatic Claude CLI installation on first use - no manual setup
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
 - **💬 Conversation Continuity**: Automatic context retention across queries
 - **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
@@ -53,11 +53,12 @@ def deps do
 end
 ```
 
-**Step 2:** Install dependencies and CLI
+**Step 2:** Install dependencies
 ```bash
 mix deps.get
-mix claude_code.install  # Downloads and installs the Claude CLI to priv/bin/
 ```
+
+The Claude CLI is automatically installed to `priv/bin/` on first use. To pre-install (e.g., for CI or releases), run `mix claude_code.install`.
 
 **Step 3:** Authenticate (choose one)
 ```bash
