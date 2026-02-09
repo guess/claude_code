@@ -284,6 +284,12 @@ defmodule ClaudeCode.Options do
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
     ],
+    allow_dangerously_skip_permissions: [
+      type: :boolean,
+      default: false,
+      doc:
+        "Enable bypassing all permission checks as an option. Required when using permission_mode: :bypass_permissions. Recommended only for sandboxes with no internet access."
+    ],
     disable_slash_commands: [
       type: :boolean,
       default: false,
@@ -717,6 +723,12 @@ defmodule ClaudeCode.Options do
   end
 
   defp convert_option_to_cli_flag(:strict_mcp_config, false), do: nil
+
+  defp convert_option_to_cli_flag(:allow_dangerously_skip_permissions, true) do
+    ["--allow-dangerously-skip-permissions"]
+  end
+
+  defp convert_option_to_cli_flag(:allow_dangerously_skip_permissions, false), do: nil
 
   defp convert_option_to_cli_flag(:disable_slash_commands, true) do
     ["--disable-slash-commands"]

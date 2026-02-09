@@ -73,6 +73,22 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:strict_mcp_config] == false
     end
 
+    test "validates allow_dangerously_skip_permissions option" do
+      opts = [allow_dangerously_skip_permissions: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:allow_dangerously_skip_permissions] == true
+
+      opts = [allow_dangerously_skip_permissions: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:allow_dangerously_skip_permissions] == false
+    end
+
+    test "defaults allow_dangerously_skip_permissions to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:allow_dangerously_skip_permissions] == false
+    end
+
     test "validates disable_slash_commands option" do
       opts = [disable_slash_commands: true]
       assert {:ok, validated} = Options.validate_session_options(opts)
@@ -979,6 +995,21 @@ defmodule ClaudeCode.OptionsTest do
 
       args = Options.to_cli_args(opts)
       refute "--strict-mcp-config" in args
+    end
+
+    test "converts allow_dangerously_skip_permissions true to --allow-dangerously-skip-permissions" do
+      opts = [allow_dangerously_skip_permissions: true]
+
+      args = Options.to_cli_args(opts)
+      assert "--allow-dangerously-skip-permissions" in args
+      refute "true" in args
+    end
+
+    test "does not add flag when allow_dangerously_skip_permissions is false" do
+      opts = [allow_dangerously_skip_permissions: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--allow-dangerously-skip-permissions" in args
     end
 
     test "converts disable_slash_commands true to --disable-slash-commands" do
