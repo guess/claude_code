@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`:allow_dangerously_skip_permissions` option** - Safety guard required when using `permission_mode: :bypass_permissions` ([c9dc6fa])
+  - Matches TypeScript SDK's `allowDangerouslySkipPermissions` option
+  - Recommended only for sandboxed environments with no internet access
 - **New CLI options** - Added support for additional CLI flags ([d6c1869])
   - `:file` - File resources (repeatable, format: file_id:path)
   - `:from_pr` - Resume session linked to PR
