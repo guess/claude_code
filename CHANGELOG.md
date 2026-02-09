@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 
-- **`:cli_path` defaults to `:bundled`** - Uses `priv/bin/` binary by default, auto-installing if missing. Set `cli_path: :global` for system install, or pass an explicit path. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
+- **SDK bundles its own CLI binary by default** - The SDK now downloads and manages its own Claude CLI in `priv/bin/`, auto-installing on first use. To use a globally installed CLI instead, set `cli_path: :global` or pass an explicit path like `cli_path: "/usr/local/bin/claude"`. The bundled version defaults to the latest CLI version tested with the SDK, configurable via `cli_version`. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
 
 ### Added
 
