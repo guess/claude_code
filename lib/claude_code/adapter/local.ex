@@ -145,14 +145,19 @@ defmodule ClaudeCode.Adapter.Local do
 
       port ->
         {request_id, new_counter} = next_request_id(state.control_counter)
-        json = build_control_json(subtype, request_id, params)
 
-        Port.command(port, json <> "\n")
+        case build_control_json(subtype, request_id, params) do
+          {:error, _} = error ->
+            {:reply, error, state}
 
-        pending = Map.put(state.pending_control_requests, request_id, from)
-        schedule_control_timeout(request_id)
+          json ->
+            Port.command(port, json <> "\n")
 
-        {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
+            pending = Map.put(state.pending_control_requests, request_id, from)
+            schedule_control_timeout(request_id)
+
+            {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
+        end
     end
   end
 
@@ -534,6 +539,10 @@ defmodule ClaudeCode.Adapter.Local do
 
   defp build_control_json(:mcp_status, request_id, _params) do
     Control.mcp_status_request(request_id)
+  end
+
+  defp build_control_json(subtype, _request_id, _params) do
+    {:error, {:unknown_control_subtype, subtype}}
   end
 
   defp schedule_control_timeout(request_id) do
