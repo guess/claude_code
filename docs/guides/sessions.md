@@ -203,7 +203,6 @@ ClaudeCode.Supervisor.list_sessions(supervisor)
 | `start_link/1` | Creates GenServer, CLI adapter starts eagerly |
 | First query | Sent to the already-running CLI subprocess |
 | Subsequent queries | Reuses existing CLI connection with session context |
-| `interrupt/1` | Stops current query, stream ends cleanly |
 | `clear/1` | Resets session ID, next query starts fresh |
 | `stop/1` | Terminates GenServer and CLI subprocess |
 | Process crash | Supervisor restarts if supervised |

@@ -76,7 +76,6 @@ Core capabilities:
 - Session tracking and auto-resume
 - Partial message streaming (character-level deltas)
 - Stream utilities (text_deltas, thinking_deltas, buffered_text)
-- Interrupt support for in-progress queries
 - Session forking (via `:fork_session` option with `:resume`)
 
 ## Testing Approach

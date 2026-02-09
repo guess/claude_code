@@ -163,11 +163,6 @@ defmodule ClaudeCode.Session do
     {:reply, :ok, %{state | session_id: nil}}
   end
 
-  def handle_call(:interrupt, _from, state) do
-    result = state.adapter_module.interrupt(state.adapter_pid)
-    {:reply, result, state}
-  end
-
   def handle_call(:health, _from, state) do
     health = state.adapter_module.health(state.adapter_pid)
     {:reply, health, state}

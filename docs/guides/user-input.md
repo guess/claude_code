@@ -1,6 +1,6 @@
 # User Input
 
-Manage multi-turn interactions and control in-progress queries.
+Manage multi-turn interactions with Claude.
 
 ## Multi-Turn Conversations
 
@@ -28,39 +28,6 @@ session
 |> Enum.each(&IO.write/1)
 
 ClaudeCode.stop(session)
-```
-
-## Interrupting a Query
-
-Stop a long-running query without killing the session:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link()
-
-# Start a potentially long task in another process
-task = Task.async(fn ->
-  session
-  |> ClaudeCode.stream("Refactor the entire codebase")
-  |> ClaudeCode.Stream.collect()
-end)
-
-# Interrupt after 10 seconds
-Process.sleep(10_000)
-ClaudeCode.interrupt(session)
-
-# The stream ends cleanly
-result = Task.await(task)
-```
-
-The session remains alive after an interrupt. You can send new queries immediately:
-
-```elixir
-ClaudeCode.interrupt(session)
-
-# Session is still usable
-session
-|> ClaudeCode.stream("Just fix the formatting in lib/app.ex")
-|> ClaudeCode.Stream.final_text()
 ```
 
 ## Interactive Loop

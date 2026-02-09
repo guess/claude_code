@@ -216,23 +216,6 @@ defmodule ClaudeCodeTest do
     end
   end
 
-  describe "interrupt/1" do
-    test "delegates to session" do
-      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
-        [
-          ClaudeCode.Test.text("Hello"),
-          ClaudeCode.Test.result("Hello")
-        ]
-      end)
-
-      {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, ClaudeCode})
-
-      assert :ok = ClaudeCode.interrupt(session)
-
-      ClaudeCode.stop(session)
-    end
-  end
-
   describe "health/1" do
     test "returns health status from adapter" do
       ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->

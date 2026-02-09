@@ -50,11 +50,6 @@ defmodule ClaudeCode.Adapter.Local do
   end
 
   @impl ClaudeCode.Adapter
-  def interrupt(adapter) do
-    GenServer.call(adapter, :interrupt)
-  end
-
-  @impl ClaudeCode.Adapter
   def health(adapter) do
     GenServer.call(adapter, :health)
   end
@@ -113,24 +108,6 @@ defmodule ClaudeCode.Adapter.Local do
       {:error, reason} ->
         {:reply, {:error, reason}, state}
     end
-  end
-
-  @impl GenServer
-  def handle_call(:interrupt, _from, %{port: port, current_request: request_id} = state)
-      when not is_nil(port) and not is_nil(request_id) do
-    case Port.info(port, :os_pid) do
-      {:os_pid, os_pid} ->
-        System.cmd("kill", ["-INT", to_string(os_pid)])
-        Adapter.notify_done(state.session, request_id, :interrupted)
-        {:reply, :ok, %{state | current_request: nil}}
-
-      nil ->
-        {:reply, {:error, :port_not_running}, state}
-    end
-  end
-
-  def handle_call(:interrupt, _from, state) do
-    {:reply, {:error, :no_active_request}, state}
   end
 
   @impl GenServer

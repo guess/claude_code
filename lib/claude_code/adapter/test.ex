@@ -28,11 +28,6 @@ defmodule ClaudeCode.Adapter.Test do
   end
 
   @impl ClaudeCode.Adapter
-  def interrupt(_adapter) do
-    :ok
-  end
-
-  @impl ClaudeCode.Adapter
   def health(_adapter) do
     :healthy
   end

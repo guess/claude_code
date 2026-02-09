@@ -23,9 +23,6 @@ defmodule ClaudeCode.SessionAdapterTest do
         def send_query(_adapter, _req_id, _prompt, _opts), do: :ok
 
         @impl true
-        def interrupt(_adapter), do: :ok
-
-        @impl true
         def health(_adapter), do: :healthy
 
         @impl true
@@ -50,9 +47,6 @@ defmodule ClaudeCode.SessionAdapterTest do
 
         @impl true
         def send_query(_adapter, _req_id, _prompt, _opts), do: :ok
-
-        @impl true
-        def interrupt(_adapter), do: :ok
 
         @impl true
         def health(_adapter), do: :healthy
@@ -89,9 +83,6 @@ defmodule ClaudeCode.SessionAdapterTest do
           GenServer.cast(adapter, {:query, request_id})
           :ok
         end
-
-        @impl ClaudeCode.Adapter
-        def interrupt(_adapter), do: :ok
 
         @impl ClaudeCode.Adapter
         def health(_adapter), do: :healthy
@@ -152,9 +143,6 @@ defmodule ClaudeCode.SessionAdapterTest do
         def send_query(_adapter, _req_id, _prompt, _opts), do: :ok
 
         @impl ClaudeCode.Adapter
-        def interrupt(_adapter), do: :ok
-
-        @impl ClaudeCode.Adapter
         def health(_adapter), do: :healthy
 
         @impl ClaudeCode.Adapter
@@ -188,53 +176,6 @@ defmodule ClaudeCode.SessionAdapterTest do
   end
 
   # ============================================================================
-  # End-to-end interrupt: stream terminates cleanly on interrupt
-  # ============================================================================
-
-  describe "interrupt end-to-end with MockCLI" do
-    setup do
-      # Create a mock CLI that has a very slow response, allowing interrupt
-      MockCLI.setup_with_script("""
-      #!/bin/bash
-      while IFS= read -r line; do
-        # Output system message immediately
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"e2e-int","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-        echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Starting..."}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"e2e-int"}'
-        # Sleep long enough to allow interrupt
-        sleep 30
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Should not reach here","session_id":"e2e-int","total_cost_usd":0.001,"usage":{}}'
-      done
-      exit 0
-      """)
-    end
-
-    test "stream terminates without hanging after interrupt", %{mock_script: mock_script} do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
-
-      # Start streaming in a task
-      stream_task =
-        Task.async(fn ->
-          session
-          |> ClaudeCode.stream("long running query")
-          |> Enum.to_list()
-        end)
-
-      # Wait for the stream to start and the adapter to send the first message
-      Process.sleep(500)
-
-      # Interrupt
-      result = ClaudeCode.interrupt(session)
-      assert result == :ok
-
-      # The stream should terminate (not hang)
-      messages = Task.await(stream_task, 5_000)
-      assert is_list(messages)
-
-      GenServer.stop(session)
-    end
-  end
-
-  # ============================================================================
   # Adapter status handling (provisioning → ready / error)
   # ============================================================================
 
@@ -255,9 +196,6 @@ defmodule ClaudeCode.SessionAdapterTest do
         GenServer.cast(adapter, {:query, request_id, prompt, opts})
         :ok
       end
-
-      @impl ClaudeCode.Adapter
-      def interrupt(_adapter), do: :ok
 
       @impl ClaudeCode.Adapter
       def health(_adapter), do: :healthy
@@ -352,9 +290,6 @@ defmodule ClaudeCode.SessionAdapterTest do
       end
 
       @impl ClaudeCode.Adapter
-      def interrupt(_adapter), do: :ok
-
-      @impl ClaudeCode.Adapter
       def health(_adapter), do: :healthy
 
       @impl ClaudeCode.Adapter
@@ -412,9 +347,6 @@ defmodule ClaudeCode.SessionAdapterTest do
 
       @impl ClaudeCode.Adapter
       def send_query(_adapter, _req_id, _prompt, _opts), do: :ok
-
-      @impl ClaudeCode.Adapter
-      def interrupt(_adapter), do: :ok
 
       @impl ClaudeCode.Adapter
       def health(adapter), do: GenServer.call(adapter, :health)

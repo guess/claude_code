@@ -132,4 +132,4 @@ end)
 ## Next Steps
 
 - [Secure Deployment](secure-deployment.md) - Sandboxing and production security
-- [User Input](user-input.md) - Multi-turn interactions and interrupts
+- [User Input](user-input.md) - Multi-turn interactions

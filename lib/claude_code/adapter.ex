@@ -3,14 +3,14 @@ defmodule ClaudeCode.Adapter do
   Behaviour for ClaudeCode adapters.
 
   Adapters handle the full lifecycle of a Claude Code execution environment:
-  provisioning, communication, health checking, interruption, and cleanup.
+  provisioning, communication, health checking, and cleanup.
 
   ## Message Protocol
 
   Adapters communicate with Session using the notification helpers:
 
   - `notify_message(session, request_id, message)` - A parsed message from Claude
-  - `notify_done(session, request_id, reason)` - Query complete (reason: :completed | :interrupted)
+  - `notify_done(session, request_id, reason)` - Query complete (reason: :completed)
   - `notify_error(session, request_id, reason)` - Error occurred
   - `notify_status(session, status)` - Adapter status change (:provisioning | :ready | {:error, reason})
 
@@ -28,7 +28,7 @@ defmodule ClaudeCode.Adapter do
 
   @type adapter_config :: keyword()
   @type health :: :healthy | :degraded | {:unhealthy, reason :: term()}
-  @type done_reason :: :completed | :interrupted
+  @type done_reason :: :completed
 
   @doc """
   Starts the adapter process and provisions the execution environment.
@@ -66,15 +66,6 @@ defmodule ClaudeCode.Adapter do
               prompt :: String.t(),
               opts :: keyword()
             ) :: :ok | {:error, term()}
-
-  @doc """
-  Interrupts the currently executing query.
-
-  This signals the backend to stop processing (e.g., SIGINT for CLI).
-  The adapter should send `{:adapter_done, request_id, :interrupted}` after
-  the query is interrupted. This is a clean end-of-stream, not an error.
-  """
-  @callback interrupt(adapter :: pid()) :: :ok | {:error, term()}
 
   @doc """
   Returns the health status of the adapter's execution environment.

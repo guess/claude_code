@@ -17,7 +17,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 ### Sessions and State
 - **[Sessions](guides/sessions.md)** - Multi-turn conversations, resume, fork, and history
-- **[User Input](guides/user-input.md)** - Multi-turn interactions and interrupts
+- **[User Input](guides/user-input.md)** - Multi-turn interactions
 - **[File Checkpointing](guides/file-checkpointing.md)** - Track file changes during sessions
 
 ### Permissions and Security

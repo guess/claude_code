@@ -7,7 +7,6 @@ defmodule ClaudeCode.AdapterTest do
 
       assert {:start_link, 2} in callbacks
       assert {:send_query, 4} in callbacks
-      assert {:interrupt, 1} in callbacks
       assert {:health, 1} in callbacks
       assert {:stop, 1} in callbacks
 

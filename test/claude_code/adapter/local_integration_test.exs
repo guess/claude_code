@@ -4,66 +4,6 @@ defmodule ClaudeCode.Adapter.LocalIntegrationTest do
   alias ClaudeCode.Message.ResultMessage
 
   # ============================================================================
-  # Local Adapter interrupt/1 Tests
-  # ============================================================================
-
-  describe "interrupt/1 with no active query" do
-    test "returns {:error, :no_active_request} when no query is running" do
-      # Start a session -- the adapter starts with port: nil
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-
-      # No query is running, so interrupt should return error
-      assert {:error, :no_active_request} = ClaudeCode.interrupt(session)
-
-      GenServer.stop(session)
-    end
-  end
-
-  describe "interrupt/1 with active query" do
-    setup do
-      # Create a mock CLI that stays running (slow response)
-      MockCLI.setup_with_script("""
-      #!/bin/bash
-      while IFS= read -r line; do
-        # Respond very slowly - gives time to interrupt
-        sleep 30
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"int-test","total_cost_usd":0.001,"usage":{}}'
-      done
-      exit 0
-      """)
-    end
-
-    test "returns :ok and terminates stream without result message", %{
-      mock_script: mock_script
-    } do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
-
-      # Start a streaming query in a separate task
-      stream_task =
-        Task.async(fn ->
-          session
-          |> ClaudeCode.stream("slow query")
-          |> Enum.to_list()
-        end)
-
-      # Wait for the query to actually start being processed
-      Process.sleep(300)
-
-      # Interrupt the active query
-      assert :ok = ClaudeCode.interrupt(session)
-
-      # The stream should terminate (not hang forever)
-      messages = Task.await(stream_task, 5_000)
-
-      # Stream ended without a result message (interrupted before result arrived)
-      assert is_list(messages)
-      refute Enum.any?(messages, &match?(%ResultMessage{}, &1))
-
-      GenServer.stop(session)
-    end
-  end
-
-  # ============================================================================
   # Local Adapter health/1 Tests
   # ============================================================================
 
@@ -104,10 +44,6 @@ defmodule ClaudeCode.Adapter.LocalIntegrationTest do
     end
   end
 
-  # ============================================================================
-  # Stream interrupted vs completed distinction
-  # ============================================================================
-
   describe "stream completed normally" do
     setup do
       MockCLI.setup_with_script("""
@@ -135,47 +71,6 @@ defmodule ClaudeCode.Adapter.LocalIntegrationTest do
       result = Enum.find(messages, &match?(%ResultMessage{}, &1))
       assert result != nil
       assert result.result == "Hello there"
-
-      GenServer.stop(session)
-    end
-  end
-
-  describe "stream interrupted mid-query" do
-    setup do
-      MockCLI.setup_with_script("""
-      #!/bin/bash
-      while IFS= read -r line; do
-        sleep 30
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"should not see this","session_id":"interrupt-test","total_cost_usd":0.001,"usage":{}}'
-      done
-      exit 0
-      """)
-    end
-
-    test "interrupted query terminates stream without result message", %{
-      mock_script: mock_script
-    } do
-      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
-
-      stream_task =
-        Task.async(fn ->
-          session
-          |> ClaudeCode.stream("slow query")
-          |> Enum.to_list()
-        end)
-
-      # Wait for query to be sent
-      Process.sleep(300)
-
-      # Interrupt
-      :ok = ClaudeCode.interrupt(session)
-
-      # Stream should terminate (not hang)
-      messages = Task.await(stream_task, 5_000)
-
-      # The stream ended without a result message (interrupted before result arrived)
-      result = Enum.find(messages, &match?(%ResultMessage{}, &1))
-      assert result == nil
 
       GenServer.stop(session)
     end

@@ -96,7 +96,6 @@ defmodule ClaudeCode.Adapter do
   # Callbacks:
   # - start_link/2: Provision the backend resource
   # - send_query/4: Send a prompt to Claude
-  # - interrupt/1: Stop an in-progress query (sends SIGINT)
   # - health/1: Check backend health (:healthy | :degraded | {:unhealthy, reason})
   # - stop/1: Clean up resources
 end
@@ -113,7 +112,7 @@ ClaudeCode.start_link(adapter: {ClaudeCode.Adapter.CLI, cli_path: "/usr/bin/clau
 
 The adapter communicates back to the session via messages:
 - `{:adapter_message, request_id, message}` — parsed message
-- `{:adapter_done, request_id, reason}` — query complete (`:completed` or `:interrupted`)
+- `{:adapter_done, request_id, reason}` — query complete (`:completed`)
 - `{:adapter_error, request_id, reason}` — error occurred
 
 #### CLI Module (`ClaudeCode.CLI`)
@@ -448,7 +447,6 @@ echo '{"type": "done"}'
 2. **Serial Execution**: Query queue ensures conversation context is maintained
 3. **Eager Provisioning**: Adapter starts immediately — fast failure if backend is unavailable
 4. **Lazy Streaming**: Use Elixir streams to avoid loading all messages in memory
-5. **Interrupt Support**: Stop in-progress queries with `ClaudeCode.interrupt/1` to save tokens
 
 ## Security
 
