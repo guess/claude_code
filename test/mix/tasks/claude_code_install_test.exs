@@ -3,44 +3,23 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
 
   import ExUnit.CaptureIO
 
+  alias ClaudeCode.Adapter.Local.Installer
   alias Mix.Tasks.ClaudeCode.Install
 
   describe "run/1 option parsing" do
     test "parses --version flag" do
-      # Verify option parsing works correctly
       {opts, _args} =
         OptionParser.parse!(["--version", "2.0.0"],
-          strict: [
-            version: :string,
-            if_missing: :boolean,
-            force: :boolean
-          ]
+          strict: [version: :string, force: :boolean]
         )
 
       assert opts[:version] == "2.0.0"
     end
 
-    test "parses --if-missing flag" do
-      {opts, _args} =
-        OptionParser.parse!(["--if-missing"],
-          strict: [
-            version: :string,
-            if_missing: :boolean,
-            force: :boolean
-          ]
-        )
-
-      assert opts[:if_missing] == true
-    end
-
     test "parses --force flag" do
       {opts, _args} =
         OptionParser.parse!(["--force"],
-          strict: [
-            version: :string,
-            if_missing: :boolean,
-            force: :boolean
-          ]
+          strict: [version: :string, force: :boolean]
         )
 
       assert opts[:force] == true
@@ -50,11 +29,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
       {opts, _args} =
         OptionParser.parse!(
           ["--version", "2.0.0", "--force"],
-          strict: [
-            version: :string,
-            if_missing: :boolean,
-            force: :boolean
-          ]
+          strict: [version: :string, force: :boolean]
         )
 
       assert opts[:version] == "2.0.0"
@@ -62,27 +37,33 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
     end
   end
 
-  describe "run/1 with --if-missing" do
-    test "skips installation when CLI is already bundled" do
-      tmp_dir = Path.join(System.tmp_dir!(), "claude_task_test_#{:erlang.unique_integer()}")
+  describe "run/1 without --force" do
+    test "shows up-to-date message when version matches" do
+      tmp_dir = Path.join(System.tmp_dir!(), "claude_task_test2_#{:erlang.unique_integer()}")
       bundled_path = Path.join(tmp_dir, "claude")
 
       original_cli_dir = Application.get_env(:claude_code, :cli_dir)
+      expected_version = Installer.configured_version()
 
       try do
-        # Create bundled path
         File.mkdir_p!(tmp_dir)
-        File.write!(bundled_path, "#!/bin/bash\necho 'test'")
+
+        File.write!(bundled_path, """
+        #!/bin/bash
+        echo "#{expected_version} (Claude Code)"
+        """)
+
         File.chmod!(bundled_path, 0o755)
 
         Application.put_env(:claude_code, :cli_dir, tmp_dir)
 
         output =
           capture_io(fn ->
-            Install.run(["--if-missing"])
+            Install.run([])
           end)
 
-        assert output =~ "already bundled"
+        assert output =~ "already installed"
+        assert output =~ expected_version
       after
         if original_cli_dir do
           Application.put_env(:claude_code, :cli_dir, original_cli_dir)
@@ -93,19 +74,21 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
         File.rm_rf(tmp_dir)
       end
     end
-  end
 
-  describe "run/1 without --force" do
-    test "shows message when CLI is already bundled" do
-      tmp_dir = Path.join(System.tmp_dir!(), "claude_task_test2_#{:erlang.unique_integer()}")
+    test "auto-updates when version mismatches" do
+      tmp_dir = Path.join(System.tmp_dir!(), "claude_task_test3_#{:erlang.unique_integer()}")
       bundled_path = Path.join(tmp_dir, "claude")
 
       original_cli_dir = Application.get_env(:claude_code, :cli_dir)
 
       try do
-        # Create bundled path
         File.mkdir_p!(tmp_dir)
-        File.write!(bundled_path, "#!/bin/bash\necho 'test'")
+
+        File.write!(bundled_path, """
+        #!/bin/bash
+        echo "0.0.1 (Claude Code)"
+        """)
+
         File.chmod!(bundled_path, 0o755)
 
         Application.put_env(:claude_code, :cli_dir, tmp_dir)
@@ -115,8 +98,8 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
             Install.run([])
           end)
 
-        assert output =~ "already bundled"
-        assert output =~ "--force"
+        assert output =~ "version mismatch"
+        assert output =~ "v0.0.1 installed"
       after
         if original_cli_dir do
           Application.put_env(:claude_code, :cli_dir, original_cli_dir)

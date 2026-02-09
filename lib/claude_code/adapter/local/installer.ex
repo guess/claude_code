@@ -258,17 +258,16 @@ defmodule ClaudeCode.Adapter.Local.Installer do
     tmp_dir = create_temp_dir()
     env = env_fn.(tmp_dir)
 
-    Logger.debug("Running install script in #{tmp_dir}: #{shell} #{inspect(args)}")
+    # Logger.debug("Running install script in #{tmp_dir}: #{shell} #{inspect(args)}")
 
     result =
-      with {output, 0} <- System.cmd(shell, args, stderr_to_stdout: true, env: env),
-           version = parse_installed_version(output),
-           {:ok, path} <- find_installed_binary_in(tmp_dir, version) do
+      with {_output, 0} <- System.cmd(shell, args, stderr_to_stdout: true, env: env),
+           {:ok, path} <- find_installed_binary_in(tmp_dir) do
         dest = bundled_path()
         File.mkdir_p!(cli_dir())
         File.cp!(path, dest)
         if post_copy, do: post_copy.(dest)
-        {:ok, dest, version}
+        {:ok, dest, version_from_binary(dest)}
       else
         {output, exit_code} when is_integer(exit_code) ->
           {:error, {:install_failed, exit_code, output}}
@@ -281,20 +280,15 @@ defmodule ClaudeCode.Adapter.Local.Installer do
     result
   end
 
-  defp find_installed_binary_in(home_dir, installed_version) do
+  defp find_installed_binary_in(home_dir) do
     binary_name = if windows?(), do: "claude.exe", else: @claude_binary
 
-    # The install script stores versioned binaries in <home>/.local/share/claude/versions/
-    # and creates a symlink at <home>/.local/bin/claude
-    versioned_path =
-      if installed_version do
-        Path.join([home_dir, ".local", "share", "claude", "versions", installed_version])
-      end
-
-    symlink_path = Path.join([home_dir, ".local", "bin", binary_name])
-    claude_local_path = Path.join([home_dir, ".claude", "local", binary_name])
-
-    candidate_paths = Enum.reject([versioned_path, symlink_path, claude_local_path], &is_nil/1)
+    # The install script places the binary at <home>/.local/bin/claude (symlink)
+    # or <home>/.claude/local/claude
+    candidate_paths = [
+      Path.join([home_dir, ".local", "bin", binary_name]),
+      Path.join([home_dir, ".claude", "local", binary_name])
+    ]
 
     case Enum.find(candidate_paths, &File.exists?/1) do
       nil -> {:error, :binary_not_found_after_install}
@@ -309,16 +303,10 @@ defmodule ClaudeCode.Adapter.Local.Installer do
     tmp_dir
   end
 
-  defp parse_installed_version(output) do
-    # Parse "Version: x.y.z" from install script output
-    case Regex.run(~r/Version:\s*(\d+\.\d+\.\d+)/, output) do
-      [_, version] ->
-        version
-
-      _ ->
-        Logger.warning("Could not parse version from install script output: #{String.slice(output, 0, 200)}")
-
-        nil
+  defp version_from_binary(path) do
+    case version_of(path) do
+      {:ok, version} -> version
+      {:error, _} -> nil
     end
   end
 

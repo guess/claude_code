@@ -11,21 +11,17 @@ defmodule Mix.Tasks.ClaudeCode.Install do
   ## Options
 
   - `--version VERSION` - Install a specific version (default: SDK's tested version)
-  - `--if-missing` - Only install if the CLI is not already present
-  - `--force` - Reinstall even if already present
+  - `--force` - Reinstall even if already present and version matches
 
   ## Examples
 
-      # Install the latest version
+      # Install or update to the configured version
       mix claude_code.install
 
       # Install a specific version
       mix claude_code.install --version x.y.z
 
-      # Only install if not present (useful in CI)
-      mix claude_code.install --if-missing
-
-      # Force reinstall
+      # Force reinstall even if version matches
       mix claude_code.install --force
 
   ## Configuration
@@ -45,7 +41,6 @@ defmodule Mix.Tasks.ClaudeCode.Install do
 
   @switches [
     version: :string,
-    if_missing: :boolean,
     force: :boolean
   ]
 
@@ -54,31 +49,39 @@ defmodule Mix.Tasks.ClaudeCode.Install do
     {opts, _args} = OptionParser.parse!(args, strict: @switches)
 
     version = opts[:version] || Installer.configured_version()
-    if_missing = opts[:if_missing] || false
     force = opts[:force] || false
 
     bundled_path = Installer.bundled_path()
-    bundled_exists? = File.exists?(bundled_path)
 
     cond do
-      if_missing && bundled_exists? ->
-        Mix.shell().info("Claude CLI already bundled at #{bundled_path}")
+      force ->
+        install_cli(version)
 
-      !force && bundled_exists? ->
-        Mix.shell().info("""
-        Claude CLI is already bundled at #{bundled_path}
-
-        Use --force to reinstall or --version to install a different version.
-        """)
+      !File.exists?(bundled_path) ->
+        install_cli(version)
 
       true ->
-        install_cli(version)
+        check_version_and_update(bundled_path, version)
+    end
+  end
+
+  defp check_version_and_update(bundled_path, target_version) do
+    case Installer.version_of(bundled_path) do
+      {:ok, ^target_version} ->
+        Mix.shell().info("Claude CLI v#{target_version} is already installed at #{bundled_path}")
+
+      {:ok, current} ->
+        Mix.shell().info("Claude CLI version mismatch: v#{current} installed, v#{target_version} expected")
+        install_cli(target_version)
+
+      {:error, reason} ->
+        Mix.shell().info("Could not determine installed version (#{inspect(reason)}), reinstalling...")
+        install_cli(target_version)
     end
   end
 
   defp install_cli(version) do
     Mix.shell().info("Installing Claude CLI#{version_label(version)}...")
-    Mix.shell().info("")
 
     try do
       case Installer.install!(version: version, return_info: true) do
