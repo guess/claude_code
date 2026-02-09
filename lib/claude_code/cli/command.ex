@@ -244,10 +244,8 @@ defmodule ClaudeCode.CLI.Command do
     end
   end
 
-  defp convert_option(:agents, value) when is_map(value) do
-    json_string = Jason.encode!(value)
-    {"--agents", json_string}
-  end
+  # :agents is sent via the control protocol initialize handshake, not as a CLI flag
+  defp convert_option(:agents, _value), do: nil
 
   defp convert_option(:mcp_servers, value) when is_map(value) do
     # Expand any module atoms to their stdio command config
