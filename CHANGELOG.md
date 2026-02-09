@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - **`:allow_dangerously_skip_permissions` option** - Safety guard required when using `permission_mode: :bypass_permissions` ([c9dc6fa])
   - Matches TypeScript SDK's `allowDangerouslySkipPermissions` option
   - Recommended only for sandboxed environments with no internet access
@@ -30,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables future Docker, Cloudflare, and other execution environment adapters
 
 ### Changed
+
 - **Eager adapter provisioning** - Sessions now start the adapter process immediately in `init/1` instead of lazily on first query ([ecf8bee])
   - Faster failure detection if the backend can't start
   - `ClaudeCode.start_link/1` returns `{:error, reason}` if adapter provisioning fails
@@ -41,9 +43,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `AssistantMessage` usage now includes `inference_geo` field
   - `SystemMessage` `plugins` field supports object format `%{name, path}` (backwards compatible with strings)
 
-## [0.17.0] | CC 2.1.29
+## [0.17.0] 2026-02-01 | CC 2.1.29
 
 ### Added
+
 - **`:max_thinking_tokens` option** - Maximum tokens for thinking blocks (integer)
   - Available for both session and query options
   - Maps to `--max-thinking-tokens` CLI flag
@@ -75,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.16.0] - 2026-01-27
 
 ### Added
+
 - **`:env` option** - Pass custom environment variables to the CLI subprocess ([aa2d3eb])
   - Merge precedence: system env → user `:env` → SDK vars → `:api_key`
   - Useful for MCP tools that need specific env vars or custom PATH configurations
@@ -83,6 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.15.0] - 2026-01-26
 
 ### Added
+
 - **Session history reading** - Read and parse conversation history from session files ([ad737ea])
   - `ClaudeCode.conversation/2` - Read conversation (user/assistant messages) by session ID
   - `ClaudeCode.History.list_projects/1` - List all projects with session history
@@ -99,11 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PartialAssistantMessage` - returns delta text (empty string for non-text deltas)
 
 ### Changed
+
 - **Conversation message parsing refactored** - Extracted to dedicated module with improved error logging ([22c381c])
 
 ## [0.14.0] - 2026-01-15
 
 ### Added
+
 - **`:session_id` option** - Specify a custom UUID as the session ID for conversations ([2f2c919])
 - **`:disable_slash_commands` option** - Disable all skills/slash commands ([16f96b4])
 - **`:no_session_persistence` option** - Disable session persistence so sessions are not saved to disk ([16f96b4])
@@ -112,35 +119,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **New system message fields** - `claude_code_version`, `agents`, `skills`, `plugins` for enhanced session metadata ([bed060b])
 
 ### Fixed
+
 - **SystemMessage `slash_commands` and `output_style` parsing** - Fields were always empty/default ([bed060b])
 - **ResultMessage `model_usage` parsing** - Per-model token counts and costs were always 0/nil ([bed060b])
 
 ## [0.13.3] - 2026-01-14
 
 ### Changed
+
 - **`ResultMessage` optional fields use sensible defaults** - `model_usage` defaults to `%{}` and `permission_denials` defaults to `[]` instead of `nil` ([cda582b])
 
 ### Fixed
+
 - **`ResultMessage.result` is now optional** - Error messages from the CLI may contain an `errors` array instead of a `result` field. The field no longer crashes when nil and displays errors appropriately ([c06e825])
 
 ## [0.13.2] - 2026-01-08
 
 ### Fixed
+
 - **`ToolResultBlock` content parsing** - When CLI returns content as a list of text blocks, they are now parsed into `TextBlock` structs instead of raw maps ([5361e2d])
 
 ## [0.13.1] - 2026-01-07
 
 ### Changed
+
 - **Simplified test stub naming** - Default stub name changed from `ClaudeCode.Session` to `ClaudeCode` ([2fd244f])
   - Config: `adapter: {ClaudeCode.Test, ClaudeCode}` instead of `{ClaudeCode.Test, ClaudeCode.Session}`
   - Stubs: `ClaudeCode.Test.stub(ClaudeCode, fn ...)` instead of `stub(ClaudeCode.Session, fn ...)`
   - Custom names still supported for multiple stub behaviors in same test
 
 ### Added
+
 - **`tool_result/2` accepts maps** - Maps are automatically JSON-encoded ([6d9fca6])
   - Example: `ClaudeCode.Test.tool_result(%{status: "success", data: [1, 2, 3]})`
 
 ### Fixed
+
 - **`tool_result` content format** - Content is now `[TextBlock.t()]` instead of plain string ([dfba539])
   - Matches MCP `CallToolResult` format where content is an array of content blocks
   - Fixes compatibility with code expecting `content: [%{"type" => "text", "text" => ...}]`
@@ -148,6 +162,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.13.0] - 2026-01-07
 
 ### Added
+
 - **`ClaudeCode.Test` module** - Req.Test-style test helpers for mocking Claude responses ([9f78103])
   - `stub/2` - Register function or static message stubs for test isolation
   - `allow/3` - Share stubs with spawned processes for async tests
@@ -165,6 +180,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.12.0] - 2026-01-07
 
 ### Added
+
 - **New stream helpers** for common use cases ([0775bd4])
   - `final_text/1` - Returns only the final result text, simplest way to get Claude's answer
   - `collect/1` - Returns structured summary with text, thinking, tool_calls, and result
@@ -172,23 +188,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `on_tool_use/2` - Callback invoked for each tool use, useful for progress indicators
 
 ### Changed
+
 - **`collect/1` returns `tool_calls` instead of `tool_uses`** ([7eebfeb])
   - Now returns `{tool_use, tool_result}` tuples pairing each tool invocation with its result
   - If a tool use has no matching result, the result will be `nil`
   - Migration: Change `summary.tool_uses` to `summary.tool_calls` and update iteration to handle tuples
 
 ### Removed
+
 - **`buffered_text/1` stream helper** - Use `final_text/1` or `collect/1` instead ([4a1ee97])
 
 ## [0.11.0] - 2026-01-07
 
 ### Changed
+
 - **Renamed `StreamEventMessage` to `PartialAssistantMessage`** - Aligns with TypeScript SDK naming (`SDKPartialAssistantMessage`)
   - `ClaudeCode.Message.StreamEventMessage` → `ClaudeCode.Message.PartialAssistantMessage`
   - The struct still uses `type: :stream_event` to match the wire format
   - Helper function renamed: `stream_event?/1` → `partial_assistant_message?/1`
 
 ### Added
+
 - **`:fork_session` option** - Create a new session ID when resuming a conversation
   - Use with `:resume` to branch a conversation: `start_link(resume: session_id, fork_session: true)`
   - Original session continues unchanged, fork gets its own session ID after first query
@@ -196,6 +216,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.0] - 2026-01-06
 
 ### Changed
+
 - **BREAKING: Simplified public API** - Renamed and reorganized query functions ([e7ca31a])
   - `query_stream/3` → `stream/3` - Primary API for session-based streaming queries
   - `query/3` (session-based sync) → Removed - Use `stream/3` instead
@@ -204,19 +225,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Migration: Replace `ClaudeCode.query_stream(session, prompt)` with `ClaudeCode.stream(session, prompt)`
 
 ### Added
+
 - **Concurrent request queuing** - Multiple concurrent streams on same session are now properly queued and executed sequentially ([e7ca31a])
 
 ### Fixed
+
 - **Named process handling** - Stream cleanup now properly handles named processes (atoms, `:via`, `:global` tuples) ([e7ca31a])
 
 ## [0.8.1] - 2026-01-06
 
 ### Fixed
+
 - **Process cleanup on stop** - Claude subprocess now properly terminates when calling `ClaudeCode.stop/1` ([a560ff1])
 
 ## [0.8.0] - 2026-01-06
 
 ### Changed
+
 - **BREAKING: Renamed message type modules** - Added "Message" suffix for clarity
   - `ClaudeCode.Message.Assistant` → `ClaudeCode.Message.AssistantMessage`
   - `ClaudeCode.Message.User` → `ClaudeCode.Message.UserMessage`
@@ -230,6 +255,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ClaudeCode.Content.Thinking` → `ClaudeCode.Content.ThinkingBlock`
 
 ### Added
+
 - **New system message fields** - Support for additional Claude Code features
   - `:output_style` - Claude's configured output style
   - `:slash_commands` - Available slash commands
@@ -240,17 +266,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `UserMessage`: `:priority`, `:sequence_id`, `:finalize_stack`
 
 ### Fixed
+
 - **`:mcp_servers` option validation** - Fixed handling of MCP server configurations ([0c7e849])
 
 ## [0.7.0] - 2026-01-02
 
 ### Added
+
 - **`:strict_mcp_config` option** - Control MCP server loading behavior ([a095516])
   - When `true`, ignores global MCP server configurations
   - Useful for disabling all MCP tools: `tools: [], strict_mcp_config: true`
   - Or using only built-in tools: `tools: :default, strict_mcp_config: true`
 
 ### Changed
+
 - **BREAKING: `ClaudeCode.query` now returns full `%Result{}` struct** instead of just text
   - Before: `{:ok, "response text"}` or `{:error, {:claude_error, "message"}}`
   - After: `{:ok, %ClaudeCode.Message.Result{result: "response text", ...}}` or `{:error, %ClaudeCode.Message.Result{is_error: true, ...}}`
@@ -259,12 +288,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `Result` implements `String.Chars`, so `IO.puts(result)` prints just the text
 
 ### Removed
+
 - **`:input_format` option** - No longer exposed in public API ([c7ebab2])
 - **`:output_format` option** - No longer exposed in public API ([c7ebab2])
 
 ## [0.6.0] - 2025-12-31
 
 ### Added
+
 - **`:mcp_servers` module map format** - Pass Hermes modules with custom environment variables ([63d4b72])
   - Simple form: `%{"tools" => MyApp.MCPServer}`
   - Extended form with env: `%{"tools" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}}`
@@ -287,6 +318,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Maps to `--betas` CLI flag
 
 ### Removed
+
 - **`query_async/3`** - Removed push-based async API in favor of `query_stream/3`
   - `query_stream/3` provides a more idiomatic Elixir Stream-based API
   - For push-based messaging (LiveView, GenServers), wrap `query_stream/3` in a Task
@@ -297,14 +329,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `interrupt/2` - To cancel, use `Task.shutdown/2` on the consuming task
 
 ### Changed
+
 - **`ClaudeCode.Stream`** - Now uses pull-based messaging internally instead of process mailbox
 
 ## [0.5.0] - 2025-12-30
 
 ### Removed
+
 - **`:permission_handler` option** - Removed unimplemented option from session schema
 
 ### Added
+
 - **Persistent streaming mode** - Sessions use bidirectional stdin/stdout communication
   - Auto-connect on first query, auto-disconnect on session stop
   - Multi-turn conversations without subprocess restarts
@@ -326,24 +361,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ClaudeCode.MCP.Server` for starting Hermes MCP servers
 
 ### Changed
+
 - **Minimum Elixir version raised to 1.18**
 - `ClaudeCode.Stream.filter_type/2` now supports `:stream_event` and `:text_delta`
 
 ## [0.4.0] - 2025-10-02
 
 ### Added
+
 - **Custom agents support** - `:agents` option for defining agent configurations
 - **Settings options** - `:settings` and `:setting_sources` for team settings
 
 ### Changed
+
 - `:api_key` now optional - CLI handles `ANTHROPIC_API_KEY` fallback
 
 ### Fixed
+
 - CLI streaming with explicit output-format support
 
 ## [0.3.0] - 2025-06-16
 
 ### Added
+
 - **`ClaudeCode.Supervisor`** - Production supervision for multiple Claude sessions
   - Static named sessions and dynamic session management
   - Global, local, and registry-based naming
@@ -352,9 +392,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0] - 2025-06-16
 
 ### Added
+
 - `ANTHROPIC_API_KEY` environment variable fallback
 
 ### Changed
+
 - **BREAKING:** Renamed API functions:
   - `query_sync/3` → `query/3`
   - `query/3` → `query_stream/3`
@@ -363,6 +405,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2025-06-16
 
 ### Added
+
 - **Complete SDK Implementation (Phases 1-4):**
   - Session management with GenServer-based architecture
   - Synchronous queries with `query_sync/3` (renamed to `query/3` in later version)
@@ -377,7 +420,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Core Modules:**
   - `ClaudeCode` - Main interface with session management
-  - `ClaudeCode.Session` - GenServer for CLI subprocess management  
+  - `ClaudeCode.Session` - GenServer for CLI subprocess management
   - `ClaudeCode.CLI` - Binary detection and command building
   - `ClaudeCode.Options` - Options validation and CLI conversion
   - `ClaudeCode.Stream` - Stream utilities for real-time processing
@@ -408,6 +451,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Query-level option overrides
 
 ### Implementation Details
+
 - Flattened options API for intuitive configuration
 - Updated CLI flag mappings to match latest Claude Code CLI
 - Enhanced error handling with proper message subtypes
@@ -418,18 +462,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Session continuity across multiple queries
 
 ### Security
+
 - API keys passed via environment variables only
 - Shell command injection prevention with proper escaping
 - Subprocess isolation with dedicated ports per query
 - No sensitive data in command arguments or logs
 
 ### Documentation
+
 - Complete module documentation with doctests
 - Comprehensive README with installation and usage examples
 - Architecture documentation explaining CLI integration
 - Streamlined roadmap focusing on current status and future enhancements
 
 ### Testing
+
 - 146+ comprehensive tests covering all functionality
 - Unit tests for all modules with mock CLI support
 - Integration tests with real CLI when available
