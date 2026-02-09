@@ -28,6 +28,8 @@ mix coveralls.html              # Generate HTML coverage report
 ```bash
 mix deps.get              # Install dependencies
 mix claude_code.install   # Install CLI binary to priv/bin/
+mix claude_code.uninstall # Remove bundled CLI binary
+mix claude_code.path      # Print resolved CLI binary path
 iex -S mix                # Start interactive shell with project loaded
 mix docs                  # Generate documentation
 ```
@@ -119,6 +121,7 @@ Core capabilities:
     - `parser.ex` - JSON → struct parsing (shared CLI protocol)
 - `lib/mix/tasks/` - Mix tasks
   - `claude_code.install.ex` - CLI installation mix task
+  - `claude_code.uninstall.ex` - CLI binary removal
   - `claude_code.path.ex` - CLI binary path resolution
 - `test/` - Test files mirror lib structure
 - `docs/plans/` - Design documents and implementation plans

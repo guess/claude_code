@@ -47,6 +47,7 @@ ClaudeCode.stop(session)
 ## 📦 Installation
 
 **Step 1:** Add to your `mix.exs`
+
 ```elixir
 def deps do
   [{:claude_code, "~> 0.17"}]
@@ -54,19 +55,25 @@ end
 ```
 
 **Step 2:** Install dependencies
+
 ```bash
 mix deps.get
+
+# Install bundled CLI binary (optional)
+mix claude_code.install
 ```
 
 The Claude CLI is automatically installed to `priv/bin/` on first use. To pre-install (e.g., for CI or releases), run `mix claude_code.install`.
 
 **Step 3:** Authenticate (choose one)
+
 ```bash
 # Option A: Use your Claude subscription (no API key needed)
 $(mix claude_code.path) /login   # Authenticate using the SDK's bundled CLI
 
 # Option B: Use an API key
-export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
+# In runtime.exs:
+config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
 ```
 
 🎉 **Ready to go!** Try the quick demo above.
@@ -110,6 +117,7 @@ agents = %{
 ## 🏭 Production Usage
 
 ### Supervised Sessions
+
 ```elixir
 # In your application.ex
 def start(_type, _args) do
@@ -131,12 +139,14 @@ review =
 ```
 
 **Benefits:**
+
 - ✅ **Fault tolerance** - Sessions restart automatically on crashes
 - ✅ **Zero downtime** - Hot code reloading preserves session state
 - ✅ **Global access** - Named sessions work from anywhere in your app
 - ✅ **Distributed support** - Sessions work across Elixir clusters
 
 ### Phoenix Integration
+
 ```elixir
 # Simple controller usage
 def ask(conn, %{"prompt" => prompt}) do
@@ -150,6 +160,7 @@ end
 ```
 
 For LiveView with real-time streaming, use `stream/3` with a Task:
+
 ```elixir
 # LiveView with streaming responses
 def handle_event("send", %{"message" => msg}, socket) do
@@ -176,6 +187,7 @@ end
 📖 **[Full Phoenix Integration Guide →](docs/integration/phoenix.md)**
 
 ### Error Handling
+
 ```elixir
 # Stream errors are thrown and can be caught
 try do
@@ -197,14 +209,18 @@ end
 ```
 
 ### Interrupting Queries
+
 Stop an in-progress query to save tokens when Claude is going in a direction you don't want:
+
 ```elixir
 :ok = ClaudeCode.interrupt(session)
 # Stream terminates cleanly — not an error, no need to rescue
 ```
 
 ### Multi-turn Conversations
+
 Sessions automatically maintain context across queries:
+
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
 
@@ -235,13 +251,16 @@ new_session
 ```
 
 **Benefits:**
+
 - ✅ **Persistent connection** - Single CLI process handles all queries
 - ✅ **Auto-connect/disconnect** - No manual lifecycle management
 - ✅ **Resume support** - Continue previous conversations with `resume: session_id`
 - ✅ **Lower latency** - No startup overhead between turns
 
 ### Tool Callbacks
+
 Monitor tool executions for logging, auditing, or analytics:
+
 ```elixir
 callback = fn event ->
   Logger.info("Tool #{event.name} executed",
@@ -255,7 +274,9 @@ end
 ```
 
 ### MCP Integration (Optional)
+
 Expose Elixir tools to Claude using Hermes MCP:
+
 ```elixir
 # Add {:hermes_mcp, "~> 0.14"} to your deps
 
