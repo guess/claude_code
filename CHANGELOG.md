@@ -29,14 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Default adapter (`ClaudeCode.Adapter.CLI`) requires no configuration change
   - Enables future Docker, Cloudflare, and other execution environment adapters
 
-### Fixed
-- **Silently skip unknown system subtypes** - CLI hook messages (`hook_started`, `hook_response`) no longer produce "Failed to parse line" log noise ([482c603])
-
 ### Changed
 - **Eager adapter provisioning** - Sessions now start the adapter process immediately in `init/1` instead of lazily on first query ([ecf8bee])
   - Faster failure detection if the backend can't start
   - `ClaudeCode.start_link/1` returns `{:error, reason}` if adapter provisioning fails
-- **Schema alignment with CLI v2.1.37** ([482c603])
+- **Schema alignment with CLI v2.1.37 and Python SDK** ([482c603], [42b6c27])
+  - `SystemMessage` now handles all system subtypes (init, hook_started, hook_response, and future subtypes) — non-init subtypes store extra fields in the `data` map
+  - `AssistantMessage` now includes `error` field matching Python SDK's `AssistantMessageError` type (`:authentication_failed`, `:billing_error`, `:rate_limit`, `:invalid_request`, `:server_error`, `:unknown`)
+  - `UserMessage` now includes `tool_use_result` field for rich tool result metadata
   - `ResultMessage` now includes `stop_reason` field
   - `AssistantMessage` usage now includes `inference_geo` field
   - `SystemMessage` `plugins` field supports object format `%{name, path}` (backwards compatible with strings)
