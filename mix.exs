@@ -150,7 +150,6 @@ defmodule ClaudeCode.MixProject do
         # Advanced
         "docs/advanced/configuration.md",
         "docs/advanced/supervision.md",
-        "docs/advanced/agents.md",
         # Reference
         "docs/reference/examples.md",
         "docs/reference/architecture.md",
@@ -201,8 +200,7 @@ defmodule ClaudeCode.MixProject do
         ],
         Advanced: [
           "docs/advanced/configuration.md",
-          "docs/advanced/supervision.md",
-          "docs/advanced/agents.md"
+          "docs/advanced/supervision.md"
         ],
         Reference: [
           "docs/reference/examples.md",

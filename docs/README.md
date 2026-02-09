@@ -50,7 +50,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 - **[Configuration](advanced/configuration.md)** - All options and precedence rules
 - **[Supervision](advanced/supervision.md)** - Fault-tolerant production deployments
-- **[Agents](advanced/agents.md)** - Custom agent configurations
+- **[Subagents](guides/subagents.md)** - Custom agent configurations
 
 ## Reference
 

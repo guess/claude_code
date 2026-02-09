@@ -196,11 +196,36 @@ ClaudeCode.Supervisor.list_sessions(supervisor)
 | `system_prompt` | string | Override system prompt |
 | `timeout` | integer | Query timeout in ms (default: 300,000) |
 
+## Runtime Control
+
+Change session settings mid-conversation without restarting:
+
+```elixir
+# Switch model mid-conversation
+{:ok, _} = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+
+# Change permission mode
+{:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+
+# Query MCP server status
+{:ok, %{"servers" => servers}} = ClaudeCode.get_mcp_status(session)
+
+# Rewind files to a checkpoint (requires enable_file_checkpointing: true)
+{:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+
+# Get server info from the initialize handshake
+{:ok, info} = ClaudeCode.get_server_info(session)
+```
+
+These functions use the bidirectional control protocol to communicate with the CLI subprocess without interrupting the conversation flow.
+
 ## Session Lifecycle
 
 | Event | Behavior |
 |-------|----------|
 | `start_link/1` | Creates GenServer, CLI adapter starts eagerly |
+| Adapter initializing | Sends initialize handshake, adapter status is `:initializing` |
+| Adapter ready | Handshake complete, adapter status is `:ready` |
 | First query | Sent to the already-running CLI subprocess |
 | Subsequent queries | Reuses existing CLI connection with session context |
 | `clear/1` | Resets session ID, next query starts fresh |

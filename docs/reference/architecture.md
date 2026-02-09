@@ -37,18 +37,22 @@ Key CLI flags we use:
 ```
 Elixir SDK <-> Persistent CLI subprocess <-> Anthropic API
      ^                   ^                          |
-     |    stdin (query)  |                          v
-     +--- stdout (JSON messages) ------------------+
+     |    stdin (query   |                          v
+     |    + control)     |                          |
+     +--- stdout (JSON messages + control) --------+
 ```
 
 The SDK maintains a persistent CLI subprocess with bidirectional I/O:
 - Queries are written to stdin as JSON messages
 - Responses come via stdout as newline-delimited JSON
-- Three main message types in a typical response:
+- Control messages (`"type": "control_request"` / `"control_response"`) share the same transport
+- Message types on stdout:
   - `system` (type: "system") - Initialization info with tools and session ID (on connect)
   - `assistant` (type: "assistant") - Streaming response chunks
   - `result` (type: "result") - Final complete response with metadata
-- The SDK parses these and extracts the final response from the result message
+  - `control_request` - CLI requesting something from the SDK
+  - `control_response` - CLI responding to a previous SDK request
+- The SDK classifies each message and routes control vs. regular messages accordingly
 
 ### 3. Core Components
 
@@ -93,11 +97,15 @@ The adapter layer provides a swappable backend interface. All adapters implement
 
 ```elixir
 defmodule ClaudeCode.Adapter do
-  # Callbacks:
+  # Required callbacks:
   # - start_link/2: Provision the backend resource
   # - send_query/4: Send a prompt to Claude
   # - health/1: Check backend health (:healthy | :degraded | {:unhealthy, reason})
   # - stop/1: Clean up resources
+  #
+  # Optional callbacks (for control protocol support):
+  # - send_control_request/3: Send a control request to the backend
+  # - get_server_info/1: Retrieve cached server initialization data
 end
 ```
 
@@ -124,6 +132,29 @@ defmodule ClaudeCode.CLI do
   # - Converting Elixir options to CLI flags
 end
 ```
+
+#### Control Protocol (`ClaudeCode.CLI.Control`)
+```elixir
+defmodule ClaudeCode.CLI.Control do
+  # Bidirectional control protocol for the CLI.
+  # Pure functions — no processes or state.
+  #
+  # Classifies inbound messages:
+  #   classify/1 -> {:control_request, msg} | {:control_response, msg} | {:message, msg}
+  #
+  # Outbound request builders (SDK -> CLI):
+  #   initialize_request/3, set_model_request/2, set_permission_mode_request/2,
+  #   rewind_files_request/2, mcp_status_request/1
+  #
+  # Response builders (SDK -> CLI, answering CLI requests):
+  #   success_response/2, error_response/2
+  #
+  # Response parsing (CLI -> SDK):
+  #   parse_control_response/1 -> {:ok, req_id, data} | {:error, req_id, msg}
+end
+```
+
+Control messages share the stdin/stdout transport with regular SDK messages and are distinguished by `"type": "control_request"` or `"type": "control_response"`.
 
 #### Message Parser (`ClaudeCode.Message`)
 ```elixir
@@ -253,6 +284,7 @@ end
 
 Key design decisions:
 - **Eager Provisioning**: Adapter starts immediately in `init/1` — fast failure if backend can't start
+- **Initialize Handshake**: After the Port opens, the adapter sends an `initialize` control request and waits for the response before reporting `:ready`. The adapter status transitions through `:initializing` → `:ready`.
 - **Persistent Connection**: Single CLI subprocess for all queries
 - **Query Queue**: Queries are executed serially to maintain conversation context
 - **Session Continuity**: Session ID is captured and used for conversation context

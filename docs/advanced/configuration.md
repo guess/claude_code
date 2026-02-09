@@ -342,7 +342,7 @@ agents = %{
 {:ok, session} = ClaudeCode.start_link(agents: agents)
 ```
 
-See [Agents Guide](agents.md) for more details.
+See the [Subagents Guide](../guides/subagents.md) for more details.
 
 ## Team Settings
 
@@ -385,6 +385,23 @@ Load custom plugins to extend Claude's capabilities:
 )
 ```
 
+## Runtime Control
+
+Some settings can be changed mid-conversation without restarting the session, using the bidirectional control protocol:
+
+```elixir
+# Switch model on the fly
+{:ok, _} = ClaudeCode.set_model(session, "opus")
+
+# Change permission mode
+{:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+
+# Query MCP server status
+{:ok, status} = ClaudeCode.get_mcp_status(session)
+```
+
+See the [Sessions guide](../guides/sessions.md#runtime-control) for more details.
+
 ## Validation Errors
 
 Invalid options raise descriptive errors:
@@ -398,5 +415,5 @@ Invalid options raise descriptive errors:
 ## Next Steps
 
 - [Permissions Guide](../guides/permissions.md) - Tool and permission control
-- [Agents Guide](agents.md) - Custom agent configuration
+- [Subagents Guide](../guides/subagents.md) - Custom agent configuration
 - [Supervision Guide](supervision.md) - Production configuration
