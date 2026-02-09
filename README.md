@@ -2,7 +2,7 @@
 
 The Elixir SDK for building AI agents with Claude Code.
 
-- **📦 Bundled CLI**: Automatic Claude CLI installation on first use - no manual setup
+- **📦 Bundled CLI**: Automatic Claude CLI installation
 - **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
 - **💬 Conversation Continuity**: Automatic context retention across queries
 - **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
