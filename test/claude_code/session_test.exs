@@ -352,14 +352,19 @@ defmodule ClaudeCode.SessionTest do
 
       # Streaming mode: read from stdin and output messages for each input
       while IFS= read -r line; do
-        # Output system init message with session ID
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          # Output system init message with session ID
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
 
-        # Output assistant message with session ID
-        echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+          # Output assistant message with session ID
+          echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
 
-        # Output result message with session ID
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello from session '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+          # Output result message with session ID
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello from session '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+        fi
       done
 
       exit 0
@@ -472,9 +477,14 @@ defmodule ClaudeCode.SessionTest do
 
       # Streaming mode: read from stdin and output messages for each input
       while IFS= read -r line; do
-        # Output messages with appropriate session ID
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          # Output messages with appropriate session ID
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+        fi
       done
 
       exit 0
@@ -546,9 +556,14 @@ defmodule ClaudeCode.SessionTest do
 
       # Streaming mode: read from stdin and output messages for each input
       while IFS= read -r line; do
-        # Output messages with session ID
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Success with session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          # Output messages with session ID
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Success with session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
+        fi
       done
 
       exit 0
@@ -587,28 +602,33 @@ defmodule ClaudeCode.SessionTest do
 
       # Streaming mode: read from stdin and output messages for each input
       while IFS= read -r line; do
-        # Output system init message
-        echo '{"type":"system","subtype":"init","model":"claude-3","session_id":"'$session_id'","cwd":"/tmp","tools":[],"mcp_servers":[],"permissionMode":"allow","apiKeySource":"env"}'
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          # Output system init message
+          echo '{"type":"system","subtype":"init","model":"claude-3","session_id":"'$session_id'","cwd":"/tmp","tools":[],"mcp_servers":[],"permissionMode":"allow","apiKeySource":"env"}'
 
-        # Parse the prompt from the JSON input
-        # The input is like: {"type":"user","message":{"role":"user","content":"query1"},...}
-        case "$line" in
-          *"query1"*)
-            echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 1"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
-            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Response 1","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-            ;;
-          *"query2"*)
-            echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 2"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
-            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":120,"num_turns":1,"result":"Response 2","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-            ;;
-          *"query3"*)
-            echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 3"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
-            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":200,"duration_api_ms":160,"num_turns":1,"result":"Response 3","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-            ;;
-          *)
-            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Unknown query","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
-            ;;
-        esac
+          # Parse the prompt from the JSON input
+          # The input is like: {"type":"user","message":{"role":"user","content":"query1"},...}
+          case "$line" in
+            *"query1"*)
+              echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 1"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+              echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Response 1","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+              ;;
+            *"query2"*)
+              echo '{"type":"assistant","message":{"id":"msg_2","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 2"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+              echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":150,"duration_api_ms":120,"num_turns":1,"result":"Response 2","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+              ;;
+            *"query3"*)
+              echo '{"type":"assistant","message":{"id":"msg_3","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Response 3"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
+              echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":200,"duration_api_ms":160,"num_turns":1,"result":"Response 3","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+              ;;
+            *)
+              echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Unknown query","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":5}}'
+              ;;
+          esac
+        fi
       done
       exit 0
       """)

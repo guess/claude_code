@@ -143,12 +143,14 @@ defmodule ClaudeCode.SessionStreamingTest do
       MockCLI.setup_with_script("""
       #!/bin/bash
 
-      # Output system init message
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"streaming-session-123","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
       # Read from stdin and respond to each message
       while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        elif echo "$line" | grep -q '"type":"user"'; then
+          # Output system init message
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"streaming-session-123","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
           # Output assistant response
           echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Streaming response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"streaming-session-123"}'
           # Output result
@@ -185,10 +187,11 @@ defmodule ClaudeCode.SessionStreamingTest do
       MockCLI.setup_with_script("""
       #!/bin/bash
 
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"stream-query-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
       while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        elif echo "$line" | grep -q '"type":"user"'; then
           sleep 0.005
           echo '{"type":"assistant","message":{"id":"msg_s1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Stream query response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"stream-query-session"}'
           sleep 0.005
@@ -240,10 +243,11 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       turn=0
 
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"multi-turn-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
       while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        elif echo "$line" | grep -q '"type":"user"'; then
           turn=$((turn + 1))
           echo '{"type":"assistant","message":{"id":"msg_turn_'$turn'","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Turn '$turn' response"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"multi-turn-session"}'
           sleep 0.005
@@ -277,10 +281,11 @@ defmodule ClaudeCode.SessionStreamingTest do
 
       session_id="captured-session-id-abc"
 
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
       while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        elif echo "$line" | grep -q '"type":"user"'; then
           echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
           sleep 0.005
           echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Hello","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'
@@ -327,10 +332,11 @@ defmodule ClaudeCode.SessionStreamingTest do
         session_id="new-streaming-session"
       fi
 
-      echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"'$session_id'","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
       while IFS= read -r line; do
-        if echo "$line" | grep -q '"type":"user"'; then
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        elif echo "$line" | grep -q '"type":"user"'; then
           echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Resumed session: '$session_id'"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"'$session_id'"}'
           sleep 0.005
           echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":100,"duration_api_ms":80,"num_turns":1,"result":"Resumed session: '$session_id'","session_id":"'$session_id'","total_cost_usd":0.001,"usage":{}}'

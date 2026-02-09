@@ -23,15 +23,15 @@ defmodule ClaudeCode.IntegrationTest do
         exit 1
       fi
 
-      # Check for API key and output system init
-      if [[ -z "$ANTHROPIC_API_KEY" ]]; then
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"error-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"default","apiKeySource":"ANTHROPIC_API_KEY"}'
-      else
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"int-test-session","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-      fi
-
       # Read from stdin (streaming mode) and respond to each message
       while IFS= read -r line; do
+        # Handle control requests (initialize handshake, etc.)
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\"type\\":\\"control_response\\",\\"response\\":{\\"subtype\\":\\"success\\",\\"request_id\\":\\"$REQ_ID\\",\\"response\\":{}}}"
+          continue
+        fi
+
         # Extract the prompt from the JSON message
         prompt=$(echo "$line" | grep -o '"content":"[^"]*"' | sed 's/"content":"\\([^"]*\\)"/\\1/')
 

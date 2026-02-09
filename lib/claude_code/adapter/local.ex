@@ -155,8 +155,8 @@ defmodule ClaudeCode.Adapter.Local do
   def handle_info({:cli_resolved, {:ok, {executable, args, streaming_opts}}}, state) do
     case open_cli_port(executable, args, state, streaming_opts) do
       {:ok, port} ->
-        Adapter.notify_status(state.session, :ready)
-        {:noreply, %{state | port: port, buffer: "", status: :ready}}
+        new_state = %{state | port: port, buffer: "", status: :initializing}
+        send_initialize_handshake(new_state)
 
       {:error, reason} ->
         Adapter.notify_status(state.session, {:error, reason})
@@ -199,6 +199,10 @@ defmodule ClaudeCode.Adapter.Local do
       {nil, _} ->
         {:noreply, state}
 
+      {{:initialize, session}, remaining} ->
+        Adapter.notify_status(session, {:error, :initialize_timeout})
+        {:noreply, %{state | pending_control_requests: remaining, status: :disconnected}}
+
       {from, remaining} ->
         GenServer.reply(from, {:error, :control_timeout})
         {:noreply, %{state | pending_control_requests: remaining}}
@@ -226,8 +230,14 @@ defmodule ClaudeCode.Adapter.Local do
   # ============================================================================
 
   defp handle_port_disconnect(state, error) do
-    for {_req_id, from} <- state.pending_control_requests do
-      GenServer.reply(from, {:error, error})
+    for {_req_id, pending} <- state.pending_control_requests do
+      case pending do
+        {:initialize, session} ->
+          Adapter.notify_status(session, {:error, error})
+
+        from ->
+          GenServer.reply(from, {:error, error})
+      end
     end
 
     if state.current_request do
@@ -237,7 +247,21 @@ defmodule ClaudeCode.Adapter.Local do
     %{state | port: nil, current_request: nil, buffer: "", status: :disconnected, pending_control_requests: %{}}
   end
 
+  defp send_initialize_handshake(state) do
+    agents = Keyword.get(state.session_options, :agents)
+
+    {request_id, new_counter} = next_request_id(state.control_counter)
+    json = Control.initialize_request(request_id, nil, agents)
+    Port.command(state.port, json <> "\n")
+
+    pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
+    schedule_control_timeout(request_id)
+
+    {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
+  end
+
   defp ensure_connected(%{status: :provisioning}), do: {:error, :provisioning}
+  defp ensure_connected(%{status: :initializing}), do: {:error, :initializing}
 
   defp ensure_connected(%{port: nil, status: :disconnected} = state) do
     case spawn_cli(state) do
@@ -440,6 +464,10 @@ defmodule ClaudeCode.Adapter.Local do
             Logger.warning("Received control response for unknown request: #{request_id}")
             state
 
+          {{:initialize, session}, remaining} ->
+            Adapter.notify_status(session, :ready)
+            %{state | pending_control_requests: remaining, server_info: response, status: :ready}
+
           {from, remaining} ->
             GenServer.reply(from, {:ok, response})
             %{state | pending_control_requests: remaining}
@@ -450,6 +478,10 @@ defmodule ClaudeCode.Adapter.Local do
           {nil, _} ->
             Logger.warning("Received control error for unknown request: #{request_id}")
             state
+
+          {{:initialize, session}, remaining} ->
+            Adapter.notify_status(session, {:error, {:initialize_failed, error_msg}})
+            %{state | pending_control_requests: remaining, status: :disconnected}
 
           {from, remaining} ->
             GenServer.reply(from, {:error, error_msg})

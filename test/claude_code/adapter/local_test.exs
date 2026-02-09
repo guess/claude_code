@@ -188,7 +188,12 @@ defmodule ClaudeCode.Adapter.LocalTest do
         MockCLI.setup_with_script("""
         #!/bin/bash
         while IFS= read -r line; do
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
         done
         exit 0
         """)
@@ -235,7 +240,12 @@ defmodule ClaudeCode.Adapter.LocalTest do
         MockCLI.setup_with_script("""
         #!/bin/bash
         while IFS= read -r line; do
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
         done
         exit 0
         """)
@@ -433,10 +443,19 @@ defmodule ClaudeCode.Adapter.LocalTest do
       {:ok, context} =
         MockCLI.setup_with_script("""
         #!/bin/bash
-        # Immediately emit a control_response then handle stdin
-        echo '{"type":"control_response","response":{"subtype":"success","request_id":"req_0_test","response":{}}}'
+        INIT_DONE=false
         while IFS= read -r line; do
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              # Emit a stray control_response after init - should NOT reach session
+              echo '{"type":"control_response","response":{"subtype":"success","request_id":"req_stray_test","response":{}}}'
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
         done
         exit 0
         """)
@@ -463,8 +482,13 @@ defmodule ClaudeCode.Adapter.LocalTest do
         MockCLI.setup_with_script("""
         #!/bin/bash
         while IFS= read -r line; do
-          echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-123"}'
-          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test-123","total_cost_usd":0.001,"usage":{}}'
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          else
+            echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-123"}'
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test-123","total_cost_usd":0.001,"usage":{}}'
+          fi
         done
         exit 0
         """)
@@ -531,10 +555,16 @@ defmodule ClaudeCode.Adapter.LocalTest do
       {:ok, context} =
         MockCLI.setup_with_script("""
         #!/bin/bash
+        INIT_DONE=false
         while IFS= read -r line; do
           if echo "$line" | grep -q '"type":"control_request"'; then
             REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"error\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"error\\\":\\\"Something went wrong\\\"}}"
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            else
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"error\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"error\\\":\\\"Something went wrong\\\"}}"
+            fi
           else
             echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
           fi
@@ -563,9 +593,16 @@ defmodule ClaudeCode.Adapter.LocalTest do
       {:ok, context} =
         MockCLI.setup_with_script("""
         #!/bin/bash
+        INIT_DONE=false
         while IFS= read -r line; do
           if echo "$line" | grep -q '"type":"control_request"'; then
-            true
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            else
+              true
+            fi
           else
             echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
           fi
@@ -598,6 +635,118 @@ defmodule ClaudeCode.Adapter.LocalTest do
       send(adapter, {:control_timeout, req_id})
 
       assert {:error, :control_timeout} = Task.await(task)
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  # ============================================================================
+  # Initialize Handshake Tests (Task 6)
+  # ============================================================================
+
+  describe "initialize handshake" do
+    test "sends initialize request after port opens and caches server_info" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"subtype":"initialize"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"commands\\\":[\\\"query\\\"],\\\"capabilities\\\":{\\\"control\\\":true}}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 10_000
+
+      state = :sys.get_state(adapter)
+      assert state.server_info == %{"commands" => ["query"], "capabilities" => %{"control" => true}}
+
+      GenServer.stop(adapter)
+    end
+
+    test "transitions to error on initialize timeout" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        # Never respond to initialize
+        while IFS= read -r line; do
+          true
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+
+      # Wait for port to open and initialize to be sent
+      Process.sleep(500)
+
+      # Manually trigger timeout
+      state = :sys.get_state(adapter)
+
+      case Map.keys(state.pending_control_requests) do
+        [req_id | _] -> send(adapter, {:control_timeout, req_id})
+        _ -> :ok
+      end
+
+      assert_receive {:adapter_status, {:error, :initialize_timeout}}, 5000
+
+      GenServer.stop(adapter)
+    end
+
+    test "passes agents option through initialize handshake" do
+      agents = %{"reviewer" => %{"prompt" => "Review code"}}
+
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"subtype":"initialize"'; then
+            if echo "$line" | grep -q '"agents"'; then
+              REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"agents_received\\\":true}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          agents: agents
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 10_000
+
+      state = :sys.get_state(adapter)
+      assert state.server_info["agents_received"] == true
 
       GenServer.stop(adapter)
     end

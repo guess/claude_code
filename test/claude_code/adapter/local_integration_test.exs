@@ -23,8 +23,13 @@ defmodule ClaudeCode.Adapter.LocalIntegrationTest do
       MockCLI.setup_with_script("""
       #!/bin/bash
       while IFS= read -r line; do
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"health-test","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"health-test","total_cost_usd":0.001,"usage":{}}'
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"health-test","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"health-test","total_cost_usd":0.001,"usage":{}}'
+        fi
       done
       exit 0
       """)
@@ -49,9 +54,14 @@ defmodule ClaudeCode.Adapter.LocalIntegrationTest do
       MockCLI.setup_with_script("""
       #!/bin/bash
       while IFS= read -r line; do
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"complete-test","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-        echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello there"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"complete-test"}'
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Hello there","session_id":"complete-test","total_cost_usd":0.001,"usage":{}}'
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"complete-test","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+          echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello there"}],"stop_reason":"end_turn","stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"complete-test"}'
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"Hello there","session_id":"complete-test","total_cost_usd":0.001,"usage":{}}'
+        fi
       done
       exit 0
       """)

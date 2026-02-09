@@ -212,12 +212,12 @@ defmodule MockCLI do
   defp build_script(messages, sleep) do
     # Build a streaming-aware script that:
     # 1. Reads input from stdin (newline-delimited JSON)
-    # 2. For each input, outputs the configured messages
-    # 3. Keeps running until stdin is closed
+    # 2. Handles control requests (initialize handshake, etc.)
+    # 3. For each non-control input, outputs the configured messages
+    # 4. Keeps running until stdin is closed
     message_lines =
       Enum.map_join(messages, "\n", fn msg ->
         json = encode_json(msg)
-        # Escape single quotes for shell
         escaped_json = String.replace(json, "'", "'\\''")
 
         if sleep > 0 do
@@ -229,9 +229,14 @@ defmodule MockCLI do
 
     """
     #!/bin/bash
-    # Streaming mode: read from stdin and output messages for each input
+    # Streaming mode: read from stdin and handle control/user messages
     while IFS= read -r line; do
-      #{message_lines}
+      if echo "$line" | grep -q '"type":"control_request"'; then
+        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+      else
+        #{message_lines}
+      fi
     done
     exit 0
     """
