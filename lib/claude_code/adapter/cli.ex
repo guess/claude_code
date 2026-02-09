@@ -15,7 +15,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
   alias ClaudeCode.Adapter
   alias ClaudeCode.CLI
-  alias ClaudeCode.Message
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.ResultMessage
 
   require Logger
@@ -386,7 +386,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
   defp parse_line(line) do
     with {:ok, json} <- Jason.decode(line),
-         {:ok, message} <- Message.parse(json) do
+         {:ok, message} <- Parser.parse_message(json) do
       {:ok, message}
     else
       {:error, reason} ->

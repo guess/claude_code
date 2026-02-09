@@ -6,6 +6,7 @@ defmodule ClaudeCode.Content do
   This module provides functions to parse and work with any content type.
   """
 
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ThinkingBlock
   alias ClaudeCode.Content.ToolResultBlock
@@ -16,6 +17,8 @@ defmodule ClaudeCode.Content do
   @doc """
   Parses a content block from JSON data based on its type.
 
+  Delegates to `ClaudeCode.CLI.Parser.parse_content/1`.
+
   ## Examples
 
       iex> Content.parse(%{"type" => "text", "text" => "Hello"})
@@ -24,40 +27,17 @@ defmodule ClaudeCode.Content do
       iex> Content.parse(%{"type" => "unknown"})
       {:error, {:unknown_content_type, "unknown"}}
   """
-  @spec parse(map()) :: {:ok, t()} | {:error, term()}
-  def parse(%{"type" => type} = data) do
-    case type do
-      "text" -> TextBlock.new(data)
-      "thinking" -> ThinkingBlock.new(data)
-      "tool_use" -> ToolUseBlock.new(data)
-      "tool_result" -> ToolResultBlock.new(data)
-      other -> {:error, {:unknown_content_type, other}}
-    end
-  end
-
-  def parse(_), do: {:error, :missing_type}
+  defdelegate parse(data), to: Parser, as: :parse_content
 
   @doc """
   Parses a list of content blocks.
 
+  Delegates to `ClaudeCode.CLI.Parser.parse_all_contents/1`.
+
   Returns {:ok, contents} if all blocks parse successfully,
   or {:error, {:parse_error, index, error}} for the first failure.
   """
-  @spec parse_all(list(map())) :: {:ok, [t()]} | {:error, term()}
-  def parse_all(blocks) when is_list(blocks) do
-    blocks
-    |> Enum.with_index()
-    |> Enum.reduce_while({:ok, []}, fn {block, index}, {:ok, acc} ->
-      case parse(block) do
-        {:ok, content} -> {:cont, {:ok, [content | acc]}}
-        {:error, error} -> {:halt, {:error, {:parse_error, index, error}}}
-      end
-    end)
-    |> case do
-      {:ok, contents} -> {:ok, Enum.reverse(contents)}
-      error -> error
-    end
-  end
+  defdelegate parse_all(blocks), to: Parser, as: :parse_all_contents
 
   @doc """
   Checks if a value is any type of content block.
