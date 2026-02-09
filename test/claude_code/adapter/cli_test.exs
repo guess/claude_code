@@ -317,5 +317,23 @@ defmodule ClaudeCode.Adapter.CLITest do
 
       assert env["PATH"] == extended_path
     end
+
+    test "sets file checkpointing env var when enabled" do
+      env = CLI.build_env([enable_file_checkpointing: true], nil)
+
+      assert env["CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING"] == "true"
+    end
+
+    test "does not set file checkpointing env var when disabled" do
+      env = CLI.build_env([enable_file_checkpointing: false], nil)
+
+      refute Map.has_key?(env, "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING")
+    end
+
+    test "does not set file checkpointing env var by default" do
+      env = CLI.build_env([], nil)
+
+      refute Map.has_key?(env, "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING")
+    end
   end
 end

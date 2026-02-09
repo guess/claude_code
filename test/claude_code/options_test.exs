@@ -301,6 +301,34 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       assert validated[:plugins] == ["./simple-plugin", %{type: :local, path: "./map-plugin"}]
     end
+
+    test "validates sandbox option as a map" do
+      opts = [sandbox: %{"network" => false, "filesystem" => %{"read_only" => true}}]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:sandbox] == %{"network" => false, "filesystem" => %{"read_only" => true}}
+    end
+
+    test "sandbox is not set by default" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      refute Keyword.has_key?(validated, :sandbox)
+    end
+
+    test "validates enable_file_checkpointing option" do
+      opts = [enable_file_checkpointing: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:enable_file_checkpointing] == true
+
+      opts = [enable_file_checkpointing: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:enable_file_checkpointing] == false
+    end
+
+    test "defaults enable_file_checkpointing to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:enable_file_checkpointing] == false
+    end
   end
 
   describe "validate_query_options/1" do
@@ -1240,6 +1268,75 @@ defmodule ClaudeCode.OptionsTest do
       args = Options.to_cli_args(opts)
       assert "--debug-file" in args
       assert "/tmp/claude-debug.log" in args
+    end
+
+    test "sandbox merges into settings when only sandbox provided" do
+      sandbox = %{"network" => false, "filesystem" => %{"read_only" => true}}
+      opts = [sandbox: sandbox]
+
+      args = Options.to_cli_args(opts)
+      assert "--settings" in args
+
+      settings_index = Enum.find_index(args, &(&1 == "--settings"))
+      json_value = Enum.at(args, settings_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["sandbox"] == sandbox
+    end
+
+    test "sandbox merges into existing settings map" do
+      sandbox = %{"network" => false}
+      settings = %{"feature" => true, "timeout" => 5000}
+      opts = [sandbox: sandbox, settings: settings]
+
+      args = Options.to_cli_args(opts)
+      assert "--settings" in args
+
+      settings_index = Enum.find_index(args, &(&1 == "--settings"))
+      json_value = Enum.at(args, settings_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["sandbox"] == sandbox
+      assert decoded["feature"] == true
+      assert decoded["timeout"] == 5000
+    end
+
+    test "sandbox merges into existing settings JSON string" do
+      sandbox = %{"network" => false}
+      settings = Jason.encode!(%{"feature" => true})
+      opts = [sandbox: sandbox, settings: settings]
+
+      args = Options.to_cli_args(opts)
+      assert "--settings" in args
+
+      settings_index = Enum.find_index(args, &(&1 == "--settings"))
+      json_value = Enum.at(args, settings_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["sandbox"] == sandbox
+      assert decoded["feature"] == true
+    end
+
+    test "sandbox is not passed as a separate CLI flag" do
+      opts = [sandbox: %{"network" => false}]
+
+      args = Options.to_cli_args(opts)
+      refute "--sandbox" in args
+    end
+
+    test "enable_file_checkpointing is not passed as a CLI flag" do
+      opts = [enable_file_checkpointing: true]
+
+      args = Options.to_cli_args(opts)
+      refute "--enable-file-checkpointing" in args
+      refute "true" in args
+    end
+
+    test "enable_file_checkpointing false produces no CLI flag" do
+      opts = [enable_file_checkpointing: false]
+
+      args = Options.to_cli_args(opts)
+      refute "--enable-file-checkpointing" in args
     end
   end
 

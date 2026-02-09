@@ -320,6 +320,15 @@ defmodule ClaudeCode.Options do
     debug_file: [
       type: :string,
       doc: "Write debug logs to a specific file path (implicitly enables debug mode)"
+    ],
+    sandbox: [
+      type: {:map, :string, :any},
+      doc: "Sandbox settings for bash command isolation (merged into --settings)"
+    ],
+    enable_file_checkpointing: [
+      type: :boolean,
+      default: false,
+      doc: "Enable file checkpointing to track file changes during the session (set via env var, not CLI flag)"
     ]
   ]
 
@@ -456,6 +465,7 @@ defmodule ClaudeCode.Options do
   """
   def to_cli_args(opts) do
     opts
+    |> preprocess_sandbox()
     |> Enum.reduce([], fn {key, value}, acc ->
       case convert_option_to_cli_flag(key, value) do
         {flag, flag_value} -> [flag_value, flag | acc]
@@ -777,7 +787,10 @@ defmodule ClaudeCode.Options do
     {"--input-format", "stream-json"}
   end
 
-  # Internal options - not passed to CLI
+  # Internal options - not passed as CLI flags
+  # :sandbox is preprocessed into :settings; :enable_file_checkpointing is set via env var
+  defp convert_option_to_cli_flag(:sandbox, _value), do: nil
+  defp convert_option_to_cli_flag(:enable_file_checkpointing, _value), do: nil
   defp convert_option_to_cli_flag(:callers, _value), do: nil
   defp convert_option_to_cli_flag(:name, _value), do: nil
   defp convert_option_to_cli_flag(:adapter, _value), do: nil
@@ -791,6 +804,30 @@ defmodule ClaudeCode.Options do
   end
 
   # Private helpers
+
+  defp preprocess_sandbox(opts) do
+    case Keyword.pop(opts, :sandbox) do
+      {nil, opts} ->
+        opts
+
+      {sandbox, opts} ->
+        merged = merge_sandbox_into_settings(Keyword.get(opts, :settings), sandbox)
+        Keyword.put(opts, :settings, merged)
+    end
+  end
+
+  defp merge_sandbox_into_settings(nil, sandbox), do: %{"sandbox" => sandbox}
+
+  defp merge_sandbox_into_settings(settings, sandbox) when is_map(settings) do
+    Map.put(settings, "sandbox", sandbox)
+  end
+
+  defp merge_sandbox_into_settings(json_string, sandbox) when is_binary(json_string) do
+    case Jason.decode(json_string) do
+      {:ok, decoded} -> Map.put(decoded, "sandbox", sandbox)
+      {:error, _} -> %{"sandbox" => sandbox}
+    end
+  end
 
   defp expand_hermes_module(module, config) do
     # Generate stdio command config for a Hermes MCP server module

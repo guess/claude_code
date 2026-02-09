@@ -288,6 +288,7 @@ defmodule ClaudeCode.Adapter.CLI do
     |> Map.merge(user_env)
     |> Map.merge(sdk_env_vars())
     |> maybe_put_api_override_map(api_key)
+    |> maybe_put_file_checkpointing(session_options)
   end
 
   defp maybe_put_api_override_map(env, api_key) when is_binary(api_key) do
@@ -295,6 +296,14 @@ defmodule ClaudeCode.Adapter.CLI do
   end
 
   defp maybe_put_api_override_map(env, _), do: env
+
+  defp maybe_put_file_checkpointing(env, opts) do
+    if Keyword.get(opts, :enable_file_checkpointing, false) do
+      Map.put(env, "CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING", "true")
+    else
+      env
+    end
+  end
 
   @doc false
   # Escapes a string for safe use in shell commands.

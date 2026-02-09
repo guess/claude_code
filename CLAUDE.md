@@ -148,6 +148,8 @@ Key options:
 - `:add_dir` - Additional accessible directories
 - `:include_partial_messages` - Enable character-level streaming
 - `:cli_path` - Custom path to Claude CLI binary (highest priority)
+- `:sandbox` - Sandbox settings for bash command isolation (map, merged into --settings)
+- `:enable_file_checkpointing` - Enable file checkpointing (boolean, set via env var)
 
 Application config options:
 - `:cli_version` - Version to install (default: SDK's tested version)
