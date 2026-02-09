@@ -55,18 +55,44 @@ defmodule ClaudeCode.CLI do
     cli_path = Keyword.get(opts, :cli_path)
 
     cond do
-      # 1. Explicit cli_path option
       cli_path && File.exists?(cli_path) ->
         {:ok, cli_path}
 
       cli_path ->
-        # cli_path was provided but doesn't exist
         {:error, :not_found}
 
-      # 2-5. Delegate to Installer for remaining resolution
+      path = Application.get_env(:claude_code, :cli_path) ->
+        if File.exists?(path), do: {:ok, path}, else: {:error, :not_found}
+
       true ->
-        Installer.bin_path()
+        ensure_bundled_or_fallback()
     end
+  end
+
+  # Downloads the CLI to priv/bin/ on first use if not already bundled.
+  # Falls back to system PATH / common locations if install fails.
+  defp ensure_bundled_or_fallback do
+    bundled = Installer.bundled_path()
+
+    if File.exists?(bundled) do
+      {:ok, bundled}
+    else
+      case auto_install() do
+        {:ok, _} = result -> result
+        {:error, _} -> Installer.bin_path()
+      end
+    end
+  end
+
+  defp auto_install do
+    Installer.install!()
+    bundled = Installer.bundled_path()
+    if File.exists?(bundled), do: {:ok, bundled}, else: {:error, :install_failed}
+  rescue
+    e ->
+      require Logger
+      Logger.warning("Auto-install of Claude CLI failed: #{Exception.message(e)}")
+      {:error, :install_failed}
   end
 
   @doc """
@@ -122,8 +148,6 @@ defmodule ClaudeCode.CLI do
         {:error, {:cli_not_found, cli_not_found_message()}}
     end
   end
-
-  # Private Functions
 
   defp build_args(prompt, opts, session_id) do
     # Start with required flags

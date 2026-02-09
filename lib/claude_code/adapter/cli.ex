@@ -39,7 +39,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
   @impl ClaudeCode.Adapter
   def send_query(adapter, request_id, prompt, opts) do
-    GenServer.call(adapter, {:query, request_id, prompt, opts})
+    GenServer.call(adapter, {:query, request_id, prompt, opts}, :infinity)
   end
 
   @impl ClaudeCode.Adapter
@@ -72,7 +72,6 @@ defmodule ClaudeCode.Adapter.CLI do
       api_key: Keyword.get(opts, :api_key)
     }
 
-    # Link to session for lifecycle management
     Process.link(session)
 
     {:ok, state}
@@ -207,7 +206,6 @@ defmodule ClaudeCode.Adapter.CLI do
 
     case CLI.build_command("", state.api_key, streaming_opts, resume_session_id) do
       {:ok, {executable, args}} ->
-        # Remove empty prompt that build_command adds as last argument
         args_without_prompt = List.delete_at(args, -1)
         open_cli_port(executable, args_without_prompt, state, streaming_opts)
 
