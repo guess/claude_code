@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Installer do
+defmodule ClaudeCode.Adapter.Local.Installer do
   @moduledoc """
   Manages Claude CLI binary installation.
 
@@ -68,7 +68,7 @@ defmodule ClaudeCode.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Installer.configured_version()
+      iex> ClaudeCode.Adapter.Local.Installer.configured_version()
       "#{@default_cli_version}"
   """
   @spec configured_version() :: String.t()
@@ -83,7 +83,7 @@ defmodule ClaudeCode.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Installer.cli_dir()
+      iex> ClaudeCode.Adapter.Local.Installer.cli_dir()
       "/path/to/app/priv/bin"
   """
   @spec cli_dir() :: String.t()
@@ -99,7 +99,7 @@ defmodule ClaudeCode.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Installer.bundled_path()
+      iex> ClaudeCode.Adapter.Local.Installer.bundled_path()
       "/path/to/app/priv/bin/claude"
   """
   @spec bundled_path() :: String.t()
@@ -121,13 +121,13 @@ defmodule ClaudeCode.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Installer.install!()
+      iex> ClaudeCode.Adapter.Local.Installer.install!()
       :ok
 
-      iex> ClaudeCode.Installer.install!(version: "#{@default_cli_version}")
+      iex> ClaudeCode.Adapter.Local.Installer.install!(version: "#{@default_cli_version}")
       :ok
 
-      iex> ClaudeCode.Installer.install!(return_info: true)
+      iex> ClaudeCode.Adapter.Local.Installer.install!(return_info: true)
       {:ok, %{version: "#{@default_cli_version}", path: "/path/to/claude", size_bytes: 1234567}}
   """
   @spec install!(keyword()) :: :ok | {:ok, map()}
@@ -164,10 +164,10 @@ defmodule ClaudeCode.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Installer.version_of("/usr/local/bin/claude")
+      iex> ClaudeCode.Adapter.Local.Installer.version_of("/usr/local/bin/claude")
       {:ok, "#{@default_cli_version}"}
 
-      iex> ClaudeCode.Installer.version_of("/nonexistent")
+      iex> ClaudeCode.Adapter.Local.Installer.version_of("/nonexistent")
       {:error, {:execution_failed, "enoent"}}
   """
   @spec version_of(String.t()) :: {:ok, String.t()} | {:error, term()}

@@ -21,8 +21,8 @@ defmodule ClaudeCode.CLI do
       config :claude_code, cli_path: :global
   """
 
+  alias ClaudeCode.Adapter.Local.Installer
   alias ClaudeCode.CLI.Command
-  alias ClaudeCode.Installer
 
   require Logger
 

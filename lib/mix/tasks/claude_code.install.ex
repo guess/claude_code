@@ -41,6 +41,8 @@ defmodule Mix.Tasks.ClaudeCode.Install do
 
   use Mix.Task
 
+  alias ClaudeCode.Adapter.Local.Installer
+
   @switches [
     version: :string,
     if_missing: :boolean,
@@ -51,11 +53,11 @@ defmodule Mix.Tasks.ClaudeCode.Install do
   def run(args) do
     {opts, _args} = OptionParser.parse!(args, strict: @switches)
 
-    version = opts[:version] || ClaudeCode.Installer.configured_version()
+    version = opts[:version] || Installer.configured_version()
     if_missing = opts[:if_missing] || false
     force = opts[:force] || false
 
-    bundled_path = ClaudeCode.Installer.bundled_path()
+    bundled_path = Installer.bundled_path()
     bundled_exists? = File.exists?(bundled_path)
 
     cond do
@@ -79,7 +81,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
     Mix.shell().info("")
 
     try do
-      case ClaudeCode.Installer.install!(version: version, return_info: true) do
+      case Installer.install!(version: version, return_info: true) do
         {:ok, info} ->
           size_str = format_size(info.size_bytes)
 
@@ -93,7 +95,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
 
         :ok ->
           Mix.shell().info("""
-          ✓ Claude CLI installed to #{ClaudeCode.Installer.bundled_path()}
+          ✓ Claude CLI installed to #{Installer.bundled_path()}
           """)
       end
     rescue

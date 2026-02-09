@@ -1,7 +1,7 @@
-defmodule ClaudeCode.InstallerTest do
+defmodule ClaudeCode.Adapter.Local.InstallerTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Installer
+  alias ClaudeCode.Adapter.Local.Installer
 
   describe "configured_version/0" do
     test "returns default version when no config set" do

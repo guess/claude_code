@@ -239,7 +239,7 @@ defmodule ClaudeCode.MixProject do
         Messages: ~r/ClaudeCode.Message/,
         "Content Blocks": ~r/ClaudeCode.Content/,
         Installation: [
-          ClaudeCode.Installer
+          ClaudeCode.Adapter.Local.Installer
         ],
         Internal: [
           ClaudeCode.Adapter,
