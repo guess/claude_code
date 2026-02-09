@@ -67,7 +67,7 @@ claude  # Then type /login to authenticate
 export ANTHROPIC_API_KEY="sk-ant-your-api-key-here"
 ```
 
-🎉 **Ready to go!** The Claude CLI is installed automatically on first use. Try the quick demo above.
+🎉 **Ready to go!** The CLI installs automatically on first use.
 
 ## ⚡ Quick Examples
 
