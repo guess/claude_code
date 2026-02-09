@@ -10,7 +10,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - **`:cli_path` defaults to `:bundled`** - Uses `priv/bin/` binary by default, auto-installing if missing. Set `cli_path: :global` for system install, or pass an explicit path. See [Configuration Guide](docs/advanced/configuration.md#cli-configuration).
-- **`:agents` sent via control protocol** - No longer passed as `--agents` CLI flag. Sent through the initialize handshake instead, matching the Python SDK. No API change required. See [Subagents Guide](docs/guides/subagents.md). ([2a4473b])
 
 ### Added
 
@@ -24,7 +23,7 @@ Runtime control of sessions without restarting. See [Sessions — Runtime Contro
 - `ClaudeCode.get_server_info/1` - Get server info cached from handshake ([228c57f])
 - `ClaudeCode.rewind_files/2` - Rewind files to a checkpoint. See [File Checkpointing](docs/guides/file-checkpointing.md). ([7ba2007])
 - Returns `{:error, :not_supported}` for adapters without control protocol support
-- **Initialize handshake** - Adapter sends `initialize` request on startup, transitions through `:initializing` → `:ready`. See [Architecture](docs/reference/architecture.md). ([228c57f])
+- **Initialize handshake** - Adapter sends `initialize` request on startup, transitions through `:initializing` → `:ready`. Agents are now delivered through the handshake (matching the Python SDK) instead of as a CLI flag. See [Architecture](docs/reference/architecture.md) and [Subagents](docs/guides/subagents.md). ([228c57f], [2a4473b])
 
 #### New options
 
