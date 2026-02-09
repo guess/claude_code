@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Input do
+defmodule ClaudeCode.CLI.Input do
   @moduledoc """
   Builds input messages for stream-json input format.
 
@@ -19,10 +19,10 @@ defmodule ClaudeCode.Input do
   ## Usage
 
       # Build a user message
-      json = ClaudeCode.Input.user_message("Hello, Claude!")
+      json = ClaudeCode.CLI.Input.user_message("Hello, Claude!")
 
       # With explicit session ID
-      json = ClaudeCode.Input.user_message("Hello!", "my-session-123")
+      json = ClaudeCode.CLI.Input.user_message("Hello!", "my-session-123")
 
   """
 
@@ -38,10 +38,10 @@ defmodule ClaudeCode.Input do
 
   ## Examples
 
-      iex> ClaudeCode.Input.user_message("What is 2 + 2?")
+      iex> ClaudeCode.CLI.Input.user_message("What is 2 + 2?")
       ~s({"type":"user","message":{"role":"user","content":"What is 2 + 2?"},"session_id":"default","parent_tool_use_id":null})
 
-      iex> ClaudeCode.Input.user_message("Hello", "session-123")
+      iex> ClaudeCode.CLI.Input.user_message("Hello", "session-123")
       ~s({"type":"user","message":{"role":"user","content":"Hello"},"session_id":"session-123","parent_tool_use_id":null})
 
   """
@@ -72,7 +72,7 @@ defmodule ClaudeCode.Input do
 
   ## Examples
 
-      iex> ClaudeCode.Input.tool_response("tool-123", "File created", "session-456")
+      iex> ClaudeCode.CLI.Input.tool_response("tool-123", "File created", "session-456")
       # Returns JSON with tool result
 
   """

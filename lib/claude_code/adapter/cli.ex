@@ -103,7 +103,7 @@ defmodule ClaudeCode.Adapter.CLI do
 
     case ensure_connected(state) do
       {:ok, connected_state} ->
-        message = ClaudeCode.Input.user_message(prompt, session_id)
+        message = CLI.Input.user_message(prompt, session_id)
         Port.command(connected_state.port, message <> "\n")
         {:reply, :ok, %{connected_state | current_request: request_id}}
 

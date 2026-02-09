@@ -245,7 +245,7 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Adapter,
           ClaudeCode.Adapter.CLI,
           ClaudeCode.CLI,
-          ClaudeCode.Input
+          ClaudeCode.CLI.Input
         ]
       ]
     ]

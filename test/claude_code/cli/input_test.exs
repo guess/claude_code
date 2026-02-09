@@ -1,7 +1,7 @@
-defmodule ClaudeCode.InputTest do
+defmodule ClaudeCode.CLI.InputTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Input
+  alias ClaudeCode.CLI.Input
 
   describe "user_message/3" do
     test "builds basic user message with defaults" do
