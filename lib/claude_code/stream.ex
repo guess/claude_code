@@ -325,6 +325,26 @@ defmodule ClaudeCode.Stream do
   end
 
   @doc """
+  Returns the final `ResultMessage`, consuming the stream.
+
+  Use this when you need the full result struct with `stop_reason`, `usage`,
+  `session_id`, and other metadata — not just the text.
+
+  ## Examples
+
+      result = session
+      |> ClaudeCode.stream("Write a poem about the ocean")
+      |> ClaudeCode.Stream.final_result()
+
+      IO.puts("Stop reason: \#{result.stop_reason}")
+      IO.puts("Cost: $\#{result.total_cost_usd}")
+  """
+  @spec final_result(Enumerable.t()) :: Message.ResultMessage.t() | nil
+  def final_result(stream) do
+    Enum.find(stream, &match?(%Message.ResultMessage{}, &1))
+  end
+
+  @doc """
   Consumes the stream and returns a structured summary of the conversation.
 
   Returns a map containing:

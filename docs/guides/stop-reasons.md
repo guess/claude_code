@@ -1,105 +1,90 @@
-# Stop Reasons
+# Handling Stop Reasons
 
-When Claude finishes responding, the `ResultMessage` contains information about why the conversation stopped and whether it succeeded.
+Detect refusals and other stop reasons directly from result messages in the SDK.
 
-## ResultMessage Structure
+> **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/stop-reasons). Examples are adapted for Elixir.
 
-```elixir
-%ClaudeCode.Message.ResultMessage{
-  type: :result,
-  subtype: :success,          # or an error subtype
-  is_error: false,            # true if something went wrong
-  result: "The answer is 42", # final response text (nil on error)
-  stop_reason: :end_turn,     # why the API stopped generating
-  duration_ms: 1234.5,        # total wall-clock time
-  duration_api_ms: 987.2,     # time spent in API calls
-  num_turns: 3,               # number of agentic turns taken
-  total_cost_usd: 0.015,      # total cost of the conversation
-  session_id: "abc-123",      # session ID for resuming
-  usage: %{                   # aggregate token usage
-    input_tokens: 500,
-    output_tokens: 200,
-    cache_creation_input_tokens: 0,
-    cache_read_input_tokens: 100
-  },
-  structured_output: nil,     # parsed JSON if output_format was set
-  errors: nil                 # list of error strings on failure
-}
-```
+The `stop_reason` field on `ClaudeCode.Message.ResultMessage` tells you why the model stopped generating. This is the recommended way to detect refusals, max-token limits, and other termination conditions (no stream parsing required).
 
-## Pattern Matching on Results
+> **Note:** `stop_reason` is available on every `ClaudeCode.Message.ResultMessage`, regardless of whether streaming is enabled. You don't need to set `include_partial_messages: true`.
 
-### From `query/2`
+## Reading stop_reason
 
-```elixir
-case ClaudeCode.query("Explain recursion") do
-  {:ok, %{subtype: :success} = result} ->
-    IO.puts(result.result)
-
-  {:error, %{subtype: :error_max_turns}} ->
-    IO.puts("Hit the turn limit")
-
-  {:error, %{subtype: :error_during_execution, errors: errors}} ->
-    IO.puts("Execution error: #{inspect(errors)}")
-
-  {:error, reason} ->
-    IO.puts("SDK error: #{inspect(reason)}")
-end
-```
-
-### From a Stream
+The `stop_reason` field is present on both success and error result messages. Use `ClaudeCode.Stream.final_result/1` to extract the `ClaudeCode.Message.ResultMessage` from a stream:
 
 ```elixir
 session
-|> ClaudeCode.stream("Complex task")
-|> Enum.each(fn
-  %ClaudeCode.Message.ResultMessage{is_error: false} = result ->
-    IO.puts("Done: #{result.result}")
+|> ClaudeCode.stream("Write a poem about the ocean")
+|> ClaudeCode.Stream.final_result()
+|> case do
+  %{stop_reason: :refusal} ->
+    IO.puts("The model declined this request.")
 
-  %ClaudeCode.Message.ResultMessage{is_error: true} = result ->
-    IO.puts("Error (#{result.subtype}): #{inspect(result.errors)}")
-
-  _other ->
-    :ok
-end)
-```
-
-## Result Subtypes
-
-| Subtype | `is_error` | Description |
-|---------|-----------|-------------|
-| `:success` | `false` | Normal completion. `result` contains the response. |
-| `:error_max_turns` | `true` | Hit the `max_turns` limit. |
-| `:error_during_execution` | `true` | An error occurred during tool execution or processing. |
-| `:error_max_budget_usd` | `true` | Hit the `max_budget_usd` cost limit. |
-| `:error_max_structured_output_retries` | `true` | Failed to produce valid structured output after retries. |
-
-## Stop Reasons
-
-The `stop_reason` field indicates why the Claude API stopped generating:
-
-| Stop Reason | Description |
-|------------|-------------|
-| `:end_turn` | Claude finished its response naturally. |
-| `:max_tokens` | Hit the maximum output token limit. |
-| `:stop_sequence` | Hit a configured stop sequence. |
-| `:tool_use` | Claude is requesting tool execution (intermediate, not final). |
-
-## Checking Success
-
-```elixir
-result = session
-|> ClaudeCode.stream("Do a task")
-|> ClaudeCode.Stream.collect()
-
-if result.is_error do
-  Logger.error("Task failed: #{result.result}")
-else
-  Logger.info("Task completed in #{length(result.tool_calls)} tool calls")
+  result ->
+    IO.puts("Stop reason: #{result.stop_reason}")
 end
 ```
 
-## Next Steps
+## Available stop reasons
 
-- [Permissions](permissions.md) - Control tool access and permission modes
-- [Cost Tracking](cost-tracking.md) - Monitor usage and costs
+| Stop reason      | Meaning                                                                                                                                           |
+| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `:end_turn`      | The model finished generating its response normally.                                                                                              |
+| `:max_tokens`    | The response reached the maximum output token limit.                                                                                              |
+| `:stop_sequence` | The model generated a configured stop sequence.                                                                                                   |
+| `:refusal`       | The model declined to fulfill the request.                                                                                                        |
+| `:tool_use`      | The model's final output was a tool call. This is uncommon in SDK results because tool calls are normally executed before the result is returned. |
+| `nil`            | No API response was received; for example, an error occurred before the first request, or the result was replayed from a cached session.          |
+
+## Stop reasons on error results
+
+Error results (such as `:error_max_turns` or `:error_during_execution`) also carry `stop_reason`. The value reflects the last assistant message received before the error occurred:
+
+| Result subtype                         | `stop_reason` value                                                                |
+| :------------------------------------- | :--------------------------------------------------------------------------------- |
+| `:success`                             | The stop reason from the final assistant message.                                  |
+| `:error_max_turns`                     | The stop reason from the last assistant message before the turn limit was hit.     |
+| `:error_max_budget_usd`                | The stop reason from the last assistant message before the budget was exceeded.    |
+| `:error_max_structured_output_retries` | The stop reason from the last assistant message before the retry limit was hit.    |
+| `:error_during_execution`              | The last stop reason seen, or `nil` if the error occurred before any API response. |
+
+```elixir
+session
+|> ClaudeCode.stream("Refactor this module", max_turns: 3)
+|> ClaudeCode.Stream.final_result()
+|> case do
+  %{subtype: :error_max_turns} = result ->
+    IO.puts("Hit turn limit. Last stop reason: #{result.stop_reason}")
+    # stop_reason might be :end_turn or :tool_use
+    # depending on what the model was doing when the limit hit
+
+  _result ->
+    :ok
+end
+```
+
+## Detecting refusals
+
+`stop_reason == :refusal` is the simplest way to detect when the model declines a request. Previously, detecting refusals required enabling partial message streaming and manually scanning stream events for `message_delta`. With `stop_reason` on the `ClaudeCode.Message.ResultMessage`, you can check directly:
+
+```elixir
+session
+|> ClaudeCode.stream("Summarize this article")
+|> ClaudeCode.Stream.final_result()
+|> case do
+  %{stop_reason: :refusal} ->
+    IO.puts("Request was declined. Please revise your prompt.")
+
+  %{subtype: :success, result: text} ->
+    IO.puts(text)
+
+  result ->
+    IO.puts("Unexpected result: #{inspect(result.subtype)}")
+end
+```
+
+## Next steps
+
+- [Streaming Output](streaming-output.md) - Access raw API events including `message_delta` as they arrive
+- [Structured Output](structured-output.md) - Get typed JSON responses from the agent
+- [Cost Tracking](cost-tracking.md) - Understand token usage and billing from result messages
