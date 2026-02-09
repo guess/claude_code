@@ -21,12 +21,10 @@ defmodule ClaudeCode.CLI do
       config :claude_code, cli_path: :global
   """
 
+  alias ClaudeCode.CLI.Command
   alias ClaudeCode.Installer
-  alias ClaudeCode.Options
 
   require Logger
-
-  @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
   @doc """
   Finds the claude binary using the configured resolution mode.
@@ -81,7 +79,7 @@ defmodule ClaudeCode.CLI do
   def build_command(prompt, _api_key, opts, session_id \\ nil) do
     case find_binary(opts) do
       {:ok, executable} ->
-        args = build_args(prompt, opts, session_id)
+        args = Command.build_args(prompt, opts, session_id)
         {:ok, {executable, args}}
 
       {:error, reason} ->
@@ -155,15 +153,6 @@ defmodule ClaudeCode.CLI do
     e ->
       Logger.warning("Auto-install of Claude CLI failed: #{Exception.message(e)}")
       {:error, :install_failed}
-  end
-
-  # -- Private: argument building -----------------------------------------------
-
-  defp build_args(prompt, opts, session_id) do
-    resume_args = if session_id, do: ["--resume", session_id], else: []
-    option_args = Options.to_cli_args(opts)
-
-    @required_flags ++ resume_args ++ option_args ++ [prompt]
   end
 
   # -- Private: error helpers ---------------------------------------------------
