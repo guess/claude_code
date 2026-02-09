@@ -10,6 +10,8 @@ defmodule ClaudeCode.Adapter.Test do
 
   use GenServer
 
+  alias ClaudeCode.Adapter
+
   # ============================================================================
   # Client API (Adapter Behaviour)
   # ============================================================================
@@ -58,6 +60,7 @@ defmodule ClaudeCode.Adapter.Test do
 
     # Link to session for lifecycle management
     Process.link(session)
+    Adapter.notify_status(session, :ready)
 
     {:ok, state}
   end
@@ -69,10 +72,10 @@ defmodule ClaudeCode.Adapter.Test do
 
     # Send all messages to session
     Enum.each(messages, fn msg ->
-      send(state.session, {:adapter_message, request_id, msg})
+      Adapter.notify_message(state.session, request_id, msg)
     end)
 
-    send(state.session, {:adapter_done, request_id, :completed})
+    Adapter.notify_done(state.session, request_id, :completed)
 
     {:noreply, state}
   end
