@@ -131,20 +131,19 @@ defmodule ClaudeCode.MixProject do
         # Capabilities
         "docs/guides/mcp.md",
         "docs/guides/custom-tools.md",
-        # Skills
         "docs/guides/skills.md",
         "docs/guides/slash-commands.md",
         "docs/guides/subagents.md",
         "docs/guides/plugins.md",
         # Production
-        "docs/reference/testing.md",
         "docs/guides/hosting.md",
         "docs/guides/secure-deployment.md",
         "docs/guides/file-checkpointing.md",
         "docs/guides/cost-tracking.md",
+        # Testing
+        "docs/reference/testing.md",
         # Reference
         "docs/integration/phoenix.md",
-        "docs/reference/architecture.md",
         "docs/reference/examples.md",
         "docs/reference/troubleshooting.md"
       ],
@@ -168,24 +167,23 @@ defmodule ClaudeCode.MixProject do
         ],
         Capabilities: [
           "docs/guides/mcp.md",
-          "docs/guides/custom-tools.md"
-        ],
-        Skills: [
+          "docs/guides/custom-tools.md",
           "docs/guides/skills.md",
           "docs/guides/slash-commands.md",
           "docs/guides/subagents.md",
           "docs/guides/plugins.md"
         ],
         Production: [
-          "docs/reference/testing.md",
           "docs/guides/hosting.md",
           "docs/guides/secure-deployment.md",
           "docs/guides/file-checkpointing.md",
           "docs/guides/cost-tracking.md"
         ],
+        Testing: [
+          "docs/reference/testing.md"
+        ],
         Reference: [
           "docs/integration/phoenix.md",
-          "docs/reference/architecture.md",
           "docs/reference/examples.md",
           "docs/reference/troubleshooting.md"
         ]

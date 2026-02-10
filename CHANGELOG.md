@@ -28,7 +28,7 @@ Runtime control of sessions without restarting. See [Sessions — Runtime Contro
 - `ClaudeCode.get_server_info/1` - Get server info cached from handshake ([228c57f])
 - `ClaudeCode.rewind_files/2` - Rewind files to a checkpoint. See [File Checkpointing](docs/guides/file-checkpointing.md). ([7ba2007])
 - Returns `{:error, :not_supported}` for adapters without control protocol support
-- **Initialize handshake** - Adapter sends `initialize` request on startup, transitions through `:initializing` → `:ready`. Agents are now delivered through the handshake (matching the Python SDK) instead of as a CLI flag. See [Architecture](docs/reference/architecture.md) and [Subagents](docs/guides/subagents.md). ([228c57f], [2a4473b])
+- **Initialize handshake** - Adapter sends `initialize` request on startup, transitions through `:initializing` → `:ready`. Agents are now delivered through the handshake (matching the Python SDK) instead of as a CLI flag. See [Subagents](docs/guides/subagents.md). ([228c57f], [2a4473b])
 
 #### New options
 
@@ -41,7 +41,7 @@ Runtime control of sessions without restarting. See [Sessions — Runtime Contro
 
 #### Adapter system
 
-Swappable backends for different execution environments. See [Architecture](docs/reference/architecture.md).
+Swappable backends for different execution environments.
 
 - **`ClaudeCode.Adapter` behaviour** - 4 callbacks: `start_link/2`, `send_query/4`, `health/1`, `stop/1` ([1582644])
 - **Adapter notification helpers** - `notify_message/2`, `notify_done/2`, `notify_error/2`, `notify_status/2` ([1704326])
@@ -491,7 +491,6 @@ Swappable backends for different execution environments. See [Architecture](docs
 
 - Complete module documentation with doctests
 - Comprehensive README with installation and usage examples
-- Architecture documentation explaining CLI integration
 - Streamlined roadmap focusing on current status and future enhancements
 
 ### Testing

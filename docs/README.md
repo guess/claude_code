@@ -54,7 +54,6 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 - **[Examples](reference/examples.md)** - Code patterns and recipes
 - **[Troubleshooting](reference/troubleshooting.md)** - Common issues and solutions
-- **[Architecture](reference/architecture.md)** - Internal design (for contributors)
 
 ## Quick Links
 
