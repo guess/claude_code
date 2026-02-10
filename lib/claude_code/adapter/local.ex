@@ -20,6 +20,9 @@ defmodule ClaudeCode.Adapter.Local do
   alias ClaudeCode.CLI.Control
   alias ClaudeCode.CLI.Input
   alias ClaudeCode.CLI.Parser
+  alias ClaudeCode.Hook
+  alias ClaudeCode.Hook.Registry, as: HookRegistry
+  alias ClaudeCode.Hook.Response, as: HookResponse
   alias ClaudeCode.Message.ResultMessage
 
   require Logger
@@ -35,6 +38,7 @@ defmodule ClaudeCode.Adapter.Local do
     :current_request,
     :api_key,
     :server_info,
+    :hook_registry,
     status: :provisioning,
     control_counter: 0,
     pending_control_requests: %{},
@@ -86,12 +90,17 @@ defmodule ClaudeCode.Adapter.Local do
 
   @impl GenServer
   def init({session, opts}) do
+    hooks_map = Keyword.get(opts, :hooks)
+    can_use_tool = Keyword.get(opts, :can_use_tool)
+    {hook_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
+
     state = %__MODULE__{
       session: session,
       session_options: opts,
       buffer: "",
       api_key: Keyword.get(opts, :api_key),
-      max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576)
+      max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
+      hook_registry: hook_registry
     }
 
     Process.link(session)
@@ -290,9 +299,13 @@ defmodule ClaudeCode.Adapter.Local do
 
   defp send_initialize_handshake(state) do
     agents = Keyword.get(state.session_options, :agents)
+    hooks_map = Keyword.get(state.session_options, :hooks)
+    can_use_tool = Keyword.get(state.session_options, :can_use_tool)
+
+    {_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
 
     {request_id, new_counter} = next_request_id(state.control_counter)
-    json = Control.initialize_request(request_id, nil, agents)
+    json = Control.initialize_request(request_id, hooks_wire, agents)
     Port.command(state.port, json <> "\n")
 
     pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
@@ -533,12 +546,67 @@ defmodule ClaudeCode.Adapter.Local do
 
   defp handle_inbound_control_request(msg, state) do
     request_id = get_in(msg, ["request_id"])
-    subtype = get_in(msg, ["request", "subtype"])
-    Logger.warning("Received unhandled control request: #{subtype}")
+    request = get_in(msg, ["request"])
+    subtype = get_in(request, ["subtype"])
 
-    response = Control.error_response(request_id, "Not implemented: #{subtype}")
+    response_data =
+      case subtype do
+        "can_use_tool" ->
+          handle_can_use_tool(request, state)
+
+        "hook_callback" ->
+          handle_hook_callback(request, state)
+
+        _ ->
+          Logger.warning("Received unhandled control request: #{subtype}")
+          nil
+      end
+
+    response =
+      if response_data do
+        Control.success_response(request_id, response_data)
+      else
+        Control.error_response(request_id, "Not implemented: #{subtype}")
+      end
+
     if state.port, do: Port.command(state.port, response <> "\n")
     state
+  end
+
+  defp handle_can_use_tool(request, state) do
+    case state.hook_registry.can_use_tool do
+      nil ->
+        # No can_use_tool callback -- allow by default
+        %{"behavior" => "allow"}
+
+      callback ->
+        input = %{
+          tool_name: request["tool_name"],
+          input: request["input"],
+          permission_suggestions: request["permission_suggestions"],
+          blocked_path: request["blocked_path"]
+        }
+
+        tool_use_id = nil
+        result = Hook.invoke(callback, input, tool_use_id)
+        HookResponse.to_can_use_tool_wire(result)
+    end
+  end
+
+  defp handle_hook_callback(request, state) do
+    callback_id = request["callback_id"]
+    input = request["input"]
+    tool_use_id = request["tool_use_id"]
+
+    case HookRegistry.lookup(state.hook_registry, callback_id) do
+      {:ok, callback} ->
+        result = Hook.invoke(callback, input, tool_use_id)
+        HookResponse.to_hook_callback_wire(result)
+
+      :error ->
+        Logger.warning("Unknown hook callback ID: #{callback_id}")
+        %{}
+    end
   end
 
   defp next_request_id(counter) do
