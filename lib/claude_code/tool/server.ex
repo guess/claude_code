@@ -3,7 +3,7 @@ defmodule ClaudeCode.Tool.Server do
   Macro for generating Hermes MCP tool modules from a concise DSL.
 
   Each `tool` block becomes a nested module that implements
-  `Hermes.Server.Component` with type `:tool`. The generated modules
+  Hermes.Server.Component with type `:tool`. The generated modules
   have proper schema definitions, execute wrappers, and metadata.
 
   ## Usage

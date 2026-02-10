@@ -25,7 +25,7 @@ Hooks, permissions, and MCP tools that run inside your application process — n
 #### Subagents
 
 - **`ClaudeCode.Agent` struct** - Idiomatic builder for subagent configurations ([1d0188b])
-  - `Agent.new/1` accepts keyword options: `:name`, `:description`, `:prompt`, `:model`, `:tools`
+  - `ClaudeCode.Agent.new/1` accepts keyword options: `:name`, `:description`, `:prompt`, `:model`, `:tools`
   - Pass a list of Agent structs to the `:agents` option instead of raw maps
   - Implements `Jason.Encoder` and `JSON.Encoder` protocols; raw map format still supported
 
