@@ -1,114 +1,74 @@
 # MCP (Model Context Protocol)
 
-Connect to external tools with MCP servers. Covers transport types, Hermes MCP integration, tool permissions, authentication, and error handling.
+Configure MCP servers to extend your agent with external tools. Covers transport types, tool permissions, authentication, and error handling.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/mcp). Examples are adapted for Elixir.
 
+> **Partial implementation:** In-process SDK MCP servers via `ClaudeCode.Tool.Server` are not yet implemented. All other MCP patterns (stdio, HTTP/SSE, Hermes modules, config files) are fully supported today.
+
 The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro) is an open standard for connecting AI agents to external tools and data sources. With MCP, your agent can query databases, integrate with APIs like Slack and GitHub, and connect to other services without writing custom tool implementations.
 
-MCP servers can run as local processes (stdio), connect over HTTP/SSE, or run directly within your Elixir application using Hermes MCP modules.
+MCP servers can run as local processes (stdio), connect over HTTP/SSE, or execute directly within your Elixir application using in-process tools.
+
+For building your own custom tools, see the [Custom Tools](custom-tools.md) guide.
 
 ## Quickstart
 
 This example connects to an external MCP server and uses `:allowed_tools` with a wildcard to permit all tools from the server:
 
 ```elixir
-{:ok, result} = ClaudeCode.query("List all files in the workspace",
+{:ok, result} = ClaudeCode.query(
+  "Use the docs MCP server to explain what hooks are in Claude Code",
+  mcp_servers: %{
+    "claude-code-docs" => %{
+      type: "http",
+      url: "https://code.claude.com/docs/mcp"
+    }
+  },
+  allowed_tools: ["mcp__claude-code-docs__*"]
+)
+```
+
+## Add an MCP server
+
+You can configure MCP servers in code when calling `ClaudeCode.query/2` or `ClaudeCode.start_link/1`, or in a `.mcp.json` file that the CLI loads automatically.
+
+### In code
+
+Pass MCP servers directly in the `:mcp_servers` option:
+
+```elixir
+{:ok, result} = ClaudeCode.query("List files in my project",
   mcp_servers: %{
     "filesystem" => %{
       command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-filesystem", "/tmp/workspace"]
+      args: ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/projects"]
     }
   },
   allowed_tools: ["mcp__filesystem__*"]
 )
 ```
 
-The agent connects to the filesystem server, discovers its tools, and uses them to list the files.
-
-## Add an MCP server
-
-You can configure MCP servers in three ways: inline with Hermes modules, as command configurations, or from a JSON config file.
-
-### Hermes MCP servers (Elixir)
-
-Pass a [Hermes MCP](https://hexdocs.pm/hermes_mcp) server module atom as the value and the SDK auto-generates the stdio command configuration:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  mcp_servers: %{
-    "my-tools" => MyApp.MCPServer
-  },
-  allowed_tools: ["mcp__my-tools__*"]
-)
-```
-
-See [Custom Tools](custom-tools.md) for building Hermes MCP servers, passing custom environment variables, and error handling patterns.
-
-### External (stdio) servers
-
-Use any MCP-compatible server via command configuration. This is the standard approach for servers you run on the same machine:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  mcp_servers: %{
-    "github" => %{
-      command: "npx",
-      args: ["-y", "@modelcontextprotocol/server-github"],
-      env: %{
-        "GITHUB_TOKEN" => System.get_env("GITHUB_TOKEN")
-      }
-    }
-  },
-  allowed_tools: ["mcp__github__list_issues", "mcp__github__search_issues"]
-)
-```
-
 ### From a config file
 
-Point to a JSON config file with the `:mcp_config` option. The CLI loads this automatically:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  mcp_config: "/path/to/mcp-config.json"
-)
-```
-
-Config file format:
+Create a `.mcp.json` file at your project root. The CLI loads this automatically:
 
 ```json
 {
   "mcpServers": {
-    "github": {
+    "filesystem": {
       "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
-      }
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/Users/me/projects"]
     }
   }
 }
 ```
 
-The `${GITHUB_TOKEN}` syntax expands environment variables at runtime.
-
-### Mixing Hermes and external servers
-
-The `:mcp_servers` option accepts a mix of Hermes modules and external command configurations:
+Or point to a config file explicitly with the `:mcp_config` option:
 
 ```elixir
-db_url = System.get_env("DATABASE_URL")
-
 {:ok, session} = ClaudeCode.start_link(
-  mcp_servers: %{
-    # Elixir Hermes module
-    "app-tools" => MyApp.MCPServer,
-    # External Node.js server
-    "browser" => %{command: "npx", args: ["@playwright/mcp@latest"]},
-    # Hermes module with custom env
-    "db-tools" => %{module: MyApp.DBTools, env: %{"DATABASE_URL" => db_url}}
-  },
-  allowed_tools: ["mcp__app-tools__*", "mcp__browser__*", "mcp__db-tools__*"]
+  mcp_config: "/path/to/mcp-config.json"
 )
 ```
 
@@ -142,12 +102,12 @@ Wildcards (`*`) let you allow all tools from a server without listing each one i
 Instead of listing allowed tools, you can change the permission mode to grant broader access:
 
 - `:accept_edits` -- Automatically approves tool usage (still prompts for destructive operations)
-- `:bypass_permissions` -- Skips all safety prompts, including for destructive operations like file deletion or running shell commands. Use with caution, especially in production. Requires `:allow_dangerously_skip_permissions` to be set to `true`.
+- `:bypass_permissions` -- Skips all safety prompts. Use with caution. Requires `:allow_dangerously_skip_permissions`.
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
   mcp_servers: %{"my-tools" => MyApp.MCPServer},
-  permission_mode: :accept_edits
+  permission_mode: :accept_edits  # No need for allowed_tools
 )
 ```
 
@@ -155,7 +115,7 @@ See [Permissions](permissions.md) for more details on permission modes.
 
 ### Discover available tools
 
-To see what tools an MCP server provides, check the server's documentation or inspect the system init message at the start of each session:
+Inspect the system init message at the start of each session to see what tools an MCP server provides:
 
 ```elixir
 alias ClaudeCode.Message.SystemMessage
@@ -168,6 +128,7 @@ session
   [%SystemMessage{tools: tools}] ->
     mcp_tools = Enum.filter(tools, &String.starts_with?(&1, "mcp__"))
     IO.inspect(mcp_tools, label: "Available MCP tools")
+
   _ ->
     IO.puts("No system message received")
 end
@@ -175,11 +136,11 @@ end
 
 ## Transport types
 
-MCP servers communicate with your agent using different transport protocols. Check the server's documentation to determine which transport it supports:
+MCP servers communicate with your agent using different transport protocols:
 
 - If the docs give you a **command to run** (like `npx @modelcontextprotocol/server-github`), use stdio
 - If the docs give you a **URL**, use HTTP or SSE
-- If you want to build tools **in Elixir**, use a Hermes MCP server module
+- If you want to build tools **in Elixir**, see the [Custom Tools](custom-tools.md) guide
 
 ### stdio servers
 
@@ -221,9 +182,64 @@ Use HTTP or SSE for cloud-hosted MCP servers and remote APIs:
 
 For HTTP (non-streaming), use `"type" => "http"` instead of `"sse"`.
 
+### In-process SDK servers
+
+> **Not yet implemented.** This transport type requires the planned `ClaudeCode.Tool.Server` API.
+
+Define custom tools that run in the same BEAM process, with access to Ecto repos, GenServers, and caches. See the [Custom Tools](custom-tools.md) guide for the full API and examples.
+
+```elixir
+{:ok, result} = ClaudeCode.query("Find user alice@example.com",
+  mcp_servers: %{"my-tools" => MyApp.Tools},
+  allowed_tools: ["mcp__my-tools__*"]
+)
+```
+
 ### Hermes MCP servers
 
-Define custom tools directly in your Elixir application using [Hermes MCP](https://hexdocs.pm/hermes_mcp) modules. The SDK spawns the module as a stdio subprocess automatically. See the [Custom Tools](custom-tools.md) guide for implementation details.
+Define tools using [Hermes MCP](https://hexdocs.pm/hermes_mcp) modules. The SDK spawns the module as a stdio subprocess automatically. See the [Custom Tools](custom-tools.md) guide for defining Hermes tool components.
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{"my-tools" => MyApp.MCPServer},
+  allowed_tools: ["mcp__my-tools__*"]
+)
+```
+
+Pass custom environment variables to Hermes subprocesses with the `%{module: ..., env: ...}` form:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    "db-tools" => %{
+      module: MyApp.DBTools,
+      env: %{"DATABASE_URL" => System.get_env("DATABASE_URL")}
+    }
+  }
+)
+```
+
+### Mixing server types
+
+All transport types work together in a single session:
+
+```elixir
+db_url = System.get_env("DATABASE_URL")
+
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    # In-process (runs in your BEAM VM)
+    "app-tools" => MyApp.Tools,
+    # Hermes module (spawns as subprocess)
+    "db-tools" => %{module: MyApp.DBServer, env: %{"DATABASE_URL" => db_url}},
+    # External Node.js server
+    "browser" => %{command: "npx", args: ["@playwright/mcp@latest"]},
+    # Remote HTTP server
+    "docs" => %{type: "http", url: "https://code.claude.com/docs/mcp"}
+  },
+  allowed_tools: ["mcp__app-tools__*", "mcp__db-tools__*", "mcp__browser__*", "mcp__docs__*"]
+)
+```
 
 ## Strict MCP configuration
 
@@ -239,30 +255,86 @@ By default, the CLI may load MCP servers from global configurations (such as `~/
 
 This is especially useful in production deployments where you want deterministic tool availability.
 
+## MCP tool search
+
+When you have many MCP tools configured, tool definitions can consume a significant portion of your context window. MCP tool search solves this by dynamically loading tools on-demand instead of preloading all of them.
+
+### How it works
+
+Tool search runs in auto mode by default. It activates when your MCP tool descriptions would consume more than 10% of the context window. When triggered:
+
+1. MCP tools are marked with `defer_loading: true` rather than loaded into context upfront
+2. Claude uses a search tool to discover relevant MCP tools when needed
+3. Only the tools Claude actually needs are loaded into context
+
+### Configure tool search
+
+Control tool search behavior with the `ENABLE_TOOL_SEARCH` environment variable via the `:env` option:
+
+| Value | Behavior |
+|---|---|
+| `auto` | Activates when MCP tools exceed 10% of context (default) |
+| `auto:5` | Activates at 5% threshold (customize the percentage) |
+| `true` | Always enabled |
+| `false` | Disabled, all MCP tools loaded upfront |
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{"large-server" => large_server_config},
+  env: %{"ENABLE_TOOL_SEARCH" => "auto:5"},
+  allowed_tools: ["mcp__large-server__*"]
+)
+```
+
 ## Authentication
 
 Most MCP servers require authentication to access external services. Pass credentials through environment variables or HTTP headers in the server configuration.
 
-### Pass credentials via environment variables
+### Environment variables
 
-Use the `env` field in the server configuration to pass API keys, tokens, and other credentials:
+Use the `env` field to pass API keys, tokens, and other credentials:
 
 ```elixir
+# External stdio server
 {:ok, session} = ClaudeCode.start_link(
   mcp_servers: %{
     "github" => %{
       command: "npx",
       args: ["-y", "@modelcontextprotocol/server-github"],
-      env: %{
-        "GITHUB_TOKEN" => System.get_env("GITHUB_TOKEN")
-      }
+      env: %{"GITHUB_TOKEN" => System.get_env("GITHUB_TOKEN")}
     }
   },
   allowed_tools: ["mcp__github__list_issues"]
 )
+
+# Hermes MCP module
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    "db-tools" => %{
+      module: MyApp.DBTools,
+      env: %{"DATABASE_URL" => System.get_env("DATABASE_URL")}
+    }
+  }
+)
 ```
 
-For Hermes MCP modules, pass credentials through the `:env` map in the `%{module: ..., env: ...}` form. See [Custom Tools](custom-tools.md) for details.
+For in-process tools (`ClaudeCode.Tool.Server`), credentials are accessed directly via `System.get_env/1` or application config since the tools run in your application process.
+
+In config files, use the `${VAR_NAME}` syntax to expand environment variables at runtime:
+
+```json
+{
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+      }
+    }
+  }
+}
+```
 
 ### HTTP headers for remote servers
 
@@ -304,7 +376,7 @@ The `:permission_prompt_tool` option specifies the MCP tool that the CLI calls w
 
 This example connects to the GitHub MCP server to list recent issues. It includes message inspection to verify the MCP connection and tool calls.
 
-Before running, create a [GitHub personal access token](https://github.com/settings/tokens) with `repo` scope and set it as an environment variable:
+Before running, create a [GitHub personal access token](https://github.com/settings/tokens) with `repo` scope:
 
 ```bash
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxx
@@ -328,19 +400,16 @@ alias ClaudeCode.Content.ToolUseBlock
 session
 |> ClaudeCode.stream("List the 3 most recent issues in anthropics/claude-code")
 |> Enum.each(fn
-  # Verify MCP server connected successfully
   %SystemMessage{tools: tools} ->
     mcp_tools = Enum.filter(tools, &String.starts_with?(&1, "mcp__github__"))
     IO.inspect(mcp_tools, label: "GitHub MCP tools")
 
-  # Log when Claude calls an MCP tool
   %AssistantMessage{message: %{content: blocks}} ->
     for %ToolUseBlock{name: name} <- blocks,
         String.starts_with?(name, "mcp__") do
       IO.puts("MCP tool called: #{name}")
     end
 
-  # Print the final result
   %ResultMessage{result: result, is_error: false} ->
     IO.puts(result)
 
@@ -364,7 +433,6 @@ connection_string = System.get_env("DATABASE_URL")
       args: ["-y", "@modelcontextprotocol/server-postgres", connection_string]
     }
   },
-  # Allow only read queries, not writes
   allowed_tools: ["mcp__postgres__query"]
 )
 ```
@@ -373,23 +441,26 @@ connection_string = System.get_env("DATABASE_URL")
 
 MCP servers can fail to connect for various reasons: the server process might not be installed, credentials might be invalid, or a remote server might be unreachable.
 
-The SDK emits a `ClaudeCode.Message.SystemMessage` with subtype `:init` at the start of each query. This message includes connection status for each MCP server. Inspect it to detect connection failures before the agent starts working:
+The SDK emits a `ClaudeCode.Message.SystemMessage` with subtype `:init` at the start of each query. Inspect it to detect connection failures before the agent starts working:
 
 ```elixir
+alias ClaudeCode.Message.{SystemMessage, ResultMessage}
+
 session
 |> ClaudeCode.stream("Process data")
 |> Enum.each(fn
-  %ClaudeCode.Message.SystemMessage{subtype: :init} = msg ->
-    # Check MCP server connection status in the init message
+  %SystemMessage{subtype: :init} = msg ->
     IO.inspect(msg, label: "System init")
 
-  %ClaudeCode.Message.ResultMessage{is_error: true, subtype: subtype} ->
+  %ResultMessage{is_error: true, subtype: subtype} ->
     IO.puts("Execution failed: #{subtype}")
 
   _ ->
     :ok
 end)
 ```
+
+For errors inside tool handlers (tool execution errors), see the [Custom Tools error handling](custom-tools.md#error-handling) section.
 
 ## Troubleshooting
 
@@ -415,7 +486,7 @@ If Claude sees tools but does not use them, check that you have granted permissi
 
 ### Connection timeouts
 
-The MCP protocol has a default timeout of 60 seconds for server connections. If your server takes longer to start, the connection will fail. For servers that need more startup time, consider:
+The MCP protocol has a default timeout of 60 seconds for server connections. If your server takes longer to start, the connection will fail. Consider:
 
 - Using a lighter-weight server if available
 - Pre-warming the server before starting your agent
@@ -423,7 +494,8 @@ The MCP protocol has a default timeout of 60 seconds for server connections. If 
 
 ## Related resources
 
-- [Custom Tools](custom-tools.md) -- Build Hermes MCP servers with custom Elixir tools
-- [Permissions](permissions.md) -- Control which MCP tools your agent can use with `:allowed_tools` and `:disallowed_tools`
-- [Subagents](subagents.md) -- Custom agent definitions
-- [MCP server directory](https://github.com/modelcontextprotocol/servers) -- Browse available MCP servers for databases, APIs, and more
+- [Custom Tools](custom-tools.md) -- Build in-process tools and Hermes MCP servers
+- [Permissions](permissions.md) -- Control which MCP tools your agent can use
+- [Subagents](subagents.md) -- Define specialized agents with tool access
+- [MCP server directory](https://github.com/modelcontextprotocol/servers) -- Browse available MCP servers
+- [MCP specification](https://modelcontextprotocol.io) -- The full MCP protocol specification

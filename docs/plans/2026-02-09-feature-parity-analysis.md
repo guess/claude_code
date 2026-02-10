@@ -82,8 +82,8 @@
 | `stderr` callback | ✅ | ❌ | Callback for CLI stderr output |
 | `debug_stderr` (deprecated) | ✅ | ❌ | Deprecated in Python |
 | `user` (subprocess user) | ✅ | ❌ | Run CLI as different OS user |
-| `can_use_tool` callback | ✅ | ❌ | Async tool permission callback |
-| `hooks` (Python function hooks) | ✅ | ❌ | 10 hook event types with callbacks |
+| `can_use_tool` callback | ✅ | ✅ `:can_use_tool` | Module or function; auto-sets `--permission-prompt-tool stdio` |
+| `hooks` (Python function hooks) | ✅ | ✅ `:hooks` | Map-based config with `ClaudeCode.Hook` behaviour; 9 event types |
 | `timeout` | ❌ | ✅ `:timeout` | Elixir-specific |
 | `tool_callback` | ❌ | ✅ | Elixir-specific post-execution callback |
 | `adapter` | ❌ | ✅ | Elixir-specific pluggable adapter |
@@ -121,12 +121,12 @@
 
 | Feature | Python | Elixir | Notes |
 |---------|--------|--------|-------|
-| `can_use_tool` callback | ✅ | ❌ | Async callback for allow/deny/modify |
-| PermissionResultAllow | ✅ with `updated_input`, `updated_permissions` | ❌ | Can modify tool input on allow |
-| PermissionResultDeny | ✅ with `message`, `interrupt` | ❌ | Can interrupt on deny |
-| PermissionUpdate types | ✅ 6 types | ❌ | addRules, replaceRules, removeRules, setMode, addDirectories, removeDirectories |
-| PermissionRuleValue | ✅ | ❌ | tool_name + rule_content |
-| Auto-set permission_prompt_tool="stdio" | ✅ | ❌ | |
+| `can_use_tool` callback | ✅ | ✅ `:can_use_tool` | Module or function via `ClaudeCode.Hook` behaviour |
+| PermissionResultAllow | ✅ with `updated_input`, `updated_permissions` | ✅ `{:allow, input}`, `{:allow, input, permissions: [...]}` | `Hook.Response` translates to wire format |
+| PermissionResultDeny | ✅ with `message`, `interrupt` | ✅ `{:deny, reason}`, `{:deny, reason, interrupt: true}` | |
+| PermissionUpdate types | ✅ 6 types | ✅ 6 types | addRules, replaceRules, removeRules, setMode, addDirectories, removeDirectories |
+| PermissionRuleValue | ✅ | ✅ | Maps with `tool_name` + `rule_content` keys |
+| Auto-set permission_prompt_tool="stdio" | ✅ | ✅ | Automatic when `:can_use_tool` is set |
 
 ---
 
@@ -134,20 +134,20 @@
 
 | Feature | Python | Elixir | Notes |
 |---------|--------|--------|-------|
-| PreToolUse hooks | ✅ | ❌ | Before tool execution; can allow/deny/modify |
-| PostToolUse hooks | ✅ | ❌ | After successful tool execution |
-| PostToolUseFailure hooks | ✅ | ❌ | After failed tool execution |
-| UserPromptSubmit hooks | ✅ | ❌ | When user submits prompt |
-| Stop hooks | ✅ | ❌ | When agent stops |
-| SubagentStop hooks | ✅ | ❌ | When subagent stops |
-| SubagentStart hooks | ✅ | ❌ | When subagent starts |
-| PreCompact hooks | ✅ | ❌ | Before context compaction |
-| Notification hooks | ✅ | ❌ | Notification events |
-| PermissionRequest hooks | ✅ | ❌ | Permission request events |
-| HookMatcher (tool pattern matching) | ✅ | ❌ | Pattern matching on tool names |
-| Sync hook output | ✅ | ❌ | Immediate response |
-| Async hook output | ✅ | ❌ | Deferred with timeout |
-| Hook-specific output types | ✅ 8 types | ❌ | Per-event typed outputs |
+| PreToolUse hooks | ✅ | ✅ | Before tool execution; can allow/deny/modify via `ClaudeCode.Hook` |
+| PostToolUse hooks | ✅ | ✅ | After successful tool execution |
+| PostToolUseFailure hooks | ✅ | ✅ | After failed tool execution |
+| UserPromptSubmit hooks | ✅ | ✅ | When user submits prompt |
+| Stop hooks | ✅ | ✅ | When agent stops |
+| SubagentStop hooks | ✅ | ✅ | When subagent stops |
+| SubagentStart hooks | ✅ | ✅ | When subagent starts |
+| PreCompact hooks | ✅ | ✅ | Before context compaction |
+| Notification hooks | ✅ | ✅ | Notification events |
+| PermissionRequest hooks | ✅ | ❌ | Permission request events (not in CLI hook protocol) |
+| HookMatcher (tool pattern matching) | ✅ | ✅ | Matcher strings in hooks config |
+| Sync hook output | ✅ | ✅ | Immediate response via `Hook.Response` |
+| Async hook output | ✅ | ❌ | Deferred with timeout (not supported) |
+| Hook-specific output types | ✅ 8 types | ✅ 8 types | Per-event typed outputs via `Hook.Response` |
 
 ---
 
@@ -349,13 +349,13 @@
 
 ### Features Python Has That Elixir Lacks
 
-1. **Tool Permission Callbacks** (`can_use_tool`) - Allow/deny/modify tool execution with rich permission update types
-2. **Hook System** - 10 event types with Python function callbacks, sync/async output, pattern matching
-3. **In-Process MCP Servers** (`create_sdk_mcp_server`, `@tool` decorator) - Run MCP tools in the same process
-4. **`stderr` callback** - Capture CLI stderr output
-5. **`user` impersonation** - Run subprocess as different OS user
-6. **Write serialization lock** - Prevent concurrent write races
-7. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
+1. **In-Process MCP Servers** (`create_sdk_mcp_server`, `@tool` decorator) - Run MCP tools in the same process
+2. **`stderr` callback** - Capture CLI stderr output
+3. **`user` impersonation** - Run subprocess as different OS user
+4. **Write serialization lock** - Prevent concurrent write races
+5. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
+6. **Async hook output** - Deferred hook responses with timeout
+7. **PermissionRequest hooks** - Permission request event type
 
 ### Features Elixir Has That Python Lacks
 
