@@ -125,9 +125,11 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/stop-reasons.md",
         "docs/guides/structured-outputs.md",
         "docs/guides/file-checkpointing.md",
-        # Configuration
-        "docs/guides/modifying-system-prompts.md",
+        # Control & Permissions
         "docs/guides/permissions.md",
+        "docs/guides/user-input.md",
+        "docs/guides/hooks.md",
+        "docs/guides/modifying-system-prompts.md",
         # Capabilities
         "docs/guides/mcp.md",
         "docs/guides/custom-tools.md",
@@ -136,10 +138,7 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/skills.md",
         "docs/guides/slash-commands.md",
         "docs/guides/subagents.md",
-        # Interaction
-        "docs/guides/hooks.md",
         "docs/integration/tool-callbacks.md",
-        "docs/guides/user-input.md",
         # Production
         "docs/guides/hosting.md",
         "docs/advanced/supervision.md",
@@ -167,9 +166,11 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/structured-outputs.md",
           "docs/guides/file-checkpointing.md"
         ],
-        Configuration: [
-          "docs/guides/modifying-system-prompts.md",
-          "docs/guides/permissions.md"
+        "Control & Permissions": [
+          "docs/guides/permissions.md",
+          "docs/guides/user-input.md",
+          "docs/guides/hooks.md",
+          "docs/guides/modifying-system-prompts.md"
         ],
         Capabilities: [
           "docs/guides/mcp.md",
@@ -179,12 +180,8 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/plugins.md",
           "docs/guides/skills.md",
           "docs/guides/slash-commands.md",
-          "docs/guides/subagents.md"
-        ],
-        Interaction: [
-          "docs/guides/hooks.md",
-          "docs/integration/tool-callbacks.md",
-          "docs/guides/user-input.md"
+          "docs/guides/subagents.md",
+          "docs/integration/tool-callbacks.md"
         ],
         Production: [
           "docs/guides/hosting.md",
