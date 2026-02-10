@@ -1,12 +1,6 @@
 # Claude Agent SDK for Elixir
 
-The Elixir SDK for building AI agents with Claude Code.
-
-- **✅ Full Feature Parity**: 100% feature parity with the official Python and TypeScript SDKs
-- **🏭 OTP Supervision**: Fault-tolerant sessions with automatic restarts and concurrent actors
-- **🔄 Elixir Streams**: Native streaming with backpressure, composable pipelines, and LiveView support
-- **🔒 In-Process Hooks**: Control tool permissions and lifecycle events inside your BEAM application
-- **🧪 Built-in Test Stubs**: Mock Claude responses for fast, deterministic tests without API calls
+The idiomatic Elixir SDK for building fault-tolerant AI agents with Claude. Supervised sessions, native streams, in-process tools.
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
@@ -17,33 +11,34 @@ The Elixir SDK for building AI agents with Claude Code.
     <img src="https://github.com/guess/claude_code/raw/main/docs/claudecode.png" alt="ClaudeCode" width="200">
 </div>
 
-## 🎯 30-Second Demo
+- **✅ Full Feature Parity** -- 100% parity with the official Python and TypeScript SDKs
+- **📦 Zero Setup** -- Bundled CLI binary, auto-installed on first use. Just add the dep.
+- **🏭 OTP Supervision** -- Fault-tolerant sessions with automatic restarts and concurrent actors
+- **🔄 Elixir Streams** -- Native streaming with backpressure and composable pipelines
+- **🔌 In-Process Tools & Hooks** -- BEAM-native tools and lifecycle hooks with full access to application state
+- **⚡ Phoenix LiveView** -- Stream tokens directly into LiveView and PubSub
 
 ```elixir
-# Simple one-off query (uses ANTHROPIC_API_KEY from env)
-{:ok, result} = ClaudeCode.query("Explain Elixir GenServers in one sentence")
-IO.puts(result.result)
-
-# For multi-turn conversations, use sessions with streaming
 {:ok, session} = ClaudeCode.start_link()
 
 session
-|> ClaudeCode.stream("My favorite language is Elixir")
-|> Stream.run()
-
-# Claude remembers context across queries
-session
-|> ClaudeCode.stream("What's my favorite language?")
+|> ClaudeCode.stream("Refactor the auth module and add tests")
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
-# => "Your favorite language is Elixir!"
-
-ClaudeCode.stop(session)
 ```
 
-## 📦 Installation
+## Why Elixir?
 
-**Step 1:** Add to your `mix.exs`
+The Claude Agent SDK runs agents as long-lived processes that execute tools, maintain conversation state, and stream responses. This maps perfectly onto OTP:
+
+- **Supervision trees** restart crashed agents automatically. One failing session never takes down another.
+- **Elixir Streams** give you backpressure, composability, and direct piping into LiveView -- no callbacks or event emitters.
+- **In-process tools** run inside your BEAM VM with direct access to Ecto repos, GenServers, and caches. No subprocess needed.
+- **Concurrent sessions** are trivial -- each agent is a GenServer. Run hundreds in parallel with `ClaudeCode.Supervisor`.
+
+## Install
+
+Add to `mix.exs`:
 
 ```elixir
 def deps do
@@ -51,244 +46,322 @@ def deps do
 end
 ```
 
-**Step 2:** Install dependencies
-
 ```bash
 mix deps.get
 
-# Install bundled CLI binary (optional)
-mix claude_code.install
+# Authenticate (pick one)
+export ANTHROPIC_API_KEY="sk-..."          # Option A: API key
+$(mix claude_code.path) /login             # Option B: Claude subscription
 ```
 
-The Claude CLI is automatically installed to `priv/bin/` on first use. To pre-install (e.g., for CI or releases), run `mix claude_code.install`.
+The Claude CLI binary is bundled and auto-installed to `priv/bin/` on first use -- no global install needed. To pre-install for CI or releases, run `mix claude_code.install`.
 
-**Step 3:** Authenticate (choose one)
-
-```bash
-# Option A: Use your Claude subscription (no API key needed)
-$(mix claude_code.path) /login   # Authenticate using the SDK's bundled CLI
-
-# Option B: Use an API key
-# In runtime.exs:
-config :claude_code, api_key: System.get_env("ANTHROPIC_API_KEY")
-```
-
-🎉 **Ready to go!** Try the quick demo above.
-
-## ⚡ Quick Examples
+## Quick Start
 
 ```elixir
-# Basic usage (uses ANTHROPIC_API_KEY from environment)
+# One-off query
+{:ok, result} = ClaudeCode.query("Explain GenServers in one sentence")
+IO.puts(result.result)
+
+# Multi-turn session with streaming
 {:ok, session} = ClaudeCode.start_link()
 
-# Stream response messages
+session |> ClaudeCode.stream("My favorite language is Elixir") |> Stream.run()
+
 session
-|> ClaudeCode.stream("Hello, Claude!")
-|> Enum.each(&IO.inspect/1)
+|> ClaudeCode.stream("What's my favorite language?")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+# => "Your favorite language is Elixir!"
+```
 
-# File operations
-session
-|> ClaudeCode.stream("Review my mix.exs file", allowed_tools: ["View", "Edit"])
-|> ClaudeCode.Stream.final_text()
+## Features
 
-# Custom agents
-alias ClaudeCode.Agent
+### OTP Supervision
 
-agents = [
-  Agent.new(
-    name: "code-reviewer",
-    description: "Expert code reviewer. Use proactively after code changes.",
-    prompt: "You are a senior code reviewer. Focus on quality and best practices.",
-    tools: ["Read", "Grep", "Glob"],
-    model: "sonnet"
-  )
+Drop agents into your application supervision tree. They restart on crashes, work from anywhere via named processes, and scale across your cluster.
+
+```elixir
+# application.ex
+children = [
+  {ClaudeCode.Supervisor, [
+    [name: :assistant, system_prompt: "General-purpose helper"],
+    [name: :code_reviewer, system_prompt: "You review Elixir code for quality"],
+    [name: :test_writer, system_prompt: "You write ExUnit tests"]
+  ]}
 ]
-{:ok, session} = ClaudeCode.start_link(agents: agents)
 
-# Production with supervision
-{:ok, _} = ClaudeCode.Supervisor.start_link(name: :assistant)
-:assistant
-|> ClaudeCode.stream("Help with this task")
+# Use from anywhere
+:code_reviewer
+|> ClaudeCode.stream("Review the auth module")
 |> ClaudeCode.Stream.final_text()
 ```
 
-## 🏭 Production Usage
+Add and remove sessions at runtime, list active sessions, and build agent pools for concurrent request handling.
 
-### Supervised Sessions
+[Hosting guide →](docs/guides/hosting.md)
 
-```elixir
-# In your application.ex
-def start(_type, _args) do
-  children = [
-    MyAppWeb.Endpoint,
-    {ClaudeCode.Supervisor, [
-      [name: :code_reviewer, system_prompt: "You review code"],
-      [name: :general_assistant]
-    ]}
-  ]
-  Supervisor.start_link(children, strategy: :one_for_one)
-end
+### In-Process Custom Tools
 
-# Use from anywhere in your app
-review =
-  :code_reviewer
-  |> ClaudeCode.stream("Review this code")
-  |> ClaudeCode.Stream.final_text()
-```
-
-**Benefits:**
-
-- ✅ **Fault tolerance** - Sessions restart automatically on crashes
-- ✅ **Zero downtime** - Hot code reloading preserves session state
-- ✅ **Global access** - Named sessions work from anywhere in your app
-- ✅ **Distributed support** - Sessions work across Elixir clusters
-
-### Phoenix Integration
+Define tools that run inside your BEAM VM. They have direct access to your Ecto repos, GenServers, caches -- anything in your application.
 
 ```elixir
-# Simple controller usage
-def ask(conn, %{"prompt" => prompt}) do
-  response =
-    :assistant
-    |> ClaudeCode.stream(prompt)
-    |> ClaudeCode.Stream.final_text()
+defmodule MyApp.Tools do
+  use ClaudeCode.MCP.Server, name: "app-tools"
 
-  json(conn, %{response: response})
+  tool :query_user, "Look up a user by email" do
+    field :email, :string, required: true
+
+    def execute(%{email: email}) do
+      case MyApp.Repo.get_by(MyApp.User, email: email) do
+        nil -> {:error, "User not found"}
+        user -> {:ok, "#{user.name} (#{user.email})"}
+      end
+    end
+  end
 end
+
+{:ok, result} = ClaudeCode.query("Find alice@example.com",
+  mcp_servers: %{"app-tools" => MyApp.Tools},
+  allowed_tools: ["mcp__app-tools__*"]
+)
 ```
 
-For LiveView with real-time streaming, use `stream/3` with a Task:
-
-```elixir
-# LiveView with streaming responses
-def handle_event("send", %{"message" => msg}, socket) do
-  parent = self()
-  Task.start(fn ->
-    :assistant
-    |> ClaudeCode.stream(msg, include_partial_messages: true)
-    |> ClaudeCode.Stream.text_deltas()
-    |> Enum.each(&send(parent, {:chunk, &1}))
-    send(parent, :complete)
-  end)
-  {:noreply, assign(socket, streaming: true)}
-end
-
-def handle_info({:chunk, chunk}, socket) do
-  {:noreply, assign(socket, response: socket.assigns.response <> chunk)}
-end
-
-def handle_info(:complete, socket) do
-  {:noreply, assign(socket, streaming: false)}
-end
-```
-
-📖 **[Full Phoenix Integration Guide →](docs/integration/phoenix.md)**
-
-### Error Handling
-
-```elixir
-# Stream errors are thrown and can be caught
-try do
-  session
-  |> ClaudeCode.stream("Hello")
-  |> Enum.to_list()
-catch
-  {:stream_timeout, _ref} -> IO.puts("Request timed out")
-  {:stream_error, {:provisioning_failed, reason}} -> IO.puts("CLI error: #{inspect(reason)}")
-  {:stream_error, reason} -> IO.puts("Stream error: #{inspect(reason)}")
-end
-
-# Or use one-off query with result pattern matching
-case ClaudeCode.query("Hello") do
-  {:ok, result} -> IO.puts(result.result)
-  {:error, %{is_error: true, result: msg}} -> IO.puts("Error: #{msg}")
-  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
-end
-```
-
-### Multi-turn Conversations
-
-Sessions automatically maintain context across queries:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link()
-
-# First turn
-session
-|> ClaudeCode.stream("What's the capital of France?")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)  # Paris
-
-# Second turn - context is preserved automatically
-session
-|> ClaudeCode.stream("What about Germany?")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)  # Berlin
-
-# Get session ID for later resume
-session_id = ClaudeCode.get_session_id(session)
-
-ClaudeCode.stop(session)
-
-# Resume later with the same context
-{:ok, new_session} = ClaudeCode.start_link(resume: session_id)
-
-new_session
-|> ClaudeCode.stream("What was the first capital I asked about?")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)  # Paris
-```
-
-**Benefits:**
-
-- ✅ **Persistent connection** - Single CLI process handles all queries
-- ✅ **Auto-connect/disconnect** - No manual lifecycle management
-- ✅ **Resume support** - Continue previous conversations with `resume: session_id`
-- ✅ **Lower latency** - No startup overhead between turns
-
-### Hooks
-
-Monitor and control tool executions with lifecycle hooks:
+Pass per-session context via assigns for scoped tools in LiveView:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  hooks: %{
-    PostToolUse: [%{hooks: [
-      fn %{tool_name: name, tool_input: input}, _id ->
-        Logger.info("Tool #{name} executed", input: input)
-        :ok
-      end
-    ]}]
+  mcp_servers: %{
+    "app-tools" => %{module: MyApp.Tools, assigns: %{scope: current_scope}}
   }
 )
 ```
 
-### Custom Tools (Optional)
+[Custom tools guide →](docs/guides/custom-tools.md) | [MCP guide →](docs/guides/mcp.md)
 
-Define in-process tools with the `ClaudeCode.MCP.Server` DSL:
+### Real-Time Streaming
+
+Native Elixir Streams with character-level deltas, composable pipelines, and direct LiveView integration:
 
 ```elixir
-# Add {:hermes_mcp, "~> 0.14"} to your deps
+# Character-level streaming
+session
+|> ClaudeCode.stream("Explain recursion", include_partial_messages: true)
+|> ClaudeCode.Stream.text_deltas()
+|> Enum.each(&IO.write/1)
 
-defmodule MyApp.Tools do
-  use ClaudeCode.MCP.Server, name: "my-tools"
+# Phoenix LiveView
+Task.start(fn ->
+  :assistant
+  |> ClaudeCode.stream(message, include_partial_messages: true)
+  |> ClaudeCode.Stream.text_deltas()
+  |> Enum.each(&send(self, {:chunk, &1}))
+end)
 
-  tool :add, "Add two numbers" do
-    field :x, :integer, required: true
-    field :y, :integer, required: true
-    def execute(%{x: x, y: y}), do: {:ok, "#{x + y}"}
-  end
-end
+# PubSub broadcasting
+session
+|> ClaudeCode.stream("Generate report", include_partial_messages: true)
+|> ClaudeCode.Stream.text_deltas()
+|> Enum.each(&Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:#{id}", {:chunk, &1}))
+```
 
-{:ok, result} = ClaudeCode.query("What is 5 + 3?",
-  mcp_servers: %{"my-tools" => MyApp.Tools},
-  allowed_tools: ["mcp__my-tools__add"]
+Stream helpers: `text_deltas/1`, `thinking_deltas/1`, `text_content/1`, `tool_uses/1`, `final_text/1`, `collect/1`, `buffered_text/1`, and more.
+
+[Streaming guide →](docs/guides/streaming-output.md)
+
+### Subagents
+
+Define specialized agents with isolated contexts, restricted tools, and independent model selection. Claude automatically delegates tasks based on each agent's description.
+
+```elixir
+alias ClaudeCode.Agent
+
+{:ok, session} = ClaudeCode.start_link(
+  agents: [
+    Agent.new(
+      name: "code-reviewer",
+      description: "Expert code reviewer. Use for quality and security reviews.",
+      prompt: "You are a code review specialist. Focus on security and best practices.",
+      tools: ["Read", "Grep", "Glob"],
+      model: "sonnet"
+    ),
+    Agent.new(
+      name: "test-runner",
+      description: "Runs and analyzes test suites.",
+      prompt: "Run tests and provide clear analysis of results.",
+      tools: ["Bash", "Read", "Grep"]
+    )
+  ],
+  allowed_tools: ["Read", "Grep", "Glob", "Task"]
 )
 ```
 
-## 🧪 Testing
+[Subagents guide →](docs/guides/subagents.md)
 
-ClaudeCode includes a test adapter for fast, deterministic tests without API calls:
+### Hooks and Permissions
+
+Intercept every tool execution with `can_use_tool` for programmatic approval, or use lifecycle hooks for auditing, budget guards, and more:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  # Programmatic tool approval
+  can_use_tool: fn %{tool_name: name}, _id ->
+    if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, "Read-only mode"}
+  end,
+  # Lifecycle hooks
+  hooks: %{
+    PostToolUse: [%{hooks: [MyApp.AuditLogger]}],
+    Stop: [%{hooks: [MyApp.BudgetGuard]}]
+  }
+)
+```
+
+Six permission modes (`:default`, `:accept_edits`, `:bypass_permissions`, `:plan`, `:dont_ask`, `:delegate`) plus fine-grained tool allow/deny lists with glob patterns:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  permission_mode: :accept_edits,
+  allowed_tools: ["Read", "Edit", "Bash(git:*)"]
+)
+```
+
+[Hooks guide →](docs/guides/hooks.md) | [Permissions guide →](docs/guides/permissions.md)
+
+### Structured Outputs
+
+Get typed JSON data from agent workflows using JSON Schema. The agent uses tools autonomously, then returns structured results:
+
+```elixir
+schema = %{
+  "type" => "object",
+  "properties" => %{
+    "todos" => %{
+      "type" => "array",
+      "items" => %{
+        "type" => "object",
+        "properties" => %{
+          "text" => %{"type" => "string"},
+          "file" => %{"type" => "string"},
+          "line" => %{"type" => "number"}
+        },
+        "required" => ["text", "file", "line"]
+      }
+    },
+    "total_count" => %{"type" => "number"}
+  },
+  "required" => ["todos", "total_count"]
+}
+
+{:ok, result} = ClaudeCode.query(
+  "Find all TODO comments in this codebase",
+  output_format: %{type: :json_schema, schema: schema}
+)
+
+result.structured_output
+# %{"todos" => [...], "total_count" => 12}
+```
+
+[Structured outputs guide →](docs/guides/structured-outputs.md)
+
+### Session Management
+
+Resume conversations, fork sessions, and read history:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link()
+session |> ClaudeCode.stream("Remember: the code is 12345") |> Stream.run()
+
+# Save session ID, stop, resume later
+session_id = ClaudeCode.get_session_id(session)
+ClaudeCode.stop(session)
+
+{:ok, resumed} = ClaudeCode.start_link(resume: session_id)
+
+# Fork a conversation into a new branch
+{:ok, forked} = ClaudeCode.start_link(resume: session_id, fork_session: true)
+
+# Runtime controls without restarting
+ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+ClaudeCode.set_permission_mode(session, :accept_edits)
+```
+
+[Sessions guide →](docs/guides/sessions.md)
+
+### Cost Controls
+
+Track per-model usage, set budget limits, and cap turn counts:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  max_turns: 10,
+  max_budget_usd: 1.00
+)
+
+result = session
+|> ClaudeCode.stream("Analyze this codebase")
+|> ClaudeCode.Stream.final_result()
+
+IO.puts("Total cost: $#{result.total_cost_usd}")
+
+Enum.each(result.model_usage, fn {model, usage} ->
+  IO.puts("#{model}: $#{usage.cost_usd} (#{usage.output_tokens} output tokens)")
+end)
+```
+
+[Cost tracking guide →](docs/guides/cost-tracking.md)
+
+### File Checkpointing
+
+Track file changes during agent sessions and rewind to any previous state:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  enable_file_checkpointing: true,
+  permission_mode: :accept_edits
+)
+
+checkpoint_id = session
+|> ClaudeCode.stream("Refactor the authentication module")
+|> Enum.reduce(nil, fn
+  %ClaudeCode.Message.UserMessage{uuid: uuid}, nil when not is_nil(uuid) -> uuid
+  _, cp -> cp
+end)
+
+# Undo all changes
+ClaudeCode.rewind_files(session, checkpoint_id)
+```
+
+[File checkpointing guide →](docs/guides/file-checkpointing.md)
+
+### MCP Integration
+
+Connect to any MCP server -- stdio, HTTP, SSE, in-process, or Hermes modules. Mix all transport types in a single session:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    "app-tools" => MyApp.Tools,                                           # In-process
+    "github" => %{command: "npx", args: ["-y", "@modelcontextprotocol/server-github"],
+                  env: %{"GITHUB_TOKEN" => System.get_env("GITHUB_TOKEN")}},  # stdio
+    "docs" => %{type: "http", url: "https://code.claude.com/docs/mcp"}   # HTTP
+  },
+  allowed_tools: ["mcp__app-tools__*", "mcp__github__*", "mcp__docs__*"]
+)
+```
+
+[MCP guide →](docs/guides/mcp.md)
+
+### And More
+
+- **[Slash commands](docs/guides/slash-commands.md)** -- Custom `/commands` with arguments, file references, and bash execution
+- **[Skills](docs/guides/skills.md)** -- Filesystem-based capabilities Claude invokes autonomously
+- **[Plugins](docs/guides/plugins.md)** -- Package commands, agents, skills, hooks, and MCP servers for sharing
+- **[System prompts](docs/guides/modifying-system-prompts.md)** -- Override, append, or use CLAUDE.md for project-level instructions
+- **[Secure deployment](docs/guides/secure-deployment.md)** -- Sandboxing, least-privilege tools, audit trails, and ephemeral sessions
+
+## Testing
+
+Built-in test adapter for fast, deterministic tests without API calls:
 
 ```elixir
 test "handles greeting" do
@@ -304,44 +377,35 @@ end
 
 Includes message helpers (`text`, `tool_use`, `tool_result`, `thinking`), dynamic stubs, and concurrent test support.
 
-📖 **[Full Testing Guide →](docs/reference/testing.md)**
+[Testing guide →](docs/reference/testing.md)
 
-## 📚 Documentation
+## Documentation
 
-- 📖 **[Documentation Hub](docs/README.md)** - All guides and references
-- 🏭 **[Production Guide](docs/guides/hosting.md)** - Fault-tolerant production deployments
-- 💻 **[Examples](docs/reference/examples.md)** - Real-world usage patterns and code samples
-- 📖 **[API Reference](https://hexdocs.pm/claude_code)** - Complete API documentation
-- 🔧 **[Troubleshooting](docs/reference/troubleshooting.md)** - Common issues and solutions
+- **[Documentation Hub](docs/README.md)** -- All guides and references
+- **[API Reference](https://hexdocs.pm/claude_code)** -- Complete API docs on HexDocs
+- **[Examples](docs/reference/examples.md)** -- Real-world usage patterns
+- **[Troubleshooting](docs/reference/troubleshooting.md)** -- Common issues and solutions
 
-## 🤝 Contributing
+## Contributing
 
-We ❤️ contributions! Whether it's:
-
-- 🐛 **Bug reports** - Found an issue? Let us know!
-- 💡 **Feature requests** - Have an idea? We'd love to hear it!
-- 📝 **Documentation** - Help make our docs even better
-- 🔧 **Code contributions** - PRs welcome!
+We welcome contributions! Bug reports, feature requests, documentation improvements, and code contributions are all appreciated.
 
 See our [Contributing Guide](https://github.com/guess/claude_code/blob/main/CONTRIBUTING.md) to get started.
 
-## 🛠️ Development
+## Development
 
 ```bash
-# Clone and setup
 git clone https://github.com/guess/claude_code.git
 cd claude_code
 mix deps.get
-
-# Run tests and quality checks
 mix test
 mix quality  # format, credo, dialyzer
 ```
 
-## 📜 License
+## License
 
-MIT License - see [LICENSE](https://github.com/guess/claude_code/blob/main/LICENSE) for details.
+MIT License -- see [LICENSE](https://github.com/guess/claude_code/blob/main/LICENSE) for details.
 
 ---
 
-**Built for Elixir developers on top of the [Claude Code CLI](https://github.com/anthropics/claude-code).**
+Built for Elixir developers on top of the [Claude Code CLI](https://github.com/anthropics/claude-code).
