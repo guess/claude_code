@@ -1,4 +1,4 @@
-# 🤖 Claude Code SDK for Elixir
+# Claude Agent SDK for Elixir
 
 The Elixir SDK for building AI agents with Claude Code.
 
