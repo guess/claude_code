@@ -186,6 +186,38 @@ defmodule MockCLI do
   end
 
   @doc """
+  Waits until a session's adapter status becomes `:ready`.
+
+  Polls the session's internal state at short intervals instead of
+  using a fixed `Process.sleep`. Falls back to a timeout (default 5 s).
+
+  ## Examples
+
+      MockCLI.wait_until_ready(session)
+      MockCLI.wait_until_ready(session, 2000)
+  """
+  def wait_until_ready(session, timeout \\ 5_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+
+    poll = fn poll_fn ->
+      state = :sys.get_state(session)
+
+      if state.adapter_status == :ready do
+        :ok
+      else
+        if System.monotonic_time(:millisecond) >= deadline do
+          raise "Timed out waiting for session to become ready (status: #{inspect(state.adapter_status)})"
+        end
+
+        Process.sleep(10)
+        poll_fn.(poll_fn)
+      end
+    end
+
+    poll.(poll)
+  end
+
+  @doc """
   Helper to perform a sync-like query on a session using streaming.
 
   This is useful for tests that need to verify query results without

@@ -250,7 +250,7 @@ defmodule ClaudeCodeTest do
         """)
 
       {:ok, session} = ClaudeCode.start_link(cli_path: context[:mock_script], api_key: "test")
-      Process.sleep(3000)
+      MockCLI.wait_until_ready(session)
 
       on_exit(fn ->
         try do

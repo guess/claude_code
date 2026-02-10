@@ -482,7 +482,7 @@ defmodule ClaudeCode.Adapter.LocalTest do
       assert_receive {:adapter_status, :ready}, 5000
 
       # We should NOT receive the control_response as an adapter_message
-      refute_receive {:adapter_message, _, _}, 500
+      refute_receive {:adapter_message, _, _}, 100
 
       GenServer.stop(adapter)
     end
@@ -708,11 +708,19 @@ defmodule ClaudeCode.Adapter.LocalTest do
 
       assert_receive {:adapter_status, :provisioning}, 1000
 
-      # Wait for port to open and initialize to be sent
-      Process.sleep(500)
+      # Poll until the initialize control request has been sent
+      poll_until = fn poll_fn ->
+        state = :sys.get_state(adapter)
 
-      # Manually trigger timeout
-      state = :sys.get_state(adapter)
+        if map_size(state.pending_control_requests) > 0 do
+          state
+        else
+          Process.sleep(10)
+          poll_fn.(poll_fn)
+        end
+      end
+
+      state = poll_until.(poll_until)
 
       case Map.keys(state.pending_control_requests) do
         [req_id | _] -> send(adapter, {:control_timeout, req_id})

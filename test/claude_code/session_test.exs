@@ -309,7 +309,8 @@ defmodule ClaudeCode.SessionTest do
       {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
 
       # Wait for provisioning + initialize handshake + query execution
-      Process.sleep(3000)
+      MockCLI.wait_until_ready(session)
+      Process.sleep(100)
 
       # Check that request exists
       state = :sys.get_state(session)
@@ -796,8 +797,7 @@ defmodule ClaudeCode.SessionTest do
 
       {:ok, session} = ClaudeCode.start_link(cli_path: context[:mock_script], api_key: "test")
 
-      # Wait for ready (provisioning + initialize handshake)
-      Process.sleep(3000)
+      MockCLI.wait_until_ready(session)
 
       assert {:ok, %{"servers" => _}} = GenServer.call(session, {:control, :mcp_status, %{}})
 
@@ -832,7 +832,8 @@ defmodule ClaudeCode.SessionTest do
         """)
 
       {:ok, session} = ClaudeCode.start_link(cli_path: context[:mock_script], api_key: "test")
-      Process.sleep(3000)
+
+      MockCLI.wait_until_ready(session)
 
       assert {:ok, %{"version" => "1.0"}} = GenServer.call(session, :get_server_info)
 
