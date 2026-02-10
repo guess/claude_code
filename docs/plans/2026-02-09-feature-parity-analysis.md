@@ -155,11 +155,11 @@
 
 | Feature | Python | Elixir | Notes |
 |---------|--------|--------|-------|
-| `create_sdk_mcp_server()` | ✅ | ❌ | Create MCP server running in-process |
-| `@tool` decorator | ✅ | ❌ | Define MCP tools with decorator |
-| SDK MCP server type | ✅ `McpSdkServerConfig` | ❌ | `type="sdk"` in mcp_servers |
-| JSONRPC routing for SDK servers | ✅ | ❌ | Routes tools/list, tools/call |
-| Mixed SDK + external MCP servers | ✅ | ❌ | |
+| `create_sdk_mcp_server()` | ✅ | ✅ `Tool.Server` macro | `use ClaudeCode.Tool.Server, name: "..."` with `tool` DSL blocks |
+| `@tool` decorator | ✅ | ✅ `tool` macro | Different paradigm: Python uses decorators, Elixir uses compile-time DSL |
+| SDK MCP server type | ✅ `McpSdkServerConfig` | ✅ `type: "sdk"` | Auto-detected via `Tool.Server.sdk_server?/1`, emitted in mcp-config |
+| JSONRPC routing for SDK servers | ✅ | ✅ `MCP.Router` | Routes initialize, tools/list, tools/call via control protocol |
+| Mixed SDK + external MCP servers | ✅ | ✅ | SDK servers routed in-process; external servers handled by CLI |
 | Tool annotations support | ✅ | ❌ | MCP ToolAnnotations |
 | Hermes module expansion | ❌ | ✅ | Elixir-only: auto-convert Elixir modules to stdio MCP |
 
@@ -349,13 +349,13 @@
 
 ### Features Python Has That Elixir Lacks
 
-1. **In-Process MCP Servers** (`create_sdk_mcp_server`, `@tool` decorator) - Run MCP tools in the same process
-2. **`stderr` callback** - Capture CLI stderr output
-3. **`user` impersonation** - Run subprocess as different OS user
-4. **Write serialization lock** - Prevent concurrent write races
-5. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
-6. **Async hook output** - Deferred hook responses with timeout
-7. **PermissionRequest hooks** - Permission request event type
+1. **`stderr` callback** - Capture CLI stderr output
+2. **`user` impersonation** - Run subprocess as different OS user
+3. **Write serialization lock** - Prevent concurrent write races
+4. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
+5. **Async hook output** - Deferred hook responses with timeout
+6. **PermissionRequest hooks** - Permission request event type
+7. **MCP Tool annotations** - ToolAnnotations metadata on MCP tools
 
 ### Features Elixir Has That Python Lacks
 
