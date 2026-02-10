@@ -29,7 +29,7 @@ defmodule ClaudeCode.MixProject do
 
       # Hex
       package: package(),
-      description: "An Elixir Claude Agent SDK for building AI agents with Claude Code",
+      description: "The Claude Agent SDK for building AI agents with Claude Code",
 
       # Docs
       name: "ClaudeCode",
