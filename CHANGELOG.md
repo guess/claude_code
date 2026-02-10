@@ -9,20 +9,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **In-process hooks and permission control** - Lifecycle hooks and tool permission callbacks that run inside your BEAM application, replacing external process hooks ([22da55c], [f36b270], [a6034d0], [5faf1f2], [e3bdbc9], [df300a9])
+#### BEAM-native extensibility
+
+Hooks, permissions, and MCP tools that run inside your application process — no external subprocesses required.
+
+- **In-process hooks and permission control** ([22da55c], [f36b270], [a6034d0], [5faf1f2], [e3bdbc9], [df300a9])
   - `ClaudeCode.Hook` behaviour - Define hook modules implementing `call/2` for lifecycle events (PreToolUse, PostToolUse, Stop, UserPromptSubmit, PreCompact, Notification, etc.)
   - `:can_use_tool` option - Permission callback (module or 2-arity function) invoked before tool execution; returns `:allow`, `{:deny, reason}`, or `{:allow, updated_input}`
   - `:hooks` option - Lifecycle hook configurations as a map of event names to matcher/callback pairs
-  - `Hook.Registry` - Assigns callback IDs and builds wire-format hook definitions for the CLI handshake
-  - `Hook.Response` - Translates Elixir return values (`:allow`, `{:deny, reason}`, `:ok`, etc.) to CLI wire format
-- **`ClaudeCode.interrupt/1`** - Fire-and-forget signal to cancel a running generation mid-stream ([5c04495])
-- **`:extra_args` option** - Pass-through arbitrary CLI flags not covered by named options, appended at the end of the argument list ([5c04495])
-- **`:max_buffer_size` option** - Protection against unbounded buffer growth from large JSON responses. Default: 1MB. Triggers disconnect with `{:buffer_overflow, size}` error when exceeded ([5c04495])
+- **In-process MCP tool servers** ([5c049d4], [2b156c4], [f1a4420])
+  - `ClaudeCode.Tool.Server` macro - Concise DSL for declaring tools with typed schemas and execute callbacks, generating Hermes `Server.Component` modules
+  - `ClaudeCode.MCP.Router` - JSONRPC dispatcher that routes `initialize`, `tools/list`, and `tools/call` requests to in-process tool modules
+  - Auto-detects `Tool.Server` modules in `:mcp_servers` and emits `type: "sdk"` config, routing through the control protocol instead of spawning a subprocess
+
+#### Subagents
+
 - **`ClaudeCode.Agent` struct** - Idiomatic builder for subagent configurations ([1d0188b])
   - `Agent.new/1` accepts keyword options: `:name`, `:description`, `:prompt`, `:model`, `:tools`
   - Pass a list of Agent structs to the `:agents` option instead of raw maps
-  - Implements `Jason.Encoder` and `JSON.Encoder` protocols
-  - Raw map format remains supported for backwards compatibility
+  - Implements `Jason.Encoder` and `JSON.Encoder` protocols; raw map format still supported
+
+#### Session control and new options
+
+- **`ClaudeCode.interrupt/1`** - Fire-and-forget signal to cancel a running generation mid-stream ([5c04495])
+- **`:extra_args`** - Pass-through arbitrary CLI flags not covered by named options ([5c04495])
+- **`:max_buffer_size`** - Protection against unbounded buffer growth from large JSON responses. Default: 1MB ([5c04495])
 
 ## [0.18.0] - 2026-02-10 | CC 2.1.37
 

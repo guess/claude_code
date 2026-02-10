@@ -23,6 +23,7 @@ defmodule ClaudeCode.Adapter.Local do
   alias ClaudeCode.Hook
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.Hook.Response, as: HookResponse
+  alias ClaudeCode.MCP.Router, as: MCPRouter
   alias ClaudeCode.Message.ResultMessage
 
   require Logger
@@ -42,7 +43,8 @@ defmodule ClaudeCode.Adapter.Local do
     status: :provisioning,
     control_counter: 0,
     pending_control_requests: %{},
-    max_buffer_size: 1_048_576
+    max_buffer_size: 1_048_576,
+    sdk_mcp_servers: %{}
   ]
 
   # ============================================================================
@@ -100,7 +102,8 @@ defmodule ClaudeCode.Adapter.Local do
       buffer: "",
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
-      hook_registry: hook_registry
+      hook_registry: hook_registry,
+      sdk_mcp_servers: extract_sdk_mcp_servers(opts)
     }
 
     Process.link(session)
@@ -557,6 +560,12 @@ defmodule ClaudeCode.Adapter.Local do
         "hook_callback" ->
           handle_hook_callback(request, state)
 
+        "mcp_message" ->
+          server_name = request["server_name"]
+          jsonrpc = request["message"]
+          mcp_response = handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
+          %{"mcp_response" => mcp_response}
+
         _ ->
           Logger.warning("Received unhandled control request: #{subtype}")
           nil
@@ -606,6 +615,40 @@ defmodule ClaudeCode.Adapter.Local do
       :error ->
         Logger.warning("Unknown hook callback ID: #{callback_id}")
         %{}
+    end
+  end
+
+  @doc false
+  def extract_sdk_mcp_servers(opts) do
+    case Keyword.get(opts, :mcp_servers) do
+      nil ->
+        %{}
+
+      servers when is_map(servers) ->
+        Map.new(
+          Enum.filter(servers, fn
+            {_name, module} when is_atom(module) ->
+              ClaudeCode.Tool.Server.sdk_server?(module)
+
+            _ ->
+              false
+          end)
+        )
+    end
+  end
+
+  @doc false
+  def handle_mcp_message(server_name, jsonrpc, sdk_mcp_servers) do
+    case Map.get(sdk_mcp_servers, server_name) do
+      nil ->
+        %{
+          "jsonrpc" => "2.0",
+          "id" => jsonrpc["id"],
+          "error" => %{"code" => -32601, "message" => "Server '#{server_name}' not found"}
+        }
+
+      module ->
+        MCPRouter.handle_request(module, jsonrpc)
     end
   end
 
