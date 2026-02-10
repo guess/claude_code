@@ -112,8 +112,6 @@ agents = %{
 |> ClaudeCode.Stream.final_text()
 ```
 
-📖 **[Complete Getting Started Guide →](docs/guides/quickstart.md)**
-
 ## 🏭 Production Usage
 
 ### Supervised Sessions
@@ -305,7 +303,6 @@ Includes message helpers (`text`, `tool_use`, `tool_result`, `thinking`), dynami
 
 ## 📚 Documentation
 
-- 🚀 **[Getting Started](docs/guides/quickstart.md)** - Step-by-step tutorial for new users
 - 📖 **[Documentation Hub](docs/README.md)** - All guides and references
 - 🏭 **[Production Guide](docs/advanced/supervision.md)** - Fault-tolerant production deployments
 - 💻 **[Examples](docs/reference/examples.md)** - Real-world usage patterns and code samples

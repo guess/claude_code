@@ -4,8 +4,6 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 ## Getting Started
 
-- **[Overview](guides/overview.md)** - What the SDK does and how it works
-- **[Quickstart](guides/quickstart.md)** - Installation, setup, and your first query
 
 ## Core Guides
 
@@ -69,10 +67,8 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 If you're new to ClaudeCode:
 
-1. [Overview](guides/overview.md) - What the SDK does
-2. [Quickstart](guides/quickstart.md) - Installation and first query
-3. [Streaming vs Single Mode](guides/streaming-vs-single-mode.md) - Choose the right API
-4. [Sessions](guides/sessions.md) - Multi-turn conversations
-5. [Streaming Output](guides/streaming-output.md) - Real-time responses
-6. [Permissions](guides/permissions.md) - Control tool access
-7. [Hosting](guides/hosting.md) - Production deployment
+1. [Streaming vs Single Mode](guides/streaming-vs-single-mode.md) - Choose the right API
+2. [Sessions](guides/sessions.md) - Multi-turn conversations
+3. [Streaming Output](guides/streaming-output.md) - Real-time responses
+4. [Permissions](guides/permissions.md) - Control tool access
+5. [Hosting](guides/hosting.md) - Production deployment

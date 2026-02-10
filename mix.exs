@@ -116,8 +116,6 @@ defmodule ClaudeCode.MixProject do
         "README.md",
         "CHANGELOG.md",
         # Introduction
-        "docs/guides/overview.md",
-        "docs/guides/quickstart.md",
         # Core Concepts
         "docs/guides/streaming-vs-single-mode.md",
         "docs/guides/streaming-output.md",
@@ -154,9 +152,7 @@ defmodule ClaudeCode.MixProject do
       ],
       groups_for_extras: [
         Introduction: [
-          "README.md",
-          "docs/guides/overview.md",
-          "docs/guides/quickstart.md"
+          "README.md"
         ],
         "Core Concepts": [
           "docs/guides/streaming-vs-single-mode.md",
