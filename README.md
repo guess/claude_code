@@ -2,14 +2,11 @@
 
 The Elixir SDK for building AI agents with Claude Code.
 
-- **📦 Bundled CLI**: Automatic Claude CLI installation on first use - no manual setup
-- **🔄 Native Streaming**: Built on Elixir Streams for real-time responses
-- **💬 Conversation Continuity**: Automatic context retention across queries
-- **🏭 Production-Ready Supervision**: Fault-tolerant GenServers with automatic restarts
-- **⚡ High-Performance Concurrency**: Multiple concurrent sessions with Elixir's actor model
-- **🔧 Zero-Config Phoenix**: Drop-in support for LiveView and Phoenix apps
+- **✅ Full Feature Parity**: 100% feature parity with the official Python and TypeScript SDKs
+- **🏭 OTP Supervision**: Fault-tolerant sessions with automatic restarts and concurrent actors
+- **🔄 Elixir Streams**: Native streaming with backpressure, composable pipelines, and LiveView support
+- **🔒 In-Process Hooks**: Control tool permissions and lifecycle events inside your BEAM application
 - **🧪 Built-in Test Stubs**: Mock Claude responses for fast, deterministic tests without API calls
-- **🔌 MCP Tool Integration**: Expose Elixir functions to Claude via Hermes
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
