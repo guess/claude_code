@@ -127,52 +127,48 @@ end
 
 ## Creating Hermes MCP tools
 
-For tools that don't need application state access, or when you want a full Hermes MCP server with resources and prompts, define tools as Hermes MCP server components. Each tool is a module that implements `definition/0` and `execute/2`:
+For tools that don't need application state access, or when you want a full [Hermes MCP](https://hexdocs.pm/hermes_mcp) server with resources and prompts, define tools as Hermes server components. Each tool is a module that uses [`Hermes.Server.Component`](https://hexdocs.pm/hermes_mcp/Hermes.Server.Component.html) with a `schema` block and an `execute/2` callback:
 
 ```elixir
 defmodule MyApp.WeatherTool do
+  @moduledoc "Get current temperature for a location using coordinates"
   use Hermes.Server.Component, type: :tool
 
-  @impl true
-  def definition do
-    %{
-      name: "get_weather",
-      description: "Get current temperature for a location using coordinates",
-      inputSchema: %{
-        type: "object",
-        properties: %{
-          latitude: %{type: "number", description: "Latitude coordinate"},
-          longitude: %{type: "number", description: "Longitude coordinate"}
-        },
-        required: ["latitude", "longitude"]
-      }
-    }
+  alias Hermes.MCP.Error
+  alias Hermes.Server.Response
+
+  schema do
+    field :latitude, :float, required: true, description: "Latitude coordinate"
+    field :longitude, :float, required: true, description: "Longitude coordinate"
   end
 
   @impl true
-  def execute(%{"latitude" => lat, "longitude" => lon}, _frame) do
+  def execute(%{latitude: lat, longitude: lon}, frame) do
     url = "https://api.open-meteo.com/v1/forecast?latitude=#{lat}&longitude=#{lon}&current=temperature_2m&temperature_unit=fahrenheit"
 
     case Req.get(url) do
       {:ok, %{body: %{"current" => %{"temperature_2m" => temp}}}} ->
-        {:ok, [%{type: "text", text: "Temperature: #{temp}F"}]}
+        {:reply, Response.text(Response.tool(), "Temperature: #{temp}F"), frame}
 
       {:error, reason} ->
-        {:error, "Failed to fetch weather: #{inspect(reason)}"}
+        {:error, Error.execution("Failed to fetch weather: #{inspect(reason)}"), frame}
     end
   end
 end
 ```
 
-Register tools on a Hermes server module:
+The `schema` block uses the same `field` DSL as `ClaudeCode.MCP.Server` and auto-generates JSON Schema for the tool's input parameters. The tool description comes from `@moduledoc`.
+
+Register tools on a [`Hermes.Server`](https://hexdocs.pm/hermes_mcp/Hermes.Server.html) module using the `component` macro:
 
 ```elixir
 defmodule MyApp.MCPServer do
   use Hermes.Server,
     name: "my-custom-tools",
-    version: "1.0.0"
+    version: "1.0.0",
+    capabilities: [:tools]
 
-  tool MyApp.WeatherTool
+  component MyApp.WeatherTool
 end
 ```
 
@@ -214,16 +210,19 @@ end
 
 ```elixir
 @impl true
-def execute(%{"endpoint" => endpoint}, _frame) do
+def execute(%{endpoint: endpoint}, frame) do
+  alias Hermes.MCP.Error
+  alias Hermes.Server.Response
+
   case Req.get(endpoint) do
     {:ok, %{status: status, body: body}} when status in 200..299 ->
-      {:ok, [%{type: "text", text: Jason.encode!(body, pretty: true)}]}
+      {:reply, Response.json(Response.tool(), body), frame}
 
     {:ok, %{status: status}} ->
-      {:ok, [%{type: "text", text: "API error: HTTP #{status}"}]}
+      {:error, Error.execution("API error: HTTP #{status}"), frame}
 
     {:error, reason} ->
-      {:error, "Failed to fetch data: #{inspect(reason)}"}
+      {:error, Error.execution("Failed to fetch data: #{inspect(reason)}"), frame}
   end
 end
 ```
