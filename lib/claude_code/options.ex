@@ -461,6 +461,40 @@ defmodule ClaudeCode.Options do
           end
       """
     ],
+    can_use_tool: [
+      type: {:or, [:atom, {:fun, 2}]},
+      doc: """
+      Permission callback invoked before every tool execution.
+
+      Accepts a module implementing `ClaudeCode.Hook` or a 2-arity function.
+      Return `:allow`, `{:deny, reason}`, or `{:allow, updated_input}`.
+
+      When set, automatically adds `--permission-prompt-tool stdio` to CLI flags.
+      Cannot be used together with `:permission_prompt_tool`.
+
+      Example:
+          can_use_tool: fn %{tool_name: name}, _id ->
+            if name in ["Read", "Glob"], do: :allow, else: {:deny, "Blocked"}
+          end
+      """
+    ],
+    hooks: [
+      type: :map,
+      doc: """
+      Lifecycle hook configurations.
+
+      A map of event names to lists of matcher configs. Each matcher has:
+      - `:matcher` - Regex pattern for tool names (nil = match all)
+      - `:hooks` - List of modules or 2-arity functions
+      - `:timeout` - Optional timeout in seconds
+
+      Example:
+          hooks: %{
+            PreToolUse: [%{matcher: "Bash", hooks: [MyApp.BashGuard]}],
+            PostToolUse: [%{hooks: [MyApp.AuditLogger]}]
+          }
+      """
+    ],
     env: [
       type: {:map, :string, :string},
       default: %{},
@@ -709,6 +743,12 @@ defmodule ClaudeCode.Options do
   """
   def validate_session_options(opts) do
     validated = opts |> normalize_agents() |> NimbleOptions.validate!(@session_opts_schema)
+
+    if Keyword.get(validated, :can_use_tool) && Keyword.get(validated, :permission_prompt_tool) do
+      raise ArgumentError,
+            "cannot use both :can_use_tool and :permission_prompt_tool options together"
+    end
+
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->

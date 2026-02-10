@@ -970,5 +970,21 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "--max-buffer-size" in args
       refute "512" in args
     end
+
+    test "can_use_tool is not passed as a CLI flag" do
+      hook_fn = fn _input, _id -> :allow end
+      opts = [can_use_tool: hook_fn]
+
+      args = Command.to_cli_args(opts)
+      refute "--can-use-tool" in args
+    end
+
+    test "hooks is not passed as a CLI flag" do
+      hooks = %{PreToolUse: [%{matcher: "Bash", hooks: [SomeModule]}]}
+      opts = [hooks: hooks]
+
+      args = Command.to_cli_args(opts)
+      refute "--hooks" in args
+    end
   end
 end

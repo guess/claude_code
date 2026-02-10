@@ -64,8 +64,7 @@ defmodule ClaudeCode.CLI.Command do
         nil -> acc
       end
     end)
-    |> Enum.reverse()
-    |> Kernel.++(Keyword.get(opts, :extra_args, []))
+    |> Enum.reverse(Keyword.get(opts, :extra_args, []))
   end
 
   # -- Private: option conversion ---------------------------------------------
@@ -74,6 +73,8 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:name, _value), do: nil
   defp convert_option(:timeout, _value), do: nil
   defp convert_option(:tool_callback, _value), do: nil
+  defp convert_option(:can_use_tool, _value), do: nil
+  defp convert_option(:hooks, _value), do: nil
   defp convert_option(:resume, _value), do: nil
   defp convert_option(:adapter, _value), do: nil
   defp convert_option(:cli_path, _value), do: nil
