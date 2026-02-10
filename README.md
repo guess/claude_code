@@ -2,12 +2,12 @@
 
 The idiomatic Elixir SDK for building AI agents with Claude. Native streams, in-process tools, OTP lifecycle management.
 
-- **✅ Full Feature Parity** -- 100% parity with the official Python and TypeScript SDKs
-- **📦 Zero Setup** -- Bundled CLI binary, auto-installed on first use. Just add the dep.
-- **🏭 OTP Native** -- Sessions are GenServers with standard OTP lifecycle management
-- **🔄 Elixir Streams** -- Native streaming with backpressure and composable pipelines
-- **🔌 In-Process Tools & Hooks** -- BEAM-native tools and lifecycle hooks with full access to application state
-- **⚡ Phoenix LiveView** -- Stream tokens directly into LiveView and PubSub
+- **✅ Full Feature Parity** – 100% parity with the official Python and TypeScript SDKs
+- **📦 Zero Setup** – Bundled CLI binary, auto-installed on first use. Just add the dep.
+- **🏭 OTP Native** – Sessions are GenServers with standard OTP lifecycle management
+- **🔄 Elixir Streams** – Native streaming with backpressure and composable pipelines
+- **🔌 In-Process Tools & Hooks** – BEAM-native tools and lifecycle hooks with full access to application state
+- **⚡ Phoenix LiveView** – Stream tokens directly into LiveView and PubSub
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
@@ -31,9 +31,9 @@ session
 
 AI agents are long-lived processes that execute tools, maintain state, and stream responses. That's just OTP:
 
-- **Sessions are GenServers** -- link to a LiveView, spawn per-request, or supervise as a service
-- **Elixir Streams** -- backpressure, composability, and direct piping into LiveView
-- **In-process tools** -- direct access to Ecto repos, GenServers, and caches from inside the BEAM
+- **Sessions are GenServers** – link to a LiveView, spawn per-request, or supervise as a service
+- **Elixir Streams** – backpressure, composability, and direct piping into LiveView
+- **In-process tools** – direct access to Ecto repos, GenServers, and caches from inside the BEAM
 
 ## Install
 
@@ -41,7 +41,7 @@ Add to `mix.exs`:
 
 ```elixir
 def deps do
-  [{:claude_code, "~> 0.19"}]
+  [{:claude_code, "~> 0.20"}]
 end
 ```
 
@@ -53,7 +53,7 @@ export ANTHROPIC_API_KEY="sk-..."          # Option A: API key
 $(mix claude_code.path) /login             # Option B: Claude subscription
 ```
 
-The Claude CLI binary is bundled and auto-installed to `priv/bin/` on first use -- no global install needed. To pre-install for CI or releases, run `mix claude_code.install`.
+The Claude CLI binary is bundled and auto-installed to `priv/bin/` on first use – no global install needed. To pre-install for CI or releases, run `mix claude_code.install`.
 
 ## Quick Start
 
@@ -78,7 +78,7 @@ session
 
 ### In-Process Custom Tools
 
-Define tools that run inside your BEAM VM. They have direct access to your Ecto repos, GenServers, caches -- anything in your application.
+Define tools that run inside your BEAM VM. They have direct access to your Ecto repos, GenServers, caches – anything in your application.
 
 ```elixir
 defmodule MyApp.Tools do
@@ -310,7 +310,7 @@ ClaudeCode.rewind_files(session, checkpoint_id)
 
 ### MCP Integration
 
-Connect to any MCP server -- stdio, HTTP, SSE, in-process, or Hermes modules. Mix all transport types in a single session:
+Connect to any MCP server – stdio, HTTP, SSE, in-process, or Hermes modules. Mix all transport types in a single session:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
@@ -328,7 +328,7 @@ Connect to any MCP server -- stdio, HTTP, SSE, in-process, or Hermes modules. Mi
 
 ### Hosting
 
-Every session is a GenServer wrapping a CLI subprocess. Start sessions linked to a LiveView, spawn per-request, or supervise as a named service -- whatever fits your use case.
+Every session is a GenServer wrapping a CLI subprocess. Start sessions linked to a LiveView, spawn per-request, or supervise as a named service – whatever fits your use case.
 
 Each session maintains its own conversation context and CLI process (~50-100MB), so the typical pattern is per-user or per-request sessions rather than shared singletons. `ClaudeCode.Supervisor` is available for cases where you need named, long-lived sessions with automatic restart (e.g., a dedicated CI agent).
 
@@ -336,11 +336,11 @@ Each session maintains its own conversation context and CLI process (~50-100MB),
 
 ### And More
 
-- **[Slash commands](docs/guides/slash-commands.md)** -- Custom `/commands` with arguments, file references, and bash execution
-- **[Skills](docs/guides/skills.md)** -- Filesystem-based capabilities Claude invokes autonomously
-- **[Plugins](docs/guides/plugins.md)** -- Package commands, agents, skills, hooks, and MCP servers for sharing
-- **[System prompts](docs/guides/modifying-system-prompts.md)** -- Override, append, or use CLAUDE.md for project-level instructions
-- **[Secure deployment](docs/guides/secure-deployment.md)** -- Sandboxing, least-privilege tools, audit trails, and ephemeral sessions
+- **[Slash commands](docs/guides/slash-commands.md)** – Custom `/commands` with arguments, file references, and bash execution
+- **[Skills](docs/guides/skills.md)** – Filesystem-based capabilities Claude invokes autonomously
+- **[Plugins](docs/guides/plugins.md)** – Package commands, agents, skills, hooks, and MCP servers for sharing
+- **[System prompts](docs/guides/modifying-system-prompts.md)** – Override, append, or use CLAUDE.md for project-level instructions
+- **[Secure deployment](docs/guides/secure-deployment.md)** – Sandboxing, least-privilege tools, audit trails, and ephemeral sessions
 
 ## Testing
 
@@ -364,10 +364,10 @@ Includes message helpers (`text`, `tool_use`, `tool_result`, `thinking`), dynami
 
 ## Documentation
 
-- **[Documentation Hub](docs/README.md)** -- All guides and references
-- **[API Reference](https://hexdocs.pm/claude_code)** -- Complete API docs on HexDocs
-- **[Examples](docs/reference/examples.md)** -- Real-world usage patterns
-- **[Troubleshooting](docs/reference/troubleshooting.md)** -- Common issues and solutions
+- **[Documentation Hub](docs/README.md)** – All guides and references
+- **[API Reference](https://hexdocs.pm/claude_code)** – Complete API docs on HexDocs
+- **[Examples](docs/reference/examples.md)** – Real-world usage patterns
+- **[Troubleshooting](docs/reference/troubleshooting.md)** – Common issues and solutions
 
 ## Contributing
 
@@ -387,7 +387,7 @@ mix quality  # format, credo, dialyzer
 
 ## License
 
-MIT License -- see [LICENSE](https://github.com/guess/claude_code/blob/main/LICENSE) for details.
+MIT License – see [LICENSE](https://github.com/guess/claude_code/blob/main/LICENSE) for details.
 
 ---
 
