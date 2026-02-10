@@ -13,7 +13,7 @@ The idiomatic Elixir SDK for building fault-tolerant AI agents with Claude. Supe
 
 - **✅ Full Feature Parity** -- 100% parity with the official Python and TypeScript SDKs
 - **📦 Zero Setup** -- Bundled CLI binary, auto-installed on first use. Just add the dep.
-- **🏭 OTP Supervision** -- Fault-tolerant sessions with automatic restarts and concurrent actors
+- **🏭 OTP Native** -- Sessions are GenServers. Link to a LiveView, supervise as a service, or run hundreds concurrently.
 - **🔄 Elixir Streams** -- Native streaming with backpressure and composable pipelines
 - **🔌 In-Process Tools & Hooks** -- BEAM-native tools and lifecycle hooks with full access to application state
 - **⚡ Phoenix LiveView** -- Stream tokens directly into LiveView and PubSub
@@ -31,10 +31,10 @@ session
 
 The Claude Agent SDK runs agents as long-lived processes that execute tools, maintain conversation state, and stream responses. This maps perfectly onto OTP:
 
-- **Supervision trees** restart crashed agents automatically. One failing session never takes down another.
+- **Sessions are processes** -- link to a LiveView, supervise as a named service, or spawn per-request. Lifecycle management is just OTP.
 - **Elixir Streams** give you backpressure, composability, and direct piping into LiveView -- no callbacks or event emitters.
 - **In-process tools** run inside your BEAM VM with direct access to Ecto repos, GenServers, and caches. No subprocess needed.
-- **Concurrent sessions** are trivial -- each agent is a GenServer. Run hundreds in parallel with `ClaudeCode.Supervisor`.
+- **Concurrent sessions** are trivial -- each agent is a GenServer. Run hundreds in parallel.
 
 ## Install
 
@@ -77,27 +77,38 @@ session
 
 ## Features
 
-### OTP Supervision
+### Sessions Are Processes
 
-Drop agents into your application supervision tree. They restart on crashes, work from anywhere via named processes, and scale across your cluster.
+Every session is a GenServer wrapping a CLI subprocess. Use the pattern that fits your use case:
+
+**Per-user sessions** -- start linked to a LiveView or caller. When the parent dies, the session cleans up automatically:
+
+```elixir
+# In a LiveView mount
+{:ok, session} = ClaudeCode.start_link()
+
+session
+|> ClaudeCode.stream("Help me debug this")
+|> ClaudeCode.Stream.text_deltas()
+|> Enum.each(&send(self(), {:chunk, &1}))
+```
+
+**Shared service agents** -- supervise long-lived named sessions that your whole app calls into. The supervisor restarts them on crashes:
 
 ```elixir
 # application.ex
 children = [
   {ClaudeCode.Supervisor, [
-    [name: :assistant, system_prompt: "General-purpose helper"],
     [name: :code_reviewer, system_prompt: "You review Elixir code for quality"],
     [name: :test_writer, system_prompt: "You write ExUnit tests"]
   ]}
 ]
 
-# Use from anywhere
+# Use from anywhere -- controllers, GenServers, background jobs
 :code_reviewer
 |> ClaudeCode.stream("Review the auth module")
 |> ClaudeCode.Stream.final_text()
 ```
-
-Add and remove sessions at runtime, list active sessions, and build agent pools for concurrent request handling.
 
 [Hosting guide →](docs/guides/hosting.md)
 
