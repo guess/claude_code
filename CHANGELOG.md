@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`ClaudeCode.interrupt/1`** - Fire-and-forget signal to cancel a running generation mid-stream ([5c04495])
+- **`:extra_args` option** - Pass-through arbitrary CLI flags not covered by named options, appended at the end of the argument list ([5c04495])
+- **`:max_buffer_size` option** - Protection against unbounded buffer growth from large JSON responses. Default: 1MB. Triggers disconnect with `{:buffer_overflow, size}` error when exceeded ([5c04495])
 - **`ClaudeCode.Agent` struct** - Idiomatic builder for subagent configurations ([1d0188b])
   - `Agent.new/1` accepts keyword options: `:name`, `:description`, `:prompt`, `:model`, `:tools`
   - Pass a list of Agent structs to the `:agents` option instead of raw maps
