@@ -1,6 +1,6 @@
 # Claude Agent SDK for Elixir
 
-The idiomatic Elixir SDK for building fault-tolerant AI agents with Claude. Supervised sessions, native streams, in-process tools.
+The idiomatic Elixir SDK for building AI agents with Claude. Native streams, in-process tools, OTP lifecycle management.
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
@@ -76,41 +76,6 @@ session
 ```
 
 ## Features
-
-### Sessions Are Processes
-
-Every session is a GenServer wrapping a CLI subprocess. Use the pattern that fits your use case:
-
-**Per-user sessions** -- start linked to a LiveView or caller. When the parent dies, the session cleans up automatically:
-
-```elixir
-# In a LiveView mount
-{:ok, session} = ClaudeCode.start_link()
-
-session
-|> ClaudeCode.stream("Help me debug this")
-|> ClaudeCode.Stream.text_deltas()
-|> Enum.each(&send(self(), {:chunk, &1}))
-```
-
-**Shared service agents** -- supervise long-lived named sessions that your whole app calls into. The supervisor restarts them on crashes:
-
-```elixir
-# application.ex
-children = [
-  {ClaudeCode.Supervisor, [
-    [name: :code_reviewer, system_prompt: "You review Elixir code for quality"],
-    [name: :test_writer, system_prompt: "You write ExUnit tests"]
-  ]}
-]
-
-# Use from anywhere -- controllers, GenServers, background jobs
-:code_reviewer
-|> ClaudeCode.stream("Review the auth module")
-|> ClaudeCode.Stream.final_text()
-```
-
-[Hosting guide →](docs/guides/hosting.md)
 
 ### In-Process Custom Tools
 
@@ -361,6 +326,14 @@ Connect to any MCP server -- stdio, HTTP, SSE, in-process, or Hermes modules. Mi
 ```
 
 [MCP guide →](docs/guides/mcp.md)
+
+### Hosting
+
+Every session is a GenServer wrapping a CLI subprocess. Start sessions linked to a LiveView, spawn per-request, or supervise as a named service -- whatever fits your use case.
+
+Each session maintains its own conversation context and CLI process (~50-100MB), so the typical pattern is per-user or per-request sessions rather than shared singletons. `ClaudeCode.Supervisor` is available for cases where you need named, long-lived sessions with automatic restart (e.g., a dedicated CI agent).
+
+[Hosting guide →](docs/guides/hosting.md)
 
 ### And More
 

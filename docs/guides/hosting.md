@@ -2,14 +2,89 @@
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hosting). Examples are adapted for Elixir.
 
-Deploy ClaudeCode sessions in production using OTP supervision trees and Elixir releases.
+Deploy ClaudeCode sessions in production using Elixir releases and OTP patterns.
 
-## Supervision Trees
+## Session Patterns
 
-Use `ClaudeCode.Supervisor` to manage multiple agent sessions with automatic restart and fault isolation:
+Every ClaudeCode session is a GenServer wrapping a dedicated CLI subprocess. Each session maintains its own conversation context -- sessions cannot be shared across independent conversations. Choose the pattern that fits your use case:
+
+### Per-request sessions
+
+For stateless or one-off work, use `ClaudeCode.query/2`. It starts a session, runs the query, and stops the session automatically:
 
 ```elixir
-# lib/my_app/application.ex
+{:ok, result} = ClaudeCode.query("Summarize this PR",
+  allowed_tools: ["Read", "Grep"]
+)
+```
+
+### Per-user sessions
+
+For multi-turn conversations (e.g., a chat UI), start a session linked to the caller. When the LiveView or parent process dies, the session cleans up automatically:
+
+```elixir
+defmodule MyAppWeb.ChatLive do
+  use MyAppWeb, :live_view
+
+  def mount(_params, _session, socket) do
+    {:ok, session} = ClaudeCode.start_link(
+      system_prompt: "You are a helpful assistant."
+    )
+
+    {:ok, assign(socket, claude: session)}
+  end
+
+  def handle_event("send", %{"message" => msg}, socket) do
+    Task.start(fn ->
+      socket.assigns.claude
+      |> ClaudeCode.stream(msg, include_partial_messages: true)
+      |> ClaudeCode.Stream.text_deltas()
+      |> Enum.each(&send(socket.root_pid, {:chunk, &1}))
+
+      send(socket.root_pid, :stream_done)
+    end)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:chunk, chunk}, socket) do
+    {:noreply, assign(socket, response: socket.assigns.response <> chunk)}
+  end
+
+  def handle_info(:stream_done, socket) do
+    {:noreply, assign(socket, streaming: false)}
+  end
+end
+```
+
+### Per-request with isolation
+
+For server-side processing where each request needs a fresh session:
+
+```elixir
+defmodule MyApp.Agent do
+  def run(prompt, opts \\ []) do
+    {:ok, session} = ClaudeCode.start_link(opts)
+
+    try do
+      session
+      |> ClaudeCode.stream(prompt)
+      |> ClaudeCode.Stream.collect()
+    after
+      ClaudeCode.stop(session)
+    end
+  end
+end
+```
+
+## Supervised Sessions
+
+`ClaudeCode.Supervisor` manages named, long-lived sessions with automatic restart. This is useful for **dedicated single-purpose agents** like a CI bot or a background job processor -- cases where one caller owns the session at a time.
+
+> **Caveat:** Each supervised session maintains conversation context across all queries. If multiple callers use the same named session concurrently, their queries serialize through the GenServer and share context, which fills the context window quickly with unrelated conversations. For multi-user workloads, prefer per-user or per-request sessions.
+
+```elixir
+# application.ex
 defmodule MyApp.Application do
   use Application
 
@@ -17,41 +92,38 @@ defmodule MyApp.Application do
     children = [
       MyAppWeb.Endpoint,
       {ClaudeCode.Supervisor, [
-        [name: :assistant, system_prompt: "General-purpose helper"],
-        [name: :code_reviewer, system_prompt: "You review Elixir code for quality"],
-        [name: :test_writer, system_prompt: "You write ExUnit tests"]
+        [name: :ci_reviewer, system_prompt: "You review code for CI pipelines"]
       ]}
     ]
 
     Supervisor.start_link(children, strategy: :one_for_one, name: MyApp.Supervisor)
   end
 end
+
+# Use from a single-purpose caller (e.g., a CI webhook handler)
+:ci_reviewer
+|> ClaudeCode.stream("Review this diff: #{diff}")
+|> ClaudeCode.Stream.final_text()
 ```
 
-Use named sessions from anywhere in your app:
+### Dynamic Sessions
+
+Add and remove sessions at runtime:
 
 ```elixir
-# Controller
-def chat(conn, %{"message" => message}) do
-  response =
-    :assistant
-    |> ClaudeCode.stream(message)
-    |> ClaudeCode.Stream.text_content()
-    |> Enum.join()
+{:ok, supervisor} = ClaudeCode.Supervisor.start_link([])
 
-  json(conn, %{response: response})
-end
+# Add sessions on demand
+ClaudeCode.Supervisor.start_session(supervisor, [
+  name: :temp_session,
+  system_prompt: "Temporary helper"
+])
 
-# GenServer
-def handle_call({:review, code}, _from, state) do
-  result =
-    :code_reviewer
-    |> ClaudeCode.stream("Review: #{code}")
-    |> ClaudeCode.Stream.text_content()
-    |> Enum.join()
+# Remove when done
+ClaudeCode.Supervisor.terminate_session(supervisor, :temp_session)
 
-  {:reply, {:ok, result}, state}
-end
+# List active sessions
+ClaudeCode.Supervisor.list_sessions(supervisor)
 ```
 
 ### Supervisor Options
@@ -64,120 +136,14 @@ end
 }
 ```
 
-### Per-Session Configuration
-
-```elixir
-{ClaudeCode.Supervisor, [
-  # Fast for simple queries
-  [name: :quick, timeout: 30_000, max_turns: 5],
-
-  # Deep analysis
-  [name: :analyzer, timeout: 600_000, max_turns: 50],
-
-  # Code assistant with file access
-  [name: :coder,
-   allowed_tools: ["View", "Edit", "Bash(git:*)"],
-   add_dir: ["/app/lib"]]
-]}
-```
-
-## Dynamic Sessions
-
-Add and remove sessions at runtime:
-
-```elixir
-# Start with base sessions
-{ClaudeCode.Supervisor, [
-  [name: :shared_assistant]
-]}
-
-# Add user-specific session
-def create_user_session(user_id) do
-  ClaudeCode.Supervisor.start_session(ClaudeCode.Supervisor, [
-    name: {:user, user_id},
-    system_prompt: "You are helping user #{user_id}"
-  ])
-end
-
-# Query user session
-{:user, user_id} |> ClaudeCode.stream(message) |> Stream.run()
-
-# Clean up
-def cleanup_user_session(user_id) do
-  ClaudeCode.Supervisor.terminate_session(ClaudeCode.Supervisor, {:user, user_id})
-end
-```
-
-### Registry-Based Sessions
-
-For advanced session discovery:
-
-```elixir
-children = [
-  {Registry, keys: :unique, name: MyApp.SessionRegistry},
-  {ClaudeCode.Supervisor, [
-    [name: {:via, Registry, {MyApp.SessionRegistry, :primary}}]
-  ]}
-]
-
-# Access via registry
-session = {:via, Registry, {MyApp.SessionRegistry, :primary}}
-session |> ClaudeCode.stream("Hello") |> Stream.run()
-```
-
-## Fault Tolerance
-
-### Automatic Restart
-
-Sessions restart transparently after crashes:
-
-```elixir
-:assistant |> ClaudeCode.stream("Complex task") |> Stream.run()
-# Even if :assistant crashes, it restarts automatically
-:assistant |> ClaudeCode.stream("Another task") |> Stream.run()
-```
-
-Note: Conversation history is lost on restart.
-
-### Independent Failure
-
-One session crash doesn't affect others:
-
-```elixir
-# If :code_reviewer crashes, :test_writer continues working
-try do
-  :code_reviewer |> ClaudeCode.stream(bad_input) |> Stream.run()
-catch
-  :error, _ -> :crashed
-end
-
-# Still works
-:test_writer
-|> ClaudeCode.stream("Write tests")
-|> ClaudeCode.Stream.text_content()
-|> Enum.join()
-```
-
 ### Management API
 
 ```elixir
-# List sessions
 ClaudeCode.Supervisor.list_sessions(ClaudeCode.Supervisor)
-
-# Count sessions
 ClaudeCode.Supervisor.count_sessions(ClaudeCode.Supervisor)
-
-# Restart session (clears history)
-ClaudeCode.Supervisor.restart_session(ClaudeCode.Supervisor, :assistant)
-
-# Add session at runtime
-ClaudeCode.Supervisor.start_session(ClaudeCode.Supervisor, [
-  name: :temporary,
-  system_prompt: "Temporary helper"
-])
-
-# Remove session
-ClaudeCode.Supervisor.terminate_session(ClaudeCode.Supervisor, :temporary)
+ClaudeCode.Supervisor.restart_session(ClaudeCode.Supervisor, :ci_reviewer)
+ClaudeCode.Supervisor.start_session(ClaudeCode.Supervisor, name: :temp, system_prompt: "Helper")
+ClaudeCode.Supervisor.terminate_session(ClaudeCode.Supervisor, :temp)
 ```
 
 ## Elixir Releases
@@ -210,51 +176,7 @@ Each ClaudeCode session runs a separate CLI subprocess:
 | File descriptors | 3 (stdin, stdout, stderr) |
 | Ports            | 1 Erlang port             |
 
-Plan accordingly when running multiple concurrent sessions.
-
-## Scaling Patterns
-
-### Task Pool
-
-For handling many concurrent requests with a fixed number of sessions:
-
-```elixir
-defmodule MyApp.AgentPool do
-  def query(prompt) do
-    session = select_session()
-
-    session
-    |> ClaudeCode.stream(prompt)
-    |> ClaudeCode.Stream.final_text()
-  end
-
-  defp select_session do
-    sessions = ClaudeCode.Supervisor.list_sessions(MyApp.ClaudeSupervisor)
-    {_id, pid, _, _} = Enum.random(sessions)
-    pid
-  end
-end
-```
-
-### Per-Request Sessions
-
-For isolation between requests:
-
-```elixir
-defmodule MyApp.IsolatedAgent do
-  def run(prompt, opts \\ []) do
-    {:ok, session} = ClaudeCode.start_link(opts)
-
-    try do
-      session
-      |> ClaudeCode.stream(prompt)
-      |> ClaudeCode.Stream.collect()
-    after
-      ClaudeCode.stop(session)
-    end
-  end
-end
-```
+Plan accordingly when running multiple concurrent sessions. For workloads with many users but low concurrency, consider stopping idle sessions and resuming on demand with `resume: session_id`.
 
 ## Health Monitoring
 
@@ -270,14 +192,9 @@ defmodule MyApp.HealthCheck do
   end
 
   def test_connectivity do
-    try do
-      :assistant
-      |> ClaudeCode.stream("ping", timeout: 10_000)
-      |> Stream.run()
-
-      :healthy
-    catch
-      error -> {:unhealthy, error}
+    case ClaudeCode.query("ping", max_turns: 1, timeout: 10_000) do
+      {:ok, _} -> :healthy
+      {:error, reason} -> {:unhealthy, reason}
     end
   end
 end

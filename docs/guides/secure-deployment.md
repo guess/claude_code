@@ -146,7 +146,7 @@ For ephemeral workloads, prevent session data from being saved to disk:
 - [ ] Use `cwd` and `add_dir` to limit file access
 - [ ] Consider `sandbox` for bash isolation
 - [ ] Use `no_session_persistence: true` for sensitive workloads
-- [ ] Run sessions under `ClaudeCode.Supervisor` for fault tolerance
+- [ ] Use per-user or per-request sessions for multi-user workloads (see [Hosting](hosting.md))
 
 ## Next Steps
 
