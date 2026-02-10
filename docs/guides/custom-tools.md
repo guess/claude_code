@@ -13,7 +13,7 @@ The `hermes_mcp` dependency is optional. Add it to your `mix.exs` to enable MCP 
 ```elixir
 defp deps do
   [
-    {:claude_code, "~> 0.17"},
+    {:claude_code, "~> 0.18"},
     {:hermes_mcp, "~> 0.14"}  # Required for custom tool integration
   ]
 end

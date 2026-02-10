@@ -23,7 +23,7 @@ This guide helps you diagnose and resolve common issues with the ClaudeCode Elix
 # Make sure you're using the correct package name and version
 def deps do
   [
-    {:claude_code, "~> 0.17"}
+    {:claude_code, "~> 0.18"}
   ]
 end
 ```

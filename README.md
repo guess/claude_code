@@ -50,7 +50,7 @@ ClaudeCode.stop(session)
 
 ```elixir
 def deps do
-  [{:claude_code, "~> 0.17"}]
+  [{:claude_code, "~> 0.18"}]
 end
 ```
 
