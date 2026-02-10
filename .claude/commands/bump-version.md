@@ -18,7 +18,7 @@ Update version to the specified X.Y.Z value.
    - Dependency specs `"~> X.Y"` → new major.minor
 
 4. Update `CHANGELOG.md`:
-   - Get the bundled CLI version from `@default_cli_version` in `lib/claude_code/installer.ex`
+   - Get the bundled CLI version from `@default_cli_version` in `lib/claude_code/adapter/local/installer.ex`
    - Convert Unreleased to `[X.Y.Z] - YYYY-MM-DD | CC A.B.C` where A.B.C is the CLI version
    - Example: `## [0.18.0] - 2026-02-08 | CC 2.1.37`
 
@@ -32,4 +32,23 @@ Update version to the specified X.Y.Z value.
 7. Tag and release:
    - Create git tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
    - Push tag: `git push origin vX.Y.Z`
-   - Create GitHub release: `gh release create vX.Y.Z --generate-notes --title "vX.Y.Z"`
+   - Create GitHub release with CC version in title:
+     ```bash
+     gh release create vX.Y.Z --generate-notes --title "vX.Y.Z | CC A.B.C"
+     ```
+
+### Reference
+
+**Files that contain version numbers** (6 files + CHANGELOG):
+- `mix.exs` — `@version "X.Y.Z"`
+- `lib/claude_code.ex` — version string
+- `README.md` — `{:claude_code, "~> X.Y"}`
+- `docs/guides/custom-tools.md` — `{:claude_code, "~> X.Y"}`
+- `docs/reference/troubleshooting.md` — `{:claude_code, "~> X.Y"}`
+- `lib/claude_code/mcp.ex` — `{:claude_code, "~> X.Y"}`
+
+**Creating retroactive releases** (if needed for missed versions):
+1. Find version bump commits: `git log --oneline --all --grep='version' -- mix.exs`
+2. Create annotated tags: `git tag -a vX.Y.Z <commit> -m "vX.Y.Z"`
+3. Push all tags: `git push origin --tags`
+4. Create releases oldest-to-newest, extracting changelog sections as body
