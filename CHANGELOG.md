@@ -7,11 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Assigns for in-process MCP tools** — Pass per-session context (e.g., `current_scope` from LiveView) to tools via `:assigns` in the server config. Tools using `execute/2` can read `frame.assigns`. ([a156aae])
+  - Usage: `mcp_servers: %{"tools" => %{module: MyTools, assigns: %{scope: scope}}}`
+  - Tools using `execute/1` are unaffected; mix both forms freely in the same server module
+
 ### Changed
 
 - **`ClaudeCode.Tool.Server` renamed to `ClaudeCode.MCP.Server`** — Unified MCP namespace so all MCP-related modules live under `ClaudeCode.MCP.*` ([bda2260])
   - Update `use ClaudeCode.Tool.Server` → `use ClaudeCode.MCP.Server` in your tool definitions
   - The DSL (`tool`, `field`, `execute`) is unchanged
+- **Custom tools guide rewritten** — Aligned with official SDK docs structure; in-process tool examples now use the simpler `execute/1` form ([5db0e0a])
 
 ### Removed
 
@@ -20,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **SDK MCP server initialization failures** — Added missing `version` to MCP `serverInfo` response and fixed crash on JSONRPC notifications (no `id` field). In-process tool servers now connect successfully. ([2c746a1])
 - **Hermes MCP tool examples in docs** — Corrected to use the actual `schema` + `execute/2` API and `component` registration instead of the non-functional `definition/0` + `call/1` pattern ([dcf2f41])
 
 ## [0.19.0] - 2026-02-10 | CC 2.1.38
