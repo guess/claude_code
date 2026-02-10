@@ -218,6 +218,7 @@ defmodule ClaudeCode.MixProject do
         "Content Blocks": ~r/ClaudeCode.Content/,
         Installation: [
           ClaudeCode.Adapter.Local.Installer,
+          ClaudeCode.Adapter.Local.Resolver,
           Mix.Tasks.ClaudeCode.Install,
           Mix.Tasks.ClaudeCode.Uninstall,
           Mix.Tasks.ClaudeCode.Path
@@ -225,7 +226,12 @@ defmodule ClaudeCode.MixProject do
         Internal: [
           ClaudeCode.Adapter,
           ClaudeCode.Adapter.Local,
-          ClaudeCode.CLI.Input
+          ClaudeCode.CLI.Command,
+          ClaudeCode.CLI.Control,
+          ClaudeCode.CLI.Input,
+          ClaudeCode.CLI.Parser,
+          ClaudeCode.History,
+          ClaudeCode.JSONEncoder
         ]
       ]
     ]
