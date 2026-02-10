@@ -95,14 +95,17 @@ session
 |> ClaudeCode.Stream.final_text()
 
 # Custom agents
-agents = %{
-  "code-reviewer" => %{
-    "description" => "Expert code reviewer. Use proactively after code changes.",
-    "prompt" => "You are a senior code reviewer. Focus on quality and best practices.",
-    "tools" => ["Read", "Grep", "Glob"],
-    "model" => "sonnet"
-  }
-}
+alias ClaudeCode.Agent
+
+agents = [
+  Agent.new(
+    name: "code-reviewer",
+    description: "Expert code reviewer. Use proactively after code changes.",
+    prompt: "You are a senior code reviewer. Focus on quality and best practices.",
+    tools: ["Read", "Grep", "Glob"],
+    model: "sonnet"
+  )
+]
 {:ok, session} = ClaudeCode.start_link(agents: agents)
 
 # Production with supervision

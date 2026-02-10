@@ -75,7 +75,7 @@ defmodule ClaudeCode.Options do
   | `continue`                 | boolean    | false       | Continue most recent conversation in current directory          |
   | `mcp_config`               | string     | -           | Path to MCP config file                                         |
   | `strict_mcp_config`        | boolean    | false       | Only use MCP servers from explicit config                       |
-  | `agents`                   | map        | -           | Custom agent configurations                                     |
+  | `agents`                   | list/map   | -           | Custom agent configurations (list of `Agent` structs or map)    |
   | `settings`                 | map/string | -           | Team settings                                                   |
   | `setting_sources`          | list       | -           | Setting source priority                                         |
   | `tool_callback`            | function   | -           | Called after tool executions                                     |
@@ -303,18 +303,30 @@ defmodule ClaudeCode.Options do
 
   ## Custom Agents
 
-  Configure custom agents with specialized behaviors:
+  Configure custom agents with `ClaudeCode.Agent` structs:
 
-      agents = %{
-        "code-reviewer" => %{
-          "description" => "Expert code reviewer",
-          "prompt" => "You review code for quality and best practices.",
-          "tools" => ["View", "Grep", "Glob"],
-          "model" => "sonnet"
-        }
-      }
+      alias ClaudeCode.Agent
+
+      agents = [
+        Agent.new(
+          name: "code-reviewer",
+          description: "Expert code reviewer",
+          prompt: "You review code for quality and best practices.",
+          tools: ["View", "Grep", "Glob"],
+          model: "sonnet"
+        )
+      ]
 
       {:ok, session} = ClaudeCode.start_link(agents: agents)
+
+  Raw maps are also accepted for backwards compatibility:
+
+      {:ok, session} = ClaudeCode.start_link(agents: %{
+        "code-reviewer" => %{
+          "description" => "Expert code reviewer",
+          "prompt" => "You review code for quality and best practices."
+        }
+      })
 
   See the Subagents Guide for more details.
 
@@ -584,6 +596,18 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Enable file checkpointing to track file changes during the session (set via env var, not CLI flag)"
+    ],
+    extra_args: [
+      type: {:list, :string},
+      default: [],
+      doc:
+        ~s{Additional CLI arguments passed directly to the claude binary. Each element is a separate argument (e.g. ["--flag", "value"]).}
+    ],
+    max_buffer_size: [
+      type: :pos_integer,
+      default: 1_048_576,
+      doc:
+        "Maximum buffer size in bytes for incoming JSON data. Protects against unbounded memory growth. Default: 1MB (1_048_576 bytes)."
     ]
   ]
 
@@ -605,7 +629,7 @@ defmodule ClaudeCode.Options do
     allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
     disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
     agents: [
-      type: {:map, :string, :map},
+      type: {:map, :string, {:map, :string, :any}},
       doc: "Override agent definitions for this query"
     ],
     mcp_servers: [
@@ -650,6 +674,11 @@ defmodule ClaudeCode.Options do
     no_session_persistence: [
       type: :boolean,
       doc: "Disable session persistence for this query"
+    ],
+    extra_args: [
+      type: {:list, :string},
+      default: [],
+      doc: "Additional CLI arguments passed directly to the claude binary for this query."
     ]
   ]
 
@@ -679,7 +708,7 @@ defmodule ClaudeCode.Options do
       {:ok, [timeout: 300_000]}
   """
   def validate_session_options(opts) do
-    validated = NimbleOptions.validate!(opts, @session_opts_schema)
+    validated = opts |> normalize_agents() |> NimbleOptions.validate!(@session_opts_schema)
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->
@@ -698,7 +727,7 @@ defmodule ClaudeCode.Options do
       {:error, %NimbleOptions.ValidationError{}}
   """
   def validate_query_options(opts) do
-    validated = NimbleOptions.validate!(opts, @query_opts_schema)
+    validated = opts |> normalize_agents() |> NimbleOptions.validate!(@query_opts_schema)
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->
@@ -742,5 +771,15 @@ defmodule ClaudeCode.Options do
 
     # Apply app config first, then session opts
     Keyword.merge(app_config, session_opts)
+  end
+
+  defp normalize_agents(opts) do
+    case Keyword.get(opts, :agents) do
+      [%ClaudeCode.Agent{} | _] = agents ->
+        Keyword.put(opts, :agents, ClaudeCode.Agent.to_agents_map(agents))
+
+      _ ->
+        opts
+    end
   end
 end

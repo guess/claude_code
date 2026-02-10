@@ -152,7 +152,7 @@ Quick reference for development:
 Key options:
 - `:resume` - Session ID to resume a previous conversation (passed to `start_link/1`)
 - `:continue` - Continue the most recent conversation in the current directory (boolean)
-- `:agents` - Map of custom agent configurations (name -> %{"description" => ..., "prompt" => ..., "tools" => ..., "model" => ...})
+- `:agents` - List of `ClaudeCode.Agent` structs or map of custom agent configurations
 - `:settings` - Team settings (file path, JSON string, or map - auto-encoded to JSON)
 - `:setting_sources` - List of setting sources ([:user, :project, :local])
 - `:plugins` - Plugin configurations (list of paths or maps with type: :local)

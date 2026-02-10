@@ -16,7 +16,7 @@ You can create subagents in three ways:
 
 | Method | Description |
 |--------|-------------|
-| **Programmatic** | Use the `agents` option in `start_link/1` or `stream/3` (recommended for SDK applications) |
+| **Programmatic** | Use `ClaudeCode.Agent` structs with the `agents` option in `start_link/1` or `stream/3` (recommended for SDK applications) |
 | **Filesystem-based** | Define agents as markdown files in `.claude/agents/` directories |
 | **Built-in** | Claude can invoke the built-in `general-purpose` subagent via the Task tool without any configuration |
 
@@ -28,16 +28,19 @@ Agent configurations are sent to the CLI via the **control protocol initialize h
 
 ## Creating subagents
 
-Define subagents using the `agents` option. The `Task` tool must be in `allowed_tools` since Claude invokes subagents through it.
+Define subagents using `ClaudeCode.Agent` structs and the `agents` option. The `Task` tool must be in `allowed_tools` since Claude invokes subagents through it.
 
 ```elixir
+alias ClaudeCode.Agent
+
 {:ok, session} = ClaudeCode.start_link(
-  agents: %{
-    "code-reviewer" => %{
+  agents: [
+    Agent.new(
+      name: "code-reviewer",
       # description tells Claude when to use this subagent
-      "description" => "Expert code review specialist. Use for quality, security, and maintainability reviews.",
+      description: "Expert code review specialist. Use for quality, security, and maintainability reviews.",
       # prompt defines the subagent's behavior and expertise
-      "prompt" => """
+      prompt: """
       You are a code review specialist with expertise in security, performance, and Elixir best practices.
 
       When reviewing code:
@@ -47,13 +50,14 @@ Define subagents using the `agents` option. The `Task` tool must be in `allowed_
       - Suggest specific improvements
       """,
       # tools restricts what the subagent can do (read-only here)
-      "tools" => ["Read", "Grep", "Glob"],
+      tools: ["Read", "Grep", "Glob"],
       # model overrides the default model for this subagent
-      "model" => "sonnet"
-    },
-    "test-runner" => %{
-      "description" => "Runs and analyzes test suites. Use for test execution and coverage analysis.",
-      "prompt" => """
+      model: "sonnet"
+    ),
+    Agent.new(
+      name: "test-runner",
+      description: "Runs and analyzes test suites. Use for test execution and coverage analysis.",
+      prompt: """
       You are a test execution specialist. Run tests and provide clear analysis of results.
 
       Focus on:
@@ -63,24 +67,25 @@ Define subagents using the `agents` option. The `Task` tool must be in `allowed_
       - Suggesting fixes for failures
       """,
       # Bash access lets this subagent run test commands
-      "tools" => ["Bash", "Read", "Grep"]
-    }
-  },
+      tools: ["Bash", "Read", "Grep"]
+    )
+  ],
   # Task tool is required for subagent invocation
   allowed_tools: ["Read", "Grep", "Glob", "Task"]
 )
 ```
 
-### Agent definition fields
+### Agent fields
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `"description"` | string | Yes | When to use this agent. Claude matches tasks to agents based on this. |
-| `"prompt"` | string | Yes | System prompt defining the agent's role and behavior |
-| `"tools"` | list | No | Tools the agent can use. If omitted, inherits all tools. |
-| `"model"` | string | No | Model override: `"sonnet"`, `"opus"`, `"haiku"`, or `"inherit"`. Defaults to session model. |
+| `name` | string | Yes | Unique agent identifier |
+| `description` | string | Recommended | When to use this agent. Claude matches tasks to agents based on this. |
+| `prompt` | string | Recommended | System prompt defining the agent's role and behavior |
+| `tools` | list | No | Tools the agent can use. If omitted, inherits all tools. |
+| `model` | string | No | Model override: `"sonnet"`, `"opus"`, `"haiku"`, or `"inherit"`. Defaults to session model. |
 
-> Subagents cannot spawn their own subagents. Don't include `"Task"` in a subagent's `"tools"` list.
+> Subagents cannot spawn their own subagents. Don't include `"Task"` in a subagent's `tools` list.
 
 ## Invoking subagents
 
@@ -113,27 +118,28 @@ Create agent definitions dynamically based on runtime conditions:
 
 ```elixir
 defmodule MyApp.Agents do
+  alias ClaudeCode.Agent
+
   def security_reviewer(level) do
     strict? = level == :strict
 
-    %{
-      "description" => "Security code reviewer",
-      "prompt" => if(strict?,
+    Agent.new(
+      name: "security-reviewer",
+      description: "Security code reviewer",
+      prompt: if(strict?,
         do: "You are a strict security reviewer. Flag all potential issues, even minor ones.",
         else: "You are a balanced security reviewer. Focus on critical and high-severity issues."
       ),
-      "tools" => ["Read", "Grep", "Glob"],
+      tools: ["Read", "Grep", "Glob"],
       # Use a more capable model for strict reviews
-      "model" => if(strict?, do: "opus", else: "sonnet")
-    }
+      model: if(strict?, do: "opus", else: "sonnet")
+    )
   end
 end
 
 # The agent is created at session time, so each session can use different settings
 {:ok, session} = ClaudeCode.start_link(
-  agents: %{
-    "security-reviewer" => MyApp.Agents.security_reviewer(:strict)
-  },
+  agents: [MyApp.Agents.security_reviewer(:strict)],
   allowed_tools: ["Read", "Grep", "Glob", "Task"]
 )
 ```
@@ -168,13 +174,14 @@ Override agent definitions for specific queries:
 ```elixir
 session
 |> ClaudeCode.stream("Review this module",
-     agents: %{
-       "code-reviewer" => %{
-         "description" => "Security-focused code reviewer",
-         "prompt" => "Focus exclusively on security vulnerabilities and OWASP issues.",
-         "tools" => ["Read", "Grep"]
-       }
-     })
+     agents: [
+       Agent.new(
+         name: "code-reviewer",
+         description: "Security-focused code reviewer",
+         prompt: "Focus exclusively on security vulnerabilities and OWASP issues.",
+         tools: ["Read", "Grep"]
+       )
+     ])
 |> ClaudeCode.Stream.text_content()
 |> Enum.each(&IO.write/1)
 ```
@@ -185,12 +192,13 @@ Select a specific agent for the entire session:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  agents: %{
-    "reviewer" => %{
-      "description" => "Code reviewer",
-      "prompt" => "You review code for quality."
-    }
-  },
+  agents: [
+    Agent.new(
+      name: "reviewer",
+      description: "Code reviewer",
+      prompt: "You review code for quality."
+    )
+  ],
   agent: "reviewer"
 )
 ```
