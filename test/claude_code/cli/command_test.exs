@@ -971,12 +971,21 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "512" in args
     end
 
-    test "can_use_tool is not passed as a CLI flag" do
-      hook_fn = fn _input, _id -> :allow end
-      opts = [can_use_tool: hook_fn]
+    test "adds --permission-prompt-tool stdio when can_use_tool is a module" do
+      args = Command.to_cli_args(can_use_tool: SomeModule)
+      assert "--permission-prompt-tool" in args
+      idx = Enum.find_index(args, &(&1 == "--permission-prompt-tool"))
+      assert Enum.at(args, idx + 1) == "stdio"
+    end
 
-      args = Command.to_cli_args(opts)
-      refute "--can-use-tool" in args
+    test "adds --permission-prompt-tool stdio when can_use_tool is a function" do
+      args = Command.to_cli_args(can_use_tool: fn _, _ -> :allow end)
+      assert "--permission-prompt-tool" in args
+    end
+
+    test "does not add flag when can_use_tool is nil" do
+      args = Command.to_cli_args([])
+      refute "--permission-prompt-tool" in args
     end
 
     test "hooks is not passed as a CLI flag" do
