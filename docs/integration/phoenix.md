@@ -229,5 +229,5 @@ end
 ## Next Steps
 
 - [Streaming Output](../guides/streaming-output.md) - Detailed streaming patterns
-- [Supervision Guide](../advanced/supervision.md) - Production setup
+- [Hosting](../guides/hosting.md) - Production setup
 - [Tool Callbacks](tool-callbacks.md) - Monitor Claude's actions

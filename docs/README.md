@@ -47,7 +47,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 ## Advanced
 
 - **`ClaudeCode.Options`** - All options and precedence rules
-- **[Supervision](advanced/supervision.md)** - Fault-tolerant production deployments
+- **[Hosting](guides/hosting.md)** - Fault-tolerant production deployments
 - **[Subagents](guides/subagents.md)** - Custom agent configurations
 
 ## Reference

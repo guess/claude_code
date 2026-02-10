@@ -304,7 +304,7 @@ Includes message helpers (`text`, `tool_use`, `tool_result`, `thinking`), dynami
 ## 📚 Documentation
 
 - 📖 **[Documentation Hub](docs/README.md)** - All guides and references
-- 🏭 **[Production Guide](docs/advanced/supervision.md)** - Fault-tolerant production deployments
+- 🏭 **[Production Guide](docs/guides/hosting.md)** - Fault-tolerant production deployments
 - 💻 **[Examples](docs/reference/examples.md)** - Real-world usage patterns and code samples
 - 📖 **[API Reference](https://hexdocs.pm/claude_code)** - Complete API documentation
 - 🔧 **[Troubleshooting](docs/reference/troubleshooting.md)** - Common issues and solutions

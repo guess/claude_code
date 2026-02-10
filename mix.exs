@@ -122,7 +122,6 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/sessions.md",
         "docs/guides/stop-reasons.md",
         "docs/guides/structured-outputs.md",
-        "docs/guides/file-checkpointing.md",
         # Control & Permissions
         "docs/guides/permissions.md",
         "docs/guides/user-input.md",
@@ -138,16 +137,15 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/subagents.md",
         "docs/guides/plugins.md",
         # Production
+        "docs/reference/testing.md",
         "docs/guides/hosting.md",
-        "docs/advanced/supervision.md",
         "docs/guides/secure-deployment.md",
+        "docs/guides/file-checkpointing.md",
         "docs/guides/cost-tracking.md",
-        # Integration
-        "docs/integration/phoenix.md",
         # Reference
+        "docs/integration/phoenix.md",
         "docs/reference/architecture.md",
         "docs/reference/examples.md",
-        "docs/reference/testing.md",
         "docs/reference/troubleshooting.md"
       ],
       groups_for_extras: [
@@ -159,8 +157,7 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/streaming-output.md",
           "docs/guides/sessions.md",
           "docs/guides/stop-reasons.md",
-          "docs/guides/structured-outputs.md",
-          "docs/guides/file-checkpointing.md"
+          "docs/guides/structured-outputs.md"
         ],
         "Control & Permissions": [
           "docs/guides/permissions.md",
@@ -180,18 +177,16 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/plugins.md"
         ],
         Production: [
+          "docs/reference/testing.md",
           "docs/guides/hosting.md",
-          "docs/advanced/supervision.md",
           "docs/guides/secure-deployment.md",
+          "docs/guides/file-checkpointing.md",
           "docs/guides/cost-tracking.md"
         ],
-        Integration: [
-          "docs/integration/phoenix.md"
-        ],
         Reference: [
+          "docs/integration/phoenix.md",
           "docs/reference/architecture.md",
           "docs/reference/examples.md",
-          "docs/reference/testing.md",
           "docs/reference/troubleshooting.md"
         ]
       ],

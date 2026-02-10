@@ -200,4 +200,4 @@ end
 ## Next Steps
 
 - [Permissions Guide](../guides/permissions.md) - Control tool access
-- [Supervision Guide](../advanced/supervision.md) - Production patterns
+- [Hosting](../guides/hosting.md) - Production patterns
