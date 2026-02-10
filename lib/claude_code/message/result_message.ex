@@ -192,7 +192,9 @@ defmodule ClaudeCode.Message.ResultMessage do
       output_tokens: usage_data["output_tokens"] || 0,
       server_tool_use: parse_server_tool_use(usage_data["server_tool_use"]),
       service_tier: usage_data["service_tier"],
-      cache_creation: parse_cache_creation(usage_data["cache_creation"])
+      cache_creation: parse_cache_creation(usage_data["cache_creation"]),
+      inference_geo: usage_data["inference_geo"],
+      iterations: usage_data["iterations"] || []
     }
   end
 
@@ -204,7 +206,9 @@ defmodule ClaudeCode.Message.ResultMessage do
       output_tokens: 0,
       server_tool_use: %{web_search_requests: 0, web_fetch_requests: 0},
       service_tier: nil,
-      cache_creation: nil
+      cache_creation: nil,
+      inference_geo: nil,
+      iterations: []
     }
 
   defp parse_server_tool_use(%{} = data) when map_size(data) > 0 do

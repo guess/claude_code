@@ -41,6 +41,7 @@ defmodule ClaudeCode.Message.SystemMessage do
     agents: [],
     skills: [],
     plugins: [],
+    fast_mode_state: nil,
     data: %{}
   ]
 
@@ -61,6 +62,7 @@ defmodule ClaudeCode.Message.SystemMessage do
           agents: [String.t()],
           skills: [String.t()],
           plugins: [Types.plugin()],
+          fast_mode_state: String.t() | nil,
           data: map()
         }
 
@@ -113,7 +115,8 @@ defmodule ClaudeCode.Message.SystemMessage do
         output_style: json["output_style"] || "default",
         agents: json["agents"] || [],
         skills: json["skills"] || [],
-        plugins: parse_plugins(json["plugins"])
+        plugins: parse_plugins(json["plugins"]),
+        fast_mode_state: json["fast_mode_state"]
       }
 
       {:ok, message}
