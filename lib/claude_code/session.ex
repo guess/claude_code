@@ -186,6 +186,15 @@ defmodule ClaudeCode.Session do
     end
   end
 
+  def handle_call(:interrupt, _from, state) do
+    if function_exported?(state.adapter_module, :interrupt, 1) do
+      result = state.adapter_module.interrupt(state.adapter_pid)
+      {:reply, result, state}
+    else
+      {:reply, {:error, :not_supported}, state}
+    end
+  end
+
   @impl true
   def handle_cast({:stream_cleanup, request_ref}, state) do
     new_requests = Map.delete(state.requests, request_ref)

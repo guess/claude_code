@@ -393,6 +393,22 @@ defmodule ClaudeCode do
   end
 
   @doc """
+  Interrupts the current generation.
+
+  Sends an interrupt signal to the CLI to stop the current generation.
+  This is a fire-and-forget operation — the CLI will stop generating
+  and emit a result message.
+
+  ## Examples
+
+      :ok = ClaudeCode.interrupt(session)
+  """
+  @spec interrupt(session()) :: :ok | {:error, term()}
+  def interrupt(session) do
+    GenServer.call(session, :interrupt)
+  end
+
+  @doc """
   Rewinds tracked files to the state at a specific user message checkpoint.
 
   ## Examples

@@ -93,7 +93,15 @@ defmodule ClaudeCode.Adapter do
   """
   @callback get_server_info(adapter :: pid()) :: {:ok, map() | nil} | {:error, term()}
 
-  @optional_callbacks [send_control_request: 3, get_server_info: 1]
+  @doc """
+  Sends an interrupt signal to stop the current generation.
+
+  This is an optional, fire-and-forget callback — the CLI stops generating
+  and emits a result message. No response is expected.
+  """
+  @callback interrupt(adapter :: pid()) :: :ok | {:error, term()}
+
+  @optional_callbacks [send_control_request: 3, get_server_info: 1, interrupt: 1]
 
   # ============================================================================
   # Notification Helpers

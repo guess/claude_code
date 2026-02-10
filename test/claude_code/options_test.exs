@@ -348,6 +348,34 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       assert validated[:enable_file_checkpointing] == false
     end
+
+    test "validates extra_args option as list of strings" do
+      opts = [extra_args: ["--some-flag", "value"]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:extra_args] == ["--some-flag", "value"]
+    end
+
+    test "defaults extra_args to empty list" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:extra_args] == []
+    end
+
+    test "validates max_buffer_size option" do
+      opts = [max_buffer_size: 512]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:max_buffer_size] == 512
+    end
+
+    test "defaults max_buffer_size to 1MB" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:max_buffer_size] == 1_048_576
+    end
+
+    test "rejects zero max_buffer_size" do
+      assert {:error, _} = Options.validate_session_options(max_buffer_size: 0)
+    end
   end
 
   describe "validate_query_options/1" do
@@ -369,7 +397,9 @@ defmodule ClaudeCode.OptionsTest do
     end
 
     test "accepts empty options" do
-      assert {:ok, []} = Options.validate_query_options([])
+      assert {:ok, validated} = Options.validate_query_options([])
+      # Only defaults present
+      assert validated[:extra_args] == []
     end
 
     test "validates include_partial_messages in query options" do
@@ -443,6 +473,18 @@ defmodule ClaudeCode.OptionsTest do
       opts = [plugins: ["./my-plugin"]]
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:plugins] == ["./my-plugin"]
+    end
+
+    test "validates extra_args in query options" do
+      opts = [extra_args: ["--new-flag"]]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:extra_args] == ["--new-flag"]
+    end
+
+    test "defaults extra_args to empty list in query options" do
+      opts = []
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:extra_args] == []
     end
   end
 

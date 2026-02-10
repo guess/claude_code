@@ -931,5 +931,44 @@ defmodule ClaudeCode.CLI.CommandTest do
       args = Command.to_cli_args(opts)
       refute "--enable-file-checkpointing" in args
     end
+
+    test "extra_args are appended at end of CLI args" do
+      opts = [model: "opus", extra_args: ["--new-flag", "value"]]
+
+      args = Command.to_cli_args(opts)
+      assert "--model" in args
+      assert "opus" in args
+      assert List.last(args) == "value"
+      assert Enum.at(args, -2) == "--new-flag"
+    end
+
+    test "empty extra_args produces no extra arguments" do
+      opts = [model: "opus", extra_args: []]
+
+      args = Command.to_cli_args(opts)
+      assert "--model" in args
+      assert "opus" in args
+      assert length(args) == 2
+    end
+
+    test "extra_args appear after all converted options" do
+      opts = [model: "opus", max_turns: 10, extra_args: ["--custom"]]
+
+      args = Command.to_cli_args(opts)
+      custom_pos = Enum.find_index(args, &(&1 == "--custom"))
+      model_pos = Enum.find_index(args, &(&1 == "--model"))
+      turns_pos = Enum.find_index(args, &(&1 == "--max-turns"))
+
+      assert custom_pos > model_pos
+      assert custom_pos > turns_pos
+    end
+
+    test "max_buffer_size is not passed as a CLI flag" do
+      opts = [max_buffer_size: 512]
+
+      args = Command.to_cli_args(opts)
+      refute "--max-buffer-size" in args
+      refute "512" in args
+    end
   end
 end

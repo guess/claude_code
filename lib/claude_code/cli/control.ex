@@ -154,6 +154,21 @@ defmodule ClaudeCode.CLI.Control do
     encode_control_request(request_id, %{subtype: "mcp_status"})
   end
 
+  @doc """
+  Builds an interrupt control request JSON string.
+
+  Interrupt is fire-and-forget — the CLI stops generating and emits a result message.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+
+  """
+  @spec interrupt_request(String.t()) :: String.t()
+  def interrupt_request(request_id) do
+    encode_control_request(request_id, %{subtype: "interrupt"})
+  end
+
   # --- Response Builders (SDK -> CLI, answering CLI requests) -----------------
 
   @doc """

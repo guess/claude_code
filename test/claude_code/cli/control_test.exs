@@ -133,6 +133,22 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
+  describe "interrupt_request/1" do
+    test "builds interrupt request JSON" do
+      json = Control.interrupt_request("req_6_pqr")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_6_pqr"
+      assert decoded["request"]["subtype"] == "interrupt"
+    end
+
+    test "produces single-line JSON" do
+      json = Control.interrupt_request("req_6_pqr")
+      refute String.contains?(json, "\n")
+    end
+  end
+
   describe "success_response/2" do
     test "builds success control response JSON" do
       json = Control.success_response("req_1_abc", %{status: "ok"})

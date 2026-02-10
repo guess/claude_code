@@ -651,6 +651,200 @@ defmodule ClaudeCode.Adapter.LocalTest do
   end
 
   # ============================================================================
+  # Interrupt Tests
+  # ============================================================================
+
+  describe "interrupt" do
+    test "Adapter.Local exports interrupt/1" do
+      assert function_exported?(ClaudeCode.Adapter.Local, :interrupt, 1)
+    end
+
+    test "interrupt sends control message and returns :ok" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            SUBTYPE=$(echo "$line" | grep -o '"subtype":"[^"]*"' | head -1 | cut -d'"' -f4)
+            if [ "$SUBTYPE" = "initialize" ]; then
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+            # interrupt requests are fire-and-forget, no response needed
+          else
+            echo '{"type":"assistant","message":{"id":"msg_1","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"Hello"}],"stop_reason":null,"stop_sequence":null,"usage":{}},"parent_tool_use_id":null,"session_id":"test-123"}'
+            sleep 10
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      assert :ok = Local.interrupt(adapter)
+
+      GenServer.stop(adapter)
+    end
+
+    test "interrupt returns error when not connected" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      # Force disconnect by replacing state
+      :sys.replace_state(adapter, fn state ->
+        %{state | port: nil, status: :disconnected}
+      end)
+
+      assert {:error, :not_connected} = Local.interrupt(adapter)
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  # ============================================================================
+  # Max Buffer Size Tests
+  # ============================================================================
+
+  describe "max_buffer_size" do
+    test "defaults max_buffer_size to 1MB" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      state = :sys.get_state(adapter)
+      assert state.max_buffer_size == 1_048_576
+
+      GenServer.stop(adapter)
+    end
+
+    test "respects custom max_buffer_size" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          max_buffer_size: 512
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      state = :sys.get_state(adapter)
+      assert state.max_buffer_size == 512
+
+      GenServer.stop(adapter)
+    end
+
+    test "disconnects on buffer overflow" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        INIT_DONE=false
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            INIT_DONE=true
+          elif [ "$INIT_DONE" = true ]; then
+            # Output a very long line without newline to overflow the buffer
+            python3 -c "import sys; sys.stdout.write('x' * 2000); sys.stdout.flush()"
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Local.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          max_buffer_size: 1000
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      req_ref = make_ref()
+      :ok = Local.send_query(adapter, req_ref, "hello", [])
+
+      assert_receive {:adapter_error, ^req_ref, {:buffer_overflow, _size}}, 5000
+
+      state = :sys.get_state(adapter)
+      assert state.status == :disconnected
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  # ============================================================================
   # Initialize Handshake Tests (Task 6)
   # ============================================================================
 

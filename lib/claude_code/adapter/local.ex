@@ -37,7 +37,8 @@ defmodule ClaudeCode.Adapter.Local do
     :server_info,
     status: :provisioning,
     control_counter: 0,
-    pending_control_requests: %{}
+    pending_control_requests: %{},
+    max_buffer_size: 1_048_576
   ]
 
   # ============================================================================
@@ -74,6 +75,11 @@ defmodule ClaudeCode.Adapter.Local do
     GenServer.call(adapter, :get_server_info)
   end
 
+  @impl ClaudeCode.Adapter
+  def interrupt(adapter) do
+    GenServer.call(adapter, :interrupt)
+  end
+
   # ============================================================================
   # Server Callbacks
   # ============================================================================
@@ -84,7 +90,8 @@ defmodule ClaudeCode.Adapter.Local do
       session: session,
       session_options: opts,
       buffer: "",
-      api_key: Keyword.get(opts, :api_key)
+      api_key: Keyword.get(opts, :api_key),
+      max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576)
     }
 
     Process.link(session)
@@ -166,6 +173,17 @@ defmodule ClaudeCode.Adapter.Local do
     {:reply, {:ok, state.server_info}, state}
   end
 
+  def handle_call(:interrupt, _from, %{port: nil} = state) do
+    {:reply, {:error, :not_connected}, state}
+  end
+
+  def handle_call(:interrupt, _from, state) do
+    {request_id, new_counter} = next_request_id(state.control_counter)
+    json = Control.interrupt_request(request_id)
+    Port.command(state.port, json <> "\n")
+    {:reply, :ok, %{state | control_counter: new_counter}}
+  end
+
   @impl GenServer
   def handle_info({:cli_resolved, {:ok, {executable, args, streaming_opts}}}, state) do
     case open_cli_port(executable, args, state, streaming_opts) do
@@ -185,14 +203,22 @@ defmodule ClaudeCode.Adapter.Local do
   end
 
   def handle_info({port, {:data, data}}, %{port: port} = state) do
-    {lines, remaining_buffer} = extract_lines(state.buffer <> data)
+    new_buffer = state.buffer <> data
 
-    new_state =
-      Enum.reduce(lines, %{state | buffer: remaining_buffer}, fn line, acc_state ->
-        process_line(line, acc_state)
-      end)
+    if byte_size(new_buffer) > state.max_buffer_size do
+      Logger.error("Buffer overflow: #{byte_size(new_buffer)} bytes exceeds max #{state.max_buffer_size}")
 
-    {:noreply, new_state}
+      {:noreply, handle_port_disconnect(state, {:buffer_overflow, byte_size(new_buffer)})}
+    else
+      {lines, remaining_buffer} = extract_lines(new_buffer)
+
+      new_state =
+        Enum.reduce(lines, %{state | buffer: remaining_buffer}, fn line, acc_state ->
+          process_line(line, acc_state)
+        end)
+
+      {:noreply, new_state}
+    end
   end
 
   def handle_info({port, {:exit_status, status}}, %{port: port} = state) do
