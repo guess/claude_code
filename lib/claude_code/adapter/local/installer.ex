@@ -38,6 +38,8 @@ defmodule ClaudeCode.Adapter.Local.Installer do
   3. **Use system CLI** - Set `cli_path: :global` and ensure `claude` is in PATH
   """
 
+  alias ClaudeCode.SystemCmd
+
   require Logger
 
   @claude_binary "claude"
@@ -172,7 +174,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
   """
   @spec version_of(String.t()) :: {:ok, String.t()} | {:error, term()}
   def version_of(path) do
-    case System.cmd(path, ["--version"], stderr_to_stdout: true) do
+    case SystemCmd.cmd(path, ["--version"], stderr_to_stdout: true) do
       {output, 0} -> {:ok, parse_version_output(output)}
       {error, _code} -> {:error, {:cli_error, error}}
     end
@@ -261,7 +263,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
     # Logger.debug("Running install script in #{tmp_dir}: #{shell} #{inspect(args)}")
 
     result =
-      with {_output, 0} <- System.cmd(shell, args, stderr_to_stdout: true, env: env),
+      with {_output, 0} <- SystemCmd.cmd(shell, args, stderr_to_stdout: true, env: env),
            {:ok, path} <- find_installed_binary_in(tmp_dir) do
         dest = bundled_path()
         File.mkdir_p!(cli_dir())

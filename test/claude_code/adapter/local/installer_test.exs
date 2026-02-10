@@ -1,7 +1,12 @@
 defmodule ClaudeCode.Adapter.Local.InstallerTest do
   use ExUnit.Case, async: true
 
+  import Mox
+
   alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.SystemCmd.Mock
+
+  setup :verify_on_exit!
 
   describe "configured_version/0" do
     test "returns default version when no config set" do
@@ -89,13 +94,33 @@ defmodule ClaudeCode.Adapter.Local.InstallerTest do
 
       File.chmod!(mock_binary, 0o755)
 
-      assert {:ok, "2.1.37"} = Installer.version_of(mock_binary)
+      # Stub mock to delegate to real System.cmd for version_of tests
+      stub(Mock, :cmd, fn command, args, opts ->
+        System.cmd(command, args, opts)
+      end)
 
-      File.rm_rf!(mock_dir)
+      Application.put_env(:claude_code, :system_cmd_module, Mock)
+
+      try do
+        assert {:ok, "2.1.37"} = Installer.version_of(mock_binary)
+      after
+        Application.delete_env(:claude_code, :system_cmd_module)
+        File.rm_rf!(mock_dir)
+      end
     end
 
     test "returns error when binary doesn't exist" do
-      assert {:error, {:execution_failed, _}} = Installer.version_of("/nonexistent/binary")
+      stub(Mock, :cmd, fn command, args, opts ->
+        System.cmd(command, args, opts)
+      end)
+
+      Application.put_env(:claude_code, :system_cmd_module, Mock)
+
+      try do
+        assert {:error, {:execution_failed, _}} = Installer.version_of("/nonexistent/binary")
+      after
+        Application.delete_env(:claude_code, :system_cmd_module)
+      end
     end
 
     test "returns error when binary fails" do
@@ -112,9 +137,18 @@ defmodule ClaudeCode.Adapter.Local.InstallerTest do
 
       File.chmod!(mock_binary, 0o755)
 
-      assert {:error, {:cli_error, _}} = Installer.version_of(mock_binary)
+      stub(Mock, :cmd, fn command, args, opts ->
+        System.cmd(command, args, opts)
+      end)
 
-      File.rm_rf!(mock_dir)
+      Application.put_env(:claude_code, :system_cmd_module, Mock)
+
+      try do
+        assert {:error, {:cli_error, _}} = Installer.version_of(mock_binary)
+      after
+        Application.delete_env(:claude_code, :system_cmd_module)
+        File.rm_rf!(mock_dir)
+      end
     end
   end
 
@@ -129,70 +163,129 @@ defmodule ClaudeCode.Adapter.Local.InstallerTest do
     end
   end
 
-  describe "install!/1 error handling" do
-    test "raises with descriptive error when install script fails" do
-      # This test verifies the error message format when installation fails
-      # We test by checking the error handling path exists and provides good messaging
-      #
-      # Note: We can't easily mock System.cmd in Elixir, so we verify the error
-      # message structure is correct by testing with an invalid version that
-      # would cause the install script to fail
-      try do
-        # Create a temp directory for testing
-        tmp_dir = Path.join(System.tmp_dir!(), "claude_install_test_#{:erlang.unique_integer()}")
-
-        original_cli_dir = Application.get_env(:claude_code, :cli_dir)
-
-        try do
-          Application.put_env(:claude_code, :cli_dir, tmp_dir)
-
-          # Skip this test in CI or when we can't run install scripts
-          # The test verifies the code paths exist
-          :ok
-        after
-          if original_cli_dir do
-            Application.put_env(:claude_code, :cli_dir, original_cli_dir)
-          else
-            Application.delete_env(:claude_code, :cli_dir)
-          end
-
-          File.rm_rf(tmp_dir)
-        end
-      rescue
-        _ -> :ok
-      end
-    end
-
-    test "install!/1 creates cli_dir if it doesn't exist" do
-      tmp_dir = Path.join(System.tmp_dir!(), "claude_install_dir_test_#{:erlang.unique_integer()}")
-
-      # Ensure it doesn't exist
-      File.rm_rf(tmp_dir)
-      refute File.exists?(tmp_dir)
+  describe "install!/1" do
+    setup do
+      tmp_dir = Path.join(System.tmp_dir!(), "claude_install_test_#{:erlang.unique_integer([:positive])}")
 
       original_cli_dir = Application.get_env(:claude_code, :cli_dir)
+      Application.put_env(:claude_code, :cli_dir, tmp_dir)
+      Application.put_env(:claude_code, :system_cmd_module, Mock)
 
-      try do
-        Application.put_env(:claude_code, :cli_dir, tmp_dir)
-
-        # Call install! which should create the directory
-        # Note: We expect this to fail (no network/curl in test) but the directory should be created
-        try do
-          Installer.install!()
-        rescue
-          RuntimeError -> :ok
-        end
-
-        # Directory should have been created even if install failed afterward
-        assert File.exists?(tmp_dir) or true
-      after
+      on_exit(fn ->
         if original_cli_dir do
           Application.put_env(:claude_code, :cli_dir, original_cli_dir)
         else
           Application.delete_env(:claude_code, :cli_dir)
         end
 
+        Application.delete_env(:claude_code, :system_cmd_module)
         File.rm_rf(tmp_dir)
+      end)
+
+      %{tmp_dir: tmp_dir}
+    end
+
+    test "creates cli_dir and installs binary on success", %{tmp_dir: tmp_dir} do
+      refute File.exists?(tmp_dir)
+
+      # The install script runs in a temp dir with HOME set.
+      # On success, it should find the binary at <tmp>/.local/bin/claude
+      # and copy it to the bundled path.
+      expect(Mock, :cmd, fn "bash", ["-c", script_cmd], opts ->
+        assert script_cmd =~ "curl -fsSL"
+        assert script_cmd =~ "claude.ai/install.sh"
+
+        # Simulate what the install script does: place a binary at <HOME>/.local/bin/claude
+        env = Keyword.get(opts, :env, [])
+        home = Enum.find_value(env, fn {"HOME", v} -> v end)
+        assert home, "HOME should be set in env"
+
+        bin_dir = Path.join([home, ".local", "bin"])
+        File.mkdir_p!(bin_dir)
+        binary_path = Path.join(bin_dir, "claude")
+
+        File.write!(binary_path, """
+        #!/bin/bash
+        echo "2.1.37 (Claude Code)"
+        """)
+
+        File.chmod!(binary_path, 0o755)
+
+        {"Installation complete", 0}
+      end)
+
+      # version_from_binary will call version_of on the copied binary
+      expect(Mock, :cmd, fn path, ["--version"], _opts ->
+        assert String.ends_with?(path, "/claude")
+        {"2.1.37 (Claude Code)", 0}
+      end)
+
+      assert :ok = Installer.install!()
+      assert File.exists?(tmp_dir)
+      assert File.exists?(Path.join(tmp_dir, "claude"))
+    end
+
+    test "returns info map when return_info: true", %{tmp_dir: tmp_dir} do
+      expect(Mock, :cmd, fn "bash", ["-c", _], opts ->
+        env = Keyword.get(opts, :env, [])
+        home = Enum.find_value(env, fn {"HOME", v} -> v end)
+        bin_dir = Path.join([home, ".local", "bin"])
+        File.mkdir_p!(bin_dir)
+        binary_path = Path.join(bin_dir, "claude")
+        File.write!(binary_path, "mock-binary-content")
+        File.chmod!(binary_path, 0o755)
+        {"Installation complete", 0}
+      end)
+
+      expect(Mock, :cmd, fn _path, ["--version"], _opts ->
+        {"3.0.0 (Claude Code)", 0}
+      end)
+
+      assert {:ok, info} = Installer.install!(return_info: true)
+      assert info.version == "3.0.0"
+      assert info.path == Path.join(tmp_dir, "claude")
+      assert is_integer(info.size_bytes)
+    end
+
+    test "passes version to install script" do
+      expect(Mock, :cmd, fn "bash", ["-c", script_cmd], opts ->
+        assert script_cmd =~ "bash -s -- 1.2.3"
+
+        env = Keyword.get(opts, :env, [])
+        home = Enum.find_value(env, fn {"HOME", v} -> v end)
+        bin_dir = Path.join([home, ".local", "bin"])
+        File.mkdir_p!(bin_dir)
+        binary_path = Path.join(bin_dir, "claude")
+        File.write!(binary_path, "binary")
+        File.chmod!(binary_path, 0o755)
+        {"OK", 0}
+      end)
+
+      expect(Mock, :cmd, fn _path, ["--version"], _opts ->
+        {"1.2.3 (Claude Code)", 0}
+      end)
+
+      assert :ok = Installer.install!(version: "1.2.3")
+    end
+
+    test "raises when install script fails" do
+      expect(Mock, :cmd, fn "bash", ["-c", _], _opts ->
+        {"Error: network failure", 1}
+      end)
+
+      assert_raise RuntimeError, ~r/install script exited with code 1/, fn ->
+        Installer.install!()
+      end
+    end
+
+    test "raises when binary not found after successful script" do
+      expect(Mock, :cmd, fn "bash", ["-c", _], _opts ->
+        # Script "succeeds" but doesn't place a binary anywhere
+        {"OK", 0}
+      end)
+
+      assert_raise RuntimeError, ~r/Failed to install Claude CLI/, fn ->
+        Installer.install!()
       end
     end
   end

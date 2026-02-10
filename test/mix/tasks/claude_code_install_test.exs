@@ -2,9 +2,13 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
   use ExUnit.Case, async: false
 
   import ExUnit.CaptureIO
+  import Mox
 
   alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.SystemCmd.Mock
   alias Mix.Tasks.ClaudeCode.Install
+
+  setup :verify_on_exit!
 
   describe "run/1 option parsing" do
     test "parses --version flag" do
@@ -57,6 +61,13 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
 
         Application.put_env(:claude_code, :cli_dir, tmp_dir)
 
+        # version_of calls SystemCmd.cmd to check the version
+        stub(Mock, :cmd, fn command, args, opts ->
+          System.cmd(command, args, opts)
+        end)
+
+        Application.put_env(:claude_code, :system_cmd_module, Mock)
+
         output =
           capture_io(fn ->
             Install.run([])
@@ -71,6 +82,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
           Application.delete_env(:claude_code, :cli_dir)
         end
 
+        Application.delete_env(:claude_code, :system_cmd_module)
         File.rm_rf(tmp_dir)
       end
     end
@@ -78,6 +90,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
     test "auto-updates when version mismatches" do
       tmp_dir = Path.join(System.tmp_dir!(), "claude_task_test3_#{:erlang.unique_integer()}")
       bundled_path = Path.join(tmp_dir, "claude")
+      expected_version = Installer.configured_version()
 
       original_cli_dir = Application.get_env(:claude_code, :cli_dir)
 
@@ -92,6 +105,30 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
         File.chmod!(bundled_path, 0o755)
 
         Application.put_env(:claude_code, :cli_dir, tmp_dir)
+        Application.put_env(:claude_code, :system_cmd_module, Mock)
+
+        # First call: version_of checks the existing binary (returns old version)
+        expect(Mock, :cmd, fn ^bundled_path, ["--version"], _opts ->
+          {"0.0.1 (Claude Code)", 0}
+        end)
+
+        # Second call: install script execution
+        expect(Mock, :cmd, fn "bash", ["-c", script_cmd], opts ->
+          assert script_cmd =~ "curl -fsSL"
+
+          env = Keyword.get(opts, :env, [])
+          home = Enum.find_value(env, fn {"HOME", v} -> v end)
+          bin_dir = Path.join([home, ".local", "bin"])
+          File.mkdir_p!(bin_dir)
+          File.write!(Path.join(bin_dir, "claude"), "binary")
+          File.chmod!(Path.join(bin_dir, "claude"), 0o755)
+          {"OK", 0}
+        end)
+
+        # Third call: version_from_binary after install
+        expect(Mock, :cmd, fn ^bundled_path, ["--version"], _opts ->
+          {"#{expected_version} (Claude Code)", 0}
+        end)
 
         output =
           capture_io(fn ->
@@ -107,17 +144,9 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
           Application.delete_env(:claude_code, :cli_dir)
         end
 
+        Application.delete_env(:claude_code, :system_cmd_module)
         File.rm_rf(tmp_dir)
       end
-    end
-  end
-
-  describe "version_label/1 helper" do
-    # Test the private version_label function behavior through the output
-    test "shows no version label for 'latest'" do
-      # Can't test private function directly, but we can verify the expected output format
-      # The function returns "" for "latest" and " vX.X.X" for specific versions
-      assert true
     end
   end
 end
