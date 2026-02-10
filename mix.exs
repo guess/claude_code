@@ -119,9 +119,9 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/overview.md",
         "docs/guides/quickstart.md",
         # Core Concepts
-        "docs/guides/sessions.md",
         "docs/guides/streaming-vs-single-mode.md",
         "docs/guides/streaming-output.md",
+        "docs/guides/sessions.md",
         "docs/guides/stop-reasons.md",
         "docs/guides/structured-outputs.md",
         "docs/guides/file-checkpointing.md",
@@ -129,16 +129,16 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/permissions.md",
         "docs/guides/user-input.md",
         "docs/guides/hooks.md",
+        "docs/integration/tool-callbacks.md",
         "docs/guides/modifying-system-prompts.md",
         # Capabilities
         "docs/guides/mcp.md",
         "docs/guides/custom-tools.md",
-        # Plugins
-        "docs/guides/plugins.md",
+        # Skills
         "docs/guides/skills.md",
         "docs/guides/slash-commands.md",
         "docs/guides/subagents.md",
-        "docs/integration/tool-callbacks.md",
+        "docs/guides/plugins.md",
         # Production
         "docs/guides/hosting.md",
         "docs/advanced/supervision.md",
@@ -159,9 +159,9 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/quickstart.md"
         ],
         "Core Concepts": [
-          "docs/guides/sessions.md",
           "docs/guides/streaming-vs-single-mode.md",
           "docs/guides/streaming-output.md",
+          "docs/guides/sessions.md",
           "docs/guides/stop-reasons.md",
           "docs/guides/structured-outputs.md",
           "docs/guides/file-checkpointing.md"
@@ -170,18 +170,18 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/permissions.md",
           "docs/guides/user-input.md",
           "docs/guides/hooks.md",
+          "docs/integration/tool-callbacks.md",
           "docs/guides/modifying-system-prompts.md"
         ],
         Capabilities: [
           "docs/guides/mcp.md",
           "docs/guides/custom-tools.md"
         ],
-        Plugins: [
-          "docs/guides/plugins.md",
+        Skills: [
           "docs/guides/skills.md",
           "docs/guides/slash-commands.md",
           "docs/guides/subagents.md",
-          "docs/integration/tool-callbacks.md"
+          "docs/guides/plugins.md"
         ],
         Production: [
           "docs/guides/hosting.md",
