@@ -13,7 +13,7 @@ The idiomatic Elixir SDK for building AI agents with Claude. Native streams, in-
 
 - **✅ Full Feature Parity** -- 100% parity with the official Python and TypeScript SDKs
 - **📦 Zero Setup** -- Bundled CLI binary, auto-installed on first use. Just add the dep.
-- **🏭 OTP Native** -- Sessions are GenServers. Link to a LiveView, supervise as a service, or run hundreds concurrently.
+- **🏭 OTP Native** -- Sessions are GenServers with standard OTP lifecycle management
 - **🔄 Elixir Streams** -- Native streaming with backpressure and composable pipelines
 - **🔌 In-Process Tools & Hooks** -- BEAM-native tools and lifecycle hooks with full access to application state
 - **⚡ Phoenix LiveView** -- Stream tokens directly into LiveView and PubSub
@@ -29,12 +29,11 @@ session
 
 ## Why Elixir?
 
-The Claude Agent SDK runs agents as long-lived processes that execute tools, maintain conversation state, and stream responses. This maps perfectly onto OTP:
+AI agents are long-lived processes that execute tools, maintain state, and stream responses. That's just OTP:
 
-- **Sessions are processes** -- link to a LiveView, supervise as a named service, or spawn per-request. Lifecycle management is just OTP.
-- **Elixir Streams** give you backpressure, composability, and direct piping into LiveView -- no callbacks or event emitters.
-- **In-process tools** run inside your BEAM VM with direct access to Ecto repos, GenServers, and caches. No subprocess needed.
-- **Concurrent sessions** are trivial -- each agent is a GenServer. Run hundreds in parallel.
+- **Sessions are GenServers** -- link to a LiveView, spawn per-request, or supervise as a service
+- **Elixir Streams** -- backpressure, composability, and direct piping into LiveView
+- **In-process tools** -- direct access to Ecto repos, GenServers, and caches from inside the BEAM
 
 ## Install
 
