@@ -1,5 +1,7 @@
 # User Input
 
+TODO: https://platform.claude.com/docs/en/agent-sdk/user-input
+
 Manage multi-turn interactions with Claude.
 
 ## Multi-Turn Conversations
@@ -86,6 +88,7 @@ end
 The Agent SDK (Python/TypeScript) supports a `canUseTool` callback that runs before each tool execution, allowing you to approve or reject tool use programmatically. This feature is **not yet available** in the Elixir SDK.
 
 Current alternatives:
+
 - Use `permission_mode:` to control overall permission behavior
 - Use `allowed_tools:` / `disallowed_tools:` for static tool restrictions
 - Use `tool_callback:` for post-execution monitoring (see [Hooks](hooks.md))

@@ -1,7 +1,6 @@
 # Guide Writing Rules
 
 - Use full module names in prose so HexDocs auto-links them (e.g., `ClaudeCode.Stream.final_result/1`, not `final_result/1`).
-- Always assume streaming context in code examples — use session + `ClaudeCode.stream/3`, not `query/2`.
 - Check existing code before writing code snippets — ensure functions exist, use utility helpers whenever available, or if some use-cases seem very verbose, suggest adding a helper utility (e.g., `ClaudeCode.Stream` helpers).
 - Use `ClaudeCode.Stream` helpers for common streaming operations (e.g., `ClaudeCode.Stream.final_result/1`).
 
