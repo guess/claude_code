@@ -1,10 +1,10 @@
 # Custom Tools
 
-Build custom tools to extend Claude's capabilities with your own functionality.
+Build custom tools to extend Claude's capabilities with your own Elixir functionality.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/custom-tools). Examples are adapted for Elixir.
 
-Custom tools allow you to extend Claude Code's capabilities through MCP (Model Context Protocol) servers. The Elixir SDK supports two approaches for building tools:
+Custom tools allow you to extend Claude Code's capabilities through MCP (Model Context Protocol) servers defined in your application code. The Elixir SDK supports two approaches:
 
 1. **In-process tools** -- Define tools with `ClaudeCode.MCP.Server` that run in your BEAM VM, with full access to application state (Ecto repos, GenServers, caches)
 2. **Hermes MCP servers** -- Define tools as [Hermes MCP](https://hex.pm/packages/hermes_mcp) components that run as a separate subprocess
@@ -28,7 +28,9 @@ Then run `mix deps.get`.
 
 You can check availability at runtime with `ClaudeCode.MCP.available?/0`.
 
-## Creating in-process tools
+## Creating custom tools
+
+### In-process tools
 
 Use `ClaudeCode.MCP.Server` to define tools that run in the same BEAM process as your application. This is the recommended approach when your tools need access to application state:
 
@@ -55,22 +57,13 @@ defmodule MyApp.Tools do
 end
 ```
 
-Pass the module to a session via `:mcp_servers` and it runs in-process automatically:
-
-```elixir
-{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
-  mcp_servers: %{"my-tools" => MyApp.Tools},
-  allowed_tools: ["mcp__my-tools__get_weather"]
-)
-```
-
-### How it works
+#### How it works
 
 The `tool` macro generates [Hermes MCP](https://hexdocs.pm/hermes_mcp) `Server.Component` modules under the hood. Each `tool` block becomes a nested module (e.g., `MyApp.Tools.GetWeather`) with a `schema`, `execute/2` callback, and JSON Schema definition -- all derived from the `field` declarations and your `execute` function.
 
 When passed to a session via `:mcp_servers`, the SDK detects in-process tool servers and emits `type: "sdk"` in the MCP configuration. The CLI routes JSONRPC messages through the control protocol instead of spawning a subprocess, and the SDK dispatches them to your tool modules via `ClaudeCode.MCP.Router`.
 
-### Schema definition
+#### Schema definition
 
 Use the Hermes `field` DSL inside each `tool` block. Hermes handles conversion to JSON Schema automatically:
 
@@ -87,7 +80,7 @@ tool :search, "Search for items" do
 end
 ```
 
-### Return values
+#### Return values
 
 Tool handlers return simple values. The macro wraps them into the MCP response format automatically:
 
@@ -97,7 +90,7 @@ Tool handlers return simple values. The macro wraps them into the MCP response f
 | `{:ok, data}` when data is a map or list | Returned as JSON content |
 | `{:error, message}` | Returned as error content (`is_error: true`) |
 
-### Accessing application state
+#### Accessing application state
 
 In-process tools can call into your application directly -- Ecto repos, GenServers, caches, and any other running processes. This is the primary advantage over subprocess-based tools:
 
@@ -125,7 +118,7 @@ defmodule MyApp.Tools do
 end
 ```
 
-## Creating Hermes MCP tools
+### Hermes MCP servers
 
 For tools that don't need application state access, or when you want a full [Hermes MCP](https://hexdocs.pm/hermes_mcp) server with resources and prompts, define tools as Hermes server components. Each tool is a module that uses [`Hermes.Server.Component`](https://hexdocs.pm/hermes_mcp/Hermes.Server.Component.html) with a `schema` block and an `execute/2` callback:
 
@@ -172,14 +165,90 @@ defmodule MyApp.MCPServer do
 end
 ```
 
-When passed to `:mcp_servers`, the SDK auto-generates a stdio command configuration that spawns the Hermes server as a subprocess:
+When passed to `:mcp_servers`, the SDK auto-generates a stdio command configuration that spawns the Hermes server as a subprocess.
+
+Pass custom environment variables to Hermes subprocesses with the `%{module: ..., env: ...}` form:
 
 ```elixir
-{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
-  mcp_servers: %{"my-custom-tools" => MyApp.MCPServer},
-  allowed_tools: ["mcp__my-custom-tools__get_weather"]
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    "db-tools" => %{
+      module: MyApp.DBTools,
+      env: %{"DATABASE_URL" => System.get_env("DATABASE_URL")}
+    }
+  }
 )
 ```
+
+## Using custom tools
+
+Both in-process and Hermes tools are passed to a session via the `:mcp_servers` option and work identically from Claude's perspective.
+
+### Tool name format
+
+When MCP tools are exposed to Claude, their names follow the pattern `mcp__<server-name>__<tool-name>`. For example, a tool named `get_weather` in server `"my-tools"` becomes `mcp__my-tools__get_weather`.
+
+### Configuring allowed tools
+
+Use `:allowed_tools` to control which custom tools Claude can use:
+
+```elixir
+# Allow all tools from an in-process server
+{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
+  mcp_servers: %{"my-tools" => MyApp.Tools},
+  allowed_tools: ["mcp__my-tools__*"]
+)
+
+# Allow specific tools only
+{:ok, result} = ClaudeCode.query("Look up alice@example.com",
+  mcp_servers: %{"my-tools" => MyApp.Tools},
+  allowed_tools: ["mcp__my-tools__query_user"]
+)
+
+# Hermes server works the same way
+{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
+  mcp_servers: %{"weather" => MyApp.MCPServer},
+  allowed_tools: ["mcp__weather__get_weather"]
+)
+```
+
+### Multiple tools
+
+When your server has multiple tools, you can selectively allow them:
+
+```elixir
+defmodule MyApp.Utilities do
+  use ClaudeCode.MCP.Server, name: "utilities"
+
+  tool :calculate, "Perform calculations" do
+    field :expression, :string, required: true
+    def execute(%{expression: expr}, _frame), do: {:ok, "#{Code.eval_string(expr) |> elem(0)}"}
+  end
+
+  tool :translate, "Translate text" do
+    field :text, :string, required: true
+    field :target_lang, :string, required: true
+    def execute(%{text: text, target_lang: lang}, _frame), do: {:ok, "Translated #{text} to #{lang}"}
+  end
+
+  tool :search_web, "Search the web" do
+    field :query, :string, required: true
+    def execute(%{query: query}, _frame), do: {:ok, "Results for: #{query}"}
+  end
+end
+
+{:ok, result} = ClaudeCode.query(
+  "Calculate 5 + 3 and translate 'hello' to Spanish",
+  mcp_servers: %{"utilities" => MyApp.Utilities},
+  allowed_tools: [
+    "mcp__utilities__calculate",   # Allow calculator
+    "mcp__utilities__translate"    # Allow translator
+    # mcp__utilities__search_web is NOT allowed
+  ]
+)
+```
+
+For details on `:allowed_tools`, wildcards, and alternative permission modes, see [MCP > Allow MCP tools](mcp.md#allow-mcp-tools).
 
 ## Error handling
 
@@ -382,7 +451,7 @@ defmodule MyApp.Calculator do
 end
 ```
 
-## Next steps
+## Related resources
 
 - [MCP](mcp.md) -- Connect to MCP servers, configure permissions, authentication, and troubleshooting
 - [Permissions](permissions.md) -- Control tool access and permission modes
