@@ -631,15 +631,22 @@ defmodule ClaudeCode.Adapter.Local do
         %{}
 
       servers when is_map(servers) ->
-        Map.new(
-          Enum.filter(servers, fn
-            {_name, module} when is_atom(module) ->
-              MCPServer.sdk_server?(module)
+        servers
+        |> Enum.flat_map(fn
+          {name, module} when is_atom(module) ->
+            if MCPServer.sdk_server?(module), do: [{name, {module, %{}}}], else: []
 
-            _ ->
-              false
-          end)
-        )
+          {name, %{module: module} = config} when is_atom(module) ->
+            if MCPServer.sdk_server?(module) do
+              [{name, {module, Map.get(config, :assigns, %{})}}]
+            else
+              []
+            end
+
+          _ ->
+            []
+        end)
+        |> Map.new()
     end
   end
 
@@ -653,8 +660,8 @@ defmodule ClaudeCode.Adapter.Local do
           "error" => %{"code" => -32_601, "message" => "Server '#{server_name}' not found"}
         }
 
-      module ->
-        MCPRouter.handle_request(module, jsonrpc)
+      {module, assigns} ->
+        MCPRouter.handle_request(module, jsonrpc, assigns)
     end
   end
 

@@ -13,7 +13,31 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
       ]
 
       result = Local.extract_sdk_mcp_servers(opts)
-      assert result == %{"calc" => ClaudeCode.TestTools}
+      assert result == %{"calc" => {ClaudeCode.TestTools, %{}}}
+    end
+
+    test "extracts MCP.Server modules with assigns" do
+      assigns = %{scope: :admin}
+
+      opts = [
+        mcp_servers: %{
+          "calc" => %{module: ClaudeCode.TestTools, assigns: assigns}
+        }
+      ]
+
+      result = Local.extract_sdk_mcp_servers(opts)
+      assert result == %{"calc" => {ClaudeCode.TestTools, assigns}}
+    end
+
+    test "defaults assigns to empty map for map config without assigns" do
+      opts = [
+        mcp_servers: %{
+          "calc" => %{module: ClaudeCode.TestTools}
+        }
+      ]
+
+      result = Local.extract_sdk_mcp_servers(opts)
+      assert result == %{"calc" => {ClaudeCode.TestTools, %{}}}
     end
 
     test "returns empty map when no mcp_servers" do
@@ -28,7 +52,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
 
   describe "handle_mcp_message/3" do
     test "dispatches to MCP.Router for known server" do
-      servers = %{"calc" => ClaudeCode.TestTools}
+      servers = %{"calc" => {ClaudeCode.TestTools, %{}}}
 
       jsonrpc = %{
         "jsonrpc" => "2.0",
@@ -42,7 +66,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
     end
 
     test "returns error for unknown server name" do
-      servers = %{"calc" => ClaudeCode.TestTools}
+      servers = %{"calc" => {ClaudeCode.TestTools, %{}}}
       jsonrpc = %{"jsonrpc" => "2.0", "id" => 1, "method" => "tools/list"}
 
       response = Local.handle_mcp_message("unknown", jsonrpc, servers)

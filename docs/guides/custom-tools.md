@@ -42,7 +42,7 @@ defmodule MyApp.Tools do
     field :latitude, :float, required: true
     field :longitude, :float, required: true
 
-    def execute(%{latitude: lat, longitude: lon}, _frame) do
+    def execute(%{latitude: lat, longitude: lon}) do
       url = "https://api.open-meteo.com/v1/forecast?latitude=#{lat}&longitude=#{lon}&current=temperature_2m&temperature_unit=fahrenheit"
 
       case Req.get(url) do
@@ -59,7 +59,7 @@ end
 
 #### How it works
 
-The `tool` macro generates [Hermes MCP](https://hexdocs.pm/hermes_mcp) `Server.Component` modules under the hood. Each `tool` block becomes a nested module (e.g., `MyApp.Tools.GetWeather`) with a `schema`, `execute/2` callback, and JSON Schema definition -- all derived from the `field` declarations and your `execute` function.
+The `tool` macro generates [Hermes MCP](https://hexdocs.pm/hermes_mcp) `Server.Component` modules under the hood. Each `tool` block becomes a nested module (e.g., `MyApp.Tools.GetWeather`) with a `schema`, JSON Schema definition, and an `execute/2` Hermes callback -- all derived from the `field` declarations and your `execute` function. You write `execute/1` (params only) and the macro wraps it into the full Hermes callback automatically. Write `execute/2` if you need access to session-specific context via the Hermes frame (see [Passing session context with assigns](#passing-session-context-with-assigns)).
 
 When passed to a session via `:mcp_servers`, the SDK detects in-process tool servers and emits `type: "sdk"` in the MCP configuration. The CLI routes JSONRPC messages through the control protocol instead of spawning a subprocess, and the SDK dispatches them to your tool modules via `ClaudeCode.MCP.Router`.
 
@@ -73,7 +73,7 @@ tool :search, "Search for items" do
   field :limit, :integer, default: 10
   field :category, :string
 
-  def execute(%{query: query} = params, _frame) do
+  def execute(%{query: query} = params) do
     limit = Map.get(params, :limit, 10)
     {:ok, "Results for #{query} (limit: #{limit})"}
   end
@@ -101,7 +101,7 @@ defmodule MyApp.Tools do
   tool :query_user, "Look up a user by email" do
     field :email, :string, required: true
 
-    def execute(%{email: email}, _frame) do
+    def execute(%{email: email}) do
       case MyApp.Repo.get_by(MyApp.User, email: email) do
         nil -> {:error, "User not found"}
         user -> {:ok, "#{user.name} (#{user.email})"}
@@ -110,13 +110,59 @@ defmodule MyApp.Tools do
   end
 
   tool :cache_stats, "Get cache statistics" do
-    def execute(_params, _frame) do
+    def execute(_params) do
       stats = MyApp.Cache.stats()
       {:ok, stats}
     end
   end
 end
 ```
+
+#### Passing session context with assigns
+
+When tools need per-session context (e.g., the current user's scope in a LiveView), pass `:assigns` in the server configuration. Assigns are set on the Hermes frame and available via `execute/2`:
+
+```elixir
+# LiveView mount -- pass current_scope into the tool's assigns
+def mount(_params, _session, socket) do
+  scope = socket.assigns.current_scope
+
+  {:ok, session} = ClaudeCode.start_link(
+    mcp_servers: %{
+      "my-tools" => %{module: MyApp.Tools, assigns: %{scope: scope}}
+    },
+    allowed_tools: ["mcp__my-tools__*"]
+  )
+
+  {:ok, assign(socket, claude_session: session)}
+end
+```
+
+```elixir
+defmodule MyApp.Tools do
+  use ClaudeCode.MCP.Server, name: "my-tools"
+
+  tool :my_projects, "List the current user's projects" do
+    def execute(_params, frame) do
+      scope = frame.assigns.scope
+      projects = MyApp.Projects.list_projects(scope)
+      {:ok, projects}
+    end
+  end
+
+  tool :search_docs, "Search documentation" do
+    field :query, :string, required: true
+
+    def execute(%{query: query}) do
+      # Tools that don't need session context can still use execute/1
+      results = MyApp.Docs.search(query)
+      {:ok, results}
+    end
+  end
+end
+```
+
+Tools that don't need session context continue to use `execute/1`. Mix both forms freely in the same server module.
 
 ### Hermes MCP servers
 
@@ -222,18 +268,18 @@ defmodule MyApp.Utilities do
 
   tool :calculate, "Perform calculations" do
     field :expression, :string, required: true
-    def execute(%{expression: expr}, _frame), do: {:ok, "#{Code.eval_string(expr) |> elem(0)}"}
+    def execute(%{expression: expr}), do: {:ok, "#{Code.eval_string(expr) |> elem(0)}"}
   end
 
   tool :translate, "Translate text" do
     field :text, :string, required: true
     field :target_lang, :string, required: true
-    def execute(%{text: text, target_lang: lang}, _frame), do: {:ok, "Translated #{text} to #{lang}"}
+    def execute(%{text: text, target_lang: lang}), do: {:ok, "Translated #{text} to #{lang}"}
   end
 
   tool :search_web, "Search the web" do
     field :query, :string, required: true
-    def execute(%{query: query}, _frame), do: {:ok, "Results for: #{query}"}
+    def execute(%{query: query}), do: {:ok, "Results for: #{query}"}
   end
 end
 
@@ -260,7 +306,7 @@ Handle errors gracefully in your tool handlers. Return `{:error, message}` to pr
 tool :fetch_data, "Fetch data from an API endpoint" do
   field :endpoint, :string, required: true
 
-  def execute(%{endpoint: endpoint}, _frame) do
+  def execute(%{endpoint: endpoint}) do
     case Req.get(endpoint) do
       {:ok, %{status: status, body: body}} when status in 200..299 ->
         {:ok, body}
@@ -308,7 +354,7 @@ Generated modules are standard Hermes components that can be tested without a ru
 
 ```elixir
 test "add tool returns correct result" do
-  frame = %Hermes.Server.Frame{assigns: %{}}
+  frame = Hermes.Server.Frame.new()
   assert {:reply, response, _frame} = MyApp.Tools.Add.execute(%{x: 3, y: 4}, frame)
   # response contains Hermes Response struct with text "7"
 end
@@ -348,7 +394,7 @@ defmodule MyApp.DBTools do
   tool :query_users, "Search users by name or email" do
     field :search, :string, required: true
 
-    def execute(%{search: search}, _frame) do
+    def execute(%{search: search}) do
       import Ecto.Query
 
       users =
@@ -376,7 +422,7 @@ defmodule MyApp.APITools do
     field :endpoint, :string, required: true
     field :method, :string, required: true
 
-    def execute(%{service: service, endpoint: endpoint, method: method}, _frame) do
+    def execute(%{service: service, endpoint: endpoint, method: method}) do
       config = %{
         "github" => %{base_url: "https://api.github.com", key_env: "GITHUB_TOKEN"},
         "slack" => %{base_url: "https://slack.com/api", key_env: "SLACK_TOKEN"}
@@ -411,7 +457,7 @@ defmodule MyApp.Calculator do
     field :expression, :string, required: true
     field :precision, :integer
 
-    def execute(%{expression: expr} = params, _frame) do
+    def execute(%{expression: expr} = params) do
       precision = Map.get(params, :precision, 2)
 
       try do
@@ -430,7 +476,7 @@ defmodule MyApp.Calculator do
     field :time, :float, required: true
     field :n, :integer
 
-    def execute(%{principal: principal, rate: rate, time: time} = params, _frame) do
+    def execute(%{principal: principal, rate: rate, time: time} = params) do
       n = Map.get(params, :n, 12)
       amount = principal * :math.pow(1 + rate / n, n * time)
       interest = amount - principal

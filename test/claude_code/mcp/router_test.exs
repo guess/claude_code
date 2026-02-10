@@ -2,6 +2,7 @@ defmodule ClaudeCode.MCP.RouterTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.MCP.Router
+  alias ClaudeCode.MCP.Server
 
   describe "handle_request/2 - initialize" do
     test "returns protocol version and server info" do
@@ -117,7 +118,7 @@ defmodule ClaudeCode.MCP.RouterTest do
     test "catches exceptions and returns error content" do
       defmodule RaisingTools do
         @moduledoc false
-        use ClaudeCode.MCP.Server, name: "raising"
+        use Server, name: "raising"
 
         tool :boom, "Raises an error" do
           def execute(_params) do
@@ -138,6 +139,52 @@ defmodule ClaudeCode.MCP.RouterTest do
       assert response["result"]["isError"] == true
       [%{"type" => "text", "text" => error_text}] = response["result"]["content"]
       assert error_text =~ "kaboom"
+    end
+  end
+
+  describe "handle_request/3 - assigns" do
+    defmodule ScopedTools do
+      @moduledoc false
+      use Server, name: "scoped"
+
+      tool :whoami, "Returns the current user from frame assigns" do
+        def execute(_params, frame) do
+          case frame.assigns do
+            %{scope: %{user: user}} -> {:ok, "Current user: #{user}"}
+            _ -> {:error, "No scope in frame"}
+          end
+        end
+      end
+    end
+
+    test "passes assigns through to the frame" do
+      message = %{
+        "jsonrpc" => "2.0",
+        "id" => 10,
+        "method" => "tools/call",
+        "params" => %{"name" => "whoami", "arguments" => %{}}
+      }
+
+      assigns = %{scope: %{user: "alice"}}
+      response = Router.handle_request(ScopedTools, message, assigns)
+
+      assert response["result"]["isError"] == false
+      assert response["result"]["content"] == [%{"type" => "text", "text" => "Current user: alice"}]
+    end
+
+    test "defaults to empty assigns when not provided" do
+      message = %{
+        "jsonrpc" => "2.0",
+        "id" => 11,
+        "method" => "tools/call",
+        "params" => %{"name" => "whoami", "arguments" => %{}}
+      }
+
+      response = Router.handle_request(ScopedTools, message)
+
+      assert response["result"]["isError"] == true
+      [%{"type" => "text", "text" => text}] = response["result"]["content"]
+      assert text =~ "No scope in frame"
     end
   end
 end

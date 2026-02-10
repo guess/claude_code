@@ -22,6 +22,8 @@ defmodule ClaudeCode.MCP.Router do
     * `server_module` - A module that uses `ClaudeCode.MCP.Server` and
       exports `__tool_server__/0`
     * `message` - A decoded JSONRPC request map with `"method"` key
+    * `assigns` - Optional map of assigns to set on the Hermes frame
+      (available to tools that define `execute/2`)
 
   ## Supported Methods
 
@@ -36,8 +38,10 @@ defmodule ClaudeCode.MCP.Router do
       iex> Router.handle_request(MyApp.Tools, message)
       %{"jsonrpc" => "2.0", "id" => 1, "result" => %{"protocolVersion" => "2024-11-05", ...}}
   """
-  @spec handle_request(module(), map()) :: map()
-  def handle_request(server_module, %{"method" => method} = message) do
+  @spec handle_request(module(), map(), map()) :: map()
+  def handle_request(server_module, message, assigns \\ %{})
+
+  def handle_request(server_module, %{"method" => method} = message, assigns) do
     %{tools: tool_modules, name: server_name} = server_module.__tool_server__()
 
     case method do
@@ -58,7 +62,7 @@ defmodule ClaudeCode.MCP.Router do
 
       "tools/call" ->
         %{"params" => %{"name" => name, "arguments" => args}} = message
-        call_tool(tool_modules, name, args, message)
+        call_tool(tool_modules, name, args, message, assigns)
 
       _ ->
         jsonrpc_error(message, -32_601, "Method '#{method}' not supported")
@@ -73,14 +77,14 @@ defmodule ClaudeCode.MCP.Router do
     }
   end
 
-  defp call_tool(tool_modules, name, args, message) do
+  defp call_tool(tool_modules, name, args, message, assigns) do
     case Enum.find(tool_modules, &(&1.__tool_name__() == name)) do
       nil ->
         jsonrpc_error(message, -32_601, "Tool '#{name}' not found")
 
       module ->
         atom_args = atomize_keys(args)
-        frame = Frame.new()
+        frame = Frame.new(assigns)
 
         try do
           case module.execute(atom_args, frame) do
