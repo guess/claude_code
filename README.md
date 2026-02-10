@@ -2,6 +2,13 @@
 
 The idiomatic Elixir SDK for building AI agents with Claude. Native streams, in-process tools, OTP lifecycle management.
 
+- **✅ Full Feature Parity** -- 100% parity with the official Python and TypeScript SDKs
+- **📦 Zero Setup** -- Bundled CLI binary, auto-installed on first use. Just add the dep.
+- **🏭 OTP Native** -- Sessions are GenServers with standard OTP lifecycle management
+- **🔄 Elixir Streams** -- Native streaming with backpressure and composable pipelines
+- **🔌 In-Process Tools & Hooks** -- BEAM-native tools and lifecycle hooks with full access to application state
+- **⚡ Phoenix LiveView** -- Stream tokens directly into LiveView and PubSub
+
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
 [![Documentation](https://img.shields.io/badge/docs-hexdocs-blue.svg)](https://hexdocs.pm/claude_code)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/guess/claude_code/blob/main/LICENSE)
@@ -10,13 +17,6 @@ The idiomatic Elixir SDK for building AI agents with Claude. Native streams, in-
 <div align="center">
     <img src="https://github.com/guess/claude_code/raw/main/docs/claudecode.png" alt="ClaudeCode" width="200">
 </div>
-
-- **✅ Full Feature Parity** -- 100% parity with the official Python and TypeScript SDKs
-- **📦 Zero Setup** -- Bundled CLI binary, auto-installed on first use. Just add the dep.
-- **🏭 OTP Native** -- Sessions are GenServers with standard OTP lifecycle management
-- **🔄 Elixir Streams** -- Native streaming with backpressure and composable pipelines
-- **🔌 In-Process Tools & Hooks** -- BEAM-native tools and lifecycle hooks with full access to application state
-- **⚡ Phoenix LiveView** -- Stream tokens directly into LiveView and PubSub
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
