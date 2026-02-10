@@ -9,6 +9,8 @@ defmodule ClaudeCode.CLI.Command do
   It is used by `ClaudeCode.Adapter.Local` for local subprocess management.
   """
 
+  alias ClaudeCode.Tool.Server
+
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
   @doc """
@@ -257,17 +259,16 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:agents, _value), do: nil
 
   defp convert_option(:mcp_servers, value) when is_map(value) do
-    # Expand any module atoms to their stdio command config
     expanded =
       Map.new(value, fn
         {name, module} when is_atom(module) ->
-          {name, expand_hermes_module(module, %{})}
+          {name, expand_mcp_module(name, module, %{})}
 
         {name, %{module: module} = config} when is_atom(module) ->
-          {name, expand_hermes_module(module, config)}
+          {name, expand_mcp_module(name, module, config)}
 
         {name, %{"module" => module} = config} when is_atom(module) ->
-          {name, expand_hermes_module(module, config)}
+          {name, expand_mcp_module(name, module, config)}
 
         {name, config} when is_map(config) ->
           {name, config}
@@ -405,5 +406,13 @@ defmodule ClaudeCode.CLI.Command do
       args: ["run", "--no-halt", "-e", startup_code],
       env: merged_env
     }
+  end
+
+  defp expand_mcp_module(name, module, config) do
+    if Server.sdk_server?(module) do
+      %{type: "sdk", name: name}
+    else
+      expand_hermes_module(module, config)
+    end
   end
 end

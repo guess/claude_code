@@ -571,6 +571,46 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert decoded["mcpServers"]["my-tools"]["env"]["MIX_ENV"] == "dev"
     end
 
+    test "emits type sdk for Tool.Server modules in mcp_servers" do
+      opts = [mcp_servers: %{"calc" => ClaudeCode.TestTools}]
+
+      args = Command.to_cli_args(opts)
+      assert "--mcp-config" in args
+
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+      assert decoded["mcpServers"]["calc"]["type"] == "sdk"
+      assert decoded["mcpServers"]["calc"]["name"] == "calc"
+      refute Map.has_key?(decoded["mcpServers"]["calc"], "command")
+    end
+
+    test "mixes sdk and stdio modules in mcp_servers" do
+      opts = [
+        mcp_servers: %{
+          "calc" => ClaudeCode.TestTools,
+          "other" => MyApp.MCPServer,
+          "ext" => %{command: "npx", args: ["@playwright/mcp"]}
+        }
+      ]
+
+      args = Command.to_cli_args(opts)
+      mcp_index = Enum.find_index(args, &(&1 == "--mcp-config"))
+      json_value = Enum.at(args, mcp_index + 1)
+
+      decoded = Jason.decode!(json_value)
+
+      # SDK module
+      assert decoded["mcpServers"]["calc"]["type"] == "sdk"
+
+      # Hermes module (no __tool_server__)
+      assert decoded["mcpServers"]["other"]["command"] == "mix"
+
+      # External command
+      assert decoded["mcpServers"]["ext"]["command"] == "npx"
+    end
+
     test "converts include_partial_messages true to --include-partial-messages" do
       opts = [include_partial_messages: true]
 
