@@ -77,8 +77,8 @@
 | `cli_path` (custom binary) | ✅ | ✅ | |
 | `enable_file_checkpointing` | ✅ | ✅ | |
 | `api_key` | ✅ via env | ✅ `:api_key` option | |
-| `extra_args` (arbitrary CLI flags) | ✅ | ❌ | Python can pass any `--flag value` |
-| `max_buffer_size` | ✅ 1MB default | ❌ | JSON buffering protection |
+| `extra_args` (arbitrary CLI flags) | ✅ | ✅ `:extra_args` | Appended at end of CLI args |
+| `max_buffer_size` | ✅ 1MB default | ✅ `:max_buffer_size` | 1MB default, triggers `{:buffer_overflow, size}` |
 | `stderr` callback | ✅ | ❌ | Callback for CLI stderr output |
 | `debug_stderr` (deprecated) | ✅ | ❌ | Deprecated in Python |
 | `user` (subprocess user) | ✅ | ❌ | Run CLI as different OS user |
@@ -105,7 +105,7 @@
 | Feature | Python | Elixir | Notes |
 |---------|--------|--------|-------|
 | Initialize handshake | ✅ `initialize` control request | ✅ `CLI.Control.initialize_request/3` | Both send agents via control protocol; Elixir also caches server_info |
-| Interrupt generation | ✅ `client.interrupt()` | ❌ | Dynamic interrupt during generation |
+| Interrupt generation | ✅ `client.interrupt()` | ✅ `ClaudeCode.interrupt/1` | Fire-and-forget via control protocol |
 | Set permission mode dynamically | ✅ `client.set_permission_mode()` | ✅ `ClaudeCode.set_permission_mode/2` | Change mid-conversation |
 | Set model dynamically | ✅ `client.set_model()` | ✅ `ClaudeCode.set_model/2` | Change mid-conversation |
 | Rewind files | ✅ `client.rewind_files()` | ✅ `ClaudeCode.rewind_files/2` | Rewind to file checkpoint |
@@ -267,7 +267,7 @@
 | Default subprocess transport | ✅ `SubprocessCLITransport` | ✅ `Adapter.Local` | |
 | Test/mock adapter | ❌ use Transport | ✅ `Adapter.Test` | Elixir has dedicated test adapter |
 | Write serialization (lock) | ✅ `anyio.Lock` | ❌ | Prevents concurrent write races |
-| JSON buffer overflow protection | ✅ `max_buffer_size` | ❌ | 1MB default limit |
+| JSON buffer overflow protection | ✅ `max_buffer_size` | ✅ `:max_buffer_size` | 1MB default limit |
 | Stderr capture/callback | ✅ | ❌ | |
 | User impersonation | ✅ `user` param | ❌ | |
 | Eager adapter provisioning | ❌ | ✅ | Elixir starts adapter on init |
@@ -349,16 +349,13 @@
 
 ### Features Python Has That Elixir Lacks
 
-1. **Interrupt Generation** - `client.interrupt()` to dynamically interrupt during generation
-2. **Tool Permission Callbacks** (`can_use_tool`) - Allow/deny/modify tool execution with rich permission update types
-3. **Hook System** - 10 event types with Python function callbacks, sync/async output, pattern matching
-4. **In-Process MCP Servers** (`create_sdk_mcp_server`, `@tool` decorator) - Run MCP tools in the same process
-5. **`extra_args`** - Pass arbitrary CLI flags not covered by named options
-6. **`stderr` callback** - Capture CLI stderr output
-7. **`user` impersonation** - Run subprocess as different OS user
-8. **Write serialization lock** - Prevent concurrent write races
-9. **`max_buffer_size`** - JSON buffer overflow protection
-10. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
+1. **Tool Permission Callbacks** (`can_use_tool`) - Allow/deny/modify tool execution with rich permission update types
+2. **Hook System** - 10 event types with Python function callbacks, sync/async output, pattern matching
+3. **In-Process MCP Servers** (`create_sdk_mcp_server`, `@tool` decorator) - Run MCP tools in the same process
+4. **`stderr` callback** - Capture CLI stderr output
+5. **`user` impersonation** - Run subprocess as different OS user
+6. **Write serialization lock** - Prevent concurrent write races
+7. **System prompt preset** - `{"type": "preset", "preset": "claude_code", "append": "..."}` shape
 
 ### Features Elixir Has That Python Lacks
 
