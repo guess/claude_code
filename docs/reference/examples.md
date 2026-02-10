@@ -7,7 +7,7 @@ For specific topics, see the dedicated guides:
 - [Sessions](../guides/sessions.md) - Multi-turn conversations
 - [Phoenix](../integration/phoenix.md) - LiveView and controller integration
 - [MCP](../integration/mcp.md) - Custom tools with Hermes MCP
-- [Tool Callbacks](../integration/tool-callbacks.md) - Monitoring and auditing
+- [Hooks](../guides/hooks.md) - Monitoring and auditing tool executions
 
 ## CLI Applications
 

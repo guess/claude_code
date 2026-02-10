@@ -78,7 +78,6 @@ defmodule ClaudeCode.Options do
   | `agents`                   | list/map   | -           | Custom agent configurations (list of `Agent` structs or map)    |
   | `settings`                 | map/string | -           | Team settings                                                   |
   | `setting_sources`          | list       | -           | Setting source priority                                         |
-  | `tool_callback`            | function   | -           | Called after tool executions                                     |
   | `include_partial_messages` | boolean    | false       | Enable character-level streaming                                |
   | `output_format`            | map        | -           | Structured output format (see Structured Outputs section)       |
   | `plugins`                  | list       | -           | Plugin configurations to load (paths or maps with type: :local) |
@@ -438,27 +437,6 @@ defmodule ClaudeCode.Options do
 
       Example:
           adapter: {ClaudeCode.Test, MyApp.Chat}
-      """
-    ],
-    tool_callback: [
-      type: {:fun, 1},
-      doc: """
-      Optional callback invoked after each tool execution.
-
-      Receives a map with:
-      - `:name` - Tool name (string)
-      - `:input` - Tool input (map)
-      - `:result` - Tool result (string)
-      - `:is_error` - Whether the tool errored (boolean)
-      - `:tool_use_id` - Unique ID for correlation (string)
-      - `:timestamp` - When the result was received (DateTime)
-
-      The callback is invoked asynchronously and should not block.
-
-      Example:
-          tool_callback: fn event ->
-            Logger.info("Tool \#{event.name} executed")
-          end
       """
     ],
     can_use_tool: [

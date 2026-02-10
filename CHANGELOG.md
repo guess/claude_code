@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- **`ClaudeCode.ToolCallback`** — Removed the `:tool_callback` option and `ClaudeCode.ToolCallback` module. Use `:hooks` with `PostToolUse` events instead. See the [Hooks guide](docs/guides/hooks.md) for migration examples.
 - **`ClaudeCode.MCP.Config`** — Legacy module for generating temporary MCP config files. The adapter now builds `--mcp-config` JSON inline. ([bda2260])
 - **Old `ClaudeCode.MCP.Server` (HTTP GenServer)** — Legacy HTTP-based MCP server wrapper, replaced by the in-process control protocol. ([bda2260])
 

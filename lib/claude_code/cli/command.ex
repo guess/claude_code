@@ -74,7 +74,6 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:api_key, _value), do: nil
   defp convert_option(:name, _value), do: nil
   defp convert_option(:timeout, _value), do: nil
-  defp convert_option(:tool_callback, _value), do: nil
   # :can_use_tool triggers --permission-prompt-tool stdio; the callback itself
   # is handled by the adapter, not passed as a CLI flag
   defp convert_option(:can_use_tool, nil), do: nil

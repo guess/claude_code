@@ -111,16 +111,18 @@ If either limit is hit, the session returns an error result (`subtype: :error_ma
 
 ## Audit Trail
 
-Enable tool callbacks for a complete audit trail:
+Enable hooks for a complete audit trail:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  tool_callback: fn event ->
-    Logger.info("Tool #{event.name}: error=#{event.is_error}",
-      tool_use_id: event.tool_use_id,
-      input: event.input
-    )
-  end
+  hooks: %{
+    PostToolUse: [%{hooks: [
+      fn %{tool_name: name, tool_input: input}, _id ->
+        Logger.info("Tool #{name} executed", input: input)
+        :ok
+      end
+    ]}]
+  }
 )
 ```
 
@@ -140,7 +142,7 @@ For ephemeral workloads, prevent session data from being saved to disk:
 - [ ] Set `allowed_tools` to only what's needed
 - [ ] Set `max_turns` and `max_budget_usd` limits
 - [ ] Store API keys in environment variables
-- [ ] Enable `tool_callback` for auditing
+- [ ] Enable `PostToolUse` hooks for auditing
 - [ ] Use `cwd` and `add_dir` to limit file access
 - [ ] Consider `sandbox` for bash isolation
 - [ ] Use `no_session_persistence: true` for sensitive workloads

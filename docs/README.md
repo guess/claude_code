@@ -42,7 +42,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 ## Integration
 
 - **[Phoenix](integration/phoenix.md)** - LiveView streaming, controllers, and PubSub
-- **[Tool Callbacks](integration/tool-callbacks.md)** - Monitoring and auditing
+- **[Hooks](guides/hooks.md)** - Monitoring and auditing tool executions
 
 ## Advanced
 

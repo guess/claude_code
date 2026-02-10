@@ -16,15 +16,12 @@ defmodule ClaudeCode.Session do
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
   alias ClaudeCode.Options
-  alias ClaudeCode.ToolCallback
 
   require Logger
 
   defstruct [
     :session_options,
     :session_id,
-    :tool_callback,
-    :pending_tool_uses,
     # Adapter
     :adapter_module,
     :adapter_opts,
@@ -96,8 +93,6 @@ defmodule ClaudeCode.Session do
     state = %__MODULE__{
       session_options: validated_opts,
       session_id: Keyword.get(validated_opts, :resume),
-      tool_callback: Keyword.get(validated_opts, :tool_callback),
-      pending_tool_uses: %{},
       adapter_module: adapter_module,
       adapter_opts: adapter_opts,
       adapter_pid: nil,
@@ -224,11 +219,7 @@ defmodule ClaudeCode.Session do
     # Extract session ID if present
     new_session_id = extract_session_id(message) || state.session_id
 
-    # Process tool callback
-    {new_pending_tools, _events} =
-      ToolCallback.process_message(message, state.pending_tool_uses, state.tool_callback)
-
-    state = %{state | session_id: new_session_id, pending_tool_uses: new_pending_tools}
+    state = %{state | session_id: new_session_id}
 
     # Find the request and dispatch message
     case Map.get(state.requests, request_id) do

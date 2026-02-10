@@ -126,7 +126,6 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/permissions.md",
         "docs/guides/user-input.md",
         "docs/guides/hooks.md",
-        "docs/integration/tool-callbacks.md",
         "docs/guides/modifying-system-prompts.md",
         # Capabilities
         "docs/guides/mcp.md",
@@ -162,7 +161,6 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/permissions.md",
           "docs/guides/user-input.md",
           "docs/guides/hooks.md",
-          "docs/integration/tool-callbacks.md",
           "docs/guides/modifying-system-prompts.md"
         ],
         Capabilities: [
@@ -204,9 +202,6 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Types,
           ClaudeCode.Message,
           ClaudeCode.Content
-        ],
-        Callbacks: [
-          ClaudeCode.ToolCallback
         ],
         Testing: [
           ClaudeCode.Test,

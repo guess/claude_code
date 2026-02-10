@@ -259,16 +259,14 @@ end
 
 This pattern is inspired by [Req.Test](https://hexdocs.pm/req/Req.Test.html), where the name represents the semantic entity being mocked rather than an internal module.
 
-## Testing with Tool Callbacks
+## Testing with Hooks
 
-Test your tool callback handlers:
+Test your hook handlers:
 
 ```elixir
-test "tool callback receives events" do
-  events = []
-
-  callback = fn event ->
-    send(self(), {:tool_event, event})
+test "PostToolUse hook receives events" do
+  hook = fn %{tool_name: name}, _id ->
+    send(self(), {:tool_executed, name})
     :ok
   end
 
@@ -280,11 +278,12 @@ test "tool callback receives events" do
     ]
   end)
 
-  {:ok, session} = ClaudeCode.start_link(tool_callback: callback)
+  {:ok, session} = ClaudeCode.start_link(
+    hooks: %{PostToolUse: [%{hooks: [hook]}]}
+  )
   session |> ClaudeCode.stream("run echo") |> Stream.run()
 
-  assert_received {:tool_event, {:tool_start, _}}
-  assert_received {:tool_event, {:tool_end, _, _}}
+  assert_received {:tool_executed, "Bash"}
 end
 ```
 

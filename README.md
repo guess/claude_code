@@ -246,20 +246,21 @@ new_session
 - ✅ **Resume support** - Continue previous conversations with `resume: session_id`
 - ✅ **Lower latency** - No startup overhead between turns
 
-### Tool Callbacks
+### Hooks
 
-Monitor tool executions for logging, auditing, or analytics:
+Monitor and control tool executions with lifecycle hooks:
 
 ```elixir
-callback = fn event ->
-  Logger.info("Tool #{event.name} executed",
-    input: event.input,
-    result: event.result,
-    is_error: event.is_error
-  )
-end
-
-{:ok, session} = ClaudeCode.start_link(tool_callback: callback)
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    PostToolUse: [%{hooks: [
+      fn %{tool_name: name, tool_input: input}, _id ->
+        Logger.info("Tool #{name} executed", input: input)
+        :ok
+      end
+    ]}]
+  }
+)
 ```
 
 ### Custom Tools (Optional)

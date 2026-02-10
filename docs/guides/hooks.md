@@ -223,28 +223,6 @@ The `input` map contains fields that vary by event. Common fields include `:tool
 
 If a callback raises an exception, `ClaudeCode.Hook.invoke/3` catches it and returns `{:error, reason}`, which is translated to a safe default response on the wire.
 
-## Migration from tool_callback
-
-The `:tool_callback` option is deprecated. Replace it with a PostToolUse hook:
-
-```elixir
-# Before (deprecated)
-ClaudeCode.start_link(
-  tool_callback: fn event ->
-    Logger.info("Tool #{event.name} completed")
-  end
-)
-
-# After
-ClaudeCode.start_link(
-  hooks: %{
-    PostToolUse: [%{hooks: [
-      fn %{tool_name: name}, _id -> Logger.info("Tool #{name} completed"); :ok end
-    ]}]
-  }
-)
-```
-
 ## Next Steps
 
 - [User Approvals and Input](user-input.md) -- Programmatic tool approval with `can_use_tool`

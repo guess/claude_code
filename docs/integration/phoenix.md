@@ -230,4 +230,4 @@ end
 
 - [Streaming Output](../guides/streaming-output.md) - Detailed streaming patterns
 - [Hosting](../guides/hosting.md) - Production setup
-- [Tool Callbacks](tool-callbacks.md) - Monitor Claude's actions
+- [Hooks](../guides/hooks.md) - Monitor Claude's actions

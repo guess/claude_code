@@ -64,7 +64,6 @@ Options handled by the Elixir SDK, not passed to CLI:
 | `:cli_path` | Custom CLI binary path |
 | `:resume` | Session ID to resume (passed differently) |
 | `:adapter` | Test adapter configuration |
-| `:tool_callback` | Tool execution callback |
 | `:env` | Additional environment variables |
 
 ## Permission Mode Values
