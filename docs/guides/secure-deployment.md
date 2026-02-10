@@ -2,6 +2,8 @@
 
 > **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/secure-deployment). Examples are adapted for Elixir.
 
+⚠️ TODO: THESE DOCS ARE INCOMPLETE
+
 Harden your ClaudeCode deployment for production use.
 
 ## Sandbox Configuration
@@ -23,12 +25,12 @@ The sandbox configuration is merged into the CLI's `--settings` flag as `{"sandb
 
 Choose the least-privileged permission mode for your use case:
 
-| Mode | Use Case |
-|------|----------|
-| `:plan` | Read-only analysis, code review |
-| `:dont_ask` | Automated pipelines where prompts can't be answered |
+| Mode            | Use Case                                              |
+| --------------- | ----------------------------------------------------- |
+| `:plan`         | Read-only analysis, code review                       |
+| `:dont_ask`     | Automated pipelines where prompts can't be answered   |
 | `:accept_edits` | Supervised environments where file edits are expected |
-| `:default` | Interactive use with a human in the loop |
+| `:default`      | Interactive use with a human in the loop              |
 
 ```elixir
 # Code review agent - read-only

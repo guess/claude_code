@@ -2,6 +2,8 @@
 
 > **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hooks). Examples are adapted for Elixir.
 
+⚠️ TODO: THIS FEATURE IS INCOMPLETE
+
 Monitor and audit tool execution with the `tool_callback` option.
 
 ## Tool Callback
@@ -21,6 +23,7 @@ session
 ```
 
 Output:
+
 ```
 [Write] OK
 ```
@@ -29,14 +32,14 @@ Output:
 
 The callback receives a map with these fields:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `:name` | `String.t()` | Tool name (e.g., `"Read"`, `"Write"`, `"Bash"`) |
-| `:input` | `map()` | Tool input parameters |
-| `:result` | `String.t()` | Tool execution output |
-| `:is_error` | `boolean()` | Whether the tool errored |
-| `:tool_use_id` | `String.t()` | Unique ID for correlating use/result pairs |
-| `:timestamp` | `DateTime.t()` | When the result was received |
+| Field          | Type           | Description                                     |
+| -------------- | -------------- | ----------------------------------------------- |
+| `:name`        | `String.t()`   | Tool name (e.g., `"Read"`, `"Write"`, `"Bash"`) |
+| `:input`       | `map()`        | Tool input parameters                           |
+| `:result`      | `String.t()`   | Tool execution output                           |
+| `:is_error`    | `boolean()`    | Whether the tool errored                        |
+| `:tool_use_id` | `String.t()`   | Unique ID for correlating use/result pairs      |
+| `:timestamp`   | `DateTime.t()` | When the result was received                    |
 
 ## Logging Example
 
@@ -108,12 +111,12 @@ end)
 
 The Claude Code CLI supports a separate hooks system (`PreToolUse`, `PostToolUse`, etc.) configured via `.claude/hooks.json`. These are different from the SDK's `tool_callback`:
 
-| Feature | SDK `tool_callback` | CLI Hooks |
-|---------|-------------------|-----------|
-| When | Post-execution only | Pre and post execution |
-| Can block? | No | Yes (PreToolUse can reject) |
-| Configuration | Elixir code | JSON config file |
-| Scope | Per-session | Per-project/user |
+| Feature       | SDK `tool_callback` | CLI Hooks                   |
+| ------------- | ------------------- | --------------------------- |
+| When          | Post-execution only | Pre and post execution      |
+| Can block?    | No                  | Yes (PreToolUse can reject) |
+| Configuration | Elixir code         | JSON config file            |
+| Scope         | Per-session         | Per-project/user            |
 
 To use CLI hooks alongside the SDK, configure them in your project's `.claude/hooks.json`. They will be respected by the CLI subprocess.
 

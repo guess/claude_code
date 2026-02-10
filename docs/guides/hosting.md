@@ -2,6 +2,8 @@
 
 > **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hosting). Examples are adapted for Elixir.
 
+⚠️ TODO: THESE DOCS ARE INCOMPLETE
+
 Deploy ClaudeCode sessions in production using OTP supervision trees and Elixir releases.
 
 ## Supervision Trees
@@ -89,12 +91,12 @@ For alternative setups, see the [CLI Configuration](../advanced/configuration.md
 
 Each ClaudeCode session runs a separate CLI subprocess:
 
-| Resource | Per Session |
-|----------|------------|
-| OS process | 1 Node.js process |
-| Memory | ~50-100 MB |
+| Resource         | Per Session               |
+| ---------------- | ------------------------- |
+| OS process       | 1 Node.js process         |
+| Memory           | ~50-100 MB                |
 | File descriptors | 3 (stdin, stdout, stderr) |
-| Ports | 1 Erlang port |
+| Ports            | 1 Erlang port             |
 
 Plan accordingly when running multiple concurrent sessions.
 
