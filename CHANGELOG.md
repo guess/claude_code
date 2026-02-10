@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`ClaudeCode.Tool.Server` renamed to `ClaudeCode.MCP.Server`** — Unified MCP namespace so all MCP-related modules live under `ClaudeCode.MCP.*` ([bda2260])
+  - Update `use ClaudeCode.Tool.Server` → `use ClaudeCode.MCP.Server` in your tool definitions
+  - The DSL (`tool`, `field`, `execute`) is unchanged
+
+### Removed
+
+- **`ClaudeCode.MCP.Config`** — Legacy module for generating temporary MCP config files. The adapter now builds `--mcp-config` JSON inline. ([bda2260])
+- **Old `ClaudeCode.MCP.Server` (HTTP GenServer)** — Legacy HTTP-based MCP server wrapper, replaced by the in-process control protocol. ([bda2260])
+
+### Fixed
+
+- **Hermes MCP tool examples in docs** — Corrected to use the actual `schema` + `execute/2` API and `component` registration instead of the non-functional `definition/0` + `call/1` pattern ([dcf2f41])
+
 ## [0.19.0] - 2026-02-10 | CC 2.1.38
 
 ### Added
