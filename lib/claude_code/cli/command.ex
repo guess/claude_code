@@ -9,7 +9,7 @@ defmodule ClaudeCode.CLI.Command do
   It is used by `ClaudeCode.Adapter.Local` for local subprocess management.
   """
 
-  alias ClaudeCode.Tool.Server
+  alias ClaudeCode.MCP.Server
 
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 

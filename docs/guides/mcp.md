@@ -4,7 +4,6 @@ Configure MCP servers to extend your agent with external tools. Covers transport
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/mcp). Examples are adapted for Elixir.
 
-> **Partial implementation:** In-process SDK MCP servers via `ClaudeCode.Tool.Server` are not yet implemented. All other MCP patterns (stdio, HTTP/SSE, Hermes modules, config files) are fully supported today.
 
 The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-started/intro) is an open standard for connecting AI agents to external tools and data sources. With MCP, your agent can query databases, integrate with APIs like Slack and GitHub, and connect to other services without writing custom tool implementations.
 
@@ -184,8 +183,6 @@ For HTTP (non-streaming), use `"type" => "http"` instead of `"sse"`.
 
 ### In-process SDK servers
 
-> **Not yet implemented.** This transport type requires the planned `ClaudeCode.Tool.Server` API.
-
 Define custom tools that run in the same BEAM process, with access to Ecto repos, GenServers, and caches. See the [Custom Tools](custom-tools.md) guide for the full API and examples.
 
 ```elixir
@@ -318,7 +315,7 @@ Use the `env` field to pass API keys, tokens, and other credentials:
 )
 ```
 
-For in-process tools (`ClaudeCode.Tool.Server`), credentials are accessed directly via `System.get_env/1` or application config since the tools run in your application process.
+For in-process tools (`ClaudeCode.MCP.Server`), credentials are accessed directly via `System.get_env/1` or application config since the tools run in your application process.
 
 In config files, use the `${VAR_NAME}` syntax to expand environment variables at runtime:
 

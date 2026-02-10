@@ -262,23 +262,27 @@ end
 {:ok, session} = ClaudeCode.start_link(tool_callback: callback)
 ```
 
-### MCP Integration (Optional)
+### Custom Tools (Optional)
 
-Expose Elixir tools to Claude using Hermes MCP:
+Define in-process tools with the `ClaudeCode.MCP.Server` DSL:
 
 ```elixir
 # Add {:hermes_mcp, "~> 0.14"} to your deps
 
-# Start MCP server with your tools
-{:ok, config_path} = ClaudeCode.MCP.Server.start_link(
-  server: MyApp.MCPServer,
-  port: 9001
+defmodule MyApp.Tools do
+  use ClaudeCode.MCP.Server, name: "my-tools"
+
+  tool :add, "Add two numbers" do
+    field :x, :integer, required: true
+    field :y, :integer, required: true
+    def execute(%{x: x, y: y}), do: {:ok, "#{x + y}"}
+  end
+end
+
+{:ok, result} = ClaudeCode.query("What is 5 + 3?",
+  mcp_servers: %{"my-tools" => MyApp.Tools},
+  allowed_tools: ["mcp__my-tools__add"]
 )
-
-# Connect ClaudeCode to MCP server
-{:ok, session} = ClaudeCode.start_link(mcp_config: config_path)
-
-# Claude can now use your custom tools!
 ```
 
 ## 🧪 Testing

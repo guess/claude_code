@@ -571,7 +571,7 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert decoded["mcpServers"]["my-tools"]["env"]["MIX_ENV"] == "dev"
     end
 
-    test "emits type sdk for Tool.Server modules in mcp_servers" do
+    test "emits type sdk for MCP.Server modules in mcp_servers" do
       opts = [mcp_servers: %{"calc" => ClaudeCode.TestTools}]
 
       args = Command.to_cli_args(opts)

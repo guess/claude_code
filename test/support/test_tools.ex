@@ -1,6 +1,6 @@
 defmodule ClaudeCode.TestTools do
   @moduledoc false
-  use ClaudeCode.Tool.Server, name: "test-tools"
+  use ClaudeCode.MCP.Server, name: "test-tools"
 
   tool :add, "Add two numbers" do
     field(:x, :integer, required: true)

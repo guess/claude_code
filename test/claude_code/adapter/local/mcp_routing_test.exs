@@ -4,7 +4,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
   alias ClaudeCode.Adapter.Local
 
   describe "extract_sdk_mcp_servers/1" do
-    test "extracts Tool.Server modules from mcp_servers option" do
+    test "extracts MCP.Server modules from mcp_servers option" do
       opts = [
         mcp_servers: %{
           "calc" => ClaudeCode.TestTools,

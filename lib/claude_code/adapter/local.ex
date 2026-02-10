@@ -24,8 +24,8 @@ defmodule ClaudeCode.Adapter.Local do
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.Hook.Response, as: HookResponse
   alias ClaudeCode.MCP.Router, as: MCPRouter
+  alias ClaudeCode.MCP.Server, as: MCPServer
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Tool.Server, as: ToolServer
 
   require Logger
 
@@ -629,7 +629,7 @@ defmodule ClaudeCode.Adapter.Local do
         Map.new(
           Enum.filter(servers, fn
             {_name, module} when is_atom(module) ->
-              ToolServer.sdk_server?(module)
+              MCPServer.sdk_server?(module)
 
             _ ->
               false

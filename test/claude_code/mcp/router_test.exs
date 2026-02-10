@@ -115,7 +115,7 @@ defmodule ClaudeCode.MCP.RouterTest do
     test "catches exceptions and returns error content" do
       defmodule RaisingTools do
         @moduledoc false
-        use ClaudeCode.Tool.Server, name: "raising"
+        use ClaudeCode.MCP.Server, name: "raising"
 
         tool :boom, "Raises an error" do
           def execute(_params) do

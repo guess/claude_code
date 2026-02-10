@@ -19,7 +19,7 @@ defmodule ClaudeCode.MCP.Router do
 
   ## Parameters
 
-    * `server_module` - A module that uses `ClaudeCode.Tool.Server` and
+    * `server_module` - A module that uses `ClaudeCode.MCP.Server` and
       exports `__tool_server__/0`
     * `message` - A decoded JSONRPC request map with `"method"` key
 

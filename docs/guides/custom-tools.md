@@ -4,11 +4,9 @@ Build custom tools to extend Claude's capabilities with your own functionality.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/custom-tools). Examples are adapted for Elixir.
 
-> **Partial implementation:** In-process tools via `ClaudeCode.Tool.Server` are not yet implemented. The Hermes MCP subprocess pattern and external command configurations are fully supported today.
-
 Custom tools allow you to extend Claude Code's capabilities through MCP (Model Context Protocol) servers. The Elixir SDK supports two approaches for building tools:
 
-1. **In-process tools** -- Define tools with `ClaudeCode.Tool.Server` that run in your BEAM VM, with full access to application state (Ecto repos, GenServers, caches)
+1. **In-process tools** -- Define tools with `ClaudeCode.MCP.Server` that run in your BEAM VM, with full access to application state (Ecto repos, GenServers, caches)
 2. **Hermes MCP servers** -- Define tools as [Hermes MCP](https://hex.pm/packages/hermes_mcp) components that run as a separate subprocess
 
 For connecting to external MCP servers, configuring permissions, and authentication, see the [MCP](mcp.md) guide.
@@ -32,13 +30,11 @@ You can check availability at runtime with `ClaudeCode.MCP.available?/0`.
 
 ## Creating in-process tools
 
-> **Not yet implemented.** This section describes the planned `ClaudeCode.Tool.Server` API.
-
-Use `ClaudeCode.Tool.Server` to define tools that run in the same BEAM process as your application. This is the recommended approach when your tools need access to application state:
+Use `ClaudeCode.MCP.Server` to define tools that run in the same BEAM process as your application. This is the recommended approach when your tools need access to application state:
 
 ```elixir
 defmodule MyApp.Tools do
-  use ClaudeCode.Tool.Server, name: "my-tools"
+  use ClaudeCode.MCP.Server, name: "my-tools"
 
   tool :get_weather, "Get current temperature for a location using coordinates" do
     field :latitude, :float, required: true
@@ -107,7 +103,7 @@ In-process tools can call into your application directly -- Ecto repos, GenServe
 
 ```elixir
 defmodule MyApp.Tools do
-  use ClaudeCode.Tool.Server, name: "app-tools"
+  use ClaudeCode.MCP.Server, name: "app-tools"
 
   tool :query_user, "Look up a user by email" do
     field :email, :string, required: true
@@ -279,7 +275,7 @@ end
 
 ```elixir
 defmodule MyApp.DBTools do
-  use ClaudeCode.Tool.Server, name: "database-tools"
+  use ClaudeCode.MCP.Server, name: "database-tools"
 
   tool :query_users, "Search users by name or email" do
     field :search, :string, required: true
@@ -305,7 +301,7 @@ end
 
 ```elixir
 defmodule MyApp.APITools do
-  use ClaudeCode.Tool.Server, name: "api-gateway"
+  use ClaudeCode.MCP.Server, name: "api-gateway"
 
   tool :api_request, "Make authenticated API requests to external services" do
     field :service, :string, required: true
@@ -341,7 +337,7 @@ end
 
 ```elixir
 defmodule MyApp.Calculator do
-  use ClaudeCode.Tool.Server, name: "calculator"
+  use ClaudeCode.MCP.Server, name: "calculator"
 
   tool :calculate, "Perform mathematical calculations" do
     field :expression, :string, required: true

@@ -2,18 +2,8 @@ defmodule ClaudeCode.MCP do
   @moduledoc """
   Optional integration with Hermes MCP (Model Context Protocol).
 
-  This module provides helpers for exposing Elixir tools to Claude via the MCP protocol.
-  It requires the optional `hermes_mcp` dependency to be installed.
-
-  ## Overview
-
-  MCP (Model Context Protocol) allows Claude to interact with external tools and services.
-  With this integration, you can:
-
-  1. Define tools using Hermes MCP patterns
-  2. Start an MCP server (HTTP or stdio transport)
-  3. Generate config files for the Claude CLI
-  4. Connect ClaudeCode sessions to your MCP servers
+  This module provides runtime checks for the optional `hermes_mcp` dependency,
+  which is required for defining custom tools via `ClaudeCode.MCP.Server`.
 
   ## Installation
 
@@ -22,77 +12,30 @@ defmodule ClaudeCode.MCP do
       defp deps do
         [
           {:claude_code, "~> 0.19"},
-          {:hermes_mcp, "~> 0.14"}  # Required for MCP integration
+          {:hermes_mcp, "~> 0.14"}  # Required for custom tools
         ]
       end
 
-  ## Usage Example
+  ## Usage
 
-  ### 1. Define your tools using Hermes
+  Define tools with `ClaudeCode.MCP.Server` and pass them via `:mcp_servers`:
 
-      defmodule MyApp.Calculator do
-        use Hermes.Server.Component, type: :tool
+      defmodule MyApp.Tools do
+        use ClaudeCode.MCP.Server, name: "my-tools"
 
-        @impl true
-        def definition do
-          %{
-            name: "add",
-            description: "Add two numbers together",
-            inputSchema: %{
-              type: "object",
-              properties: %{
-                a: %{type: "number", description: "First number"},
-                b: %{type: "number", description: "Second number"}
-              },
-              required: ["a", "b"]
-            }
-          }
-        end
-
-        @impl true
-        def execute(%{"a" => a, "b" => b}, _frame) do
-          {:ok, [%{type: "text", text: "\#{a + b}"}]}
+        tool :add, "Add two numbers" do
+          field :x, :integer, required: true
+          field :y, :integer, required: true
+          def execute(%{x: x, y: y}), do: {:ok, "\#{x + y}"}
         end
       end
 
-      defmodule MyApp.MCPServer do
-        use Hermes.Server,
-          name: "my-tools",
-          version: "1.0.0"
-
-        tool MyApp.Calculator
-      end
-
-  ### 2. Start the MCP server and connect to ClaudeCode
-
-      # Start MCP server
-      {:ok, config_path} = ClaudeCode.MCP.Server.start_link(MyApp.MCPServer, port: 9001)
-
-      # Connect ClaudeCode session with the MCP server
-      {:ok, session} = ClaudeCode.start_link(
-        mcp_config: config_path
+      {:ok, result} = ClaudeCode.query("What is 5 + 3?",
+        mcp_servers: %{"my-tools" => MyApp.Tools},
+        allowed_tools: ["mcp__my-tools__add"]
       )
 
-      # Claude can now use your tools!
-      {:ok, response} = ClaudeCode.query(session, "What is 5 + 3?")
-
-  ## Architecture
-
-  ```
-  ┌─────────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-  │   ClaudeCode        │────▶│   Claude CLI     │────▶│  Hermes MCP     │
-  │   Session           │     │   (subprocess)   │     │  Server         │
-  └─────────────────────┘     └──────────────────┘     └─────────────────┘
-                                      │                        │
-                                      │  MCP Protocol          │
-                                      │  (HTTP/SSE or stdio)   │
-                                      └────────────────────────┘
-  ```
-
-  ## Submodules
-
-  - `ClaudeCode.MCP.Config` - Generate MCP configuration files
-  - `ClaudeCode.MCP.Server` - Start and manage Hermes MCP servers
+  See the [Custom Tools](docs/guides/custom-tools.md) guide for details.
   """
 
   @doc """

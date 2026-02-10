@@ -1,234 +1,258 @@
 defmodule ClaudeCode.MCP.Server do
   @moduledoc """
-  Helper for starting and managing Hermes MCP servers for use with ClaudeCode.
+  Macro for generating Hermes MCP tool modules from a concise DSL.
 
-  This module provides convenience functions to start Hermes MCP servers
-  and automatically generate the configuration files needed by the Claude CLI.
-
-  ## Prerequisites
-
-  This module requires the `hermes_mcp` dependency:
-
-      {:hermes_mcp, "~> 0.14"}
+  Each `tool` block becomes a nested module that implements
+  Hermes.Server.Component with type `:tool`. The generated modules
+  have proper schema definitions, execute wrappers, and metadata.
 
   ## Usage
 
-  ### Starting an HTTP Server
+      defmodule MyApp.Tools do
+        use ClaudeCode.MCP.Server, name: "my-tools"
 
-      # Define your Hermes server module
-      defmodule MyApp.MCPServer do
-        use Hermes.Server,
-          name: "my-tools",
-          version: "1.0.0"
+        tool :add, "Add two numbers" do
+          field :x, :integer, required: true
+          field :y, :integer, required: true
 
-        tool MyApp.Calculator
-        tool MyApp.FileReader
-      end
-
-      # Start the server and get config path
-      {:ok, config_path} = ClaudeCode.MCP.Server.start_link(MyApp.MCPServer, port: 9001)
-
-      # Use with ClaudeCode
-      {:ok, session} = ClaudeCode.start_link(mcp_config: config_path)
-
-  ### With Supervision
-
-      # In your application supervisor
-      children = [
-        {ClaudeCode.MCP.Server, server: MyApp.MCPServer, port: 9001, name: :my_mcp}
-      ]
-
-  ## Architecture
-
-  When started, this module:
-
-  1. Validates that Hermes MCP is available
-  2. Starts the Hermes server with HTTP transport
-  3. Generates an MCP config file pointing to the server
-  4. Returns the config file path for use with ClaudeCode
-  """
-
-  use GenServer
-
-  alias ClaudeCode.MCP
-  alias ClaudeCode.MCP.Config
-
-  @type start_option ::
-          {:server, module()}
-          | {:port, pos_integer()}
-          | {:host, String.t()}
-          | {:name, GenServer.name()}
-          | {:hermes_opts, keyword()}
-
-  @doc """
-  Starts an MCP server as a linked process.
-
-  ## Options
-
-  - `:server` - The Hermes server module (required)
-  - `:port` - Port for HTTP transport (required)
-  - `:host` - Hostname to bind (default: "localhost")
-  - `:name` - GenServer name for this process (optional)
-  - `:hermes_opts` - Additional options passed to Hermes.Server.start_link/1
-
-  ## Returns
-
-  - `{:ok, config_path}` - Path to the generated MCP config file
-  - `{:error, reason}` - If startup fails
-
-  ## Example
-
-      {:ok, config_path} = ClaudeCode.MCP.Server.start_link(
-        server: MyApp.MCPServer,
-        port: 9001
-      )
-  """
-  @spec start_link([start_option()]) :: {:ok, String.t()} | {:error, term()}
-  def start_link(opts) when is_list(opts) do
-    MCP.require_hermes!()
-
-    server = Keyword.fetch!(opts, :server)
-    port = Keyword.fetch!(opts, :port)
-    host = Keyword.get(opts, :host, "localhost")
-    name = Keyword.get(opts, :name)
-    hermes_opts = Keyword.get(opts, :hermes_opts, [])
-
-    gen_opts = if name, do: [name: name], else: []
-    init_arg = {server, port, host, hermes_opts}
-
-    case GenServer.start_link(__MODULE__, init_arg, gen_opts) do
-      {:ok, pid} ->
-        config_path = GenServer.call(pid, :get_config_path)
-        {:ok, config_path}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  @doc """
-  Gets the config path from a running MCP server.
-
-  ## Example
-
-      config_path = ClaudeCode.MCP.Server.get_config_path(:my_mcp)
-  """
-  @spec get_config_path(GenServer.server()) :: String.t()
-  def get_config_path(server) do
-    GenServer.call(server, :get_config_path)
-  end
-
-  @doc """
-  Generates a stdio command configuration for a Hermes server.
-
-  This creates the command and args needed to start a Hermes server
-  as a subprocess using stdio transport.
-
-  ## Options
-
-  - `:module` - The Hermes server module (required)
-  - `:mix_env` - Mix environment (default: "prod")
-
-  ## Example
-
-      config = ClaudeCode.MCP.Server.stdio_command(
-        module: MyApp.MCPServer
-      )
-      # => %{command: "mix", args: ["run", "--no-halt", "-e", "..."]}
-  """
-  @spec stdio_command(keyword()) :: %{command: String.t(), args: [String.t()], env: %{String.t() => String.t()}}
-  def stdio_command(opts) do
-    module = Keyword.fetch!(opts, :module)
-    mix_env = Keyword.get(opts, :mix_env, "prod")
-
-    startup_code = "#{inspect(module)}.start_link(transport: :stdio)"
-
-    %{
-      command: "mix",
-      args: ["run", "--no-halt", "-e", startup_code],
-      env: %{"MIX_ENV" => mix_env}
-    }
-  end
-
-  # GenServer callbacks
-
-  @impl true
-  def init({server_module, port, host, hermes_opts}) do
-    # Start the Hermes server with HTTP transport
-    transport_opts = [
-      transport: :http,
-      http: [port: port, host: host]
-    ]
-
-    all_opts = Keyword.merge(hermes_opts, transport_opts)
-
-    case start_hermes_server(server_module, all_opts) do
-      {:ok, hermes_pid} ->
-        # Generate config file
-        server_name = get_server_name(server_module)
-        config = Config.http_config(server_name, port: port, host: host)
-
-        case Config.write_temp_config(config) do
-          {:ok, config_path} ->
-            state = %{
-              hermes_pid: hermes_pid,
-              config_path: config_path,
-              port: port,
-              host: host,
-              server_module: server_module
-            }
-
-            {:ok, state}
-
-          {:error, reason} ->
-            {:stop, {:config_error, reason}}
+          def execute(%{x: x, y: y}) do
+            {:ok, "\#{x + y}"}
+          end
         end
 
-      {:error, reason} ->
-        {:stop, {:hermes_error, reason}}
+        tool :get_time, "Get current UTC time" do
+          def execute(_params) do
+            {:ok, DateTime.utc_now() |> to_string()}
+          end
+        end
+      end
+
+  ## Generated Module Structure
+
+  Each `tool` block generates a nested module (e.g., `MyApp.Tools.Add`) that:
+
+  - Uses `Hermes.Server.Component, type: :tool`
+  - Has `__tool_name__/0` returning the string tool name
+  - Has a `schema` block with the user's field declarations
+  - Has `__description__/0` returning the tool description (via `@moduledoc`)
+  - Has `execute/2` implementing the Hermes tool callback
+  - Wraps user return values into proper Hermes responses
+
+  ## Return Value Wrapping
+
+  The user's `execute` function can return:
+
+  - `{:ok, binary}` - wrapped into a text response
+  - `{:ok, map | list}` - wrapped into a JSON response
+  - `{:ok, other}` - converted to string and wrapped into text response
+  - `{:error, message}` - wrapped into an MCP execution error
+  """
+
+  @doc """
+  Checks if the given module was defined using `ClaudeCode.MCP.Server`.
+
+  Returns `true` if the module exports `__tool_server__/0`, `false` otherwise.
+  """
+  @spec sdk_server?(module()) :: boolean()
+  def sdk_server?(module) when is_atom(module) do
+    Code.ensure_loaded?(module) and function_exported?(module, :__tool_server__, 0)
+  end
+
+  defmacro __using__(opts) do
+    name = Keyword.fetch!(opts, :name)
+
+    quote do
+      import ClaudeCode.MCP.Server, only: [tool: 3]
+
+      Module.register_attribute(__MODULE__, :_tools, accumulate: true)
+      Module.put_attribute(__MODULE__, :_server_name, unquote(name))
+
+      @before_compile ClaudeCode.MCP.Server
     end
   end
 
-  @impl true
-  def handle_call(:get_config_path, _from, state) do
-    {:reply, state.config_path, state}
-  end
+  defmacro __before_compile__(env) do
+    tools = env.module |> Module.get_attribute(:_tools) |> Enum.reverse()
+    server_name = Module.get_attribute(env.module, :_server_name)
 
-  @impl true
-  def terminate(_reason, state) do
-    # Clean up config file
-    if state.config_path && File.exists?(state.config_path) do
-      File.rm(state.config_path)
+    quote do
+      @doc false
+      def __tool_server__ do
+        %{name: unquote(server_name), tools: unquote(tools)}
+      end
     end
-
-    :ok
   end
 
-  # Private helpers
+  @doc """
+  Defines a tool within a `ClaudeCode.MCP.Server` module.
 
-  # Hermes.Server.start_link expects the server module to implement
-  # the Hermes.Server behaviour
-  defp start_hermes_server(server_module, opts) do
-    server_module.start_link(opts)
-  rescue
-    e -> {:error, {:start_failed, e}}
+  ## Parameters
+
+  - `name` - atom name for the tool (e.g., `:add`)
+  - `description` - string description of what the tool does
+  - `block` - the tool body containing optional `field` declarations and a `def execute` function
+
+  ## Examples
+
+      tool :add, "Add two numbers" do
+        field :x, :integer, required: true
+        field :y, :integer, required: true
+
+        def execute(%{x: x, y: y}) do
+          {:ok, "\#{x + y}"}
+        end
+      end
+  """
+  defmacro tool(name, description, do: block) do
+    module_name = name |> Atom.to_string() |> Macro.camelize() |> String.to_atom()
+    tool_name_str = Atom.to_string(name)
+
+    {field_asts, execute_ast} = split_tool_block(block)
+    schema_block = build_schema_block(field_asts)
+    {execute_wrapper, user_execute_def} = build_execute(execute_ast, tool_name_str)
+
+    quote do
+      defmodule Module.concat(__MODULE__, unquote(module_name)) do
+        @moduledoc unquote(description)
+
+        use Hermes.Server.Component, type: :tool
+
+        alias Hermes.MCP.Error
+        alias Hermes.Server.Response
+
+        @doc false
+        def __tool_name__, do: unquote(tool_name_str)
+
+        unquote(schema_block)
+
+        unquote(user_execute_def)
+
+        @doc false
+        def __wrap_result__({:ok, value}, frame) when is_binary(value) do
+          response = Response.text(Response.tool(), value)
+
+          {:reply, response, frame}
+        end
+
+        def __wrap_result__({:ok, value}, frame) when is_map(value) or is_list(value) do
+          response = Response.json(Response.tool(), value)
+
+          {:reply, response, frame}
+        end
+
+        def __wrap_result__({:ok, value}, frame) do
+          response = Response.text(Response.tool(), to_string(value))
+
+          {:reply, response, frame}
+        end
+
+        def __wrap_result__({:error, message}, frame) when is_binary(message) do
+          {:error, Error.execution(message), frame}
+        end
+
+        def __wrap_result__({:error, message}, frame) do
+          {:error, Error.execution(to_string(message)), frame}
+        end
+
+        unquote(execute_wrapper)
+      end
+
+      @_tools Module.concat(__MODULE__, unquote(module_name))
+    end
   end
 
-  defp get_server_name(module) do
-    # Try to get the name from the module, or derive from module name
-    if function_exported?(module, :server_info, 0) do
-      info = module.server_info()
-      Map.get(info, :name, module_to_name(module))
+  # -- Private helpers for AST manipulation --
+
+  # Splits the tool block AST into field declarations and execute def(s).
+  defp split_tool_block({:__block__, _, statements}) do
+    {fields, executes} =
+      Enum.split_with(statements, fn stmt ->
+        not execute_def?(stmt)
+      end)
+
+    {fields, executes}
+  end
+
+  # Single statement block (just a def execute, no fields)
+  defp split_tool_block(single) do
+    if execute_def?(single) do
+      {[], [single]}
     else
-      module_to_name(module)
+      {[single], []}
     end
   end
 
-  defp module_to_name(module) do
-    module
-    |> Module.split()
-    |> List.last()
-    |> Macro.underscore()
-    |> String.replace("_", "-")
+  # Checks if an AST node is a `def execute(...)` definition
+  defp execute_def?({:def, _, [{:execute, _, _} | _]}), do: true
+  defp execute_def?(_), do: false
+
+  # Wraps field AST nodes in a `schema do ... end` block
+  defp build_schema_block([]) do
+    quote do
+      schema do
+      end
+    end
   end
+
+  defp build_schema_block(field_asts) do
+    body =
+      case field_asts do
+        [single] -> single
+        multiple -> {:__block__, [], multiple}
+      end
+
+    quote do
+      schema do
+        unquote(body)
+      end
+    end
+  end
+
+  # Builds the execute/2 wrapper and the renamed user execute function.
+  # Detects whether user's execute is arity 1 or 2.
+  defp build_execute(execute_defs, _tool_name) do
+    # Rename all user `def execute` clauses to `defp __user_execute__`
+    user_defs =
+      Enum.map(execute_defs, fn {:def, meta, [{:execute, name_meta, args} | body]} ->
+        {:defp, meta, [{:__user_execute__, name_meta, args} | body]}
+      end)
+
+    # Detect arity from the first clause
+    arity = detect_execute_arity(execute_defs)
+
+    wrapper =
+      case arity do
+        1 ->
+          quote do
+            @impl true
+            def execute(params, frame) do
+              result = __user_execute__(params)
+              __wrap_result__(result, frame)
+            end
+          end
+
+        _2 ->
+          quote do
+            @impl true
+            def execute(params, frame) do
+              result = __user_execute__(params, frame)
+              __wrap_result__(result, frame)
+            end
+          end
+      end
+
+    combined_user_defs =
+      case user_defs do
+        [single] -> single
+        multiple -> {:__block__, [], multiple}
+      end
+
+    {wrapper, combined_user_defs}
+  end
+
+  defp detect_execute_arity([{:def, _, [{:execute, _, args} | _]} | _]) when is_list(args) do
+    length(args)
+  end
+
+  defp detect_execute_arity(_), do: 1
 end
