@@ -63,6 +63,7 @@ defmodule ClaudeCode.Session do
   """
   def start_link(opts) do
     {name, session_opts} = Keyword.pop(opts, :name)
+    {_id, session_opts} = Keyword.pop(session_opts, :id)
 
     # Apply app config defaults and validate options early
     opts_with_config = Options.apply_app_config_defaults(session_opts)

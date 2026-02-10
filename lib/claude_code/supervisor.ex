@@ -257,8 +257,8 @@ defmodule ClaudeCode.Supervisor do
   end
 
   defp build_child_spec(session_config) do
-    # Use session name as child ID, fallback to unique reference
-    child_id = session_config[:name] || make_ref()
+    # Use explicit id, then session name, then unique reference as child ID
+    child_id = session_config[:id] || session_config[:name] || make_ref()
 
     %{
       id: child_id,
