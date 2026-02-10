@@ -90,7 +90,7 @@ end
 
 ## In-Stream Tool Monitoring
 
-You can also observe tool usage in real-time within a stream pipeline using `Stream.on_tool_use/2`:
+You can also observe tool usage in real-time within a stream pipeline using `ClaudeCode.Stream.on_tool_use/2`:
 
 ```elixir
 session

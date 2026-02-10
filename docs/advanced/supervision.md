@@ -287,6 +287,6 @@ valid_config = [
 
 ## Next Steps
 
-- [Configuration Guide](configuration.md) - All configuration options
+- `ClaudeCode.Options` - All configuration options
 - [Phoenix Integration](../integration/phoenix.md) - Web application patterns
 - [Troubleshooting](../reference/troubleshooting.md) - Common issues

@@ -1,4 +1,4 @@
-# Configure Permissions
+# Handling Permissions
 
 Control how your agent uses tools with permission modes and declarative allow/deny rules.
 

@@ -301,7 +301,7 @@ end
 
 Includes message helpers (`text`, `tool_use`, `tool_result`, `thinking`), dynamic stubs, and concurrent test support.
 
-📖 **[Full Testing Guide →](docs/guides/testing.md)**
+📖 **[Full Testing Guide →](docs/reference/testing.md)**
 
 ## 📚 Documentation
 

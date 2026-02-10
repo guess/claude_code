@@ -111,48 +111,46 @@ defmodule ClaudeCode.MixProject do
       main: "readme",
       source_ref: "v#{@version}",
       source_url: @source_url,
+      before_closing_body_tag: &before_closing_body_tag/1,
       extras: [
         "README.md",
         "CHANGELOG.md",
-        # Getting Started
+        # Introduction
         "docs/guides/overview.md",
         "docs/guides/quickstart.md",
-        # Queries and Streaming
+        # Core Concepts
+        "docs/guides/sessions.md",
         "docs/guides/streaming-vs-single-mode.md",
         "docs/guides/streaming-output.md",
         "docs/guides/stop-reasons.md",
         "docs/guides/structured-outputs.md",
-        # Sessions and State
-        "docs/guides/sessions.md",
-        "docs/guides/user-input.md",
         "docs/guides/file-checkpointing.md",
-        # Permissions and Security
-        "docs/guides/permissions.md",
-        "docs/guides/secure-deployment.md",
-        # Customization
+        # Configuration
         "docs/guides/modifying-system-prompts.md",
-        "docs/guides/hooks.md",
-        "docs/guides/cost-tracking.md",
-        # Tools and Extensions
+        "docs/guides/permissions.md",
+        # Capabilities
         "docs/guides/mcp.md",
         "docs/guides/custom-tools.md",
-        "docs/guides/subagents.md",
-        "docs/guides/slash-commands.md",
-        "docs/guides/skills.md",
+        # Plugins
         "docs/guides/plugins.md",
+        "docs/guides/skills.md",
+        "docs/guides/slash-commands.md",
+        "docs/guides/subagents.md",
+        # Interaction
+        "docs/guides/hooks.md",
+        "docs/integration/tool-callbacks.md",
+        "docs/guides/user-input.md",
         # Production
         "docs/guides/hosting.md",
-        "docs/guides/testing.md",
+        "docs/advanced/supervision.md",
+        "docs/guides/secure-deployment.md",
+        "docs/guides/cost-tracking.md",
         # Integration
         "docs/integration/phoenix.md",
-        "docs/integration/mcp.md",
-        "docs/integration/tool-callbacks.md",
-        # Advanced
-        "docs/advanced/configuration.md",
-        "docs/advanced/supervision.md",
         # Reference
-        "docs/reference/examples.md",
         "docs/reference/architecture.md",
+        "docs/reference/examples.md",
+        "docs/reference/testing.md",
         "docs/reference/troubleshooting.md"
       ],
       groups_for_extras: [
@@ -161,50 +159,46 @@ defmodule ClaudeCode.MixProject do
           "docs/guides/overview.md",
           "docs/guides/quickstart.md"
         ],
-        "Queries & Streaming": [
+        "Core Concepts": [
+          "docs/guides/sessions.md",
           "docs/guides/streaming-vs-single-mode.md",
           "docs/guides/streaming-output.md",
           "docs/guides/stop-reasons.md",
-          "docs/guides/structured-outputs.md"
-        ],
-        "Sessions & State": [
-          "docs/guides/sessions.md",
-          "docs/guides/user-input.md",
+          "docs/guides/structured-outputs.md",
           "docs/guides/file-checkpointing.md"
         ],
-        "Permissions & Security": [
-          "docs/guides/permissions.md",
-          "docs/guides/secure-deployment.md"
-        ],
-        Customization: [
+        Configuration: [
           "docs/guides/modifying-system-prompts.md",
-          "docs/guides/hooks.md",
-          "docs/guides/cost-tracking.md"
+          "docs/guides/permissions.md"
         ],
-        "Tools & Extensions": [
+        Capabilities: [
           "docs/guides/mcp.md",
-          "docs/guides/custom-tools.md",
-          "docs/guides/subagents.md",
-          "docs/guides/slash-commands.md",
+          "docs/guides/custom-tools.md"
+        ],
+        Plugins: [
+          "docs/guides/plugins.md",
           "docs/guides/skills.md",
-          "docs/guides/plugins.md"
+          "docs/guides/slash-commands.md",
+          "docs/guides/subagents.md"
+        ],
+        Interaction: [
+          "docs/guides/hooks.md",
+          "docs/integration/tool-callbacks.md",
+          "docs/guides/user-input.md"
         ],
         Production: [
           "docs/guides/hosting.md",
-          "docs/guides/testing.md"
+          "docs/advanced/supervision.md",
+          "docs/guides/secure-deployment.md",
+          "docs/guides/cost-tracking.md"
         ],
         Integration: [
-          "docs/integration/phoenix.md",
-          "docs/integration/mcp.md",
-          "docs/integration/tool-callbacks.md"
-        ],
-        Advanced: [
-          "docs/advanced/configuration.md",
-          "docs/advanced/supervision.md"
+          "docs/integration/phoenix.md"
         ],
         Reference: [
-          "docs/reference/examples.md",
           "docs/reference/architecture.md",
+          "docs/reference/examples.md",
+          "docs/reference/testing.md",
           "docs/reference/troubleshooting.md"
         ]
       ],
@@ -250,4 +244,39 @@ defmodule ClaudeCode.MixProject do
       ]
     ]
   end
+
+  defp before_closing_body_tag(:html) do
+    """
+    <script defer src="https://cdn.jsdelivr.net/npm/mermaid@10.2.3/dist/mermaid.min.js"></script>
+    <script>
+      let initialized = false;
+
+      window.addEventListener("exdoc:loaded", () => {
+        if (!initialized) {
+          mermaid.initialize({
+            startOnLoad: false,
+            theme: document.body.className.includes("dark") ? "dark" : "default"
+          });
+          initialized = true;
+        }
+
+        let id = 0;
+        for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+          const preEl = codeEl.parentElement;
+          const graphDefinition = codeEl.textContent;
+          const graphEl = document.createElement("div");
+          const graphId = "mermaid-graph-" + id++;
+          mermaid.render(graphId, graphDefinition).then(({svg, bindFunctions}) => {
+            graphEl.innerHTML = svg;
+            bindFunctions?.(graphEl);
+            preEl.insertAdjacentElement("afterend", graphEl);
+            preEl.remove();
+          });
+        }
+      });
+    </script>
+    """
+  end
+
+  defp before_closing_body_tag(:epub), do: ""
 end

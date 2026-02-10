@@ -1,4 +1,4 @@
-# Sessions
+# Session Management
 
 > **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/sessions). Examples are adapted for Elixir.
 
@@ -186,17 +186,17 @@ ClaudeCode.Supervisor.list_sessions(supervisor)
 
 ## Session Options Reference
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `name` | atom | Register with a name for global access |
-| `resume` | string | Session ID to resume |
-| `continue` | boolean | Continue the most recent conversation |
-| `fork_session` | boolean | Create new session ID when resuming (use with `resume`) |
-| `session_id` | string | Use a specific session ID (must be a valid UUID) |
-| `no_session_persistence` | boolean | Don't save sessions to disk |
-| `model` | string | Claude model ("sonnet", "opus", etc.) |
-| `system_prompt` | string | Override system prompt |
-| `timeout` | integer | Query timeout in ms (default: 300,000) |
+| Option                   | Type    | Description                                             |
+| ------------------------ | ------- | ------------------------------------------------------- |
+| `name`                   | atom    | Register with a name for global access                  |
+| `resume`                 | string  | Session ID to resume                                    |
+| `continue`               | boolean | Continue the most recent conversation                   |
+| `fork_session`           | boolean | Create new session ID when resuming (use with `resume`) |
+| `session_id`             | string  | Use a specific session ID (must be a valid UUID)        |
+| `no_session_persistence` | boolean | Don't save sessions to disk                             |
+| `model`                  | string  | Claude model ("sonnet", "opus", etc.)                   |
+| `system_prompt`          | string  | Override system prompt                                  |
+| `timeout`                | integer | Query timeout in ms (default: 300,000)                  |
 
 ## Runtime Control
 
@@ -223,16 +223,16 @@ These functions use the bidirectional control protocol to communicate with the C
 
 ## Session Lifecycle
 
-| Event | Behavior |
-|-------|----------|
-| `start_link/1` | Creates GenServer, CLI adapter starts eagerly |
+| Event                | Behavior                                                      |
+| -------------------- | ------------------------------------------------------------- |
+| `start_link/1`       | Creates GenServer, CLI adapter starts eagerly                 |
 | Adapter initializing | Sends initialize handshake, adapter status is `:initializing` |
-| Adapter ready | Handshake complete, adapter status is `:ready` |
-| First query | Sent to the already-running CLI subprocess |
-| Subsequent queries | Reuses existing CLI connection with session context |
-| `clear/1` | Resets session ID, next query starts fresh |
-| `stop/1` | Terminates GenServer and CLI subprocess |
-| Process crash | Supervisor restarts if supervised |
+| Adapter ready        | Handshake complete, adapter status is `:ready`                |
+| First query          | Sent to the already-running CLI subprocess                    |
+| Subsequent queries   | Reuses existing CLI connection with session context           |
+| `clear/1`            | Resets session ID, next query starts fresh                    |
+| `stop/1`             | Terminates GenServer and CLI subprocess                       |
+| Process crash        | Supervisor restarts if supervised                             |
 
 ## Next Steps
 

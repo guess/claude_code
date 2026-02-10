@@ -1,4 +1,4 @@
-# Agent Skills in the SDK
+# Skills
 
 Extend Claude with specialized capabilities using Agent Skills.
 
@@ -43,11 +43,11 @@ Once configured, Claude automatically discovers Skills from the specified direct
 
 Skills are loaded from filesystem directories based on your `setting_sources` configuration:
 
-| Source | Directory | Loaded when |
-| :----- | :-------- | :---------- |
-| Project Skills | `.claude/skills/` (relative to `cwd`) | `setting_sources` includes `"project"` |
-| User Skills | `~/.claude/skills/` | `setting_sources` includes `"user"` |
-| Plugin Skills | Bundled with installed Claude Code plugins | Plugins are configured via the `plugins` option |
+| Source         | Directory                                  | Loaded when                                     |
+| :------------- | :----------------------------------------- | :---------------------------------------------- |
+| Project Skills | `.claude/skills/` (relative to `cwd`)      | `setting_sources` includes `"project"`          |
+| User Skills    | `~/.claude/skills/`                        | `setting_sources` includes `"user"`             |
+| Plugin Skills  | Bundled with installed Claude Code plugins | Plugins are configured via the `plugins` option |
 
 Use `setting_sources: ["user", "project"]` to load Skills from both personal and project directories.
 

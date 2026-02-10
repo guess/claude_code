@@ -39,7 +39,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 ### Production
 - **[Hosting](guides/hosting.md)** - OTP supervision and deployment
-- **[Testing](guides/testing.md)** - Testing with the ClaudeCode test adapter
+- **[Testing](reference/testing.md)** - Testing with the ClaudeCode test adapter
 
 ## Integration
 
@@ -48,7 +48,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 ## Advanced
 
-- **[Configuration](advanced/configuration.md)** - All options and precedence rules
+- **`ClaudeCode.Options`** - All options and precedence rules
 - **[Supervision](advanced/supervision.md)** - Fault-tolerant production deployments
 - **[Subagents](guides/subagents.md)** - Custom agent configurations
 

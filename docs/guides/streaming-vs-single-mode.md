@@ -1,4 +1,4 @@
-# Streaming vs Single Mode
+# Streaming Input
 
 Understanding the two input modes for the Claude Code Elixir SDK and when to use each.
 
@@ -112,6 +112,7 @@ Use single-shot queries when:
 <div class="warning">
 
 Single-shot mode does **not** support:
+
 - Real-time streaming to your application (blocks until completion)
 - Hook integration
 - Natural multi-turn conversations (requires explicit session management)

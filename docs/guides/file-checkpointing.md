@@ -1,4 +1,4 @@
-# Rewind File Changes with Checkpointing
+# File Checkpointing
 
 Track file changes during agent sessions and restore files to any previous state.
 

@@ -329,5 +329,5 @@ end
 ## Next Steps
 
 - [Quickstart](../guides/quickstart.md) - Installation and setup
-- [Configuration](../advanced/configuration.md) - All options
+- `ClaudeCode.Options` - All options and precedence rules
 - [Troubleshooting](troubleshooting.md) - Common issues

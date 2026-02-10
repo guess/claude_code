@@ -1,147 +1,391 @@
 defmodule ClaudeCode.Options do
   @moduledoc """
-  Handles option validation and CLI flag conversion.
+  Option validation, CLI flag conversion, and configuration guide.
 
   This module is the **single source of truth** for all ClaudeCode options.
   It provides validation for session and query options using NimbleOptions,
-  converts Elixir options to CLI flags, and manages option precedence:
-  query > session > app config > environment variables > defaults.
-
-  ## Session Options
-
-  Session options are used when starting a ClaudeCode session. Most options
-  can be overridden at the query level.
-
-  ### API Key
-  - `:api_key` - Anthropic API key (string, optional - falls back to ANTHROPIC_API_KEY env var)
-
-  ### Claude Configuration
-  - `:model` - Claude model to use (string, optional - CLI uses its default)
-  - `:fallback_model` - Fallback model if primary fails (string, optional)
-  - `:system_prompt` - Override system prompt (string, optional)
-  - `:append_system_prompt` - Append to system prompt (string, optional)
-  - `:max_turns` - Limit agentic turns in non-interactive mode (integer, optional)
-  - `:max_budget_usd` - Maximum dollar amount to spend on API calls (number, optional)
-  - `:agent` - Agent name for the session (string, optional)
-    Overrides the 'agent' setting. Different from `:agents` which defines custom agents.
-  - `:betas` - Beta headers to include in API requests (list of strings, optional)
-    Example: `["feature-x", "feature-y"]`
-  - `:max_thinking_tokens` - Maximum tokens for thinking blocks (integer, optional)
-
-  ### Tool Control
-  - `:tools` - Specify the list of available tools from the built-in set (optional)
-    Use `:default` for all tools, `[]` to disable all, or a list of tool names.
-    Example: `tools: :default` or `tools: ["Bash", "Edit", "Read"]`
-  - `:allowed_tools` - List of allowed tools (list of strings, optional)
-    Example: `["View", "Bash(git:*)"]`
-  - `:disallowed_tools` - List of denied tools (list of strings, optional)
-  - `:add_dir` - Additional directories for tool access (list of strings, optional)
-    Example: `["/tmp", "/var/log"]`
-
-  ### Advanced Options
-  - `:agents` - Custom agent definitions (map, optional)
-    Map of agent name to agent configuration. Each agent must have `description` and `prompt`.
-    Example: `%{"code-reviewer" => %{"description" => "Reviews code", "prompt" => "You are a code reviewer", "tools" => ["Read", "Edit"], "model" => "sonnet"}}`
-  - `:mcp_config` - Path to MCP servers JSON config file (string, optional)
-  - `:mcp_servers` - MCP server configurations as a map (map, optional)
-    Values can be a Hermes MCP module (atom), a module map with custom env, or a command config map.
-    Example: `%{"my-tools" => MyApp.MCPServer, "custom" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}}`
-  - `:strict_mcp_config` - Only use MCP servers from mcp_config/mcp_servers (boolean, default: false)
-    When true, ignores all global MCP configurations and only uses explicitly provided MCP config.
-  - `:permission_prompt_tool` - MCP tool for handling permission prompts (string, optional)
-  - `:permission_mode` - Permission handling mode (atom, default: :default)
-    Options: `:default`, `:accept_edits`, `:bypass_permissions`, `:delegate`, `:dont_ask`, `:plan`
-  - `:output_format` - Output format for structured outputs (map, optional)
-    Must have `:type` key (currently only `:json_schema` supported) and `:schema` key with JSON Schema.
-    Example: `%{type: :json_schema, schema: %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}}`
-  - `:settings` - Settings configuration (string or map, optional)
-    Can be a file path, JSON string, or map that will be JSON encoded
-    Example: `%{"feature" => true}` or `"/path/to/settings.json"`
-  - `:setting_sources` - List of setting sources to load (list of strings, optional)
-    Valid sources: `"user"`, `"project"`, `"local"`
-    Example: `["user", "project", "local"]`
-  - `:plugins` - Plugin configurations to load (list of maps or strings, optional)
-    Each plugin can be a path string or a map with `:type` and `:path` keys.
-    Currently only `:local` type is supported.
-    Example: `["./my-plugin"]` or `[%{type: :local, path: "./my-plugin"}]`
-
-  ### Elixir-Specific Options
-  - `:name` - GenServer process name (atom, optional)
-  - `:timeout` - Query timeout in milliseconds (timeout, default: 300_000) - **Elixir only, not passed to CLI**
-  - `:cli_path` - CLI binary resolution mode: `:bundled` (default), `:global`, or explicit path string
-  - `:resume` - Session ID to resume a previous conversation (string, optional)
-  - `:fork_session` - When resuming, create a new session ID instead of reusing the original (boolean, optional)
-    Must be used with `:resume`. Creates a fork of the conversation.
-  - `:continue` - Continue the most recent conversation in the current directory (boolean, optional)
-  - `:tool_callback` - Post-execution callback for tool monitoring (function, optional)
-    Receives a map with `:name`, `:input`, `:result`, `:is_error`, `:tool_use_id`, `:timestamp`
-  - `:cwd` - Current working directory (string, optional)
-  - `:env` - Environment variables to merge with system environment (map of string to string, default: %{})
-    User-provided env vars override system vars but are overridden by SDK vars and `:api_key`.
-    Example: `%{"MY_VAR" => "value", "PATH" => "/custom/bin:" <> System.get_env("PATH")}`
-
-  ## Query Options
-
-  Query options can override session defaults for individual queries.
-  All session options except `:api_key` and `:name` can be used as query options.
+  converts Elixir options to CLI flags, and manages option precedence.
 
   ## Option Precedence
 
   Options are resolved in this order (highest to lowest priority):
-  1. Query-level options
-  2. Session-level options
-  3. Application configuration
-  4. Environment variables (ANTHROPIC_API_KEY for api_key)
-  5. Schema defaults
 
-  ## Usage Examples
+  1. **Query-level options** — passed to `query/3` or `stream/3`
+  2. **Session-level options** — passed to `start_link/1`
+  3. **Application config** — set in `config/config.exs`
+  4. **Default values** — built-in defaults
 
-      # Session with comprehensive options
-      {:ok, session} = ClaudeCode.start_link(
-        api_key: "sk-ant-...",
-        model: "opus",
-        fallback_model: "sonnet",
-        system_prompt: "You are an Elixir expert",
-        allowed_tools: ["View", "Edit", "Bash(git:*)"],
-        add_dir: ["/tmp", "/var/log"],
-        max_turns: 20,
-        timeout: 180_000,
-        permission_mode: :default
-      )
+      # Application config (lowest priority)
+      config :claude_code, timeout: 300_000
 
-      # Query with option overrides
-      ClaudeCode.query(session, "Help with testing",
-        system_prompt: "Focus on ExUnit patterns",
-        allowed_tools: ["View"],
-        timeout: 60_000
-      )
+      # Session-level overrides app config
+      {:ok, session} = ClaudeCode.start_link(timeout: 120_000)
 
-      # Application configuration
-      # config/config.exs
+      # Query-level overrides session
+      ClaudeCode.stream(session, "Hello", timeout: 60_000)
+
+  ## Session Options
+
+  All options for `ClaudeCode.start_link/1`:
+
+  ### Authentication
+
+  | Option    | Type   | Default                 | Description                  |
+  | --------- | ------ | ----------------------- | ---------------------------- |
+  | `api_key` | string | `ANTHROPIC_API_KEY` env | Anthropic API key            |
+  | `name`    | atom   | -                       | Register session with a name |
+
+  ### Model Configuration
+
+  | Option                 | Type    | Default  | Description                                 |
+  | ---------------------- | ------- | -------- | ------------------------------------------- |
+  | `model`                | string  | "sonnet" | Claude model to use                         |
+  | `fallback_model`       | string  | -        | Fallback if primary model fails             |
+  | `system_prompt`        | string  | -        | Override system prompt                      |
+  | `append_system_prompt` | string  | -        | Append to default system prompt             |
+  | `max_turns`            | integer | -        | Limit conversation turns                    |
+  | `max_budget_usd`       | number  | -        | Maximum dollar amount to spend on API calls |
+  | `agent`                | string  | -        | Agent name for the session                  |
+  | `betas`                | list    | -        | Beta headers for API requests               |
+  | `max_thinking_tokens`  | integer | -        | Maximum tokens for thinking blocks          |
+
+  ### Timeouts
+
+  | Option    | Type    | Default | Description                   |
+  | --------- | ------- | ------- | ----------------------------- |
+  | `timeout` | integer | 300_000 | Query timeout in milliseconds |
+
+  ### Tool Control
+
+  | Option             | Type      | Default    | Description                                         |
+  | ------------------ | --------- | ---------- | --------------------------------------------------- |
+  | `tools`            | atom/list | -          | Available tools: `:default`, `[]`, or list of names |
+  | `allowed_tools`    | list      | -          | Tools Claude can use                                |
+  | `disallowed_tools` | list      | -          | Tools Claude cannot use                             |
+  | `add_dir`          | list      | -          | Additional accessible directories                   |
+  | `permission_mode`  | atom      | `:default` | Permission handling mode                            |
+
+  ### Advanced
+
+  | Option                     | Type       | Default     | Description                                                     |
+  | -------------------------- | ---------- | ----------- | --------------------------------------------------------------- |
+  | `adapter`                  | tuple      | CLI adapter | Backend adapter as `{Module, config}` tuple                     |
+  | `resume`                   | string     | -           | Session ID to resume                                            |
+  | `fork_session`             | boolean    | false       | Create new session ID when resuming                             |
+  | `continue`                 | boolean    | false       | Continue most recent conversation in current directory          |
+  | `mcp_config`               | string     | -           | Path to MCP config file                                         |
+  | `strict_mcp_config`        | boolean    | false       | Only use MCP servers from explicit config                       |
+  | `agents`                   | map        | -           | Custom agent configurations                                     |
+  | `settings`                 | map/string | -           | Team settings                                                   |
+  | `setting_sources`          | list       | -           | Setting source priority                                         |
+  | `tool_callback`            | function   | -           | Called after tool executions                                     |
+  | `include_partial_messages` | boolean    | false       | Enable character-level streaming                                |
+  | `output_format`            | map        | -           | Structured output format (see Structured Outputs section)       |
+  | `plugins`                  | list       | -           | Plugin configurations to load (paths or maps with type: :local) |
+
+  ## Query Options
+
+  Options that can be passed to `stream/3`:
+
+  | Option                     | Type    | Description                             |
+  | -------------------------- | ------- | --------------------------------------- |
+  | `timeout`                  | integer | Override session timeout                |
+  | `system_prompt`            | string  | Override system prompt for this query   |
+  | `append_system_prompt`     | string  | Append to system prompt                 |
+  | `max_turns`                | integer | Limit turns for this query              |
+  | `max_budget_usd`           | number  | Maximum dollar amount for this query    |
+  | `agent`                    | string  | Agent to use for this query             |
+  | `betas`                    | list    | Beta headers for this query             |
+  | `max_thinking_tokens`      | integer | Maximum tokens for thinking blocks      |
+  | `tools`                    | list    | Available tools for this query          |
+  | `allowed_tools`            | list    | Allowed tools for this query            |
+  | `disallowed_tools`         | list    | Disallowed tools for this query         |
+  | `output_format`            | map     | Structured output format for this query |
+  | `plugins`                  | list    | Plugin configurations for this query    |
+  | `include_partial_messages` | boolean | Enable deltas for this query            |
+
+  Note: `api_key` and `name` cannot be overridden at query time.
+
+  ## Application Configuration
+
+  Set defaults in `config/config.exs`:
+
       config :claude_code,
+        api_key: System.get_env("ANTHROPIC_API_KEY"),
         model: "sonnet",
-        timeout: 120_000,
-        allowed_tools: ["View", "Edit"]
+        timeout: 180_000,
+        system_prompt: "You are a helpful assistant",
+        allowed_tools: ["View"]
 
-      # Session with MCP servers configured inline
+  ### CLI Configuration
+
+  The SDK manages the Claude CLI binary via the `:cli_path` option:
+
+      config :claude_code,
+        cli_path: :bundled,               # :bundled (default), :global, or "/path/to/claude"
+        cli_version: "x.y.z",            # Version to install (default: SDK's tested version)
+        cli_dir: nil                      # Directory for downloaded binary (default: priv/bin/)
+
+  Resolution modes:
+
+  | Mode     | Value                  | Behavior                                                                        |
+  | -------- | ---------------------- | ------------------------------------------------------------------------------- |
+  | Bundled  | `:bundled` (default)   | Uses priv/bin/ binary. Auto-installs if missing. Verifies version matches SDK. |
+  | Global   | `:global`              | Finds existing system install via PATH or common locations. No auto-install.   |
+  | Explicit | `"/path/to/claude"`    | Uses that exact binary. Error if not found.                                    |
+
+  Mix tasks:
+
+      mix claude_code.install              # Install or update to SDK's tested version
+      mix claude_code.install --version x.y.z   # Install specific version
+      mix claude_code.install --force      # Force reinstall even if version matches
+      mix claude_code.uninstall            # Remove the bundled CLI binary
+      mix claude_code.path                 # Print the resolved CLI binary path
+
+  For releases:
+
+      # Option 1: Pre-install during release build (recommended)
+      # (Run mix claude_code.install before building the release)
+
+      # Option 2: Configure writable directory for runtime download
+      config :claude_code, cli_dir: "/var/lib/claude_code"
+
+      # Option 3: Use system-installed CLI
+      config :claude_code, cli_path: :global
+
+  ### Environment-Specific Configuration
+
+      # config/dev.exs
+      config :claude_code,
+        timeout: 60_000,
+        permission_mode: :accept_edits
+
+      # config/prod.exs
+      config :claude_code,
+        timeout: 300_000,
+        permission_mode: :default
+
+      # config/test.exs
+      config :claude_code,
+        api_key: "test-key",
+        timeout: 5_000
+
+  ## Model Selection
+
+      # Use a specific model
+      {:ok, session} = ClaudeCode.start_link(model: "opus")
+
+      # With fallback
       {:ok, session} = ClaudeCode.start_link(
+        model: "opus",
+        fallback_model: "sonnet"
+      )
+
+  Available models: `"sonnet"`, `"opus"`, `"haiku"`, or full model IDs.
+
+  ## System Prompts
+
+      # Override completely
+      {:ok, session} = ClaudeCode.start_link(
+        system_prompt: "You are an Elixir expert. Only discuss Elixir."
+      )
+
+      # Append to default
+      {:ok, session} = ClaudeCode.start_link(
+        append_system_prompt: "Always format code with proper indentation."
+      )
+
+  ## Cost Control
+
+      # Limit spending per query
+      session
+      |> ClaudeCode.stream("Complex analysis task", max_budget_usd: 5.00)
+      |> Stream.run()
+
+      # Set a session-wide budget limit
+      {:ok, session} = ClaudeCode.start_link(
+        max_budget_usd: 25.00
+      )
+
+  ## Structured Outputs
+
+  Use the `:output_format` option with a JSON Schema to get validated structured responses:
+
+      schema = %{
+        "type" => "object",
+        "properties" => %{
+          "name" => %{"type" => "string"},
+          "age" => %{"type" => "integer"},
+          "skills" => %{"type" => "array", "items" => %{"type" => "string"}}
+        },
+        "required" => ["name", "age"]
+      }
+
+      session
+      |> ClaudeCode.stream("Extract person info from: John is 30 and knows Elixir",
+           output_format: %{type: :json_schema, schema: schema})
+      |> ClaudeCode.Stream.text_content()
+      |> Enum.join()
+
+  The `:output_format` option accepts a map with:
+
+  - `:type` — currently only `:json_schema` is supported
+  - `:schema` — a JSON Schema map defining the expected structure
+
+  ## Tool Configuration
+
+      # Use all default tools
+      {:ok, session} = ClaudeCode.start_link(tools: :default)
+
+      # Specify available tools (subset of built-in)
+      {:ok, session} = ClaudeCode.start_link(
+        tools: ["Bash", "Edit", "Read"]
+      )
+
+      # Disable all tools
+      {:ok, session} = ClaudeCode.start_link(tools: [])
+
+      # Allow specific tools with patterns
+      {:ok, session} = ClaudeCode.start_link(
+        allowed_tools: ["View", "Edit", "Bash(git:*)"]
+      )
+
+      # Disallow specific tools
+      {:ok, session} = ClaudeCode.start_link(
+        disallowed_tools: ["Bash", "Write"]
+      )
+
+      # Additional directories
+      {:ok, session} = ClaudeCode.start_link(
+        add_dir: ["/app/lib", "/app/test"]
+      )
+
+  ## MCP Server Control
+
+  Claude Code can connect to MCP (Model Context Protocol) servers for additional
+  tools. By default, it uses globally configured MCP servers. Use `strict_mcp_config`
+  to control this:
+
+      # No tools at all (no built-in tools, no MCP servers)
+      {:ok, session} = ClaudeCode.start_link(
+        tools: [],
+        strict_mcp_config: true
+      )
+
+      # Built-in tools only (ignore global MCP servers)
+      {:ok, session} = ClaudeCode.start_link(
+        tools: :default,
+        strict_mcp_config: true
+      )
+
+      # Default behavior (built-in tools + global MCP servers)
+      {:ok, session} = ClaudeCode.start_link()
+
+      # Specific MCP servers only (no global config)
+      {:ok, session} = ClaudeCode.start_link(
+        strict_mcp_config: true,
         mcp_servers: %{
-          # Hermes MCP server module - auto-generates stdio config
-          "my-tools" => MyApp.MCPServer,
-          # Hermes module with custom environment variables
-          "my-tools-debug" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}},
-          # Explicit command config for external MCP servers
-          "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}
+          "my-tools" => %{command: "npx", args: ["my-mcp-server"]}
         }
       )
 
+  ### Using Hermes MCP Modules
+
+  You can use Elixir-based MCP servers built with Hermes MCP:
+
+      {:ok, session} = ClaudeCode.start_link(
+        strict_mcp_config: true,
+        mcp_servers: %{
+          "my-tools" => MyApp.MCPServer,
+          "custom" => %{module: MyApp.MCPServer, env: %{"DEBUG" => "1"}}
+        }
+      )
+
+  ## Custom Agents
+
+  Configure custom agents with specialized behaviors:
+
+      agents = %{
+        "code-reviewer" => %{
+          "description" => "Expert code reviewer",
+          "prompt" => "You review code for quality and best practices.",
+          "tools" => ["View", "Grep", "Glob"],
+          "model" => "sonnet"
+        }
+      }
+
+      {:ok, session} = ClaudeCode.start_link(agents: agents)
+
+  See the Subagents Guide for more details.
+
+  ## Team Settings
+
+      # From file path
+      {:ok, session} = ClaudeCode.start_link(
+        settings: "/path/to/settings.json"
+      )
+
+      # From map (auto-encoded to JSON)
+      {:ok, session} = ClaudeCode.start_link(
+        settings: %{
+          "team_name" => "My Team",
+          "preferences" => %{"theme" => "dark"}
+        }
+      )
+
+      # Control setting sources
+      {:ok, session} = ClaudeCode.start_link(
+        setting_sources: [:user, :project, :local]
+      )
+
+  ## Plugins
+
+  Load custom plugins to extend Claude's capabilities:
+
+      # From a directory path
+      {:ok, session} = ClaudeCode.start_link(
+        plugins: ["./my-plugin"]
+      )
+
+      # With explicit type (currently only :local is supported)
+      {:ok, session} = ClaudeCode.start_link(
+        plugins: [
+          %{type: :local, path: "./my-plugin"},
+          "./another-plugin"
+        ]
+      )
+
+  ## Runtime Control
+
+  Some settings can be changed mid-conversation without restarting the session,
+  using the bidirectional control protocol:
+
+      # Switch model on the fly
+      {:ok, _} = ClaudeCode.set_model(session, "opus")
+
+      # Change permission mode
+      {:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+
+      # Query MCP server status
+      {:ok, status} = ClaudeCode.get_mcp_status(session)
+
+  See the Sessions guide for more details.
+
+  ## Validation Errors
+
+  Invalid options raise descriptive errors:
+
+      {:ok, session} = ClaudeCode.start_link(timeout: "not a number")
+      # => ** (NimbleOptions.ValidationError) invalid value for :timeout option:
+      #       expected positive integer, got: "not a number"
+
   ## Security Considerations
 
-  - **`:permission_mode`**: Controls permission handling behavior.
+  - **`:permission_mode`** — controls permission handling behavior.
     Use `:bypass_permissions` only in development environments.
-  - **`:add_dir`**: Grants tool access to additional directories.
+  - **`:add_dir`** — grants tool access to additional directories.
     Only include safe directories.
-  - **`:allowed_tools`**: Use tool restrictions to limit Claude's capabilities.
+  - **`:allowed_tools`** — use tool restrictions to limit Claude's capabilities.
     Example: `["View", "Bash(git:*)"]` allows read-only operations and git commands.
   """
 

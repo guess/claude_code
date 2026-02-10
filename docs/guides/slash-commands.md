@@ -1,4 +1,4 @@
-# Slash Commands in the SDK
+# Slash Commands
 
 Use slash commands to control Claude Code sessions with special commands that start with `/`.
 
@@ -29,7 +29,7 @@ The `slash_commands` field is a list of strings (`[String.t()]`), each prefixed 
 
 ## Sending slash commands
 
-Send slash commands by passing them as the prompt string to `ClaudeCode.query/3` or `ClaudeCode.stream/3`, just like regular text. The CLI recognizes the `/` prefix and executes the command instead of treating it as a conversation prompt.
+Send slash commands by passing them as the prompt string to `ClaudeCode.query/2` or `ClaudeCode.stream/3`, just like regular text. The CLI recognizes the `/` prefix and executes the command instead of treating it as a conversation prompt.
 
 ```elixir
 alias ClaudeCode.Message.ResultMessage
@@ -77,13 +77,13 @@ end)
 
 The `ClaudeCode.Message.CompactBoundaryMessage` struct contains:
 
-| Field              | Type     | Description                                                          |
-| :----------------- | :------- | :------------------------------------------------------------------- |
-| `type`             | `:system` | Always `:system`                                                    |
-| `subtype`          | `:compact_boundary` | Identifies this as a compaction boundary                  |
-| `session_id`       | `String.t()` | The current session ID                                          |
-| `uuid`             | `String.t()` | Unique identifier for this message                              |
-| `compact_metadata` | `map()`  | Contains `:trigger` (`"manual"` or `"auto"`) and `:pre_tokens` (token count before compaction) |
+| Field              | Type                | Description                                                                                    |
+| :----------------- | :------------------ | :--------------------------------------------------------------------------------------------- |
+| `type`             | `:system`           | Always `:system`                                                                               |
+| `subtype`          | `:compact_boundary` | Identifies this as a compaction boundary                                                       |
+| `session_id`       | `String.t()`        | The current session ID                                                                         |
+| `uuid`             | `String.t()`        | Unique identifier for this message                                                             |
+| `compact_metadata` | `map()`             | Contains `:trigger` (`"manual"` or `"auto"`) and `:pre_tokens` (token count before compaction) |
 
 Compaction can also happen automatically when the conversation approaches the context window limit. Automatic compaction emits the same `ClaudeCode.Message.CompactBoundaryMessage` with `trigger: "auto"`.
 
@@ -114,10 +114,10 @@ Custom slash commands are defined as markdown files in specific directories. Onc
 
 Custom slash commands are stored in designated directories based on their scope:
 
-| Location                  | Scope                                |
-| :------------------------ | :----------------------------------- |
-| `.claude/commands/`       | Project commands -- available only in the current project |
-| `~/.claude/commands/`     | Personal commands -- available across all your projects   |
+| Location              | Scope                                                     |
+| :-------------------- | :-------------------------------------------------------- |
+| `.claude/commands/`   | Project commands -- available only in the current project |
+| `~/.claude/commands/` | Personal commands -- available across all your projects   |
 
 ### File format
 
@@ -150,6 +150,7 @@ model: claude-opus-4-6
 ---
 
 Analyze the codebase for security vulnerabilities including:
+
 - SQL injection risks
 - XSS vulnerabilities
 - Exposed credentials
@@ -257,14 +258,17 @@ description: Comprehensive code review
 ---
 
 ## Changed Files
+
 !`git diff --name-only HEAD~1`
 
 ## Detailed Changes
+
 !`git diff HEAD~1`
 
 ## Review Checklist
 
 Review the above changes for:
+
 1. Code quality and readability
 2. Security vulnerabilities
 3. Performance implications
@@ -295,6 +299,7 @@ description: Review configuration files
 ---
 
 Review the following configuration files for issues:
+
 - Mix config: @config/config.exs
 - Runtime config: @config/runtime.exs
 - Environment: @.env.example

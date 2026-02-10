@@ -1,4 +1,4 @@
-# User Input
+# User Approvals and Input
 
 TODO: https://platform.claude.com/docs/en/agent-sdk/user-input
 

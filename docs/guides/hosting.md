@@ -1,4 +1,4 @@
-# Hosting
+# Hosting the Agent SDK
 
 > **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hosting). Examples are adapted for Elixir.
 
@@ -85,7 +85,7 @@ The default `cli_path: :bundled` mode uses the CLI binary in `priv/bin/`, which 
 mix claude_code.install
 ```
 
-For alternative setups, see the [CLI Configuration](../advanced/configuration.md#cli-configuration) docs.
+For alternative setups, see the CLI Configuration section of `ClaudeCode.Options`.
 
 ## Resource Considerations
 
