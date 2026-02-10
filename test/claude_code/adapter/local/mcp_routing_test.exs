@@ -29,6 +29,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
   describe "handle_mcp_message/3" do
     test "dispatches to MCP.Router for known server" do
       servers = %{"calc" => ClaudeCode.TestTools}
+
       jsonrpc = %{
         "jsonrpc" => "2.0",
         "id" => 1,
@@ -45,7 +46,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
       jsonrpc = %{"jsonrpc" => "2.0", "id" => 1, "method" => "tools/list"}
 
       response = Local.handle_mcp_message("unknown", jsonrpc, servers)
-      assert response["error"]["code"] == -32601
+      assert response["error"]["code"] == -32_601
       assert response["error"]["message"] =~ "unknown"
     end
   end

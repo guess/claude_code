@@ -25,6 +25,7 @@ defmodule ClaudeCode.Adapter.Local do
   alias ClaudeCode.Hook.Response, as: HookResponse
   alias ClaudeCode.MCP.Router, as: MCPRouter
   alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Tool.Server, as: ToolServer
 
   require Logger
 
@@ -628,7 +629,7 @@ defmodule ClaudeCode.Adapter.Local do
         Map.new(
           Enum.filter(servers, fn
             {_name, module} when is_atom(module) ->
-              ClaudeCode.Tool.Server.sdk_server?(module)
+              ToolServer.sdk_server?(module)
 
             _ ->
               false
@@ -644,7 +645,7 @@ defmodule ClaudeCode.Adapter.Local do
         %{
           "jsonrpc" => "2.0",
           "id" => jsonrpc["id"],
-          "error" => %{"code" => -32601, "message" => "Server '#{server_name}' not found"}
+          "error" => %{"code" => -32_601, "message" => "Server '#{server_name}' not found"}
         }
 
       module ->
