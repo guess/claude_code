@@ -45,11 +45,12 @@ defmodule ClaudeCode.MCP.Router do
         jsonrpc_result(message, %{
           "protocolVersion" => "2024-11-05",
           "capabilities" => %{"tools" => %{}},
-          "serverInfo" => %{"name" => server_name}
+          "serverInfo" => %{"name" => server_name, "version" => "1.0.0"}
         })
 
       "notifications/initialized" ->
-        jsonrpc_result(message, %{})
+        # Notifications have no "id" field in JSONRPC 2.0
+        %{"jsonrpc" => "2.0", "result" => %{}}
 
       "tools/list" ->
         tools = Enum.map(tool_modules, &tool_definition/1)

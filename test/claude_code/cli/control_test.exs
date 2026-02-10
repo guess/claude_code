@@ -80,6 +80,21 @@ defmodule ClaudeCode.CLI.ControlTest do
       assert decoded["request"]["agents"] == agents
     end
 
+    test "includes sdkMcpServers when provided" do
+      servers = ["my-tools", "db-tools"]
+      json = Control.initialize_request("req_1_abc", nil, nil, servers)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["sdkMcpServers"] == ["my-tools", "db-tools"]
+    end
+
+    test "omits sdkMcpServers when nil" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil)
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded["request"], "sdkMcpServers")
+    end
+
     test "produces single-line JSON (no newlines)" do
       json = Control.initialize_request("req_1_abc")
       refute String.contains?(json, "\n")

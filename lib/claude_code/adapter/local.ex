@@ -308,8 +308,14 @@ defmodule ClaudeCode.Adapter.Local do
 
     {_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
 
+    sdk_mcp_server_names =
+      case Map.keys(state.sdk_mcp_servers) do
+        [] -> nil
+        names -> names
+      end
+
     {request_id, new_counter} = next_request_id(state.control_counter)
-    json = Control.initialize_request(request_id, hooks_wire, agents)
+    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names)
     Port.command(state.port, json <> "\n")
 
     pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
@@ -487,7 +493,6 @@ defmodule ClaudeCode.Adapter.Local do
         end
 
       {:error, _} ->
-        Logger.debug("Failed to decode JSON: #{line}")
         state
     end
   end
@@ -660,7 +665,8 @@ defmodule ClaudeCode.Adapter.Local do
   defp build_control_json(:initialize, request_id, params) do
     hooks = Map.get(params, :hooks)
     agents = Map.get(params, :agents)
-    Control.initialize_request(request_id, hooks, agents)
+    sdk_mcp_servers = Map.get(params, :sdk_mcp_servers)
+    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers)
   end
 
   defp build_control_json(:set_model, request_id, %{model: model}) do

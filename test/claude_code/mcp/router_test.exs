@@ -13,15 +13,17 @@ defmodule ClaudeCode.MCP.RouterTest do
       assert response["result"]["protocolVersion"] == "2024-11-05"
       assert response["result"]["capabilities"]["tools"] == %{}
       assert response["result"]["serverInfo"]["name"] == "test-tools"
+      assert response["result"]["serverInfo"]["version"] == "1.0.0"
     end
   end
 
   describe "handle_request/2 - notifications/initialized" do
-    test "returns empty result" do
-      message = %{"jsonrpc" => "2.0", "id" => 2, "method" => "notifications/initialized"}
+    test "returns empty result without id (JSONRPC notification)" do
+      message = %{"jsonrpc" => "2.0", "method" => "notifications/initialized"}
       response = Router.handle_request(ClaudeCode.TestTools, message)
 
       assert response["result"] == %{}
+      refute Map.has_key?(response, "id")
     end
   end
 

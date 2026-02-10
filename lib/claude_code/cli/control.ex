@@ -87,14 +87,16 @@ defmodule ClaudeCode.CLI.Control do
     * `request_id` - Unique request identifier
     * `hooks` - Optional hook configurations (map or nil)
     * `agents` - Optional agent configurations (map or nil)
+    * `sdk_mcp_servers` - Optional list of SDK MCP server name strings (nil to omit)
 
   """
-  @spec initialize_request(String.t(), map() | nil, map() | nil) :: String.t()
-  def initialize_request(request_id, hooks \\ nil, agents \\ nil) do
+  @spec initialize_request(String.t(), map() | nil, map() | nil, [String.t()] | nil) :: String.t()
+  def initialize_request(request_id, hooks \\ nil, agents \\ nil, sdk_mcp_servers \\ nil) do
     request =
       %{subtype: "initialize"}
       |> maybe_put(:hooks, hooks)
       |> maybe_put(:agents, agents)
+      |> maybe_put(:sdkMcpServers, sdk_mcp_servers)
 
     encode_control_request(request_id, request)
   end
