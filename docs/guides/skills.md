@@ -32,26 +32,11 @@ To use Skills, you need to:
 Once configured, Claude automatically discovers Skills from the specified directories and invokes them when relevant to the user's request.
 
 ```elixir
-alias ClaudeCode.Message.ResultMessage
-
-{:ok, session} = ClaudeCode.start_link(
+{:ok, result} = ClaudeCode.query("Help me process this PDF document",
   cwd: "/path/to/project",                          # Project with .claude/skills/
   setting_sources: ["user", "project"],              # Load Skills from filesystem
   allowed_tools: ["Skill", "Read", "Write", "Bash"] # Enable Skill tool
 )
-
-result =
-  session
-  |> ClaudeCode.stream("Help me process this PDF document")
-  |> ClaudeCode.Stream.final_result()
-
-case result do
-  %ResultMessage{is_error: false, result: text} ->
-    IO.puts(text)
-
-  %ResultMessage{is_error: true, result: error} ->
-    IO.puts("Error: #{error}")
-end
 ```
 
 ## Skill locations
@@ -111,19 +96,10 @@ For complete guidance on creating Skills, including multi-file Skills and exampl
 To restrict which tools are available when Skills run, set the `allowed_tools` option:
 
 ```elixir
-alias ClaudeCode.Message.ResultMessage
-
-{:ok, session} = ClaudeCode.start_link(
+{:ok, result} = ClaudeCode.query("Analyze the codebase structure",
   setting_sources: ["user", "project"],          # Load Skills from filesystem
   allowed_tools: ["Skill", "Read", "Grep", "Glob"] # Restricted toolset
 )
-
-result =
-  session
-  |> ClaudeCode.stream("Analyze the codebase structure")
-  |> ClaudeCode.Stream.final_result()
-
-IO.puts(result.result)
 ```
 
 ## Discovering available Skills
@@ -133,17 +109,10 @@ To see which Skills are available, you can ask Claude directly or inspect the `C
 ### Asking Claude
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(
+{:ok, result} = ClaudeCode.query("What Skills are available?",
   setting_sources: ["user", "project"],
   allowed_tools: ["Skill"]
 )
-
-result =
-  session
-  |> ClaudeCode.stream("What Skills are available?")
-  |> ClaudeCode.Stream.final_result()
-
-IO.puts(result.result)
 ```
 
 ### Inspecting the system message
@@ -169,26 +138,11 @@ The `skills` field on `ClaudeCode.Message.SystemMessage` is a `[String.t()]` lis
 Test Skills by asking questions that match their descriptions. Claude automatically invokes the relevant Skill if the description matches your request:
 
 ```elixir
-alias ClaudeCode.Message.ResultMessage
-
-{:ok, session} = ClaudeCode.start_link(
+{:ok, result} = ClaudeCode.query("Extract text from invoice.pdf",
   cwd: "/path/to/project",
   setting_sources: ["user", "project"],
   allowed_tools: ["Skill", "Read", "Bash"]
 )
-
-result =
-  session
-  |> ClaudeCode.stream("Extract text from invoice.pdf")
-  |> ClaudeCode.Stream.final_result()
-
-case result do
-  %ResultMessage{is_error: false, result: text} ->
-    IO.puts("Skill output:\n#{text}")
-
-  %ResultMessage{is_error: true, result: error} ->
-    IO.puts("Error: #{error}")
-end
 ```
 
 To verify that a Skill was actually invoked, use `ClaudeCode.Stream.tool_uses/1` to inspect tool calls in the stream:

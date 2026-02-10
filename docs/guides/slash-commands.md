@@ -49,13 +49,6 @@ case result do
 end
 ```
 
-Or use `ClaudeCode.query/3` for a synchronous result:
-
-```elixir
-{:ok, result} = ClaudeCode.query(session, "/compact")
-IO.puts(result)
-```
-
 ## Common slash commands
 
 ### `/compact` -- Compact conversation history

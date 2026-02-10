@@ -79,17 +79,9 @@ end
 Pass the Hermes server module to a `ClaudeCode` session via the `:mcp_servers` option. The SDK auto-generates the stdio command configuration that the CLI uses to spawn your MCP server as a subprocess:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(
-  mcp_servers: %{
-    "my-custom-tools" => MyApp.MCPServer
-  }
+{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
+  mcp_servers: %{"my-custom-tools" => MyApp.MCPServer}
 )
-
-# Claude can now use get_weather
-session
-|> ClaudeCode.stream("What's the weather in San Francisco?")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
 ```
 
 Under the hood, the SDK generates this stdio config for the CLI:
