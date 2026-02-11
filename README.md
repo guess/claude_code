@@ -47,20 +47,19 @@ end
 
 ```bash
 mix deps.get
+mix claude_code.install  # optional – downloads on first use if skipped
 
 # Authenticate (pick one)
 export ANTHROPIC_API_KEY="sk-..."          # Option A: API key
-$(mix claude_code.path) /login             # Option B: Claude subscription
+"$(mix claude_code.path)" /login           # Option B: Claude subscription
 ```
-
-The Claude CLI binary is bundled and auto-installed to `priv/bin/` on first use – no global install needed. To pre-install for CI or releases, run `mix claude_code.install`.
 
 ## Quick Start
 
 ```elixir
-# One-off query
+# One-off query (ResultMessage implements String.Chars)
 {:ok, result} = ClaudeCode.query("Explain GenServers in one sentence")
-IO.puts(result.result)
+IO.puts(result)
 
 # Multi-turn session with streaming
 {:ok, session} = ClaudeCode.start_link()
@@ -126,11 +125,12 @@ session
 |> Enum.each(&IO.write/1)
 
 # Phoenix LiveView
+pid = self()
 Task.start(fn ->
-  :assistant
+  session
   |> ClaudeCode.stream(message, include_partial_messages: true)
   |> ClaudeCode.Stream.text_deltas()
-  |> Enum.each(&send(self, {:chunk, &1}))
+  |> Enum.each(&send(pid, {:chunk, &1}))
 end)
 
 # PubSub broadcasting
@@ -191,7 +191,7 @@ Intercept every tool execution with `can_use_tool` for programmatic approval, or
 )
 ```
 
-Six permission modes (`:default`, `:accept_edits`, `:bypass_permissions`, `:plan`, `:dont_ask`, `:delegate`) plus fine-grained tool allow/deny lists with glob patterns:
+Six [permission modes](docs/guides/permissions.md) plus fine-grained tool allow/deny lists with glob patterns:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
@@ -295,14 +295,19 @@ Track file changes during agent sessions and rewind to any previous state:
   permission_mode: :accept_edits
 )
 
-checkpoint_id = session
+# Stream emits a UserMessage with a uuid before each tool execution.
+# Capture it to use as a checkpoint for rewinding.
+messages = session
 |> ClaudeCode.stream("Refactor the authentication module")
-|> Enum.reduce(nil, fn
-  %ClaudeCode.Message.UserMessage{uuid: uuid}, nil when not is_nil(uuid) -> uuid
-  _, cp -> cp
-end)
+|> Enum.to_list()
 
-# Undo all changes
+checkpoint_id =
+  Enum.find_value(messages, fn
+    %ClaudeCode.Message.UserMessage{uuid: uuid} when is_binary(uuid) -> uuid
+    _ -> nil
+  end)
+
+# Undo all file changes back to that checkpoint
 ClaudeCode.rewind_files(session, checkpoint_id)
 ```
 
