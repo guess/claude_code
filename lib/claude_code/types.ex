@@ -10,7 +10,7 @@ defmodule ClaudeCode.Types do
 
   @type model :: String.t()
 
-  @type stop_reason :: :end_turn | :max_tokens | :stop_sequence | :tool_use | nil
+  @type stop_reason :: :end_turn | :max_tokens | :stop_sequence | :tool_use | :refusal | nil
 
   @type role :: :user | :assistant
 
