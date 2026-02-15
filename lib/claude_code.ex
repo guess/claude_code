@@ -96,7 +96,7 @@ defmodule ClaudeCode do
   ## Examples
 
       iex> ClaudeCode.version()
-      "0.20.0"
+      "0.21.0"
   """
   @spec version() :: String.t()
   def version do
