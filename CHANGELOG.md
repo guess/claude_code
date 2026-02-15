@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`:thinking` option** — Idiomatic Elixir API for extended thinking configuration. Supports `:adaptive`, `:disabled`, and `{:enabled, budget_tokens: N}`. Takes precedence over the now-deprecated `:max_thinking_tokens`. ([fa6b39d])
+- **`:effort` option** — Control effort level per session or query with `:low`, `:medium`, or `:high`. ([fa6b39d])
+- **`caller` field on `ToolUseBlock`** — Parses the optional `caller` metadata from tool use content blocks. ([93de892])
+- **`speed` field on `ResultMessage` usage** — Captures the `speed` field from CLI usage data when present. ([93de892])
+- **`context_management` on stream events** — `PartialAssistantMessage` now parses `context_management` data from stream events. ([93de892])
+
+### Changed
+
+- **Bundled CLI version bumped to 2.1.42** ([789a813])
+- **`:max_thinking_tokens` deprecated** — Still works, but emits a `Logger.warning` directing users to the new `:thinking` option. ([fa6b39d])
+
 ## [0.20.0] - 2026-02-10 | CC 2.1.38
 
 ### Added
