@@ -140,6 +140,7 @@ For each new flag found, suggest:
 - The `:snake_case_atom` option name
 - NimbleOptions type definition
 - `convert_option_to_cli_flag/2` clause
+- Whether an Elixir-native API (atoms, tagged tuples) would be more idiomatic than the Python/TypeScript equivalent (see "Elixir-Native API Design" section below)
 
 ### Step 4: SDK Documentation Reference
 
@@ -194,7 +195,35 @@ The **single source of truth** for the CLI version is `@default_cli_version` in 
 
 No other files should hardcode the CLI version. Docs, comments, and config examples use generic placeholders like `"x.y.z"`.
 
-### Step 6: Verify and Test
+### Step 6: Write Tests for New Fields and Options
+
+After implementing changes, write tests for every new field and option added. Tests go in the existing test files that correspond to the modified modules:
+
+| Change Type | Test File |
+|-------------|-----------|
+| New option in `options.ex` | `test/claude_code/options_test.exs` |
+| New CLI flag in `command.ex` | `test/claude_code/cli/command_test.exs` |
+| New field in a message struct | `test/claude_code/message/<message_type>_test.exs` |
+| New field in a content block | `test/claude_code/content/<block_type>_test.exs` |
+
+#### What to Test
+
+For **new options** (`options_test.exs`):
+- Validation accepts valid values (session and query schemas)
+- Validation rejects invalid values
+- Default behavior when not provided
+
+For **new CLI flags** (`command_test.exs`):
+- Flag is correctly generated from the Elixir option
+- Boolean flags have no value (just `--flag`, not `--flag true`)
+- Internal options are not passed as CLI flags
+- Preprocessing pipelines produce expected output
+
+For **new struct fields** (message/content tests):
+- Field is parsed correctly when present in JSON
+- Field defaults to nil (or appropriate default) when absent
+
+### Step 7: Verify and Test
 
 After making changes:
 
@@ -270,6 +299,51 @@ Final response text comes from ResultMessage, not AssistantMessage:
 
 - Use `result.result` for the final answer
 - AssistantMessage contains intermediate tool use and thinking
+
+## Elixir-Native API Design
+
+When adding new options, don't blindly mirror the Python/TypeScript SDK APIs. Consider whether a more idiomatic Elixir representation exists. The goal is an API that feels natural to Elixir developers while mapping cleanly to CLI flags under the hood.
+
+### Design Principles
+
+1. **Atoms over strings for enumerations** — Use atoms (`:adaptive`, `:disabled`) instead of strings (`"adaptive"`, `"disabled"`) for fixed sets of values.
+
+2. **Tagged tuples for variants with data** — Use `{:tag, data}` instead of maps with a type field. This plays well with pattern matching.
+
+3. **Preprocessing over direct mapping** — Complex options can be preprocessed into simpler CLI flags. The user-facing API doesn't need to mirror CLI flags 1:1.
+
+### Example: The `:thinking` Option
+
+The Python SDK uses a dict-based approach:
+
+```python
+# Python SDK
+thinking={"type": "enabled", "budget_tokens": 16000}
+thinking={"type": "disabled"}
+```
+
+Our Elixir SDK uses native syntax instead:
+
+```elixir
+# Elixir SDK
+thinking: :adaptive              # atom for simple modes
+thinking: :disabled              # atom for simple modes
+thinking: {:enabled, budget_tokens: 16_000}  # tagged tuple with keyword opts
+```
+
+This is implemented via `preprocess_thinking/1` in `command.ex`, which converts the Elixir-native syntax into `--max-thinking-tokens` CLI flags before argument building.
+
+### When to Use Native Syntax
+
+Use Elixir-native syntax when:
+- The option has a small, fixed set of modes (atoms)
+- One or more modes carry additional data (tagged tuples)
+- The Python/TypeScript API uses dicts/objects with a `type` discriminator
+
+Keep the Python-equivalent syntax when:
+- The option is a simple scalar (string, integer, boolean)
+- The option is a list of strings
+- The option is an opaque map passed through to the CLI (e.g., `:settings`, `:sandbox`)
 
 ## Additional Resources
 
