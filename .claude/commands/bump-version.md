@@ -32,9 +32,10 @@ Update version to the specified X.Y.Z value.
 7. Tag and release:
    - Create git tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
    - Push tag: `git push origin vX.Y.Z`
-   - Create GitHub release with CC version in title:
+   - Extract the release section from `CHANGELOG.md` (everything between the new version header and the previous version header, excluding the headers themselves)
+   - Create GitHub release with CC version in title and changelog as body:
      ```bash
-     gh release create vX.Y.Z --generate-notes --title "vX.Y.Z | CC A.B.C"
+     gh release create vX.Y.Z --title "vX.Y.Z | CC A.B.C" --notes "<changelog section content>"
      ```
 
 ### Reference
