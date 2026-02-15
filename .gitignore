@@ -54,5 +54,8 @@ npm-debug.log
 # Downloaded CLI binary
 /priv/bin/
 
+# CLI sync captured data (ephemeral)
+.claude/skills/cli-sync/captured/
+
 # Mix lock file (you might want to commit this)
 # mix.lock

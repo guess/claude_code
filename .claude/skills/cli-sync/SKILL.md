@@ -21,82 +21,71 @@ The Claude CLI evolves independently of this SDK. This skill provides a systemat
 
 ## Quick Start
 
-For a full sync, execute these steps in order:
+Since Claude Code cannot invoke the `claude` CLI directly, a capture script collects all needed data for you to provide to Claude.
 
-1. Check current versions
-2. Run test query to capture live schema
-3. Compare against struct definitions
-4. Check CLI help for new options
-5. Update installer version if needed
+**Step 1**: Run the capture script from the project root:
+
+```bash
+.claude/skills/cli-sync/scripts/capture-cli-data.sh
+```
+
+This saves all data to `.claude/skills/cli-sync/captured/`.
+
+**Step 2**: Tell Claude to analyze the captured data:
+
+> "Read .claude/skills/cli-sync/captured/ and perform a CLI sync analysis"
+
+Claude will then read the captured files and perform steps 2-6 below.
+
+## What the Capture Script Collects
+
+The script (`scripts/capture-cli-data.sh`) runs these operations and saves results:
+
+| File | What it captures |
+|------|-----------------|
+| `cli-version.txt` | `claude --version` output |
+| `cli-help.txt` | `claude --help` output |
+| `bundled-version.txt` | Current `@default_cli_version` from installer.ex |
+| `scenario-a-basic.jsonl` | Basic query (system, assistant, result, text_block) |
+| `scenario-b-partial.jsonl` | Partial streaming (partial_assistant_message) |
+| `scenario-c-tool.jsonl` | Tool use (tool_use_block, tool_result_block, user_message) |
+| `scenario-d-error.jsonl` | Error max turns (result with error_max_turns) |
+| `scenario-f-thinking.jsonl` | Extended thinking (thinking_block) |
+| `python-sdk-types.py` | Python SDK types.py (via `gh`) |
+| `python-sdk-subprocess-cli.py` | Python SDK subprocess_cli.py (via `gh`) |
 
 ## Workflow
 
-### Step 1: Version Check
-
-Determine installed CLI version and compare to bundled version.
+### Step 1: Run Capture Script
 
 ```bash
-# Get installed CLI version
-claude --version
-
-# Check bundled version in installer
-grep -E "@default_cli_version|cli_version:" lib/claude_code/installer.ex
+.claude/skills/cli-sync/scripts/capture-cli-data.sh
 ```
+
+The script requires `claude` and `gh` CLIs in PATH. Missing tools are noted in the output files.
 
 ### Step 2: Schema Comparison
 
-Run multiple test scenarios to capture different message types. Each scenario targets specific structs. The `-p` flag enables non-interactive (print) mode.
+Read the scenario JSONL files from `captured/` and compare against struct definitions.
 
-**Scenario A: Basic query** (triggers: system_message/init, assistant_message, result_message/success, text_block)
+Each scenario targets specific message/content types:
 
-```bash
-echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
-```
+- **Scenario A** (`scenario-a-basic.jsonl`): system_message/init, assistant_message, result_message/success, text_block
+- **Scenario B** (`scenario-b-partial.jsonl`): partial_assistant_message/stream_event
+- **Scenario C** (`scenario-c-tool.jsonl`): tool_use_block, tool_result_block, user_message
+- **Scenario D** (`scenario-d-error.jsonl`): result_message/error_max_turns
+- **Scenario F** (`scenario-f-thinking.jsonl`): thinking_block (if available)
 
-**Scenario B: Partial streaming** (triggers: partial_assistant_message/stream_event)
+**Exceptional cases** (rely on SDK docs in `python-sdk-types.py`, not live testing):
 
-```bash
-echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 -p 2>/dev/null
-```
-
-**Scenario C: Tool use** (triggers: tool_use_block, tool_result_block, user_message)
-
-```bash
-echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
-```
-
-**Scenario D: Error result - max turns** (triggers: result_message/error_max_turns)
-
-```bash
-echo "Create a file called /tmp/test_sync.txt with hello world, then read it back" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null
-```
-
-This should hit the turn limit mid-task and produce a result with `"subtype": "error_max_turns"`.
-
-**Scenario E: Hook messages** (triggers: system_message/hook_started, system_message/hook_response)
-
-If the project has hooks configured (e.g., SessionStart hooks), Scenario A will already emit these. Check the output for `"subtype": "hook_started"` and `"subtype": "hook_response"` messages. If no hooks are configured, skip this - but still ensure the parser handles unknown system subtypes gracefully.
-
-**Scenario F: Extended thinking** (triggers: thinking_block)
-
-```bash
-echo "Think step by step about why 17 is prime" | claude --output-format stream-json --verbose --max-turns 1 --model claude-opus-4-6 -p 2>/dev/null
-```
-
-Note: Extended thinking availability depends on model and account configuration. If thinking blocks appear, compare against `thinking_block.ex`. The block has `type`, `thinking`, and `signature` fields.
-
-**Exceptional cases** (rely on SDK docs, not live testing):
-
-- `compact_boundary_message` - Only during context compaction in long conversations. Cannot be reliably triggered in a single query. Check the TypeScript SDK `SDKCompactBoundaryMessage` type for the expected shape: `type: "system"`, `subtype: "compact_boundary"`, `compact_metadata: {trigger, pre_tokens}`.
-- `result_message/error_max_budget_usd` - Requires a budget to be exceeded. Check SDK docs for the `error_max_budget_usd` and `error_max_structured_output_retries` subtypes.
+- `compact_boundary_message` - Only during context compaction in long conversations.
+- `result_message/error_max_budget_usd` - Requires a budget to be exceeded.
 
 #### Coverage Checklist
 
-After running scenarios, verify you have captured output covering:
+After reading scenario files, verify coverage of:
 
 - [ ] `SystemMessage` (subtype: init) - Scenario A
-- [ ] `SystemMessage` (subtype: hook_started) - Scenario E (if hooks configured)
-- [ ] `SystemMessage` (subtype: hook_response) - Scenario E (if hooks configured)
 - [ ] `AssistantMessage` with nested message.content - Scenario A
 - [ ] `UserMessage` with tool results - Scenario C
 - [ ] `ResultMessage` (subtype: success) - Scenario A
@@ -108,7 +97,7 @@ After running scenarios, verify you have captured output covering:
 - [ ] `ThinkingBlock` - Scenario F (if available)
 - [ ] `CompactBoundaryMessage` - SDK docs only
 
-Parse the output and compare against struct definitions in:
+Parse each JSONL file (one JSON object per line) and compare against struct definitions in:
 
 **Message Types** (in `lib/claude_code/message/`):
 
@@ -137,12 +126,7 @@ See `references/struct-definitions.md` for complete field mappings.
 
 ### Step 3: Options Comparison
 
-Compare CLI help output against the Options module.
-
-```bash
-# Get CLI help
-claude --help
-```
+Read `captured/cli-help.txt` and compare against the Options module.
 
 Options module comparison points in `lib/claude_code/options.ex`:
 
@@ -159,43 +143,23 @@ For each new flag found, suggest:
 
 ### Step 4: SDK Documentation Reference
 
-Check official SDK source code and documentation for type definitions and options. Note that CLI output is the authoritative source - SDK docs may lag behind.
+Read the captured Python SDK source files for type definitions and options. Note that CLI output is the authoritative source - SDK docs may lag behind.
 
-#### Fetching Python SDK Source via `gh`
+#### Captured Python SDK Files
 
-Use the `gh` CLI to fetch file contents directly from the Python SDK repository. This is more reliable than WebFetch and allows you to inspect any file in the repo:
+The capture script fetches these via `gh` and saves them locally:
 
-```bash
-# Fetch any file from the Python SDK repo:
-gh api repos/anthropics/claude-agent-sdk-python/contents/PATH/TO/FILE --jq '.content' | base64 -d
+- **`captured/python-sdk-subprocess-cli.py`** - CLI flag mapping (`_build_command()` method). THE most useful file for options sync.
+- **`captured/python-sdk-types.py`** - Canonical message/content type definitions. Maps directly to what our structs should support.
 
-# List directory contents to discover files:
-gh api repos/anthropics/claude-agent-sdk-python/contents/PATH/TO/DIR --jq '.[].name'
-```
-
-**Key files to fetch for options comparison:**
+If the capture script failed to fetch these (check file contents), you can ask the user to run:
 
 ```bash
-# CLI flag mapping (opts→CLI flags) - THE most useful file for options sync:
-gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_internal/transport/subprocess_cli.py --jq '.content' | base64 -d
-
-# Types/schema definitions (message types, content blocks, options) - THE canonical reference:
-gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' | base64 -d
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' | base64 -d > .claude/skills/cli-sync/captured/python-sdk-types.py
+gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_internal/transport/subprocess_cli.py --jq '.content' | base64 -d > .claude/skills/cli-sync/captured/python-sdk-subprocess-cli.py
 ```
 
-**Key files to fetch for message/content type comparison:**
-
-```bash
-# Discover available type modules:
-gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk --jq '.[].name'
-
-# Errors and type definitions:
-gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_errors.py --jq '.content' | base64 -d
-```
-
-The `subprocess_cli.py` file shows exactly which options are converted to CLI flags in `_build_command()`.
-
-The `types.py` file is the canonical reference for message schemas — since the Python SDK is also a CLI wrapper, its type definitions map directly to what our structs should support. Key types to compare:
+#### Key Types to Compare in `python-sdk-types.py`
 
 - `UserMessage` — has `tool_use_result: dict[str, Any] | None`
 - `AssistantMessage` — has `error: AssistantMessageError | None`
@@ -219,7 +183,7 @@ For additional context, these doc pages can be checked via WebFetch:
 
 ### Step 5: Update Bundled Version
 
-After confirming compatibility, update the bundled CLI version.
+Compare `captured/cli-version.txt` against `captured/bundled-version.txt`. If they differ, update the bundled CLI version.
 
 The **single source of truth** for the CLI version is `@default_cli_version` in `lib/claude_code/installer.ex`. This is the only place that needs updating:
 
@@ -254,14 +218,13 @@ For detailed patterns on adding new fields and options:
 
 ## Changelog Checking
 
-Before making changes, check the CLI changelog for breaking changes:
+Before making changes, check the CLI changelog for breaking changes. Ask the user to run:
 
 ```bash
-# Check recent CLI releases
 gh release list --repo anthropics/anthropic-quickstarts --limit 10
 ```
 
-Or check the changelog documentation if available at:
+Or check the changelog documentation via WebFetch:
 
 - https://docs.anthropic.com/en/docs/claude-code/changelog
 
@@ -319,7 +282,8 @@ Final response text comes from ResultMessage, not AssistantMessage:
 
 Ensure scripts are executable before first use: `chmod +x scripts/*.sh`
 
-- **`scripts/run-test-query.sh`** - Run test query and save JSON output
+- **`scripts/capture-cli-data.sh`** - Main capture script: collects all data needed for sync analysis
+- **`scripts/run-test-query.sh`** - Run individual test scenarios (used internally by capture script)
 - **`scripts/compare-versions.sh`** - Compare installed vs bundled versions (run from project root)
 
 ## Updating Documentation

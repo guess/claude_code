@@ -131,17 +131,12 @@ end
 
 ## SDK Documentation
 
-### Python SDK Source (via `gh`)
+### Python SDK Source (captured)
 
-Fetch the Python SDK's CLI flag mapping directly — this is the most reliable reference:
+The capture script saves these files locally for analysis:
 
-```bash
-# Options→CLI flag mapping (the _build_command method):
-gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_internal/transport/subprocess_cli.py --jq '.content' | base64 -d
-
-# Options type definitions:
-gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' | base64 -d
-```
+- **`captured/python-sdk-subprocess-cli.py`** - Options→CLI flag mapping (the `_build_command` method)
+- **`captured/python-sdk-types.py`** - Options type definitions
 
 ### Documentation URLs
 
@@ -153,10 +148,4 @@ For additional reference (may not be current):
 
 ## Checking for New Flags
 
-Run this to see all current CLI flags:
-
-```bash
-claude --help 2>&1 | grep -E '^\s+--'
-```
-
-Compare against `convert_option_to_cli_flag/2` patterns in `options.ex`.
+Read `captured/cli-help.txt` and look for `--` flags. Compare against `convert_option_to_cli_flag/2` patterns in `options.ex`.
