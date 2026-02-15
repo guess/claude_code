@@ -215,7 +215,7 @@ Your callback function returns a value that tells the SDK how to proceed. The re
 | `:ok` | Allow compaction normally |
 | `{:instructions, text}` | Provide custom instructions for compaction |
 
-> The `ClaudeCode.Hook.Response` module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`). You do not need to construct wire-format maps directly.
+> The Hook.Response module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`). You do not need to construct wire-format maps directly.
 
 #### Permission decision flow
 
@@ -569,7 +569,7 @@ end
 ### Modified input not applied
 
 - When using `{:allow, updated_input}`, ensure you are returning a complete input map, not just the changed fields
-- The `ClaudeCode.Hook.Response` module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
+- The Hook.Response module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
 
 ### can_use_tool and permission_prompt_tool conflict
 
