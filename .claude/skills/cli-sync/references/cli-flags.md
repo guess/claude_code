@@ -29,6 +29,7 @@ Mapping between CLI flags, Elixir options, and implementation details.
 | `--setting-sources` | `:setting_sources` | list | Setting sources (CSV) |
 | `--plugin-dir` | `:plugins` | list | Plugin directories (repeatable) |
 | `--agents` | `:agents` | map | Custom agent definitions (JSON) |
+| `--effort` | `:effort` | atom | Effort level (:low, :medium, :high) |
 | `--continue` | `:continue` | boolean | Continue last conversation |
 | `--fork-session` | `:fork_session` | boolean | Fork when resuming |
 | `--include-partial-messages` | `:include_partial_messages` | boolean | Enable partial streaming |

@@ -774,6 +774,53 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert "10000" in args
     end
 
+    test "converts effort to --effort" do
+      opts = [effort: :high]
+
+      args = Command.to_cli_args(opts)
+      assert "--effort" in args
+      assert "high" in args
+    end
+
+    test "thinking :adaptive sets --max-thinking-tokens to 32000" do
+      opts = [thinking: :adaptive]
+
+      args = Command.to_cli_args(opts)
+      assert "--max-thinking-tokens" in args
+      assert "32000" in args
+    end
+
+    test "thinking :adaptive preserves explicit max_thinking_tokens" do
+      opts = [thinking: :adaptive, max_thinking_tokens: 64_000]
+
+      args = Command.to_cli_args(opts)
+      assert "--max-thinking-tokens" in args
+      assert "64000" in args
+    end
+
+    test "thinking :disabled sets --max-thinking-tokens to 0" do
+      opts = [thinking: :disabled]
+
+      args = Command.to_cli_args(opts)
+      assert "--max-thinking-tokens" in args
+      assert "0" in args
+    end
+
+    test "thinking {:enabled, budget_tokens: N} sets --max-thinking-tokens to budget" do
+      opts = [thinking: {:enabled, budget_tokens: 16_000}]
+
+      args = Command.to_cli_args(opts)
+      assert "--max-thinking-tokens" in args
+      assert "16000" in args
+    end
+
+    test "thinking option is not passed as a separate CLI flag" do
+      opts = [thinking: :adaptive]
+
+      args = Command.to_cli_args(opts)
+      refute "--thinking" in args
+    end
+
     test "combines continue with other options" do
       opts = [
         continue: true,

@@ -161,7 +161,9 @@ Key options:
 - `:model` - Claude model selection
 - `:fallback_model` - Fallback model if primary fails
 - `:max_turns` - Conversation turn limiting
-- `:max_thinking_tokens` - Maximum tokens for thinking blocks
+- `:max_thinking_tokens` - Maximum tokens for thinking blocks (deprecated: use `:thinking`)
+- `:thinking` - Extended thinking config (`:adaptive`, `{:enabled, budget_tokens: N}`, or `:disabled`)
+- `:effort` - Effort level for the session (:low, :medium, :high)
 - `:output_format` - Structured output format (map with type: :json_schema and schema keys)
 - `:mcp_config` / `:permission_prompt_tool` - MCP integration
 - `:add_dir` - Additional accessible directories

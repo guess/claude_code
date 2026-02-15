@@ -47,7 +47,9 @@ defmodule ClaudeCode.Options do
   | `max_budget_usd`       | number  | -        | Maximum dollar amount to spend on API calls |
   | `agent`                | string  | -        | Agent name for the session                  |
   | `betas`                | list    | -        | Beta headers for API requests               |
-  | `max_thinking_tokens`  | integer | -        | Maximum tokens for thinking blocks          |
+  | `max_thinking_tokens`  | integer | -        | Deprecated: use `thinking` instead          |
+  | `thinking`             | atom/tuple | -     | Thinking config: `:adaptive`, `:disabled`, `{:enabled, budget_tokens: N}` |
+  | `effort`               | atom    | -        | Effort level: `:low`, `:medium`, `:high`    |
 
   ### Timeouts
 
@@ -95,8 +97,10 @@ defmodule ClaudeCode.Options do
   | `max_budget_usd`           | number  | Maximum dollar amount for this query    |
   | `agent`                    | string  | Agent to use for this query             |
   | `betas`                    | list    | Beta headers for this query             |
-  | `max_thinking_tokens`      | integer | Maximum tokens for thinking blocks      |
-  | `tools`                    | list    | Available tools for this query          |
+  | `max_thinking_tokens`      | integer    | Deprecated: use `thinking` instead        |
+  | `thinking`                 | atom/tuple | Override thinking config for this query   |
+  | `effort`                   | atom       | Override effort level for this query      |
+  | `tools`                    | list       | Available tools for this query            |
   | `allowed_tools`            | list    | Allowed tools for this query            |
   | `disallowed_tools`         | list    | Disallowed tools for this query         |
   | `output_format`            | map     | Structured output format for this query |
@@ -400,6 +404,8 @@ defmodule ClaudeCode.Options do
     Example: `["View", "Bash(git:*)"]` allows read-only operations and git commands.
   """
 
+  require Logger
+
   @session_opts_schema [
     # Elixir-specific options
     api_key: [type: :string, doc: "Anthropic API key"],
@@ -512,7 +518,25 @@ defmodule ClaudeCode.Options do
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Maximum dollar amount to spend on API calls"],
     agent: [type: :string, doc: "Agent name for the session (overrides 'agent' setting)"],
     betas: [type: {:list, :string}, doc: "Beta headers to include in API requests"],
-    max_thinking_tokens: [type: :integer, doc: "Maximum tokens for thinking blocks"],
+    max_thinking_tokens: [type: :integer, doc: "Maximum tokens for thinking blocks (deprecated: use :thinking instead)"],
+    thinking: [
+      type: {:custom, __MODULE__, :validate_thinking, []},
+      doc: """
+      Extended thinking configuration. Takes precedence over :max_thinking_tokens.
+
+      - `:adaptive` — Use adaptive thinking (defaults to 32,000 token budget)
+      - `:disabled` — Disable extended thinking
+      - `{:enabled, budget_tokens: N}` — Enable with specific token budget
+
+      Example:
+          thinking: :adaptive
+          thinking: {:enabled, budget_tokens: 16_000}
+      """
+    ],
+    effort: [
+      type: {:in, [:low, :medium, :high]},
+      doc: "Effort level for the session (:low, :medium, :high)"
+    ],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
       doc: "Available tools: :default for all, [] for none, or list of tool names"
@@ -633,7 +657,18 @@ defmodule ClaudeCode.Options do
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Override max budget for this query"],
     agent: [type: :string, doc: "Override agent for this query"],
     betas: [type: {:list, :string}, doc: "Override beta headers for this query"],
-    max_thinking_tokens: [type: :integer, doc: "Override max thinking tokens for this query"],
+    max_thinking_tokens: [
+      type: :integer,
+      doc: "Override max thinking tokens for this query (deprecated: use :thinking instead)"
+    ],
+    thinking: [
+      type: {:custom, __MODULE__, :validate_thinking, []},
+      doc: "Override thinking config for this query (see session option for details)"
+    ],
+    effort: [
+      type: {:in, [:low, :medium, :high]},
+      doc: "Override effort level for this query"
+    ],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
       doc: "Override available tools: :default for all, [] for none, or list"
@@ -727,6 +762,7 @@ defmodule ClaudeCode.Options do
             "cannot use both :can_use_tool and :permission_prompt_tool options together"
     end
 
+    warn_deprecated_max_thinking_tokens(validated)
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->
@@ -746,6 +782,7 @@ defmodule ClaudeCode.Options do
   """
   def validate_query_options(opts) do
     validated = opts |> normalize_agents() |> NimbleOptions.validate!(@query_opts_schema)
+    warn_deprecated_max_thinking_tokens(validated)
     {:ok, validated}
   rescue
     e in NimbleOptions.ValidationError ->
@@ -789,6 +826,34 @@ defmodule ClaudeCode.Options do
 
     # Apply app config first, then session opts
     Keyword.merge(app_config, session_opts)
+  end
+
+  @doc false
+  def validate_thinking(:adaptive), do: {:ok, :adaptive}
+  def validate_thinking(:disabled), do: {:ok, :disabled}
+
+  def validate_thinking({:enabled, opts}) when is_list(opts) do
+    case Keyword.fetch(opts, :budget_tokens) do
+      {:ok, budget} when is_integer(budget) and budget > 0 ->
+        {:ok, {:enabled, opts}}
+
+      {:ok, _} ->
+        {:error, "expected :budget_tokens to be a positive integer"}
+
+      :error ->
+        {:error, "expected {:enabled, budget_tokens: pos_integer}, missing :budget_tokens"}
+    end
+  end
+
+  def validate_thinking(other),
+    do: {:error, "expected :adaptive, :disabled, or {:enabled, budget_tokens: pos_integer}, got: #{inspect(other)}"}
+
+  defp warn_deprecated_max_thinking_tokens(opts) do
+    if Keyword.has_key?(opts, :max_thinking_tokens) && !Keyword.has_key?(opts, :thinking) do
+      Logger.warning(
+        ":max_thinking_tokens is deprecated, use thinking: :adaptive | :disabled | {:enabled, budget_tokens: N} instead"
+      )
+    end
   end
 
   defp normalize_agents(opts) do

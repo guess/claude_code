@@ -303,6 +303,44 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:max_thinking_tokens] == 10_000
     end
 
+    test "validates effort option with valid values" do
+      for effort <- [:low, :medium, :high] do
+        opts = [effort: effort]
+        assert {:ok, validated} = Options.validate_session_options(opts)
+        assert validated[:effort] == effort
+      end
+    end
+
+    test "rejects invalid effort value" do
+      assert {:error, _} = Options.validate_session_options(effort: :extreme)
+    end
+
+    test "validates thinking :adaptive" do
+      opts = [thinking: :adaptive]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:thinking] == :adaptive
+    end
+
+    test "validates thinking :disabled" do
+      opts = [thinking: :disabled]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:thinking] == :disabled
+    end
+
+    test "validates thinking {:enabled, budget_tokens: N}" do
+      opts = [thinking: {:enabled, budget_tokens: 16_000}]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:thinking] == {:enabled, budget_tokens: 16_000}
+    end
+
+    test "rejects invalid thinking value" do
+      assert {:error, _} = Options.validate_session_options(thinking: "banana")
+      assert {:error, _} = Options.validate_session_options(thinking: 42)
+      assert {:error, _} = Options.validate_session_options(thinking: {:enabled, budget_tokens: -1})
+      assert {:error, _} = Options.validate_session_options(thinking: {:enabled, budget_tokens: "not_int"})
+      assert {:error, _} = Options.validate_session_options(thinking: {:enabled, []})
+    end
+
     test "validates plugins option as list of paths" do
       opts = [plugins: ["./my-plugin", "/path/to/plugin"]]
       assert {:ok, validated} = Options.validate_session_options(opts)
@@ -519,6 +557,18 @@ defmodule ClaudeCode.OptionsTest do
       opts = [max_thinking_tokens: 5000]
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:max_thinking_tokens] == 5000
+    end
+
+    test "validates effort in query options" do
+      opts = [effort: :high]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:effort] == :high
+    end
+
+    test "validates thinking in query options" do
+      opts = [thinking: :adaptive]
+      assert {:ok, validated} = Options.validate_query_options(opts)
+      assert validated[:thinking] == :adaptive
     end
 
     test "validates plugins in query options" do

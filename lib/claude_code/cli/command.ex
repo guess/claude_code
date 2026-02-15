@@ -58,6 +58,7 @@ defmodule ClaudeCode.CLI.Command do
   def to_cli_args(opts) do
     opts
     |> preprocess_sandbox()
+    |> preprocess_thinking()
     |> Enum.reduce([], fn {key, value}, acc ->
       case convert_option(key, value) do
         {flag, flag_value} -> [flag_value, flag | acc]
@@ -122,6 +123,10 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:max_thinking_tokens, value) do
     {"--max-thinking-tokens", to_string(value)}
+  end
+
+  defp convert_option(:effort, value) do
+    {"--effort", to_string(value)}
   end
 
   defp convert_option(:agent, value) do
@@ -346,12 +351,12 @@ defmodule ClaudeCode.CLI.Command do
   end
 
   # Internal options - not passed as CLI flags
-  # :sandbox is preprocessed into :settings; :enable_file_checkpointing is set via env var
+  # :sandbox is preprocessed into :settings; :thinking is preprocessed into :max_thinking_tokens
+  # :enable_file_checkpointing is set via env var
   defp convert_option(:sandbox, _value), do: nil
+  defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil
   defp convert_option(:callers, _value), do: nil
-  defp convert_option(:name, _value), do: nil
-  defp convert_option(:adapter, _value), do: nil
   defp convert_option(:stub_name, _value), do: nil
   defp convert_option(:env, _value), do: nil
   defp convert_option(:max_buffer_size, _value), do: nil
@@ -361,6 +366,30 @@ defmodule ClaudeCode.CLI.Command do
     # Convert unknown keys to kebab-case flags
     flag_name = "--" <> (key |> to_string() |> String.replace("_", "-"))
     {flag_name, to_string(value)}
+  end
+
+  # -- Private: thinking preprocessing ----------------------------------------
+
+  # Resolves :thinking config into :max_thinking_tokens.
+  # :thinking takes precedence over the deprecated :max_thinking_tokens.
+  defp preprocess_thinking(opts) do
+    case Keyword.pop(opts, :thinking) do
+      {nil, opts} ->
+        opts
+
+      {:adaptive, opts} ->
+        resolved = Keyword.get(opts, :max_thinking_tokens) || 32_000
+        Keyword.put(opts, :max_thinking_tokens, resolved)
+
+      {:disabled, opts} ->
+        Keyword.put(opts, :max_thinking_tokens, 0)
+
+      {{:enabled, thinking_opts}, opts} when is_list(thinking_opts) ->
+        Keyword.put(opts, :max_thinking_tokens, Keyword.fetch!(thinking_opts, :budget_tokens))
+
+      {_unknown, opts} ->
+        opts
+    end
   end
 
   # -- Private: sandbox preprocessing ----------------------------------------
