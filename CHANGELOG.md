@@ -14,11 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`caller` field on `ToolUseBlock`** — Parses the optional `caller` metadata from tool use content blocks. ([93de892])
 - **`speed` field on `ResultMessage` usage** — Captures the `speed` field from CLI usage data when present. ([93de892])
 - **`context_management` on stream events** — `PartialAssistantMessage` now parses `context_management` data from stream events. ([93de892])
+- **`:refusal` stop reason** — `ResultMessage` now parses the `"refusal"` stop reason from the CLI. ([a7a7cfc])
 
 ### Changed
 
 - **Bundled CLI version bumped to 2.1.42** ([789a813])
 - **`:max_thinking_tokens` deprecated** — Still works, but emits a `Logger.warning` directing users to the new `:thinking` option. ([fa6b39d])
+- **Hook callback input keys atomized** — Hook callbacks now receive atom-keyed maps (e.g., `%{tool_name: "Bash"}`) instead of string-keyed maps. ([0fcc415])
+
+### Fixed
+
+- **`:setting_sources` documentation** — Corrected example to use strings (`["user", "project", "local"]`) instead of atoms. ([bc2ba7a])
 
 ## [0.20.0] - 2026-02-10 | CC 2.1.38
 
