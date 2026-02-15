@@ -350,7 +350,7 @@ defmodule ClaudeCode.Options do
 
       # Control setting sources
       {:ok, session} = ClaudeCode.start_link(
-        setting_sources: [:user, :project, :local]
+        setting_sources: ["user", "project", "local"]
       )
 
   ## Plugins
