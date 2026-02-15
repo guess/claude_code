@@ -65,7 +65,7 @@ end
 
 ## Detecting refusals
 
-`stop_reason == :refusal` is the simplest way to detect when the model declines a request. Previously, detecting refusals required enabling partial message streaming and manually scanning stream events for `message_delta`. With `stop_reason` on the `ClaudeCode.Message.ResultMessage`, you can check directly:
+`stop_reason == :refusal` is the simplest way to detect when the model declines a request. Previously, detecting refusals required enabling partial message streaming and manually scanning `StreamEvent` messages for `message_delta` events. With `stop_reason` on the `ClaudeCode.Message.ResultMessage`, you can check directly:
 
 ```elixir
 session

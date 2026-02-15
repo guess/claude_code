@@ -1,10 +1,10 @@
 # Custom Tools
 
-Build custom tools to extend Claude's capabilities with your own Elixir functionality.
+Build and integrate custom tools to extend Claude Agent SDK functionality.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/custom-tools). Examples are adapted for Elixir.
 
-Custom tools allow you to extend Claude Code's capabilities through MCP (Model Context Protocol) servers defined in your application code. The Elixir SDK supports two approaches:
+Custom tools allow you to extend Claude Code's capabilities with your own functionality through in-process MCP servers, enabling Claude to interact with external services, APIs, or perform specialized operations. The Elixir SDK supports two approaches:
 
 1. **In-process tools** -- Define tools with `ClaudeCode.MCP.Server` that run in your BEAM VM, with full access to application state (Ecto repos, GenServers, caches)
 2. **Hermes MCP servers** -- Define tools as [Hermes MCP](https://hex.pm/packages/hermes_mcp) components that run as a separate subprocess
@@ -28,7 +28,7 @@ Then run `mix deps.get`.
 
 You can check availability at runtime with `ClaudeCode.MCP.available?/0`.
 
-## Creating custom tools
+## Creating Custom Tools
 
 ### In-process tools
 
@@ -226,17 +226,19 @@ Pass custom environment variables to Hermes subprocesses with the `%{module: ...
 )
 ```
 
-## Using custom tools
+## Using Custom Tools
 
-Both in-process and Hermes tools are passed to a session via the `:mcp_servers` option and work identically from Claude's perspective.
+Pass the custom server to a session via the `:mcp_servers` option. Both in-process and Hermes tools work identically from Claude's perspective.
 
-### Tool name format
+### Tool Name Format
 
-When MCP tools are exposed to Claude, their names follow the pattern `mcp__<server-name>__<tool-name>`. For example, a tool named `get_weather` in server `"my-tools"` becomes `mcp__my-tools__get_weather`.
+When MCP tools are exposed to Claude, their names follow a specific format:
+- Pattern: `mcp__<server-name>__<tool-name>`
+- Example: A tool named `get_weather` in server `"my-tools"` becomes `mcp__my-tools__get_weather`
 
-### Configuring allowed tools
+### Configuring Allowed Tools
 
-Use `:allowed_tools` to control which custom tools Claude can use:
+You can control which tools Claude can use via the `:allowed_tools` option:
 
 ```elixir
 # Allow all tools from an in-process server
@@ -258,9 +260,9 @@ Use `:allowed_tools` to control which custom tools Claude can use:
 )
 ```
 
-### Multiple tools
+### Multiple Tools Example
 
-When your server has multiple tools, you can selectively allow them:
+When your MCP server has multiple tools, you can selectively allow them:
 
 ```elixir
 defmodule MyApp.Utilities do
@@ -296,9 +298,9 @@ end
 
 For details on `:allowed_tools`, wildcards, and alternative permission modes, see [MCP > Allow MCP tools](mcp.md#allow-mcp-tools).
 
-## Error handling
+## Error Handling
 
-Handle errors gracefully in your tool handlers. Return `{:error, message}` to provide meaningful feedback to Claude.
+Handle errors gracefully to provide meaningful feedback to Claude. Return `{:error, message}` from your tool handlers.
 
 ### In-process tools
 
@@ -353,10 +355,10 @@ For connection-level errors (server failed to start, timeouts), see the [MCP err
 Generated modules are standard Hermes components that can be tested without a running session:
 
 ```elixir
-test "add tool returns correct result" do
+test "get_weather tool returns temperature" do
   frame = Hermes.Server.Frame.new()
-  assert {:reply, response, _frame} = MyApp.Tools.Add.execute(%{x: 3, y: 4}, frame)
-  # response contains Hermes Response struct with text "7"
+  assert {:reply, response, _frame} = MyApp.Tools.GetWeather.execute(%{latitude: 37.7, longitude: -122.4}, frame)
+  # response contains Hermes Response struct with temperature text
 end
 ```
 
@@ -375,17 +377,18 @@ test "tools/call dispatches to the right tool" do
   message = %{
     "jsonrpc" => "2.0", "id" => 2,
     "method" => "tools/call",
-    "params" => %{"name" => "add", "arguments" => %{"x" => 5, "y" => 3}}
+    "params" => %{"name" => "get_weather", "arguments" => %{"latitude" => 37.7, "longitude" => -122.4}}
   }
 
   response = ClaudeCode.MCP.Router.handle_request(MyApp.Tools, message)
-  assert %{"result" => %{"content" => [%{"type" => "text", "text" => "8"}]}} = response
+  assert %{"result" => %{"content" => [%{"type" => "text", "text" => text}]}} = response
+  assert text =~ "Temperature"
 end
 ```
 
-## Example tools
+## Example Tools
 
-### Database query tool
+### Database Query Tool
 
 ```elixir
 defmodule MyApp.DBTools do
@@ -411,7 +414,7 @@ defmodule MyApp.DBTools do
 end
 ```
 
-### API gateway tool
+### API Gateway Tool
 
 ```elixir
 defmodule MyApp.APITools do
@@ -447,7 +450,7 @@ defmodule MyApp.APITools do
 end
 ```
 
-### Calculator tool
+### Calculator Tool
 
 ```elixir
 defmodule MyApp.Calculator do
@@ -497,8 +500,9 @@ defmodule MyApp.Calculator do
 end
 ```
 
-## Related resources
+## Related Documentation
 
 - [MCP](mcp.md) -- Connect to MCP servers, configure permissions, authentication, and troubleshooting
+- [MCP Protocol](https://modelcontextprotocol.io) -- Model Context Protocol specification and resources
 - [Permissions](permissions.md) -- Control tool access and permission modes
 - [Streaming Output](streaming-output.md) -- Stream tool call progress in real-time

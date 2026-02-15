@@ -16,11 +16,11 @@ Plugins are packages of Claude Code extensions that can include:
 - **Hooks** -- Event handlers that respond to tool use and other events
 - **MCP servers** -- External tool integrations via Model Context Protocol
 
-For complete information on plugin structure and how to create plugins, see the [Plugins guide](https://code.claude.com/docs/en/plugins) in the Claude Code documentation.
+For complete information on plugin structure and how to create plugins, see [Plugins](https://platform.claude.com/docs/en/plugins).
 
 ## Loading plugins
 
-Load plugins by providing their local file system paths via the `:plugins` option. The SDK supports loading multiple plugins from different locations. Each plugin path is passed to the CLI as a `--plugin-dir` flag.
+Load plugins by providing their local file system paths in your options configuration. The SDK supports loading multiple plugins from different locations. Each plugin path is passed to the CLI as a `--plugin-dir` flag.
 
 ```elixir
 # As simple path strings
@@ -51,10 +51,10 @@ Both path strings and `%{type: :local, path: "..."}` maps are accepted. See `Cla
 
 Plugin paths can be:
 
-- **Relative paths** -- Resolved relative to the current working directory (e.g., `"./plugins/my-plugin"`)
-- **Absolute paths** -- Full file system paths (e.g., `"/home/user/plugins/my-plugin"`)
+- **Relative paths** -- Resolved relative to your current working directory (for example, `"./plugins/my-plugin"`)
+- **Absolute paths** -- Full file system paths (for example, `"/home/user/plugins/my-plugin"`)
 
-The path should point to the plugin's root directory -- the directory containing `.claude-plugin/plugin.json`.
+> **Note:** The path should point to the plugin's root directory (the directory containing `.claude-plugin/plugin.json`).
 
 ### Query-level overrides
 
@@ -67,12 +67,12 @@ session
     %{type: :local, path: "./dev-plugins/experimental"}
   ]
 )
-|> Enum.each(fn msg -> IO.inspect(msg) end)
+|> Stream.run()
 ```
 
 ## Verifying plugin installation
 
-When plugins load successfully, they appear in the `ClaudeCode.Message.SystemMessage` sent during session initialization. Inspect the `plugins` and `slash_commands` fields to verify your plugins loaded correctly:
+When plugins load successfully, they appear in the system initialization message (`ClaudeCode.Message.SystemMessage`). You can verify that your plugins are available by inspecting the `plugins` and `slash_commands` fields:
 
 ```elixir
 alias ClaudeCode.Message.SystemMessage
@@ -115,36 +115,29 @@ The `ClaudeCode.Message.SystemMessage` struct includes these plugin-related fiel
 Commands from plugins are automatically namespaced with the plugin name to avoid conflicts. The format is `plugin-name:command-name`.
 
 ```elixir
-alias ClaudeCode.Message.{AssistantMessage, ResultMessage}
+alias ClaudeCode.Message.ResultMessage
 
 # Invoke a plugin command by using the namespaced format
-session
-|> ClaudeCode.stream("/my-plugin:greet",
-  plugins: [%{type: :local, path: "./my-plugin"}]
-)
-|> Enum.each(fn
-  %AssistantMessage{} = msg ->
-    IO.inspect(msg, label: "assistant")
+result =
+  session
+  |> ClaudeCode.stream("/my-plugin:greet",
+    plugins: [%{type: :local, path: "./my-plugin"}]
+  )
+  |> ClaudeCode.Stream.final_result()
 
-  %ResultMessage{result: text} ->
-    IO.puts("Result: #{text}")
-
-  _ ->
-    :ok
-end)
+%ResultMessage{result: text} = result
 ```
 
-If you installed a plugin via the CLI (e.g., `/plugin install my-plugin@marketplace`), you can still use it in the SDK by providing its installation path. Check `~/.claude/plugins/` for CLI-installed plugins.
+> **Note:** If you installed a plugin via the CLI (for example, `/plugin install my-plugin@marketplace`), you can still use it in the SDK by providing its installation path. Check `~/.claude/plugins/` for CLI-installed plugins.
 
 ## Complete example
 
-A full example demonstrating plugin loading, verification, and usage:
+Here is a full example demonstrating plugin loading and usage:
 
 ```elixir
 alias ClaudeCode.Message.{SystemMessage, ResultMessage}
 
 plugin_path = Path.join([__DIR__, "plugins", "my-plugin"])
-IO.puts("Loading plugin from: #{plugin_path}")
 
 {:ok, session} = ClaudeCode.start_link(
   plugins: [%{type: :local, path: plugin_path}],
@@ -168,7 +161,7 @@ end)
 
 ## Plugin structure reference
 
-A plugin directory must contain a `.claude-plugin/plugin.json` manifest file. It can optionally include custom commands, agents, skills, hooks, and MCP server definitions:
+A plugin directory must contain a `.claude-plugin/plugin.json` manifest file. It can optionally include:
 
 ```
 my-plugin/
@@ -184,12 +177,15 @@ my-plugin/
 +-- hooks/                    # Event handlers
 |   +-- hooks.json
 +-- .mcp.json                # MCP server definitions
++-- .lsp.json                # LSP server configurations
 ```
+
+> **Warning:** Do not put `commands/`, `agents/`, `skills/`, or `hooks/` inside the `.claude-plugin/` directory. Only `plugin.json` goes inside `.claude-plugin/`. All other directories must be at the plugin root level.
 
 For detailed information on creating plugins, see:
 
-- [Plugins](https://code.claude.com/docs/en/plugins) -- Complete plugin development guide
-- [Plugins reference](https://code.claude.com/docs/en/plugins-reference) -- Technical specifications and schemas
+- [Plugins](https://platform.claude.com/docs/en/plugins) -- Complete plugin development guide
+- [Plugins reference](https://platform.claude.com/docs/en/plugins-reference) -- Technical specifications and schemas
 
 ## Common use cases
 
@@ -252,10 +248,10 @@ If relative paths do not resolve correctly:
 2. **Use absolute paths** -- For reliability, construct absolute paths with `Path.join/2` or `Path.expand/1`
 3. **Normalize paths** -- Use `Path.expand/1` to resolve `~` and other path shortcuts
 
-## Next Steps
+## See also
 
+- [Plugins](https://platform.claude.com/docs/en/plugins) -- Complete plugin development guide
+- [Plugins reference](https://platform.claude.com/docs/en/plugins-reference) -- Technical specifications
 - [Slash Commands](slash-commands.md) -- Using slash commands in the SDK
 - [Subagents](subagents.md) -- Working with specialized agents
 - [Skills](skills.md) -- Using Agent Skills
-- [Hooks](hooks.md) -- Event handlers for tool use
-- [MCP](mcp.md) -- Extend Claude with MCP tools

@@ -1,8 +1,10 @@
 # Tracking Costs and Usage
 
-Understand and track token usage for billing in the ClaudeCode SDK.
+Understand and track token usage for billing in the Claude Agent SDK.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/cost-tracking). Examples are adapted for Elixir.
+
+The Claude Agent SDK provides detailed token usage information for each interaction with Claude. This guide explains how to properly track costs and understand usage reporting, especially when dealing with parallel tool uses and multi-step conversations.
 
 ## Understanding Token Usage
 
@@ -26,13 +28,12 @@ alias ClaudeCode.Message.AssistantMessage
 # Tracking usage in a conversation
 session
 |> ClaudeCode.stream("Analyze this codebase and run tests")
-|> Enum.each(fn
-  %AssistantMessage{message: %{id: id, usage: usage}} ->
-    IO.puts("Message ID: #{id}")
-    IO.inspect(usage, label: "Usage")
+|> Enum.reduce(%{}, fn
+  %AssistantMessage{message: %{id: id, usage: usage}}, seen ->
+    Map.put_new(seen, id, usage)
 
-  _ ->
-    :ok
+  _, seen ->
+    seen
 end)
 ```
 
@@ -58,7 +59,7 @@ assistant (text)      %{id: "msg_2", usage: %{output_tokens: 98, ...}}
 
 ### 1. Same ID = Same Usage
 
-**All messages with the same `id` field report identical usage.** When Claude sends multiple messages in the same turn (e.g., text + tool uses), they share the same message ID and usage data.
+**All messages with the same `id` field report identical usage.** When Claude sends multiple messages in the same turn (for example, text + tool uses), they share the same message ID and usage data.
 
 ```elixir
 alias ClaudeCode.Message.AssistantMessage
@@ -69,16 +70,12 @@ session
 |> ClaudeCode.stream("Complex task")
 |> Enum.reduce(%{}, fn
   %AssistantMessage{message: %{id: id, usage: usage}}, seen ->
-    if Map.has_key?(seen, id) do
-      seen
-    else
-      IO.puts("Step #{map_size(seen) + 1} — #{usage.output_tokens} output tokens")
-      Map.put(seen, id, usage)
-    end
+    Map.put_new(seen, id, usage)
 
   _, seen ->
     seen
 end)
+# Result: %{"msg_1" => %{output_tokens: 100, ...}, "msg_2" => %{output_tokens: 98, ...}}
 ```
 
 ### 2. Charge Once Per Step
@@ -90,30 +87,42 @@ end)
 The final `ClaudeCode.Message.ResultMessage` contains the total cumulative usage from all steps in the conversation:
 
 ```elixir
-result = session
-|> ClaudeCode.stream("Multi-step task")
-|> ClaudeCode.Stream.final_result()
+result =
+  session
+  |> ClaudeCode.stream("Multi-step task")
+  |> ClaudeCode.Stream.final_result()
 
-IO.puts("Total cost: $#{result.total_cost_usd}")
-IO.inspect(result.usage, label: "Total usage")
+result.total_cost_usd
+# => 0.0042
+
+result.usage
+# => %{input_tokens: 1200, output_tokens: 350, cache_read_input_tokens: 800, ...}
 ```
 
 ### 4. Per-Model Usage Breakdown
 
-The `model_usage` field on `ClaudeCode.Message.ResultMessage` provides authoritative per-model usage data. Like `total_cost_usd`, this field is accurate and suitable for billing purposes. This is especially useful when using multiple models (e.g., Haiku for subagents, Opus for the main agent).
+The `model_usage` field on `ClaudeCode.Message.ResultMessage` provides authoritative per-model usage data. Like `total_cost_usd`, this field is accurate and suitable for billing purposes. This is especially useful when using multiple models (for example, Haiku for subagents, Opus for the main agent).
 
 ```elixir
-result = session
-|> ClaudeCode.stream("Complex task")
-|> ClaudeCode.Stream.final_result()
+result =
+  session
+  |> ClaudeCode.stream("Complex task")
+  |> ClaudeCode.Stream.final_result()
 
-Enum.each(result.model_usage, fn {model, usage} ->
-  IO.puts("#{model}: $#{usage.cost_usd}")
-  IO.puts("  Input tokens: #{usage.input_tokens}")
-  IO.puts("  Output tokens: #{usage.output_tokens}")
-  IO.puts("  Cache read: #{usage.cache_read_input_tokens}")
-  IO.puts("  Web searches: #{usage.web_search_requests}")
-end)
+# model_usage is a map of model name to per-model usage data
+result.model_usage
+# => %{
+#   "claude-sonnet-4-20250514" => %{
+#     cost_usd: 0.003,
+#     input_tokens: 1000,
+#     output_tokens: 200,
+#     cache_read_input_tokens: 500,
+#     cache_creation_input_tokens: nil,
+#     web_search_requests: 0,
+#     context_window: 200_000,
+#     max_output_tokens: 16_384
+#   }
+# }
 ```
 
 ## Implementation: Cost Tracking System
@@ -179,9 +188,8 @@ session
 |> Stream.each(&CostTracker.process_message/1)
 |> Stream.run()
 
-summary = CostTracker.summary()
-IO.puts("Steps processed: #{summary.steps}")
-IO.puts("Total cost: $#{Float.round(summary.total_cost, 4)}")
+CostTracker.summary()
+# => %{steps: 3, step_usages: [...], total_cost: 0.0042}
 ```
 
 ## Cost Controls
@@ -245,14 +253,14 @@ When using prompt caching, track these token types separately:
 ## Best Practices
 
 1. **Use Message IDs for Deduplication**: Always track processed message IDs to avoid double-charging
-2. **Monitor the Result Message**: Use `ClaudeCode.Stream.final_result/1` to get authoritative cumulative usage
+2. **Monitor the Result Message**: The final result contains authoritative cumulative usage (use `ClaudeCode.Stream.final_result/1`)
 3. **Implement Logging**: Log all usage data for auditing and debugging
 4. **Handle Failures Gracefully**: Track partial usage even if a conversation fails
-5. **Use Stream Processing**: Process usage as messages arrive with `Stream.each/2`
+5. **Consider Streaming**: For streaming responses, accumulate usage as messages arrive with `Stream.each/2`
 
 ## Usage Fields Reference
 
-Each usage map on `ClaudeCode.Message.ResultMessage` contains:
+The `usage` map on `ClaudeCode.Message.ResultMessage` contains:
 
 | Field                         | Description                                                          |
 | ----------------------------- | -------------------------------------------------------------------- |
@@ -260,9 +268,11 @@ Each usage map on `ClaudeCode.Message.ResultMessage` contains:
 | `output_tokens`               | Tokens generated in the response                                     |
 | `cache_creation_input_tokens` | Tokens used to create cache entries                                  |
 | `cache_read_input_tokens`     | Tokens read from cache                                               |
-| `service_tier`                | The service tier used (e.g., `"standard"`)                           |
+| `service_tier`                | The service tier used (for example, `"standard"`)                    |
 | `server_tool_use`             | Map with `web_search_requests` and `web_fetch_requests` counts       |
 | `cache_creation`              | Map with `ephemeral_5m_input_tokens` and `ephemeral_1h_input_tokens` |
+
+The `total_cost_usd` field is a top-level field on `ClaudeCode.Message.ResultMessage` itself (not inside `usage`).
 
 Each per-model usage entry in `model_usage` contains:
 
@@ -277,26 +287,59 @@ Each per-model usage entry in `model_usage` contains:
 | `context_window`              | Context window size          |
 | `max_output_tokens`           | Maximum output token limit   |
 
-## Aggregating Costs Across Queries
+## Example: Building a Billing Dashboard
 
-Track costs across multiple queries in a session:
+Here's how to aggregate usage data for a billing dashboard across multiple users:
 
 ```elixir
-{:ok, _} = CostTracker.start_link([])
+defmodule BillingAggregator do
+  @moduledoc """
+  Aggregates cost data across users for a billing dashboard.
+  """
 
-for prompt <- ["Task 1", "Task 2", "Task 3"] do
-  session
-  |> ClaudeCode.stream(prompt)
-  |> Stream.each(&CostTracker.process_message/1)
-  |> Stream.run()
+  use Agent
+
+  def start_link(_opts) do
+    Agent.start_link(fn -> %{} end, name: __MODULE__)
+  end
+
+  def process_user_request(session, user_id, prompt) do
+    {:ok, _} = CostTracker.start_link([])
+
+    session
+    |> ClaudeCode.stream(prompt)
+    |> Stream.each(&CostTracker.process_message/1)
+    |> Stream.run()
+
+    summary = CostTracker.summary()
+
+    total_tokens =
+      Enum.reduce(summary.step_usages, 0, fn step, acc ->
+        acc + (step.usage[:input_tokens] || 0) + (step.usage[:output_tokens] || 0)
+      end)
+
+    Agent.update(__MODULE__, fn state ->
+      current = Map.get(state, user_id, %{total_tokens: 0, total_cost: 0.0, conversations: 0})
+
+      Map.put(state, user_id, %{
+        total_tokens: current.total_tokens + total_tokens,
+        total_cost: current.total_cost + summary.total_cost,
+        conversations: current.conversations + 1
+      })
+    end)
+  end
+
+  def get_user_billing(user_id) do
+    Agent.get(__MODULE__, fn state ->
+      Map.get(state, user_id, %{total_tokens: 0, total_cost: 0.0, conversations: 0})
+    end)
+  end
 end
-
-summary = CostTracker.summary()
-IO.puts("Total session cost: $#{Float.round(summary.total_cost, 4)}")
 ```
 
 ## Next Steps
 
+- [Permissions](permissions.md) - Managing tool permissions
 - [Stop Reasons](stop-reasons.md) - Understanding error subtypes
 - [Hosting](hosting.md) - Production deployment
 - [Secure Deployment](secure-deployment.md) - Budget and safety controls

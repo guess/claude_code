@@ -1,10 +1,10 @@
 # Slash Commands
 
-Use slash commands to control Claude Code sessions with special commands that start with `/`.
+Learn how to use slash commands to control Claude Code sessions through the SDK.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/slash-commands). Examples are adapted for Elixir.
 
-Slash commands provide a way to control Claude Code sessions with special commands that start with `/`. These commands can be sent through the SDK as prompt text to perform actions like clearing conversation history, compacting messages, or triggering custom workflows.
+Slash commands provide a way to control Claude Code sessions with special commands that start with `/`. These commands can be sent through the SDK to perform actions like clearing conversation history, compacting messages, or getting help.
 
 ## Discovering available slash commands
 
@@ -18,7 +18,7 @@ session
 |> Enum.each(fn
   %SystemMessage{subtype: :init, slash_commands: commands} ->
     IO.inspect(commands, label: "Available slash commands")
-    # Example output: ["/compact", "/clear", "/help", "/review"]
+    # Example output: ["/compact", "/clear", "/help"]
 
   _ ->
     :ok
@@ -108,7 +108,7 @@ end)
 
 ## Creating custom slash commands
 
-Custom slash commands are defined as markdown files in specific directories. Once created, they are automatically discovered by the CLI and appear in the `slash_commands` list on `ClaudeCode.Message.SystemMessage`.
+In addition to using built-in slash commands, you can create your own custom commands that are available through the SDK. Custom commands are defined as markdown files in specific directories, similar to how subagents are configured.
 
 ### File locations
 
@@ -124,8 +124,8 @@ Custom slash commands are stored in designated directories based on their scope:
 Each custom command is a markdown file where:
 
 - The filename (without `.md` extension) becomes the command name
-- The file content defines the prompt that Claude receives when the command is invoked
-- Optional YAML frontmatter provides configuration (allowed tools, description, model)
+- The file content defines what the command does
+- Optional YAML frontmatter provides configuration
 
 #### Basic example
 
@@ -136,7 +136,7 @@ Refactor the selected code to improve readability and maintainability.
 Focus on clean code principles and best practices.
 ```
 
-This creates the `/refactor` command.
+This creates the `/refactor` command that you can use through the SDK.
 
 #### With frontmatter
 
@@ -186,9 +186,9 @@ result =
 IO.puts(result)
 ```
 
-## Advanced features
+### Advanced features
 
-### Arguments and placeholders
+#### Arguments and placeholders
 
 Custom commands support dynamic arguments using numbered placeholders (`$1`, `$2`) and the `$ARGUMENTS` placeholder for the full argument string:
 
@@ -216,38 +216,66 @@ result =
 IO.puts(result)
 ```
 
-Use `$ARGUMENTS` to capture the entire argument string:
+#### Bash command execution
 
-Create `.claude/commands/test.md`:
+Custom commands can execute bash commands inline and include their output as context. Prefix a command with `!` inside backticks:
+
+Create `.claude/commands/git-commit.md`:
 
 ```markdown
 ---
-allowed-tools: Bash, Read, Edit
-argument-hint: [test-pattern]
-description: Run tests with optional pattern
+allowed-tools: Bash(git add:*), Bash(git status:*), Bash(git commit:*)
+description: Create a git commit
 ---
 
-Run tests matching pattern: $ARGUMENTS
+## Context
 
-1. Detect the test framework
-2. Run tests with the provided pattern
-3. If tests fail, analyze and fix them
-4. Re-run to verify fixes
+- Current status: !`git status`
+- Current diff: !`git diff HEAD`
+
+## Task
+
+Create a git commit with appropriate message based on the changes.
 ```
 
-```elixir
-# $ARGUMENTS = "auth --verbose"
-result =
-  session
-  |> ClaudeCode.stream("/test auth --verbose", max_turns: 5)
-  |> ClaudeCode.Stream.final_result()
+#### File references
 
-IO.puts(result)
+Include file contents in your command prompt using the `@` prefix:
+
+Create `.claude/commands/review-config.md`:
+
+```markdown
+---
+description: Review configuration files
+---
+
+Review the following configuration files for issues:
+
+- Mix config: @config/config.exs
+- Runtime config: @config/runtime.exs
+- Environment: @.env.example
+
+Check for security issues, outdated dependencies, and misconfigurations.
 ```
 
-### Bash command execution
+### Organization with namespacing
 
-Custom commands can execute bash commands inline and include their output as context. Prefix a command with `!` inside backticks:
+Organize commands in subdirectories for better structure. The subdirectory appears in the command description but doesn't affect the command name itself:
+
+```
+.claude/commands/
+  frontend/
+    component.md      # /component (project:frontend)
+    style-check.md    # /style-check (project:frontend)
+  backend/
+    api-test.md       # /api-test (project:backend)
+    db-migrate.md     # /db-migrate (project:backend)
+  review.md           # /review (project)
+```
+
+### Practical examples
+
+#### Code review command
 
 Create `.claude/commands/code-review.md`:
 
@@ -278,48 +306,39 @@ Review the above changes for:
 Provide specific, actionable feedback organized by priority.
 ```
 
+#### Test runner command
+
+Create `.claude/commands/test.md`:
+
+```markdown
+---
+allowed-tools: Bash, Read, Edit
+argument-hint: [test-pattern]
+description: Run tests with optional pattern
+---
+
+Run tests matching pattern: $ARGUMENTS
+
+1. Detect the test framework
+2. Run tests with the provided pattern
+3. If tests fail, analyze and fix them
+4. Re-run to verify fixes
+```
+
+Use these commands through the SDK:
+
 ```elixir
+# Run code review
 result =
   session
   |> ClaudeCode.stream("/code-review", max_turns: 3)
   |> ClaudeCode.Stream.final_result()
 
-IO.puts(result)
-```
-
-### File references
-
-Include file contents in your command prompt using the `@` prefix:
-
-Create `.claude/commands/review-config.md`:
-
-```markdown
----
-description: Review configuration files
----
-
-Review the following configuration files for issues:
-
-- Mix config: @config/config.exs
-- Runtime config: @config/runtime.exs
-- Environment: @.env.example
-
-Check for security issues, outdated dependencies, and misconfigurations.
-```
-
-### Organization with namespacing
-
-Organize commands in subdirectories for better structure. The subdirectory name appears in the command description but does not affect the command name itself:
-
-```
-.claude/commands/
-  frontend/
-    component.md      # /component (project:frontend)
-    style-check.md    # /style-check (project:frontend)
-  backend/
-    api-test.md       # /api-test (project:backend)
-    db-migrate.md     # /db-migrate (project:backend)
-  review.md           # /review (project)
+# Run specific tests
+result =
+  session
+  |> ClaudeCode.stream("/test auth", max_turns: 5)
+  |> ClaudeCode.Stream.final_result()
 ```
 
 ## Disabling slash commands
@@ -341,8 +360,9 @@ result =
   |> ClaudeCode.Stream.final_result()
 ```
 
-## Next steps
+## See also
 
+- [Slash Commands](https://code.claude.com/docs/en/slash-commands) -- Complete slash command documentation
 - [Subagents](subagents.md) -- Similar filesystem-based configuration for custom agents
 - [Modifying System Prompts](modifying-system-prompts.md) -- Customize Claude's behavior with system prompts
 - [Sessions](sessions.md) -- Session management and multi-turn conversations

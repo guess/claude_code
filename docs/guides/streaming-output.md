@@ -1,6 +1,6 @@
-# Stream Responses in Real-time
+# Streaming Output
 
-> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/streaming-output). Examples are adapted for Elixir.
+> **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/streaming-output). Examples are adapted for Elixir.
 
 Get real-time responses from the Agent SDK as text and tool calls stream in.
 
@@ -8,20 +8,34 @@ Get real-time responses from the Agent SDK as text and tool calls stream in.
 
 By default, the SDK yields complete `AssistantMessage` structs after Claude finishes generating each response. To receive incremental updates as text and tool calls are generated, enable partial message streaming by setting `include_partial_messages: true` in your options.
 
-> **Tip:** This page covers output streaming (receiving tokens in real-time). For input modes (how you send messages), see [Streaming vs Single Mode](streaming-vs-single-mode.md).
+> **Tip:** This page covers output streaming (receiving tokens in real-time). For input modes (how you send messages), see [Streaming vs Single Mode](streaming-vs-single-mode.md). You can also [stream responses using the Agent SDK via the CLI](https://code.claude.com/docs/en/headless).
 
-## Stream text responses
+## Enable streaming output
 
-Set `include_partial_messages: true`, then pattern match on the `event` field to extract text chunks as they arrive:
+To enable streaming, set `include_partial_messages: true` in your options. This causes the SDK to yield `PartialAssistantMessage` structs containing raw API events as they arrive, in addition to the usual `AssistantMessage` and `ResultMessage`.
+
+Your code then needs to:
+
+1. Check each message's type to distinguish `PartialAssistantMessage` from other message types
+2. For `PartialAssistantMessage`, extract the `event` field and check its `type`
+3. Look for `:content_block_delta` events where the delta type is `:text_delta`, which contain the actual text chunks
+
+The example below enables streaming and prints text chunks as they arrive. Notice the nested pattern matching: first for `PartialAssistantMessage`, then for `:content_block_delta`, then for `:text_delta`:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+{:ok, session} = ClaudeCode.start_link(
+  include_partial_messages: true,
+  allowed_tools: ["Bash", "Read"]
+)
 
 session
-|> ClaudeCode.stream("Explain how databases work")
+|> ClaudeCode.stream("List the files in my project")
 |> Enum.each(fn
-  %{event: %{delta: %{type: :text_delta, text: text}}} -> IO.write(text)
-  _ -> :ok
+  %{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}} ->
+    IO.write(text)
+
+  _ ->
+    :ok
 end)
 ```
 
@@ -29,14 +43,14 @@ Or use the convenience function:
 
 ```elixir
 session
-|> ClaudeCode.stream("Explain how databases work", include_partial_messages: true)
+|> ClaudeCode.stream("List the files in my project", include_partial_messages: true)
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 ```
 
 ## PartialAssistantMessage reference
 
-When partial messages are enabled, you receive raw Claude API streaming events wrapped in a `PartialAssistantMessage` struct. This corresponds to `StreamEvent` in Python and `SDKPartialAssistantMessage` in TypeScript.
+When partial messages are enabled, you receive raw Claude API streaming events wrapped in a `PartialAssistantMessage` struct. This corresponds to `StreamEvent` in Python and `SDKPartialAssistantMessage` in TypeScript. These contain raw Claude API events, not accumulated text. You need to extract and accumulate text deltas yourself (or use the convenience functions in `ClaudeCode.Stream`).
 
 ```elixir
 %ClaudeCode.Message.PartialAssistantMessage{
@@ -48,7 +62,7 @@ When partial messages are enabled, you receive raw Claude API streaming events w
 }
 ```
 
-Common event types in the `event` field:
+The `event` field contains the raw streaming event from the [Claude API](https://platform.claude.com/docs/en/build-with-claude/streaming#event-types). Common event types include:
 
 | Event Type | Description |
 |:-----------|:------------|
@@ -79,11 +93,42 @@ AssistantMessage - complete message with all content
 ResultMessage - final result
 ```
 
-Without partial messages, you receive all message types except `PartialAssistantMessage`: `SystemMessage` (session initialization), `AssistantMessage` (complete responses), `ResultMessage` (final result), and `CompactBoundaryMessage` (context compaction).
+Without partial messages enabled, you receive all message types except `PartialAssistantMessage`. Common types include `SystemMessage` (session initialization), `AssistantMessage` (complete responses), `ResultMessage` (final result), and `CompactBoundaryMessage` (indicates when conversation history was compacted).
+
+## Stream text responses
+
+To display text as it's generated, look for `:content_block_delta` events where the delta type is `:text_delta`. These contain the incremental text chunks:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
+session
+|> ClaudeCode.stream("Explain how databases work")
+|> Enum.each(fn
+  %{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}} ->
+    IO.write(text)
+
+  _ ->
+    :ok
+end)
+```
+
+Or use the convenience function:
+
+```elixir
+session
+|> ClaudeCode.stream("Explain how databases work", include_partial_messages: true)
+|> ClaudeCode.Stream.text_deltas()
+|> Enum.each(&IO.write/1)
+```
 
 ## Stream tool calls
 
-Tool calls also stream incrementally. Track when tools start, receive their input as it's generated, and see when they complete:
+Tool calls also stream incrementally. You can track when tools start, receive their input as it's generated, and see when they complete. The example below tracks the current tool being called and accumulates the JSON input as it streams in. It uses three event types:
+
+- `:content_block_start` -- tool begins
+- `:content_block_delta` with `:input_json_delta` -- input chunks arrive
+- `:content_block_stop` -- tool call complete
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
@@ -98,7 +143,7 @@ session
     IO.puts("Starting tool: #{name}")
     {name, ""}
 
-  %{event: %{delta: %{type: :input_json_delta, partial_json: chunk}}}, {tool, input} ->
+  %{event: %{type: :content_block_delta, delta: %{type: :input_json_delta, partial_json: chunk}}}, {tool, input} ->
     {tool, input <> chunk}
 
   %{event: %{type: :content_block_stop}}, {tool, input} when tool != nil ->
@@ -112,7 +157,7 @@ end)
 
 ## Build a streaming UI
 
-Combine text and tool streaming into a cohesive UI. This tracks whether a tool is executing to show status indicators like `[Using Read...]` while tools run, and streams text normally otherwise:
+This example combines text and tool streaming into a cohesive UI. It tracks whether the agent is currently executing a tool (using an `in_tool` flag) to show status indicators like `[Using Read...]` while tools run. Text streams normally when not in a tool, and tool completion triggers a "done" message. This pattern is useful for chat interfaces that need to show progress during multi-step agent tasks.
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
@@ -127,7 +172,7 @@ session
     IO.write("\n[Using #{name}...]")
     true
 
-  %{event: %{delta: %{type: :text_delta, text: text}}}, false ->
+  %{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}}, false ->
     IO.write(text)
     false
 
@@ -135,7 +180,7 @@ session
     IO.puts(" done")
     false
 
-  %{type: :result}, _ ->
+  %ClaudeCode.Message.ResultMessage{}, _ ->
     IO.puts("\n\n--- Complete ---")
     false
 
@@ -212,11 +257,15 @@ The Elixir SDK provides high-level stream utilities that handle the pattern matc
 
 ## Known limitations
 
-- **Extended thinking**: when you set `max_thinking_tokens`, `PartialAssistantMessage` events are not emitted. You'll only receive complete messages after each turn. Thinking is disabled by default, so streaming works unless you enable it.
+Some SDK features are incompatible with streaming:
+
+- **Extended thinking**: when you explicitly set `max_thinking_tokens` (or `thinking: {:enabled, budget_tokens: n}`), `PartialAssistantMessage` events are not emitted. You'll only receive complete messages after each turn. Note that thinking is disabled by default in the SDK, so streaming works unless you enable it.
 - **Structured output**: the JSON result appears only in the final `ResultMessage`, not as streaming deltas. See [Structured Outputs](structured-outputs.md) for details.
 
 ## Next steps
 
-- [Streaming vs Single Mode](streaming-vs-single-mode.md) - Choose between input modes
-- [Structured Outputs](structured-outputs.md) - Get typed JSON responses
+Now that you can stream text and tool calls in real-time, explore these related topics:
+
+- [Streaming vs Single Mode](streaming-vs-single-mode.md) - Choose between input modes for your use case
+- [Structured Outputs](structured-outputs.md) - Get typed JSON responses from the agent
 - [Permissions](permissions.md) - Control which tools the agent can use

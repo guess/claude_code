@@ -1,26 +1,53 @@
 # Subagents
 
-> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/subagents). Examples are adapted for Elixir.
+> **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/subagents). Examples are adapted for Elixir.
 
-Define and invoke subagents to isolate context, run tasks in parallel, and apply specialized instructions.
+Define and invoke subagents to isolate context, run tasks in parallel, and apply specialized instructions in your Claude Agent SDK applications.
+
+Subagents are separate agent instances that your main agent can spawn to handle focused subtasks.
+Use subagents to isolate context for focused subtasks, run multiple analyses in parallel, and apply specialized instructions without bloating the main agent's prompt.
+
+This guide explains how to define and use subagents in the SDK using the `agents` option.
 
 ## Overview
-
-Subagents are separate agent instances that your main agent can spawn to handle focused subtasks. Use subagents to:
-
-- **Isolate context** for focused subtasks without bloating the main prompt
-- **Run multiple analyses in parallel** (e.g., style check + security scan simultaneously)
-- **Apply specialized instructions** with tailored system prompts and tool restrictions
 
 You can create subagents in three ways:
 
 | Method | Description |
 |--------|-------------|
 | **Programmatic** | Use `ClaudeCode.Agent` structs with the `agents` option in `start_link/1` or `stream/3` (recommended for SDK applications) |
-| **Filesystem-based** | Define agents as markdown files in `.claude/agents/` directories |
+| **Filesystem-based** | Define agents as markdown files in `.claude/agents/` directories (see [defining subagents as files](https://code.claude.com/docs/en/sub-agents)) |
 | **Built-in** | Claude can invoke the built-in `general-purpose` subagent via the Task tool without any configuration |
 
-This guide focuses on the programmatic approach.
+This guide focuses on the programmatic approach, which is recommended for SDK applications.
+
+When you define subagents, Claude determines whether to invoke them based on each subagent's `description` field. Write clear descriptions that explain when the subagent should be used, and Claude will automatically delegate appropriate tasks. You can also explicitly request a subagent by name in your prompt (for example, "Use the code-reviewer agent to...").
+
+## Benefits of using subagents
+
+### Context management
+
+Subagents maintain separate context from the main agent, preventing information overload and keeping interactions focused. This isolation ensures that specialized tasks don't pollute the main conversation context with irrelevant details.
+
+**Example**: a `research-assistant` subagent can explore dozens of files and documentation pages without cluttering the main conversation with all the intermediate search results, returning only the relevant findings.
+
+### Parallelization
+
+Multiple subagents can run concurrently, dramatically speeding up complex workflows.
+
+**Example**: during a code review, you can run `style-checker`, `security-scanner`, and `test-coverage` subagents simultaneously, reducing review time from minutes to seconds.
+
+### Specialized instructions and knowledge
+
+Each subagent can have tailored system prompts with specific expertise, best practices, and constraints.
+
+**Example**: a `database-migration` subagent can have detailed knowledge about SQL best practices, rollback strategies, and data integrity checks that would be unnecessary noise in the main agent's instructions.
+
+### Tool restrictions
+
+Subagents can be limited to specific tools, reducing the risk of unintended actions.
+
+**Example**: a `doc-reviewer` subagent might only have access to Read and Grep tools, ensuring it can analyze but never accidentally modify your documentation files.
 
 ## How agents are delivered
 
@@ -28,7 +55,9 @@ Agent configurations are sent to the CLI via the **control protocol initialize h
 
 ## Creating subagents
 
-Define subagents using `ClaudeCode.Agent` structs and the `agents` option. The `Task` tool must be in `allowed_tools` since Claude invokes subagents through it.
+### Programmatic definition (recommended)
+
+Define subagents directly in your code using `ClaudeCode.Agent` structs and the `agents` option. This example creates two subagents: a code reviewer with read-only access and a test runner that can execute commands. The `Task` tool must be in `allowed_tools` since Claude invokes subagents through it.
 
 ```elixir
 alias ClaudeCode.Agent
@@ -48,6 +77,8 @@ alias ClaudeCode.Agent
       - Check for performance issues
       - Verify adherence to coding standards
       - Suggest specific improvements
+
+      Be thorough but concise in your feedback.
       """,
       # tools restricts what the subagent can do (read-only here)
       tools: ["Read", "Grep", "Glob"],
@@ -79,19 +110,27 @@ alias ClaudeCode.Agent
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Unique agent identifier |
-| `description` | string | Recommended | When to use this agent. Claude matches tasks to agents based on this. |
-| `prompt` | string | Recommended | System prompt defining the agent's role and behavior |
+| `name` | string | Yes | Unique agent identifier (used as the map key when sent to the CLI) |
+| `description` | string | No | Natural language description of when to use this agent. Recommended so Claude knows when to delegate. |
+| `prompt` | string | No | System prompt defining the agent's role and behavior |
 | `tools` | list | No | Tools the agent can use. If omitted, inherits all tools. |
 | `model` | string | No | Model override: `"sonnet"`, `"opus"`, `"haiku"`, or `"inherit"`. Defaults to session model. |
 
 > Subagents cannot spawn their own subagents. Don't include `"Task"` in a subagent's `tools` list.
 
+### Filesystem-based definition (alternative)
+
+You can also define subagents as markdown files in `.claude/agents/` directories. See the [Claude Code subagents documentation](https://code.claude.com/docs/en/sub-agents) for details on this approach. Programmatically defined agents take precedence over filesystem-based agents with the same name.
+
+> Even without defining custom subagents, Claude can spawn the built-in `general-purpose` subagent when `Task` is in your `allowed_tools`. This is useful for delegating research or exploration tasks without creating specialized agents.
+
 ## Invoking subagents
 
 ### Automatic invocation
 
-Claude automatically decides when to invoke subagents based on the task and each subagent's `"description"`. Write clear, specific descriptions so Claude can match tasks to the right subagent.
+Claude automatically decides when to invoke subagents based on the task and each subagent's `description`. For example, if you define a `performance-optimizer` subagent with the description "Performance optimization specialist for query tuning", Claude will invoke it when your prompt mentions optimizing queries.
+
+Write clear, specific descriptions so Claude can match tasks to the right subagent.
 
 ```elixir
 # Claude will automatically delegate to the code-reviewer agent
@@ -114,24 +153,27 @@ session
 
 ### Dynamic agent configuration
 
-Create agent definitions dynamically based on runtime conditions:
+Create agent definitions dynamically based on runtime conditions. This example creates a security reviewer with different strictness levels, using a more capable model for strict reviews:
 
 ```elixir
 defmodule MyApp.Agents do
   alias ClaudeCode.Agent
 
+  # Factory function that returns an Agent struct
+  # This pattern lets you customize agents based on runtime conditions
   def security_reviewer(level) do
     strict? = level == :strict
 
     Agent.new(
       name: "security-reviewer",
       description: "Security code reviewer",
+      # Customize the prompt based on strictness level
       prompt: if(strict?,
         do: "You are a strict security reviewer. Flag all potential issues, even minor ones.",
         else: "You are a balanced security reviewer. Focus on critical and high-severity issues."
       ),
       tools: ["Read", "Grep", "Glob"],
-      # Use a more capable model for strict reviews
+      # Key insight: use a more capable model for high-stakes reviews
       model: if(strict?, do: "opus", else: "sonnet")
     )
   end
@@ -146,7 +188,9 @@ end
 
 ## Detecting subagent invocation
 
-Subagents are invoked via the Task tool. Check for `tool_use` blocks with `name: "Task"`. Messages from within a subagent's context include a `parent_tool_use_id` field.
+Subagents are invoked via the Task tool. To detect when a subagent is invoked, check for `tool_use` blocks with `name: "Task"`. Messages from within a subagent's context include a `parent_tool_use_id` field.
+
+This example iterates through streamed messages, logging when a subagent is invoked and when subsequent messages originate from within that subagent's execution context:
 
 ```elixir
 session
@@ -166,6 +210,28 @@ session
 end)
 |> Stream.run()
 ```
+
+## Resuming subagents
+
+> **Not yet implemented:** Subagent resumption is not yet supported in the Elixir SDK. This section documents the concept as described in the official SDK documentation.
+
+Subagents can be resumed to continue where they left off. Resumed subagents retain their full conversation history, including all previous tool calls, results, and reasoning. The subagent picks up exactly where it stopped rather than starting fresh.
+
+When a subagent completes, Claude receives its agent ID in the Task tool result. To resume a subagent programmatically:
+
+1. **Capture the session ID**: Extract `session_id` from messages during the first query
+2. **Extract the agent ID**: Parse `agentId` from the message content
+3. **Resume the session**: Pass `resume: session_id` in the second query's options, and include the agent ID in your prompt
+
+> You must resume the same session to access the subagent's transcript. Each `ClaudeCode.query/2` call starts a new session by default, so use `ClaudeCode.start_link/1` with `resume: session_id` to continue in the same session.
+>
+> If you're using a custom agent (not a built-in one), you also need to pass the same agent definition in the `agents` option for both sessions.
+
+Subagent transcripts persist independently of the main conversation:
+
+- **Main conversation compaction**: When the main conversation compacts, subagent transcripts are unaffected. They're stored in separate files.
+- **Session persistence**: Subagent transcripts persist within their session. You can resume a subagent after restarting Claude Code by resuming the same session.
+- **Automatic cleanup**: Transcripts are cleaned up based on the `cleanupPeriodDays` setting (default: 30 days).
 
 ## Per-query agent overrides
 
@@ -205,10 +271,30 @@ Select a specific agent for the entire session:
 
 ## Tool restrictions
 
-Subagents can have restricted tool access via the `"tools"` field:
+Subagents can have restricted tool access via the `tools` field:
 
 - **Omit the field**: agent inherits all available tools (default)
 - **Specify tools**: agent can only use listed tools
+
+This example creates a read-only analysis agent that can examine code but cannot modify files or run commands:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  agents: [
+    Agent.new(
+      name: "code-analyzer",
+      description: "Static code analysis and architecture review",
+      prompt: """
+      You are a code architecture analyst. Analyze code structure,
+      identify patterns, and suggest improvements without making changes.
+      """,
+      # Read-only tools: no Edit, Write, or Bash access
+      tools: ["Read", "Grep", "Glob"]
+    )
+  ],
+  allowed_tools: ["Read", "Grep", "Glob", "Task"]
+)
+```
 
 ### Common tool combinations
 
@@ -223,16 +309,23 @@ Subagents can have restricted tool access via the `"tools"` field:
 
 ### Claude not delegating to subagents
 
+If Claude completes tasks directly instead of delegating to your subagent:
+
 1. **Include the Task tool**: subagents are invoked via the Task tool, so it must be in `allowed_tools`
-2. **Use explicit prompting**: mention the subagent by name (e.g., "Use the code-reviewer agent to...")
-3. **Write a clear description**: explain exactly when the subagent should be used
+2. **Use explicit prompting**: mention the subagent by name in your prompt (for example, "Use the code-reviewer agent to...")
+3. **Write a clear description**: explain exactly when the subagent should be used so Claude can match tasks appropriately
 
 ### Subagents not spawning their own subagents
 
 This is by design. Don't include `"Task"` in a subagent's `"tools"` list.
 
-## Next Steps
+### Filesystem-based agents not loading
 
+Agents defined in `.claude/agents/` are loaded at startup only. If you create a new agent file while Claude Code is running, restart the session to load it.
+
+## Related documentation
+
+- [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) - comprehensive subagent documentation including filesystem-based definitions
 - [Custom Tools](custom-tools.md) - Build tools with Hermes MCP
 - [Modifying System Prompts](modifying-system-prompts.md) - Customize agent behavior
 - [Permissions](permissions.md) - Control tool access per agent

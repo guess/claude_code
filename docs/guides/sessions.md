@@ -1,10 +1,14 @@
 # Session Management
 
-> **📚 Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/sessions). Examples are adapted for Elixir.
+Understanding how the Claude Agent SDK handles sessions and session resumption.
 
-Sessions maintain a persistent connection to Claude and preserve conversation context across queries.
+> **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/sessions). Examples are adapted for Elixir.
 
-## Starting a Session
+The Claude Agent SDK provides session management capabilities for handling conversation state and resumption. Sessions allow you to continue conversations across multiple interactions while maintaining full context.
+
+## How Sessions Work
+
+When you start a new query, the SDK automatically creates a session and returns a session ID in the initial system message. You can capture this ID to resume the session later.
 
 ```elixir
 # Basic - uses ANTHROPIC_API_KEY from environment
@@ -21,9 +25,31 @@ Sessions maintain a persistent connection to Claude and preserve conversation co
 ClaudeCode.stop(session)
 ```
 
-## Multi-Turn Conversations
+### Getting the Session ID
 
-Sessions automatically maintain conversation context:
+The session ID is available from the system init message or via `ClaudeCode.get_session_id/1`:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(model: "claude-opus-4-6")
+
+# Send a query and capture the session ID from the system init message
+session
+|> ClaudeCode.stream("Help me build a web application")
+|> Enum.each(fn
+  %ClaudeCode.Message.SystemMessage{subtype: :init, session_id: id} ->
+    IO.puts("Session started with ID: #{id}")
+  _ ->
+    :ok
+end)
+
+# Or retrieve it directly from the session GenServer
+session_id = ClaudeCode.get_session_id(session)
+# You can save this ID for later resumption
+```
+
+### Multi-Turn Conversations
+
+Sessions automatically maintain conversation context across multiple queries:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link()
@@ -39,9 +65,9 @@ response =
 ClaudeCode.stop(session)
 ```
 
-## Session IDs and Resuming
+## Resuming Sessions
 
-Save and resume conversations across process restarts:
+The SDK supports resuming sessions from previous conversation states, enabling continuous development workflows. Use the `:resume` option with a session ID to continue a previous conversation:
 
 ```elixir
 # Get the session ID after a conversation
@@ -51,7 +77,11 @@ session_id = ClaudeCode.get_session_id(session)
 ClaudeCode.stop(session)
 
 # Later: resume with the same context
-{:ok, session} = ClaudeCode.start_link(resume: session_id)
+{:ok, session} = ClaudeCode.start_link(
+  resume: session_id,
+  model: "claude-opus-4-6",
+  allowed_tools: ["Read", "Edit", "Write", "Glob", "Grep", "Bash"]
+)
 
 response =
   session
@@ -60,7 +90,11 @@ response =
 # => "The code is 12345"
 ```
 
-## Continuing the Most Recent Conversation
+The SDK automatically handles loading the conversation history and context when you resume a session, allowing Claude to continue exactly where it left off.
+
+> **Tip:** To track and revert file changes across sessions, see [File Checkpointing](file-checkpointing.md).
+
+### Continuing the Most Recent Conversation
 
 Use `:continue` to automatically resume the last conversation in the current directory:
 
@@ -75,28 +109,60 @@ session
 
 ## Forking Sessions
 
-Create a branch from an existing conversation:
+When resuming a session, you can choose to either continue the original session or fork it into a new branch. By default, resuming continues the original session. Use the `:fork_session` option to create a new session ID that starts from the resumed state.
+
+### When to Fork a Session
+
+Forking is useful when you want to:
+
+- Explore different approaches from the same starting point
+- Create multiple conversation branches without modifying the original
+- Test changes without affecting the original session history
+- Maintain separate conversation paths for different experiments
+
+### Forking vs Continuing
+
+| Behavior | `fork_session: false` (default) | `fork_session: true` |
+|----------|-------------------------------|---------------------|
+| **Session ID** | Same as original | New session ID generated |
+| **History** | Appends to original session | Creates new branch from resume point |
+| **Original Session** | Modified | Preserved unchanged |
+| **Use Case** | Continue linear conversation | Branch to explore alternatives |
+
+### Example: Forking a Session
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link()
-session |> ClaudeCode.stream("My name is Mike") |> Stream.run()
+# First, capture the session ID
+{:ok, session} = ClaudeCode.start_link(model: "claude-opus-4-6")
+session |> ClaudeCode.stream("Help me design a REST API") |> Stream.run()
 session_id = ClaudeCode.get_session_id(session)
 
-# Fork the conversation
+# Fork the session to try a different approach
 {:ok, forked} = ClaudeCode.start_link(
   resume: session_id,
-  fork_session: true
+  fork_session: true,  # Creates a new session ID
+  model: "claude-opus-4-6"
 )
 
-# Fork has the same context but gets its own session ID
 forked
-|> ClaudeCode.stream("What is my name?")
+|> ClaudeCode.stream("Now let's redesign this as a GraphQL API instead")
 |> ClaudeCode.Stream.final_text()
-# => "Your name is Mike."
 
 # After first query, fork has a new session ID
-ClaudeCode.get_session_id(forked) != session_id
+forked_id = ClaudeCode.get_session_id(forked)
+forked_id != session_id
 # => true
+
+# The original session remains unchanged and can still be resumed
+{:ok, continued} = ClaudeCode.start_link(
+  resume: session_id,
+  fork_session: false,  # Continue original session (default)
+  model: "claude-opus-4-6"
+)
+
+continued
+|> ClaudeCode.stream("Add authentication to the REST API")
+|> ClaudeCode.Stream.final_text()
 ```
 
 ## Clearing Context
@@ -121,8 +187,8 @@ Access past conversations stored in `~/.claude/projects/`:
 {:ok, messages} = ClaudeCode.conversation("abc123-def456")
 
 Enum.each(messages, fn
-  %ClaudeCode.Message.UserMessage{} = msg ->
-    IO.puts("User: #{inspect(msg.message.content)}")
+  %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
+    IO.puts("User: #{inspect(content)}")
   %ClaudeCode.Message.AssistantMessage{message: %{content: blocks}} ->
     text = Enum.map_join(blocks, "", fn
       %ClaudeCode.Content.TextBlock{text: t} -> t
@@ -226,7 +292,7 @@ These functions use the bidirectional control protocol to communicate with the C
 | Event                | Behavior                                                      |
 | -------------------- | ------------------------------------------------------------- |
 | `start_link/1`       | Creates GenServer, CLI adapter starts eagerly                 |
-| Adapter initializing | Sends initialize handshake, adapter status is `:initializing` |
+| Adapter initializing | Sends initialize handshake, adapter status is `:provisioning` |
 | Adapter ready        | Handshake complete, adapter status is `:ready`                |
 | First query          | Sent to the already-running CLI subprocess                    |
 | Subsequent queries   | Reuses existing CLI connection with session context           |

@@ -1,8 +1,10 @@
 # Structured Outputs
 
-Get structured JSON from agent workflows using JSON Schema. Get type-safe, structured data after multi-turn tool use.
+Return validated JSON from agent workflows using JSON Schema. Get type-safe, structured data after multi-turn tool use.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/structured-outputs). Examples are adapted for Elixir.
+
+Structured outputs let you define the exact shape of data you want back from an agent. The agent can use any tools it needs to complete the task, and you still get validated JSON matching your schema at the end. Define a [JSON Schema](https://json-schema.org/understanding-json-schema/about) for the structure you need, and the SDK guarantees the output matches it.
 
 ## Why structured outputs?
 
@@ -73,7 +75,7 @@ IO.inspect(result.structured_output)
 
 ## Defining schemas
 
-Since Elixir doesn't have built-in schema-to-JSON-Schema libraries like Zod (TypeScript) or Pydantic (Python), you define JSON Schema as plain maps. For complex schemas, consider extracting reusable schema fragments into module attributes or helper functions.
+The official SDKs support [Zod](https://zod.dev/) (TypeScript) and [Pydantic](https://docs.pydantic.dev/latest/) (Python) for type-safe schema definitions with full type inference and runtime validation. Since Elixir doesn't have a built-in schema-to-JSON-Schema library, you define JSON Schema as plain maps. For complex schemas, consider extracting reusable schema fragments into module attributes or helper functions.
 
 The example below defines a schema for a feature implementation plan with a summary, list of steps (each with complexity level), and potential risks:
 
@@ -160,7 +162,7 @@ The `output_format` option accepts a map with:
 - `type`: Set to `:json_schema` for structured outputs
 - `schema`: A [JSON Schema](https://json-schema.org/understanding-json-schema/about) map defining your output structure
 
-The SDK supports standard JSON Schema features including all basic types (object, array, string, number, boolean, null), `enum`, `const`, `required`, nested objects, and `$ref` definitions.
+The SDK supports standard JSON Schema features including all basic types (object, array, string, number, boolean, null), `enum`, `const`, `required`, nested objects, and `$ref` definitions. For the full list of supported features and limitations, see the [JSON Schema limitations](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs#json-schema-limitations) documentation.
 
 ## Example: TODO tracking agent
 
@@ -269,6 +271,6 @@ IO.inspect(result.structured_output)
 
 ## Related resources
 
-- [JSON Schema documentation](https://json-schema.org/) - Learn JSON Schema syntax for defining complex schemas
-- [Modifying System Prompts](modifying-system-prompts.md) - Guide output with system prompts
-- [Stop Reasons](stop-reasons.md) - Understanding result subtypes
+- [JSON Schema documentation](https://json-schema.org/) - Learn JSON Schema syntax for defining complex schemas with nested objects, arrays, enums, and validation constraints
+- [API Structured Outputs](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs) - Use structured outputs with the Claude API directly for single-turn requests without tool use
+- [Custom Tools](custom-tools.md) - Give your agent custom tools to call during execution before returning structured output

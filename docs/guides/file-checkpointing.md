@@ -66,7 +66,9 @@ checkpoint_id =
 
 ### Step 1: Enable checkpointing
 
-Configure your session with `enable_file_checkpointing: true`. This automatically sets the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable for the CLI subprocess.
+File checkpointing requires the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable. The Elixir SDK sets this automatically when you pass `enable_file_checkpointing: true` to `ClaudeCode.start_link/1` -- no manual env var setup is needed.
+
+Configure your session with `enable_file_checkpointing: true`:
 
 | Option                            | Description                              |
 | --------------------------------- | ---------------------------------------- |
@@ -84,9 +86,11 @@ Configure your session with `enable_file_checkpointing: true`. This automaticall
 
 ### Step 2: Capture checkpoint UUID
 
-Each user message in the response stream has a `uuid` field that serves as a checkpoint.
+With `enable_file_checkpointing: true` set, each user message in the response stream has a `uuid` field that serves as a checkpoint.
 
 For most use cases, capture the first user message UUID; rewinding to it restores all files to their original state. To store multiple checkpoints and rewind to intermediate states, see [Multiple restore points](#multiple-restore-points).
+
+Capturing the session ID is optional; you only need it if you want to rewind later from the CLI. Since the Elixir SDK maintains a persistent GenServer session, you can call `ClaudeCode.rewind_files/2` directly at any time while the session is alive.
 
 ```elixir
 alias ClaudeCode.Message.UserMessage
@@ -100,7 +104,7 @@ checkpoint_id =
   end)
 ```
 
-> If you also need the session ID (for example, to resume from the CLI later), use `ClaudeCode.Stream.final_result/1` instead — it returns the full `ClaudeCode.Message.ResultMessage` which includes `session_id`. However, for rewinding you don't need it — the Elixir SDK keeps the session alive as a GenServer, so you can call `ClaudeCode.rewind_files/2` directly.
+> If you also need the session ID (for example, to resume from the CLI later), use `ClaudeCode.Stream.final_result/1` instead -- it returns the full `ClaudeCode.Message.ResultMessage` which includes `session_id`.
 
 ### Step 3: Rewind files
 
@@ -110,7 +114,7 @@ Call `ClaudeCode.rewind_files/2` with the session and checkpoint UUID to restore
 {:ok, _} = ClaudeCode.rewind_files(session, checkpoint_id)
 ```
 
-Since the Elixir SDK maintains a persistent GenServer session, you can rewind at any time while the session is alive — no need to resume with an empty prompt as in the Python/TypeScript SDKs.
+Since the Elixir SDK maintains a persistent GenServer session, you can rewind at any time while the session is alive -- no need to resume with an empty prompt as in the Python/TypeScript SDKs.
 
 You can also rewind from the CLI if you have the session ID and checkpoint UUID:
 
@@ -126,7 +130,7 @@ result =
   |> ClaudeCode.stream("Refactor the authentication module")
   |> ClaudeCode.Stream.final_result()
 
-IO.puts("Session ID: #{result.session_id}")
+session_id = result.session_id
 ```
 
 ## Common patterns
@@ -197,20 +201,88 @@ target = List.first(checkpoints)
 {:ok, _} = ClaudeCode.rewind_files(session, target.id)
 ```
 
-## Combining with sandbox mode
+## Try it out
 
-For maximum safety, combine file checkpointing with sandboxing:
+This complete example creates a small utility module, has the agent add documentation comments, shows you the changes, then asks if you want to rewind.
+
+### 1. Create a test file
+
+Create a new file called `utils.ex`:
 
 ```elixir
+# utils.ex
+defmodule Utils do
+  def add(a, b), do: a + b
+
+  def subtract(a, b), do: a - b
+
+  def multiply(a, b), do: a * b
+
+  def divide(_a, 0), do: {:error, "Cannot divide by zero"}
+  def divide(a, b), do: {:ok, a / b}
+end
+```
+
+### 2. Run the interactive example
+
+Create a new file called `try_checkpointing.exs` in the same directory as your utility file, and paste the following code. This script asks Claude to add doc comments to your utility file, then gives you the option to rewind and restore the original.
+
+```elixir
+# try_checkpointing.exs
+alias ClaudeCode.Message.UserMessage
+
+# Configure the session with checkpointing enabled
+# - enable_file_checkpointing: Track file changes for rewinding
+# - permission_mode: Auto-accept file edits without prompting
 {:ok, session} = ClaudeCode.start_link(
   enable_file_checkpointing: true,
-  permission_mode: :accept_edits,
-  sandbox: %{
-    "environment" => "docker",
-    "container" => "my-sandbox"
-  }
+  permission_mode: :accept_edits
 )
+
+IO.puts("Running agent to add doc comments to utils.ex...\n")
+
+# Run the agent and capture the first user message UUID as a checkpoint
+checkpoint_id =
+  session
+  |> ClaudeCode.stream("Add @doc and @spec annotations to utils.ex")
+  |> Enum.reduce(nil, fn
+    %UserMessage{uuid: uuid}, nil when not is_nil(uuid) -> uuid
+    _, cp -> cp
+  end)
+
+IO.puts("Done! Open utils.ex to see the added doc comments.\n")
+
+# Ask the user if they want to rewind the changes
+if checkpoint_id do
+  answer = IO.gets("Rewind to remove the doc comments? (y/n): ") |> String.trim()
+
+  if answer == "y" do
+    {:ok, _} = ClaudeCode.rewind_files(session, checkpoint_id)
+    IO.puts("\nFile restored! Open utils.ex to verify the doc comments are gone.")
+  else
+    IO.puts("\nKept the modified file.")
+  end
+end
+
+ClaudeCode.stop(session)
 ```
+
+This example demonstrates the complete checkpointing workflow:
+
+1. **Enable checkpointing**: configure the session with `enable_file_checkpointing: true` and `permission_mode: :accept_edits` to auto-approve file edits
+2. **Capture checkpoint data**: as the agent runs, store the first user message UUID as the restore point
+3. **Prompt for rewind**: after the agent finishes, check your utility file to see the doc comments, then decide if you want to undo the changes
+4. **Rewind**: if yes, call `ClaudeCode.rewind_files/2` to restore the original file
+
+### 3. Run the example
+
+Run the script from the same directory as your utility file:
+
+```bash
+elixir -S mix run try_checkpointing.exs
+```
+
+> Open your utility file (`utils.ex`) in your editor before running the script. You'll see the file update in real-time as the agent adds doc comments, then revert back to the original when you choose to rewind.
 
 ## Limitations
 
@@ -242,5 +314,5 @@ This error occurs when the checkpoint data doesn't exist for the specified user 
 
 ## Next steps
 
-- [Sessions](sessions.md) — Session management and resuming, which covers session IDs and multi-turn conversations
-- [Secure Deployment](secure-deployment.md) — Sandboxing and production security
+- [Sessions](sessions.md) -- Learn how to resume sessions and manage session IDs, which is useful for rewinding from the CLI after the session ends
+- [Permissions](permissions.md) -- Configure which tools Claude can use and how file modifications are approved
