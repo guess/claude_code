@@ -7,13 +7,14 @@ defmodule ClaudeCode.Content.ToolUseBlock do
   """
 
   @enforce_keys [:type, :id, :name, :input]
-  defstruct [:type, :id, :name, :input]
+  defstruct [:type, :id, :name, :input, :caller]
 
   @type t :: %__MODULE__{
           type: :tool_use,
           id: String.t(),
           name: String.t(),
-          input: map()
+          input: map(),
+          caller: map() | nil
         }
 
   @doc """
@@ -37,7 +38,8 @@ defmodule ClaudeCode.Content.ToolUseBlock do
         type: :tool_use,
         id: data["id"],
         name: data["name"],
-        input: data["input"]
+        input: data["input"],
+        caller: data["caller"]
       }
 
       {:ok, content}

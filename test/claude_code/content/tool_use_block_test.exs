@@ -31,6 +31,31 @@ defmodule ClaudeCode.Content.ToolUseBlockTest do
       assert content.input == %{}
     end
 
+    test "parses caller field when present" do
+      data = %{
+        "type" => "tool_use",
+        "id" => "toolu_789",
+        "name" => "Bash",
+        "input" => %{"command" => "ls"},
+        "caller" => %{"type" => "direct"}
+      }
+
+      assert {:ok, content} = ToolUseBlock.new(data)
+      assert content.caller == %{"type" => "direct"}
+    end
+
+    test "caller defaults to nil when not present" do
+      data = %{
+        "type" => "tool_use",
+        "id" => "toolu_abc",
+        "name" => "Read",
+        "input" => %{"file_path" => "/test.txt"}
+      }
+
+      assert {:ok, content} = ToolUseBlock.new(data)
+      assert content.caller == nil
+    end
+
     test "returns error for invalid type" do
       data = %{
         "type" => "text",

@@ -32,7 +32,10 @@ defmodule ClaudeCode.Types do
           cache_read_input_tokens: non_neg_integer() | nil,
           server_tool_use: server_tool_usage() | nil,
           service_tier: String.t() | nil,
-          cache_creation: cache_creation() | nil
+          cache_creation: cache_creation() | nil,
+          inference_geo: String.t() | nil,
+          iterations: [map()],
+          speed: String.t() | nil
         }
 
   @type server_tool_usage :: %{

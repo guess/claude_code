@@ -156,6 +156,41 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       assert event.event.content_block.name == "read_file"
     end
 
+    test "parses context_management when present in event" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "message_delta",
+          "delta" => %{"stop_reason" => "end_turn"},
+          "usage" => %{"output_tokens" => 50},
+          "context_management" => %{
+            "mode" => "auto",
+            "compacted" => true
+          }
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.context_management.mode == "auto"
+      assert event.event.context_management.compacted == true
+    end
+
+    test "context_management is absent when not in event data" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "message_delta",
+          "delta" => %{"stop_reason" => "end_turn"},
+          "usage" => %{"output_tokens" => 50}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      refute Map.has_key?(event.event, :context_management)
+    end
+
     test "returns error for missing event" do
       json = %{
         "type" => "stream_event",

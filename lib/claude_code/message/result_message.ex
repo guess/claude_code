@@ -194,7 +194,8 @@ defmodule ClaudeCode.Message.ResultMessage do
       service_tier: usage_data["service_tier"],
       cache_creation: parse_cache_creation(usage_data["cache_creation"]),
       inference_geo: usage_data["inference_geo"],
-      iterations: usage_data["iterations"] || []
+      iterations: usage_data["iterations"] || [],
+      speed: usage_data["speed"]
     }
   end
 
@@ -208,7 +209,8 @@ defmodule ClaudeCode.Message.ResultMessage do
       service_tier: nil,
       cache_creation: nil,
       inference_geo: nil,
-      iterations: []
+      iterations: [],
+      speed: nil
     }
 
   defp parse_server_tool_use(%{} = data) when map_size(data) > 0 do

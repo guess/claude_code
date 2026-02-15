@@ -206,6 +206,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
     |> maybe_add_content_block(event_data)
     |> maybe_add_message(event_data)
     |> maybe_add_usage(event_data)
+    |> maybe_add_context_management(event_data)
   end
 
   defp parse_event_type("message_start"), do: :message_start
@@ -242,6 +243,12 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   end
 
   defp maybe_add_usage(event, _), do: event
+
+  defp maybe_add_context_management(event, %{"context_management" => cm}) when not is_nil(cm) do
+    Map.put(event, :context_management, atomize_keys(cm))
+  end
+
+  defp maybe_add_context_management(event, _), do: event
 
   # Recursively converts string keys to atoms in maps
   defp atomize_keys(map) when is_map(map) do

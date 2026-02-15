@@ -131,6 +131,7 @@ Context compaction markers.
 | `id` | `:id` | string | Tool use ID for correlation |
 | `name` | `:name` | string | Tool name (e.g., "Read", "Bash") |
 | `input` | `:input` | map | Tool input parameters |
+| `caller` | `:caller` | map or nil | Caller info (e.g., `%{"type" => "direct"}`) |
 
 ### ToolResultBlock (`lib/claude_code/content/tool_result_block.ex`)
 

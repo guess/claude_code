@@ -188,6 +188,20 @@ defmodule ClaudeCode.Message.ResultMessageTest do
     end
   end
 
+  describe "usage.speed" do
+    test "parses speed from usage data" do
+      json = put_in(valid_result_json(), ["usage", "speed"], "fast")
+
+      assert {:ok, message} = ResultMessage.new(json)
+      assert message.usage.speed == "fast"
+    end
+
+    test "speed defaults to nil when not present" do
+      assert {:ok, message} = ResultMessage.new(valid_result_json())
+      assert message.usage.speed == nil
+    end
+  end
+
   describe "stop_reason" do
     test "parses stop_reason from result message" do
       json = Map.put(valid_result_json(), "stop_reason", "end_turn")
