@@ -1317,7 +1317,7 @@ defmodule ClaudeCode.Adapter.LocalTest do
       send(adapter, {state.port, {:data, hook_callback_request <> "\n"}})
 
       assert_receive {:hook_called, input, tool_use_id}, 2000
-      assert input == %{"tool_name" => "Bash", "command" => "ls"}
+      assert input == %{tool_name: "Bash", command: "ls"}
       assert tool_use_id == "tool_123"
 
       GenServer.stop(adapter)

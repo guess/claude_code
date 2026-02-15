@@ -610,7 +610,7 @@ defmodule ClaudeCode.Adapter.Local do
 
   defp handle_hook_callback(request, state) do
     callback_id = request["callback_id"]
-    input = request["input"]
+    input = atomize_keys(request["input"])
     tool_use_id = request["tool_use_id"]
 
     case HookRegistry.lookup(state.hook_registry, callback_id) do
@@ -623,6 +623,15 @@ defmodule ClaudeCode.Adapter.Local do
         %{}
     end
   end
+
+  defp atomize_keys(map) when is_map(map) do
+    Map.new(map, fn
+      {key, value} when is_binary(key) -> {String.to_atom(key), value}
+      {key, value} -> {key, value}
+    end)
+  end
+
+  defp atomize_keys(other), do: other
 
   @doc false
   def extract_sdk_mcp_servers(opts) do
