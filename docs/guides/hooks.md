@@ -222,7 +222,7 @@ Your callback function returns a value that tells the SDK how to proceed. The re
 | `:ok` | Allow compaction normally |
 | `{:instructions, text}` | Provide custom instructions for compaction |
 
-> The `ClaudeCode.Hook.Response` module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`, `permissionDecision`, and other fields). You do not need to construct wire-format maps directly. The wire format also supports top-level fields like `continue`, `stopReason`, `suppressOutput`, and `systemMessage` for injecting context into the conversation -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full wire protocol.
+> The hook response module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`, `permissionDecision`, and other fields). You do not need to construct wire-format maps directly. The wire format also supports top-level fields like `continue`, `stopReason`, `suppressOutput`, and `systemMessage` for injecting context into the conversation -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full wire protocol.
 
 #### Permission decision flow
 
@@ -274,7 +274,7 @@ defmodule MyApp.RedirectToSandbox do
 end
 ```
 
-> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The `ClaudeCode.Hook.Response` module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
+> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
 
 #### Auto-approve specific tools
 
@@ -576,7 +576,7 @@ end
 ### Modified input not applied
 
 - When using `{:allow, updated_input}`, ensure you are returning a complete input map, not just the changed fields
-- The `ClaudeCode.Hook.Response` module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
+- The hook response module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
 - On the wire, `updatedInput` must be inside `hookSpecificOutput` alongside `permissionDecision: "allow"` -- the Elixir SDK handles this automatically
 
 ### can_use_tool and permission_prompt_tool conflict
