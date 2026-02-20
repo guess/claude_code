@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Doc warnings for hidden Hook.Response module** — Fixed references in the hooks guide that generated documentation warnings. ([6402c7a])
+- **Documentation guides synced with official Agent SDK docs** — Updated 16 guides to match the latest official documentation, including restructured file-checkpointing, new hook fields, fixed broken plugin links, and updated terminology. ([67f7d52])
 
 ## [0.21.0] - 2026-02-14 | CC 2.1.42
 
