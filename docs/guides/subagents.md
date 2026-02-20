@@ -17,7 +17,7 @@ You can create subagents in three ways:
 |--------|-------------|
 | **Programmatic** | Use `ClaudeCode.Agent` structs with the `agents` option in `start_link/1` or `stream/3` (recommended for SDK applications) |
 | **Filesystem-based** | Define agents as markdown files in `.claude/agents/` directories (see [defining subagents as files](https://code.claude.com/docs/en/sub-agents)) |
-| **Built-in** | Claude can invoke the built-in `general-purpose` subagent via the Task tool without any configuration |
+| **Built-in general-purpose** | Claude can invoke the built-in `general-purpose` subagent at any time via the Task tool without you defining anything |
 
 This guide focuses on the programmatic approach, which is recommended for SDK applications.
 
@@ -57,7 +57,7 @@ Agent configurations are sent to the CLI via the **control protocol initialize h
 
 ### Programmatic definition (recommended)
 
-Define subagents directly in your code using `ClaudeCode.Agent` structs and the `agents` option. This example creates two subagents: a code reviewer with read-only access and a test runner that can execute commands. The `Task` tool must be in `allowed_tools` since Claude invokes subagents through it.
+Define subagents directly in your code using `ClaudeCode.Agent` structs and the `agents` option. This example creates two subagents: a code reviewer with read-only access and a test runner that can execute commands. The `Task` tool must be included in `allowed_tools` since Claude invokes subagents through the Task tool.
 
 ```elixir
 alias ClaudeCode.Agent
@@ -109,12 +109,14 @@ alias ClaudeCode.Agent
 ### Agent fields
 
 | Field | Type | Required | Description |
-|-------|------|----------|-------------|
+|:------|:-----|:---------|:------------|
 | `name` | string | Yes | Unique agent identifier (used as the map key when sent to the CLI) |
-| `description` | string | No | Natural language description of when to use this agent. Recommended so Claude knows when to delegate. |
-| `prompt` | string | No | System prompt defining the agent's role and behavior |
+| `description` | string | Recommended | Natural language description of when to use this agent. Claude uses this to decide when to delegate. |
+| `prompt` | string | Recommended | System prompt defining the agent's role and behavior |
 | `tools` | list | No | Tools the agent can use. If omitted, inherits all tools. |
 | `model` | string | No | Model override: `"sonnet"`, `"opus"`, `"haiku"`, or `"inherit"`. Defaults to session model. |
+
+> The Elixir SDK allows `nil` for `description` and `prompt`, but the official SDK treats them as required. Always provide both for reliable subagent behavior.
 
 > Subagents cannot spawn their own subagents. Don't include `"Task"` in a subagent's `tools` list.
 
@@ -142,7 +144,7 @@ session
 
 ### Explicit invocation
 
-To guarantee Claude uses a specific subagent, mention it by name in your prompt:
+To guarantee Claude uses a specific subagent, mention it by name in your prompt. This bypasses automatic matching and directly invokes the named subagent.
 
 ```elixir
 session
@@ -213,8 +215,6 @@ end)
 
 ## Resuming subagents
 
-> **Not yet implemented:** Subagent resumption is not yet supported in the Elixir SDK. This section documents the concept as described in the official SDK documentation.
-
 Subagents can be resumed to continue where they left off. Resumed subagents retain their full conversation history, including all previous tool calls, results, and reasoning. The subagent picks up exactly where it stopped rather than starting fresh.
 
 When a subagent completes, Claude receives its agent ID in the Task tool result. To resume a subagent programmatically:
@@ -223,9 +223,52 @@ When a subagent completes, Claude receives its agent ID in the Task tool result.
 2. **Extract the agent ID**: Parse `agentId` from the message content
 3. **Resume the session**: Pass `resume: session_id` in the second query's options, and include the agent ID in your prompt
 
-> You must resume the same session to access the subagent's transcript. Each `ClaudeCode.query/2` call starts a new session by default, so use `ClaudeCode.start_link/1` with `resume: session_id` to continue in the same session.
+> You must resume the same session to access the subagent's transcript. Each `ClaudeCode.query/2` call starts a new session by default, so pass `resume: session_id` to continue in the same session.
 >
-> If you're using a custom agent (not a built-in one), you also need to pass the same agent definition in the `agents` option for both sessions.
+> If you're using a custom agent (not a built-in one), you also need to pass the same agent definition in the `agents` option for both queries.
+
+The example below demonstrates this flow: the first query runs a subagent and captures the session ID and agent ID, then the second query resumes the session to ask a follow-up question that requires context from the first analysis.
+
+```elixir
+alias ClaudeCode.Message.{AssistantMessage, SystemMessage}
+
+# First invocation - use the Explore agent to find API endpoints
+{agent_id, session_id} =
+  ClaudeCode.query("Use the Explore agent to find all API endpoints in this codebase",
+    allowed_tools: ["Read", "Grep", "Glob", "Task"]
+  )
+  |> Enum.reduce({nil, nil}, fn
+    %SystemMessage{session_id: sid}, {aid, _sid} ->
+      {aid, sid}
+
+    %AssistantMessage{message: %{content: blocks}}, {aid, sid} ->
+      # Search content blocks for the agentId (appears in Task tool results)
+      new_aid =
+        blocks
+        |> Enum.find_value(fn block ->
+          text = inspect(block)
+          case Regex.run(~r/agentId:\s*([a-f0-9-]+)/, text) do
+            [_, id] -> id
+            _ -> nil
+          end
+        end)
+
+      {new_aid || aid, sid}
+
+    _other, acc ->
+      acc
+  end)
+
+# Second invocation - resume and ask follow-up
+if agent_id && session_id do
+  ClaudeCode.query(
+    "Resume agent #{agent_id} and list the top 3 most complex endpoints",
+    allowed_tools: ["Read", "Grep", "Glob", "Task"],
+    resume: session_id
+  )
+  |> ClaudeCode.Stream.final_result()
+end
+```
 
 Subagent transcripts persist independently of the main conversation:
 
@@ -299,11 +342,11 @@ This example creates a read-only analysis agent that can examine code but cannot
 ### Common tool combinations
 
 | Use case | Tools | Description |
-|----------|-------|-------------|
+|:---------|:------|:------------|
 | Read-only analysis | `Read`, `Grep`, `Glob` | Can examine code but not modify or execute |
 | Test execution | `Bash`, `Read`, `Grep` | Can run commands and analyze output |
 | Code modification | `Read`, `Edit`, `Write`, `Grep`, `Glob` | Full read/write access without command execution |
-| Full access | _(omit field)_ | Inherits all tools from parent |
+| Full access | All tools | Inherits all tools from parent (omit `tools` field) |
 
 ## Troubleshooting
 
@@ -323,9 +366,14 @@ This is by design. Don't include `"Task"` in a subagent's `"tools"` list.
 
 Agents defined in `.claude/agents/` are loaded at startup only. If you create a new agent file while Claude Code is running, restart the session to load it.
 
+### Windows: long prompt failures
+
+On Windows, subagents with very long prompts may fail due to command line length limits (8191 chars). Keep prompts concise or use filesystem-based agents for complex instructions.
+
 ## Related documentation
 
 - [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) - comprehensive subagent documentation including filesystem-based definitions
+- [SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) - getting started with the Claude Agent SDK
 - [Custom Tools](custom-tools.md) - Build tools with Hermes MCP
 - [Modifying System Prompts](modifying-system-prompts.md) - Customize agent behavior
 - [Permissions](permissions.md) - Control tool access per agent

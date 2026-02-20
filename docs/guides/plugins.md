@@ -16,7 +16,7 @@ Plugins are packages of Claude Code extensions that can include:
 - **Hooks** -- Event handlers that respond to tool use and other events
 - **MCP servers** -- External tool integrations via Model Context Protocol
 
-For complete information on plugin structure and how to create plugins, see [Plugins](https://platform.claude.com/docs/en/plugins).
+For complete information on plugin structure and how to create plugins, see [Plugins](https://code.claude.com/docs/en/plugins).
 
 ## Loading plugins
 
@@ -165,27 +165,27 @@ A plugin directory must contain a `.claude-plugin/plugin.json` manifest file. It
 
 ```
 my-plugin/
-+-- .claude-plugin/
-|   +-- plugin.json          # Required: plugin manifest
-+-- commands/                 # Custom slash commands
-|   +-- custom-cmd.md
-+-- agents/                   # Custom agents
-|   +-- specialist.md
-+-- skills/                   # Agent Skills
-|   +-- my-skill/
-|       +-- SKILL.md
-+-- hooks/                    # Event handlers
-|   +-- hooks.json
-+-- .mcp.json                # MCP server definitions
-+-- .lsp.json                # LSP server configurations
+├── .claude-plugin/
+│   └── plugin.json          # Required: plugin manifest
+├── commands/                 # Custom slash commands
+│   └── custom-cmd.md
+├── agents/                   # Custom agents
+│   └── specialist.md
+├── skills/                   # Agent Skills
+│   └── my-skill/
+│       └── SKILL.md
+├── hooks/                    # Event handlers
+│   └── hooks.json
+├── .mcp.json                # MCP server definitions
+└── .lsp.json                # LSP server configurations
 ```
 
 > **Warning:** Do not put `commands/`, `agents/`, `skills/`, or `hooks/` inside the `.claude-plugin/` directory. Only `plugin.json` goes inside `.claude-plugin/`. All other directories must be at the plugin root level.
 
 For detailed information on creating plugins, see:
 
-- [Plugins](https://platform.claude.com/docs/en/plugins) -- Complete plugin development guide
-- [Plugins reference](https://platform.claude.com/docs/en/plugins-reference) -- Technical specifications and schemas
+- [Plugins](https://code.claude.com/docs/en/plugins) -- Complete plugin development guide
+- [Plugins reference](https://code.claude.com/docs/en/plugins-reference) -- Technical specifications and schemas
 
 ## Common use cases
 
@@ -250,8 +250,8 @@ If relative paths do not resolve correctly:
 
 ## See also
 
-- [Plugins](https://platform.claude.com/docs/en/plugins) -- Complete plugin development guide
-- [Plugins reference](https://platform.claude.com/docs/en/plugins-reference) -- Technical specifications
+- [Plugins](https://code.claude.com/docs/en/plugins) -- Complete plugin development guide
+- [Plugins reference](https://code.claude.com/docs/en/plugins-reference) -- Technical specifications
 - [Slash Commands](slash-commands.md) -- Using slash commands in the SDK
 - [Subagents](subagents.md) -- Working with specialized agents
 - [Skills](skills.md) -- Using Agent Skills

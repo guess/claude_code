@@ -12,9 +12,9 @@ The good news is that securing an agent deployment doesn't require exotic infras
 
 Not every deployment needs maximum security. A developer running Claude Code on their laptop has different requirements than a company processing customer data in a multi-tenant environment. This guide presents options ranging from Claude Code's built-in security features to hardened production architectures, so you can choose what fits your situation.
 
-## What Are We Protecting Against?
+## Threat Model
 
-Agents can take unintended actions due to prompt injection (instructions embedded in content they process) or model error. Claude models are designed to resist this, and Anthropic believes Claude Opus 4.6 is the most robust frontier model available.
+Agents can take unintended actions due to prompt injection (instructions embedded in content they process) or model error. Claude models are designed to resist this, and as analyzed in the [model card](https://assets.anthropic.com/m/64823ba7485345a7/Claude-Opus-4-5-System-Card.pdf), Claude Opus 4.6 is the most robust frontier model available.
 
 Defense in depth is still good practice though. For example, if an agent processes a malicious file that instructs it to send customer data to an external server, network controls can block that request entirely.
 
@@ -184,7 +184,7 @@ Here's what each option does:
 
 With `--network none`, the container has no network interfaces at all. The only way for the agent to reach the outside world is through the mounted Unix socket, which connects to a proxy running on the host. This proxy can enforce domain allowlists, inject credentials, and log all traffic.
 
-This is the same architecture used by [sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime). Even if the agent is compromised via prompt injection, it cannot exfiltrate data to arbitrary servers -- it can only communicate through the proxy, which controls what domains are reachable. For more details, see the [Claude Code sandboxing blog post](https://www.anthropic.com/engineering/claude-code-sandboxing).
+This is the same architecture used by [sandbox-runtime](https://github.com/anthropic-experimental/sandbox-runtime). Even if the agent is compromised via prompt injection, it cannot exfiltrate data to arbitrary servers. It can only communicate through the proxy, which controls what domains are reachable. For more details, see the [Claude Code sandboxing blog post](https://www.anthropic.com/engineering/claude-code-sandboxing).
 
 **Additional hardening options:**
 
@@ -230,9 +230,9 @@ For multi-tenant environments or when processing untrusted content, the addition
 
 ### Virtual Machines
 
-VMs provide hardware-level isolation through CPU virtualization extensions. Each VM runs its own kernel, creating a strong boundary -- a vulnerability in the guest kernel doesn't directly compromise the host. However, VMs aren't automatically "more secure" than alternatives like gVisor. VM security depends heavily on the hypervisor and device emulation code.
+VMs provide hardware-level isolation through CPU virtualization extensions. Each VM runs its own kernel, creating a strong boundary. A vulnerability in the guest kernel doesn't directly compromise the host. However, VMs aren't automatically "more secure" than alternatives like gVisor. VM security depends heavily on the hypervisor and device emulation code.
 
-Firecracker is designed for lightweight microVM isolation -- it can boot VMs in under 125ms with less than 5 MiB memory overhead, stripping away unnecessary device emulation to reduce attack surface.
+Firecracker is designed for lightweight microVM isolation. It can boot VMs in under 125ms with less than 5 MiB memory overhead, stripping away unnecessary device emulation to reduce attack surface.
 
 With this approach, the agent VM has no external network interface. Instead, it communicates through `vsock` (virtual sockets). All traffic routes through vsock to a proxy on the host, which enforces allowlists and injects credentials before forwarding requests.
 
@@ -271,7 +271,7 @@ Claude Code supports two methods for routing sampling requests through a proxy:
 export ANTHROPIC_BASE_URL="http://localhost:8080"
 ```
 
-This tells Claude Code and the Agent SDK to send sampling requests to your proxy instead of the Anthropic API directly. Your proxy receives plaintext HTTP requests, can inspect and modify them (including injecting credentials), then forwards to the real API.
+This tells Claude Code and the Agent SDK to send sampling requests to your proxy instead of the Claude API directly. Your proxy receives plaintext HTTP requests, can inspect and modify them (including injecting credentials), then forwards to the real API.
 
 **Option 2: HTTP_PROXY / HTTPS_PROXY (system-wide)**
 
@@ -300,11 +300,11 @@ You can build your own proxy or use an existing one:
 
 ### Credentials for Other Services
 
-Beyond sampling from the Anthropic API, agents often need authenticated access to other services -- git repositories, databases, internal APIs. There are two main approaches:
+Beyond sampling from the Claude API, agents often need authenticated access to other services -- git repositories, databases, internal APIs. There are two main approaches:
 
 #### Custom Tools
 
-Provide access through an MCP server or custom tool that routes requests to a service running outside the agent's security boundary. The agent calls the tool, but the actual authenticated request happens outside -- the tool calls to a proxy which injects the credentials.
+Provide access through an MCP server or custom tool that routes requests to a service running outside the agent's security boundary. The agent calls the tool, but the actual authenticated request happens outside. The tool calls to a proxy which injects the credentials.
 
 For example, a git MCP server could accept commands from the agent but forward them to a git proxy running on the host, which adds authentication before contacting the remote repository. The agent never sees the credentials.
 
@@ -314,7 +314,7 @@ Advantages:
 
 #### Traffic Forwarding
 
-For Anthropic API calls, `ANTHROPIC_BASE_URL` lets you route requests to a proxy that can inspect and modify them in plaintext. But for other HTTPS services (GitHub, npm registries, internal APIs), the traffic is often encrypted end-to-end -- even if you route it through a proxy via `HTTP_PROXY`, the proxy only sees an opaque TLS tunnel and can't inject credentials.
+For Claude API calls, `ANTHROPIC_BASE_URL` lets you route requests to a proxy that can inspect and modify them in plaintext. But for other HTTPS services (GitHub, npm registries, internal APIs), the traffic is often encrypted end-to-end. Even if you route it through a proxy via `HTTP_PROXY`, the proxy only sees an opaque TLS tunnel and can't inject credentials.
 
 To modify HTTPS traffic to arbitrary services, without using a custom tool, you need a TLS-terminating proxy that decrypts traffic, inspects or modifies it, then re-encrypts it before forwarding. This requires:
 
@@ -328,7 +328,7 @@ Note that not all programs respect `HTTP_PROXY`/`HTTPS_PROXY`. Most tools (curl,
 
 > **Note:** A **transparent proxy** intercepts traffic at the network level, so the client doesn't need to be configured to use it. Regular proxies require clients to explicitly connect and speak HTTP CONNECT or SOCKS. Transparent proxies (like Squid or mitmproxy in transparent mode) can handle raw redirected TCP connections.
 
-Both approaches still require the TLS-terminating proxy and trusted CA certificate -- they just ensure traffic actually reaches the proxy.
+Both approaches still require the TLS-terminating proxy and trusted CA certificate. They just ensure traffic actually reaches the proxy.
 
 ## API Key Management
 
@@ -395,7 +395,7 @@ docker run \
   agent-image
 ```
 
-If you want to review changes before persisting them, an overlay filesystem lets the agent write without modifying underlying files -- changes are stored in a separate layer you can inspect, apply, or discard. For fully persistent output, mount a dedicated volume but keep it separate from sensitive directories.
+If you want to review changes before persisting them, an overlay filesystem lets the agent write without modifying underlying files. Changes are stored in a separate layer you can inspect, apply, or discard. For fully persistent output, mount a dedicated volume but keep it separate from sensitive directories.
 
 ### Directory Access Control in Elixir
 
@@ -436,8 +436,8 @@ Choose the least-privileged permission mode for your use case:
 ## Further Reading
 
 - [Claude Code security documentation](https://code.claude.com/docs/en/security)
-- [Hosting](hosting.md) - OTP supervision and deployment
-- [Permissions](permissions.md) - Detailed permission configuration
+- [Hosting the Agent SDK](hosting.md) - OTP supervision and deployment
+- [Handling permissions](permissions.md) - Detailed permission configuration
 - [Cost Tracking](cost-tracking.md) - Usage monitoring
 - [Sandbox runtime](https://github.com/anthropic-experimental/sandbox-runtime)
 - [The Lethal Trifecta for AI Agents](https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/)

@@ -64,7 +64,7 @@ The SDK provides hooks for different stages of agent execution:
 | `PreCompact` | Yes | Conversation compaction request | Archive full transcript before summarizing |
 | `Notification` | Yes | Agent status messages | Send agent status updates externally |
 
-> **Note:** The official TypeScript SDK also supports `PermissionRequest`, `SessionStart`, and `SessionEnd` hooks. These are not yet implemented in the Elixir SDK.
+> **Note:** The official TypeScript SDK also supports `PermissionRequest`, `SessionStart`, and `SessionEnd` hooks. These are not yet implemented in the Elixir SDK. The Python SDK supports a subset of these hooks -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full compatibility matrix.
 
 ## Common use cases
 
@@ -105,11 +105,11 @@ Use matchers to filter which tools trigger your callbacks:
 
 Use the `:matcher` pattern to target specific tools whenever possible. A matcher with `"Bash"` only runs for Bash commands, while omitting the pattern runs your callbacks for every tool call. Note that matchers only filter by **tool name**, not by file paths or other arguments -- to filter by file path, check `tool_input` inside your callback.
 
-Matchers only apply to tool-based hooks (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`). For lifecycle hooks like `Stop`, `SubagentStop`, and `Notification`, matchers are ignored and the hook fires for all events of that type.
+Matchers only apply to tool-based hooks (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`). For lifecycle hooks like `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, and `Notification`, matchers are ignored and the hook fires for all events of that type.
 
 > **Discovering tool names:** Check the `tools` array in the initial system message when your session starts, or add a hook without a matcher to log all tool calls.
 >
-> **MCP tool naming:** MCP tools always start with `mcp__` followed by the server name and action: `mcp__<server>__<action>`. For example, if you configure a server named `playwright`, its tools will be named `mcp__playwright__browser_screenshot`, `mcp__playwright__browser_click`, etc.
+> **MCP tool naming:** MCP tools always start with `mcp__` followed by the server name and action: `mcp__<server>__<action>`. For example, if you configure a server named `playwright`, its tools will be named `mcp__playwright__browser_screenshot`, `mcp__playwright__browser_click`, etc. The server name comes from the key you use in the MCP servers configuration.
 
 This example uses a matcher to run a hook only for file-modifying tools:
 
@@ -156,9 +156,14 @@ The first argument to your hook callback contains information about the event.
 | `:is_interrupt` | `boolean` | Whether the failure was caused by an interrupt | PostToolUseFailure |
 | `:prompt` | `String.t()` | The user's prompt text | UserPromptSubmit |
 | `:stop_hook_active` | `boolean` | Whether a stop hook is currently processing | Stop, SubagentStop |
+| `:agent_id` | `String.t()` | Unique identifier for the subagent | SubagentStart, SubagentStop |
+| `:agent_type` | `String.t()` | Type/role of the subagent | SubagentStart |
+| `:agent_transcript_path` | `String.t()` | Path to the subagent's conversation transcript | SubagentStop |
 | `:trigger` | `String.t()` | What triggered compaction: `"manual"` or `"auto"` | PreCompact |
 | `:custom_instructions` | `String.t()` | Custom instructions provided for compaction | PreCompact |
 | `:message` | `String.t()` | Status message from the agent | Notification |
+| `:notification_type` | `String.t()` | Type of notification: `"permission_prompt"`, `"idle_prompt"`, `"auth_success"`, or `"elicitation_dialog"` | Notification |
+| `:title` | `String.t()` | Optional title set by the agent | Notification |
 
 The code below defines a hook callback that uses `:tool_name` and `:tool_input` to log details about each tool call:
 
@@ -188,6 +193,8 @@ Your callback function returns a value that tells the SDK how to proceed. The re
 | `{:allow, updated_input}` | Permit with modified input |
 | `{:deny, reason}` | Block the tool call with an explanation |
 
+> **Note:** The CLI wire format also supports an `"ask"` permission decision, which prompts the user for confirmation. The Elixir SDK currently maps `:allow` and `{:deny, reason}` to the corresponding wire decisions. If you need `"ask"` behavior, you can implement it by omitting any hook for the tool and letting the default permission flow handle it.
+
 #### PostToolUse / PostToolUseFailure / Notification / SubagentStart
 
 | Return | Effect |
@@ -215,7 +222,7 @@ Your callback function returns a value that tells the SDK how to proceed. The re
 | `:ok` | Allow compaction normally |
 | `{:instructions, text}` | Provide custom instructions for compaction |
 
-> The Hook.Response module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`). You do not need to construct wire-format maps directly.
+> The `ClaudeCode.Hook.Response` module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`, `permissionDecision`, and other fields). You do not need to construct wire-format maps directly. The wire format also supports top-level fields like `continue`, `stopReason`, `suppressOutput`, and `systemMessage` for injecting context into the conversation -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full wire protocol.
 
 #### Permission decision flow
 
@@ -267,7 +274,7 @@ defmodule MyApp.RedirectToSandbox do
 end
 ```
 
-> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`.
+> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The `ClaudeCode.Hook.Response` module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
 
 #### Auto-approve specific tools
 
@@ -537,7 +544,7 @@ This section covers common issues and how to resolve them.
 - Verify the hook event name is correct and case-sensitive (`PreToolUse`, not `preToolUse` or `:pre_tool_use`)
 - Check that your matcher pattern matches the tool name exactly
 - Ensure the hook is under the correct event type in the `:hooks` map
-- For `SubagentStop`, `Stop`, and `Notification` hooks, matchers are ignored. These hooks fire for all events of that type.
+- For `SubagentStop`, `Stop`, `SessionStart`, `SessionEnd`, and `Notification` hooks, matchers are ignored. These hooks fire for all events of that type.
 - Hooks may not fire when the agent hits the `:max_turns` limit because the session ends before hooks can execute
 
 ### Matcher not filtering as expected
@@ -569,15 +576,28 @@ end
 ### Modified input not applied
 
 - When using `{:allow, updated_input}`, ensure you are returning a complete input map, not just the changed fields
-- The Hook.Response module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
+- The `ClaudeCode.Hook.Response` module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
+- On the wire, `updatedInput` must be inside `hookSpecificOutput` alongside `permissionDecision: "allow"` -- the Elixir SDK handles this automatically
 
 ### can_use_tool and permission_prompt_tool conflict
 
 `:can_use_tool` and `:permission_prompt_tool` cannot be used together. If both are set, the SDK will raise an error. Use `:can_use_tool` for programmatic tool approval.
 
-## Next Steps
+### Subagent permission prompts multiplying
 
-- [User Input](user-input.md) -- Tool approval, clarifying questions, and user input flows
-- [Permissions](permissions.md) -- Static permission modes and tool restrictions
+When spawning multiple subagents, each one may request permissions separately. Subagents do not automatically inherit parent agent permissions. To avoid repeated prompts, use `PreToolUse` hooks to auto-approve specific tools, or configure permission rules that apply to subagent sessions.
+
+### Recursive hook loops with subagents
+
+A `UserPromptSubmit` hook that spawns subagents can create infinite loops if those subagents trigger the same hook. To prevent this:
+
+- Check for a subagent indicator in the hook input before spawning
+- Use the `parent_tool_use_id` field to detect if you are already in a subagent context
+- Scope hooks to only run for the top-level agent session
+
+## Next steps
+
+- [Permissions](permissions.md) -- Control what your agent can do
 - [Custom Tools](custom-tools.md) -- Build tools to extend agent capabilities
+- [User Input](user-input.md) -- Tool approval, clarifying questions, and user input flows
 - [Sessions](sessions.md) -- Session management and conversation history

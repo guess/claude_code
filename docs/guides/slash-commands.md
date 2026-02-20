@@ -51,7 +51,7 @@ end
 
 ## Common slash commands
 
-### `/compact` -- Compact conversation history
+### `/compact` - Compact conversation history
 
 The `/compact` command reduces the size of your conversation history by summarizing older messages while preserving important context. When the CLI compacts the conversation, it emits a `ClaudeCode.Message.CompactBoundaryMessage` with metadata about the compaction:
 
@@ -87,7 +87,7 @@ The `ClaudeCode.Message.CompactBoundaryMessage` struct contains:
 
 Compaction can also happen automatically when the conversation approaches the context window limit. Automatic compaction emits the same `ClaudeCode.Message.CompactBoundaryMessage` with `trigger: "auto"`.
 
-### `/clear` -- Clear conversation
+### `/clear` - Clear conversation
 
 The `/clear` command starts a fresh conversation by clearing all previous history. After clearing, a new `ClaudeCode.Message.SystemMessage` with `subtype: :init` is emitted with a new session ID:
 
@@ -114,10 +114,8 @@ In addition to using built-in slash commands, you can create your own custom com
 
 Custom slash commands are stored in designated directories based on their scope:
 
-| Location              | Scope                                                     |
-| :-------------------- | :-------------------------------------------------------- |
-| `.claude/commands/`   | Project commands -- available only in the current project |
-| `~/.claude/commands/` | Personal commands -- available across all your projects   |
+- **Project commands**: `.claude/commands/` - Available only in the current project
+- **Personal commands**: `~/.claude/commands/` - Available across all your projects
 
 ### File format
 
@@ -260,18 +258,20 @@ Check for security issues, outdated dependencies, and misconfigurations.
 
 ### Organization with namespacing
 
-Organize commands in subdirectories for better structure. The subdirectory appears in the command description but doesn't affect the command name itself:
+Organize commands in subdirectories for better structure:
 
-```
+```bash
 .claude/commands/
-  frontend/
-    component.md      # /component (project:frontend)
-    style-check.md    # /style-check (project:frontend)
-  backend/
-    api-test.md       # /api-test (project:backend)
-    db-migrate.md     # /db-migrate (project:backend)
-  review.md           # /review (project)
+├── frontend/
+│   ├── component.md      # Creates /component (project:frontend)
+│   └── style-check.md    # Creates /style-check (project:frontend)
+├── backend/
+│   ├── api-test.md       # Creates /api-test (project:backend)
+│   └── db-migrate.md     # Creates /db-migrate (project:backend)
+└── review.md             # Creates /review (project)
 ```
+
+The subdirectory appears in the command description but doesn't affect the command name itself.
 
 ### Practical examples
 
@@ -362,7 +362,8 @@ result =
 
 ## See also
 
-- [Slash Commands](https://code.claude.com/docs/en/slash-commands) -- Complete slash command documentation
-- [Subagents](subagents.md) -- Similar filesystem-based configuration for custom agents
-- [Modifying System Prompts](modifying-system-prompts.md) -- Customize Claude's behavior with system prompts
-- [Sessions](sessions.md) -- Session management and multi-turn conversations
+- [Slash Commands](https://code.claude.com/docs/en/slash-commands) - Complete slash command documentation
+- [Subagents](subagents.md) - Similar filesystem-based configuration for subagents
+- [Modifying System Prompts](modifying-system-prompts.md) - Customize Claude's behavior with system prompts
+- [Sessions](sessions.md) - Session management and multi-turn conversations
+- [CLI Reference](https://code.claude.com/docs/en/cli-reference) - Command-line interface

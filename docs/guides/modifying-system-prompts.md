@@ -6,13 +6,13 @@ Learn how to customize Claude's behavior by modifying system prompts using outpu
 
 ---
 
-System prompts define Claude's behavior, capabilities, and response style. The Elixir SDK provides several ways to customize system prompts: using CLAUDE.md files for project-level instructions, output styles for persistent configurations, appending to the default prompt, passing settings directly, or using a fully custom prompt.
+System prompts define Claude's behavior, capabilities, and response style. The Elixir SDK provides three primary ways to customize system prompts: using output styles (persistent, file-based configurations), appending to Claude Code's prompt, or using a fully custom prompt. You can also use CLAUDE.md files for project-level instructions and pass settings directly via the `:settings` option.
 
 ## Understanding system prompts
 
 A system prompt is the initial instruction set that shapes how Claude behaves throughout a conversation.
 
-> **Default behavior:** The Agent SDK uses a **minimal system prompt** by default. It contains only essential tool instructions but omits Claude Code's coding guidelines, response style, and project context. To customize behavior, use `:system_prompt` to replace the default entirely, or `:append_system_prompt` to add instructions while keeping the defaults.
+> **Default behavior:** The Agent SDK uses a **minimal system prompt** by default. It contains only essential tool instructions but omits Claude Code's coding guidelines, response style, and project context. To include the full Claude Code system prompt, use `:system_prompt` with a preset value. To customize behavior, use `:system_prompt` to replace the default entirely, or `:append_system_prompt` to add instructions while keeping the defaults.
 
 Claude Code's system prompt includes:
 
@@ -26,7 +26,7 @@ Claude Code's system prompt includes:
 
 ### Method 1: CLAUDE.md files (project-level instructions)
 
-CLAUDE.md files provide project-specific context and instructions that are automatically read by the SDK when configured with `:setting_sources`. They serve as persistent "memory" for your project.
+CLAUDE.md files provide project-specific context and instructions that are automatically read by the Agent SDK when it runs in a directory. They serve as persistent "memory" for your project.
 
 #### How CLAUDE.md works with the SDK
 
@@ -35,10 +35,12 @@ CLAUDE.md files provide project-specific context and instructions that are autom
 - **Project-level:** `CLAUDE.md` or `.claude/CLAUDE.md` in your working directory
 - **User-level:** `~/.claude/CLAUDE.md` for global instructions across all projects
 
-The SDK only reads CLAUDE.md files when you explicitly configure `:setting_sources`:
+**Important:** The SDK only reads CLAUDE.md files when you explicitly configure `:setting_sources`:
 
 - Include `"project"` to load project-level CLAUDE.md
 - Include `"user"` to load user-level CLAUDE.md (`~/.claude/CLAUDE.md`)
+
+Using `:system_prompt` alone does not automatically load CLAUDE.md -- you must also specify setting sources.
 
 **Content format:**
 CLAUDE.md files use plain markdown and can contain:
@@ -78,6 +80,23 @@ CLAUDE.md files use plain markdown and can contain:
   setting_sources: ["project"]
 )
 ```
+
+#### When to use CLAUDE.md
+
+**Best for:**
+
+- **Team-shared context** -- Guidelines everyone should follow
+- **Project conventions** -- Coding standards, file structure, naming patterns
+- **Common commands** -- Build, test, deploy commands specific to your project
+- **Long-term memory** -- Context that should persist across all sessions
+- **Version-controlled instructions** -- Commit to git so the team stays in sync
+
+**Key characteristics:**
+
+- Persistent across all sessions in a project
+- Shared with team via git
+- Automatic discovery (no code changes needed)
+- Requires loading settings via `:setting_sources`
 
 ### Method 2: Output styles (persistent configurations)
 
@@ -119,7 +138,7 @@ Once created, activate output styles via:
 - **Settings**: `.claude/settings.local.json`
 - **Create new**: `/output-style:new [description]`
 
-Output styles are loaded when you include `"user"` or `"project"` in your `:setting_sources` option:
+**Note for SDK users:** Output styles are loaded when you include `"user"` or `"project"` in your `:setting_sources` option:
 
 ```elixir
 {:ok, result} = ClaudeCode.query("Review this module for issues",
@@ -242,7 +261,13 @@ session
 - Team-shared context that should be version controlled
 - Instructions that apply to all SDK usage in a project
 
-**Important:** The SDK only reads CLAUDE.md files when you explicitly include `"project"` or `"user"` in `:setting_sources`.
+**Examples:**
+
+- "All API endpoints should use plug pipelines and proper error tuples"
+- "Run `mix quality` before committing"
+- "Database migrations are in the `priv/repo/migrations/` directory"
+
+**Important:** To load CLAUDE.md files, you must explicitly set `:setting_sources` to `["project"]`. Using `:system_prompt` alone does not automatically load CLAUDE.md without this setting.
 
 ### When to use output styles
 
@@ -299,7 +324,8 @@ You can combine these methods for maximum flexibility:
 
 ## See also
 
-- [Output styles](https://code.claude.com/docs/en/output-styles) -- Complete output styles documentation
+- [Output styles](https://platform.claude.com/docs/en/output-styles) -- Complete output styles documentation
+- [Configuration guide](https://platform.claude.com/docs/en/settings) -- General configuration options
 - [Permissions](permissions.md) -- Control tool access
 - [Subagents](subagents.md) -- Custom agent definitions with specialized prompts
 - [Sessions](sessions.md) -- Session management and multi-turn conversations

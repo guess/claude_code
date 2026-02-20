@@ -8,11 +8,11 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/docs/getting-
 
 MCP servers can run as local processes, connect over HTTP, or execute directly within your Elixir application.
 
-For building your own custom tools, see the [Custom Tools](custom-tools.md) guide.
+For building your own custom tools, see the [Custom tools](custom-tools.md) guide.
 
 ## Quickstart
 
-This example connects to the [Claude Code documentation](https://code.claude.com/docs) MCP server using [HTTP transport](#httpsse-servers) and uses [`:allowed_tools`](#grant-access-with-allowed_tools) with a wildcard to permit all tools from the server.
+This example connects to the [Claude Code documentation](https://code.claude.com/docs) MCP server using [HTTP transport](#httpsse-servers) and uses [`:allowed_tools`](#allow-mcp-tools) with a wildcard to permit all tools from the server.
 
 ```elixir
 {:ok, result} = ClaudeCode.query(
@@ -101,7 +101,7 @@ Wildcards (`*`) let you allow all tools from a server without listing each one i
 
 Instead of listing allowed tools, you can change the permission mode to grant broader access:
 
-- `:accept_edits` -- Automatically approves tool usage (still prompts for destructive operations)
+- `:accept_edits` -- Automatically approves tool usage (still prompts for destructive operations).
 - `:bypass_permissions` -- Skips all safety prompts, including for destructive operations like file deletion or running shell commands. Use with caution, especially in production. Requires `:allow_dangerously_skip_permissions`. This mode propagates to subagents spawned by the Task tool.
 
 ```elixir
@@ -135,7 +135,7 @@ MCP servers communicate with your agent using different transport protocols. Che
 
 - If the docs give you a **command to run** (like `npx @modelcontextprotocol/server-github`), use stdio
 - If the docs give you a **URL**, use HTTP or SSE
-- If you're building your own tools **in Elixir**, use an [SDK MCP server](#in-process-and-hermes-mcp-servers) (see the [Custom Tools](custom-tools.md) guide for details)
+- If you're building your own tools **in Elixir**, use an [SDK MCP server](#in-process-and-hermes-mcp-servers) (see the [Custom tools](custom-tools.md) guide for details)
 
 ### stdio servers
 
@@ -184,7 +184,7 @@ The Elixir SDK supports two additional transport types for tools defined in your
 - **In-process tools** (`ClaudeCode.MCP.Server`) -- Run inside your BEAM VM with full access to Ecto repos, GenServers, and caches. The SDK routes messages through the control protocol, no subprocess needed.
 - **Hermes MCP modules** (`Hermes.Server`) -- Run as a stdio subprocess spawned automatically by the SDK. Use this for full [Hermes MCP](https://hexdocs.pm/hermes_mcp) servers with resources and prompts.
 
-Both are passed to `:mcp_servers` the same way as external servers. See the [Custom Tools](custom-tools.md) guide for implementation details.
+Both are passed to `:mcp_servers` the same way as external servers. See the [Custom tools](custom-tools.md) guide for implementation details.
 
 ```elixir
 # In-process tool (runs in your BEAM VM)
@@ -450,7 +450,7 @@ connection_string = System.get_env("DATABASE_URL")
 
 MCP servers can fail to connect for various reasons: the server process might not be installed, credentials might be invalid, or a remote server might be unreachable.
 
-The SDK emits a `ClaudeCode.Message.SystemMessage` with subtype `:init` at the start of each query. This message includes the connection status for each MCP server. Check the status to detect connection failures before the agent starts working:
+The SDK emits a `ClaudeCode.Message.SystemMessage` with subtype `:init` at the start of each query. This message includes the connection status for each MCP server. Check the `status` field to detect connection failures before the agent starts working:
 
 ```elixir
 alias ClaudeCode.Message.{SystemMessage, ResultMessage}
@@ -469,7 +469,7 @@ session
 end)
 ```
 
-For errors inside tool handlers (tool execution errors), see the [Custom Tools error handling](custom-tools.md#error-handling) section.
+For errors inside tool handlers (tool execution errors), see the [Custom tools error handling](custom-tools.md#error-handling) section.
 
 ## Troubleshooting
 
@@ -477,10 +477,10 @@ For errors inside tool handlers (tool execution errors), see the [Custom Tools e
 
 Check the `init` message to see which servers failed to connect. Common causes:
 
-- **Missing environment variables** -- Ensure required tokens and credentials are set. For stdio servers, check that the `env` map matches what the server expects.
+- **Missing environment variables** -- Ensure required tokens and credentials are set. For stdio servers, check the `env` field matches what the server expects.
 - **Server not installed** -- For `npx` commands, verify the package exists and Node.js is in your PATH.
 - **Invalid connection string** -- For database servers, verify the connection string format and that the database is accessible.
-- **Network issues** -- For remote HTTP/SSE servers, check that the URL is reachable and any firewalls allow the connection.
+- **Network issues** -- For remote HTTP/SSE servers, check the URL is reachable and any firewalls allow the connection.
 
 ### Tools not being called
 
@@ -503,7 +503,7 @@ The MCP SDK has a default timeout of 60 seconds for server connections. If your 
 
 ## Related resources
 
-- [Custom Tools](custom-tools.md) -- Build your own MCP server that runs in-process with your Elixir application
+- [Custom tools](custom-tools.md) -- Build your own MCP server that runs in-process with your Elixir application
 - [Permissions](permissions.md) -- Control which MCP tools your agent can use with `:allowed_tools` and `:disallowed_tools`
 - [Subagents](subagents.md) -- Define specialized agents with tool access
 - [MCP server directory](https://github.com/modelcontextprotocol/servers) -- Browse available MCP servers for databases, APIs, and more

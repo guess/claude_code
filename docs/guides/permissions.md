@@ -15,19 +15,19 @@ The Elixir SDK provides permission controls to manage how Claude uses tools. Use
 When Claude requests a tool, the SDK checks permissions in this order:
 
 1. **Hooks** -- Run [hooks](hooks.md) first, which can allow, deny, or continue to the next step.
-2. **Permission rules** -- Check declarative rules defined in settings (via the `:settings` option or settings files loaded by `:setting_sources`). `deny` rules block regardless of other rules, `allow` rules permit if matched, and `ask` rules prompt for approval. These declarative rules let you pre-approve, block, or require approval for specific tools without writing code.
+2. **Permission rules** -- Check rules defined in settings (via the `:settings` option or settings files loaded by `:setting_sources`) in this order: `deny` rules first (block regardless of other rules), then `allow` rules (permit if matched), then `ask` rules (prompt for approval). These declarative rules let you pre-approve, block, or require approval for specific tools without writing code.
 3. **Permission mode** -- Apply the active [permission mode](#permission-modes) (`:default`, `:accept_edits`, `:bypass_permissions`, `:plan`, `:delegate`, `:dont_ask`).
 4. **Permission prompt tool** -- If not resolved by rules or modes, call your `permission_prompt_tool` MCP tool for a decision.
 
 This page focuses on **permission modes** (step 3), the static configuration that controls default behavior. For the other steps:
 
 - **Hooks**: run custom code to allow, deny, or modify tool requests. See [Control execution with hooks](hooks.md).
-- **Permission rules**: configure declarative allow/deny rules in settings. See [Secure Deployment](secure-deployment.md).
+- **Permission rules**: configure declarative allow/deny rules in settings. See [Secure Deployment](secure-deployment.md) and [Permission settings](https://code.claude.com/docs/en/settings#permission-settings).
 - **Permission prompt tool**: delegate permission decisions to an MCP tool at runtime. See [Handle approvals and user input](user-input.md).
 
 ## Permission modes
 
-Permission modes provide global control over how Claude uses tools. Set the permission mode when starting a session, override it per query, or change it dynamically mid-session.
+Permission modes provide global control over how Claude uses tools. You can set the permission mode when calling `ClaudeCode.query/2`, when starting a session, or change it dynamically during streaming sessions.
 
 ### Available modes
 
@@ -35,8 +35,8 @@ The SDK supports these permission modes:
 
 | Mode                  | Description                  | Tool behavior                                                                         |
 | :-------------------- | :--------------------------- | :------------------------------------------------------------------------------------ |
-| `:default`            | Standard permission behavior | No auto-approvals; unmatched tools trigger your permission prompt tool or are rejected |
-| `:accept_edits`       | Auto-accept file edits       | File edits and [filesystem operations](#accept-edits-mode-accept_edits) are automatically approved |
+| `:default`            | Standard permission behavior | No auto-approvals; unmatched tools trigger your `permission_prompt_tool` or are rejected |
+| `:accept_edits`       | Auto-accept file edits       | File edits and [filesystem operations](#accept-edits-mode-accept_edits) (`mkdir`, `rm`, `mv`, etc.) are automatically approved |
 | `:bypass_permissions` | Bypass all permission checks | All tools run without permission prompts (use with caution)                            |
 | `:plan`               | Planning mode                | No tool execution; Claude plans without making changes                                 |
 | `:delegate`           | Delegate to permission tool  | All permission decisions are delegated to your `permission_prompt_tool`                |
@@ -46,7 +46,7 @@ The SDK supports these permission modes:
 
 ### Set permission mode
 
-You can set the permission mode at session start, override it per query, or change it dynamically while the session is active.
+You can set the permission mode once when starting a query or session, or change it dynamically while the session is active.
 
 **At session start:**
 
@@ -90,7 +90,7 @@ session
 
 #### Accept edits mode (`:accept_edits`)
 
-Auto-approves file operations so Claude can edit code without prompting. Other tools (like Bash commands that are not filesystem operations) still require normal permissions.
+Auto-approves file operations so Claude can edit code without prompting. Other tools (like Bash commands that aren't filesystem operations) still require normal permissions.
 
 **Auto-approved operations:**
 
@@ -129,9 +129,9 @@ For additional isolation, combine with the `:sandbox` option to restrict bash co
 
 #### Plan mode (`:plan`)
 
-Prevents tool execution entirely. Claude can analyze code and create plans but cannot make changes. Claude may use `AskUserQuestion` to clarify requirements before finalizing the plan. See [Handle approvals and user input](user-input.md) for handling these prompts.
+Prevents tool execution entirely. Claude can analyze code and create plans but cannot make changes. Claude may use `AskUserQuestion` to clarify requirements before finalizing the plan. See [Handle approvals and user input](user-input.md#handle-clarifying-questions) for handling these prompts.
 
-**Use when:** you want Claude to propose changes without executing them, such as during code review or when you need to approve changes before they are made.
+**Use when:** you want Claude to propose changes without executing them, such as during code review or when you need to approve changes before they're made.
 
 ```elixir
 {:ok, result} = ClaudeCode.query(
@@ -147,5 +147,6 @@ For the other steps in the permission evaluation flow:
 
 - [Handle approvals and user input](user-input.md) -- Interactive approval prompts and clarifying questions
 - [Hooks](hooks.md) -- Run custom code at key points in the agent lifecycle
+- [Permission rules](https://code.claude.com/docs/en/settings#permission-settings) -- Declarative allow/deny rules in settings
 - [Secure Deployment](secure-deployment.md) -- Permission rules, sandboxing, and production security
 - [MCP](mcp.md) -- Connect external tools via MCP servers

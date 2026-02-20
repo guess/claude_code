@@ -4,6 +4,8 @@
 
 Get real-time responses from the Agent SDK as text and tool calls stream in.
 
+> **Elixir SDK note:** The Elixir SDK wraps raw API events in `ClaudeCode.Message.PartialAssistantMessage` structs. This corresponds to `StreamEvent` in Python and `SDKPartialAssistantMessage` in TypeScript.
+
 ---
 
 By default, the SDK yields complete `AssistantMessage` structs after Claude finishes generating each response. To receive incremental updates as text and tool calls are generated, enable partial message streaming by setting `include_partial_messages: true` in your options.
@@ -13,6 +15,8 @@ By default, the SDK yields complete `AssistantMessage` structs after Claude fini
 ## Enable streaming output
 
 To enable streaming, set `include_partial_messages: true` in your options. This causes the SDK to yield `PartialAssistantMessage` structs containing raw API events as they arrive, in addition to the usual `AssistantMessage` and `ResultMessage`.
+
+> **Tip:** The `ClaudeCode.Stream` module provides convenience functions like `ClaudeCode.Stream.text_deltas/1` that handle the pattern matching shown below. See the [Convenience functions](#convenience-functions) section for the full list.
 
 Your code then needs to:
 
@@ -50,7 +54,7 @@ session
 
 ## PartialAssistantMessage reference
 
-When partial messages are enabled, you receive raw Claude API streaming events wrapped in a `PartialAssistantMessage` struct. This corresponds to `StreamEvent` in Python and `SDKPartialAssistantMessage` in TypeScript. These contain raw Claude API events, not accumulated text. You need to extract and accumulate text deltas yourself (or use the convenience functions in `ClaudeCode.Stream`).
+When partial messages are enabled, you receive raw Claude API streaming events wrapped in a `PartialAssistantMessage` struct. These contain raw Claude API events, not accumulated text. You need to extract and accumulate text deltas yourself (or use the convenience functions in `ClaudeCode.Stream`).
 
 ```elixir
 %ClaudeCode.Message.PartialAssistantMessage{
@@ -97,7 +101,7 @@ Without partial messages enabled, you receive all message types except `PartialA
 
 ## Stream text responses
 
-To display text as it's generated, look for `:content_block_delta` events where the delta type is `:text_delta`. These contain the incremental text chunks:
+To display text as it's generated, look for `:content_block_delta` events where the delta type is `:text_delta`. These contain the incremental text chunks. The example below prints each chunk as it arrives:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
@@ -252,6 +256,7 @@ The Elixir SDK provides high-level stream utilities that handle the pattern matc
 | `thinking_content/1` | Complete thinking strings from assistant messages |
 | `tool_uses/1` | `ToolUseBlock` structs from assistant messages |
 | `final_text/1` | Single result string (consumes stream) |
+| `final_result/1` | The `ResultMessage` struct (consumes stream) |
 | `collect/1` | Summary map with text, tool_calls, thinking, result |
 | `on_tool_use/2` | Side-effect callback when tools are used |
 
@@ -260,7 +265,7 @@ The Elixir SDK provides high-level stream utilities that handle the pattern matc
 Some SDK features are incompatible with streaming:
 
 - **Extended thinking**: when you explicitly set `max_thinking_tokens` (or `thinking: {:enabled, budget_tokens: n}`), `PartialAssistantMessage` events are not emitted. You'll only receive complete messages after each turn. Note that thinking is disabled by default in the SDK, so streaming works unless you enable it.
-- **Structured output**: the JSON result appears only in the final `ResultMessage`, not as streaming deltas. See [Structured Outputs](structured-outputs.md) for details.
+- **Structured output**: the JSON result appears only in the final `ResultMessage.structured_output` field, not as streaming deltas. See [Structured Outputs](structured-outputs.md) for details.
 
 ## Next steps
 
@@ -269,3 +274,4 @@ Now that you can stream text and tool calls in real-time, explore these related 
 - [Streaming vs Single Mode](streaming-vs-single-mode.md) - Choose between input modes for your use case
 - [Structured Outputs](structured-outputs.md) - Get typed JSON responses from the agent
 - [Permissions](permissions.md) - Control which tools the agent can use
+- [Headless Mode](https://code.claude.com/docs/en/headless) - Stream responses using the Agent SDK via the CLI

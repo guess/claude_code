@@ -1,6 +1,6 @@
 # File Checkpointing
 
-Track file changes during agent sessions and restore files to any previous state.
+Track file changes during agent sessions and restore files to any previous state. Want to try it out? Jump to the [interactive example](#try-it-out).
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/file-checkpointing). Examples are adapted for Elixir.
 
@@ -18,7 +18,7 @@ With checkpointing, you can:
 
 When you enable file checkpointing, the SDK creates backups of files before modifying them through the Write, Edit, or NotebookEdit tools. User messages in the response stream include a checkpoint UUID that you can use as a restore point.
 
-Checkpointing works with these built-in tools that the agent uses to modify files:
+Checkpoint works with these built-in tools that the agent uses to modify files:
 
 | Tool         | Description                                                        |
 | ------------ | ------------------------------------------------------------------ |
@@ -38,20 +38,20 @@ When you rewind to a checkpoint, created files are deleted and modified files ar
 
 ## Implement checkpointing
 
-To use file checkpointing, enable it in your session options, capture checkpoint UUIDs from the response stream, then call `ClaudeCode.rewind_files/2` when you need to restore.
+To use file checkpointing, enable it in your options, capture checkpoint UUIDs from the response stream, then call `ClaudeCode.rewind_files/2` when you need to restore.
 
-The following example shows the complete flow: enable checkpointing, capture the checkpoint UUID from the response stream, then rewind files. Each step is explained in detail below.
+The following example shows the complete flow: enable checkpointing, capture the checkpoint UUID and session ID from the response stream, then rewind files. Each step is explained in detail below.
 
 ```elixir
 alias ClaudeCode.Message.UserMessage
 
-# Step 1: Enable checkpointing
+# Steps 1-2: Enable checkpointing (env var is set automatically)
 {:ok, session} = ClaudeCode.start_link(
   enable_file_checkpointing: true,
   permission_mode: :accept_edits
 )
 
-# Step 2: Run a query and capture the first user message UUID as a checkpoint
+# Step 3: Run a query and capture the first user message UUID as a checkpoint
 checkpoint_id =
   session
   |> ClaudeCode.stream("Refactor the authentication module")
@@ -60,13 +60,21 @@ checkpoint_id =
     _, cp -> cp
   end)
 
-# Step 3: Rewind files to the checkpoint
+# Step 4: Rewind files to the checkpoint
 {:ok, _} = ClaudeCode.rewind_files(session, checkpoint_id)
 ```
 
-### Step 1: Enable checkpointing
+### Step 1: Set the environment variable
 
 File checkpointing requires the `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable. The Elixir SDK sets this automatically when you pass `enable_file_checkpointing: true` to `ClaudeCode.start_link/1` -- no manual env var setup is needed.
+
+You can also set it via the command line before running your script:
+
+```bash
+export CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING=1
+```
+
+### Step 2: Enable checkpointing
 
 Configure your session with `enable_file_checkpointing: true`:
 
@@ -84,7 +92,7 @@ Configure your session with `enable_file_checkpointing: true`:
 
 > The Elixir SDK uses `--input-format stream-json` for bidirectional streaming, so user messages with checkpoint UUIDs are automatically included in the response stream. No additional flags are needed (unlike the Python/TypeScript SDKs which require `extra_args: {"replay-user-messages": None}`).
 
-### Step 2: Capture checkpoint UUID
+### Step 3: Capture checkpoint UUID and session ID
 
 With `enable_file_checkpointing: true` set, each user message in the response stream has a `uuid` field that serves as a checkpoint.
 
@@ -106,7 +114,7 @@ checkpoint_id =
 
 > If you also need the session ID (for example, to resume from the CLI later), use `ClaudeCode.Stream.final_result/1` instead -- it returns the full `ClaudeCode.Message.ResultMessage` which includes `session_id`.
 
-### Step 3: Rewind files
+### Step 4: Rewind files
 
 Call `ClaudeCode.rewind_files/2` with the session and checkpoint UUID to restore files:
 
@@ -139,7 +147,7 @@ These patterns show different ways to capture and use checkpoint UUIDs depending
 
 ### Checkpoint before risky operations
 
-This pattern keeps only the most recent checkpoint UUID, updating it before each agent turn. If something goes wrong during processing, you can immediately rewind to the last safe state and break out of the stream.
+This pattern keeps only the most recent checkpoint UUID, updating it before each agent turn. If something goes wrong during processing, you can immediately rewind to the last safe state and break out of the loop.
 
 ```elixir
 alias ClaudeCode.Message.UserMessage
@@ -204,6 +212,8 @@ target = List.first(checkpoints)
 ## Try it out
 
 This complete example creates a small utility module, has the agent add documentation comments, shows you the changes, then asks if you want to rewind.
+
+Before you begin, make sure you have the ClaudeCode Elixir SDK installed as a dependency in your Mix project.
 
 ### 1. Create a test file
 
@@ -270,7 +280,7 @@ ClaudeCode.stop(session)
 This example demonstrates the complete checkpointing workflow:
 
 1. **Enable checkpointing**: configure the session with `enable_file_checkpointing: true` and `permission_mode: :accept_edits` to auto-approve file edits
-2. **Capture checkpoint data**: as the agent runs, store the first user message UUID as the restore point
+2. **Capture checkpoint data**: as the agent runs, store the first user message UUID (your restore point) and the session ID
 3. **Prompt for rewind**: after the agent finishes, check your utility file to see the doc comments, then decide if you want to undo the changes
 4. **Rewind**: if yes, call `ClaudeCode.rewind_files/2` to restore the original file
 
@@ -297,6 +307,18 @@ File checkpointing has the following limitations:
 
 ## Troubleshooting
 
+### Checkpointing options not recognized
+
+If `enable_file_checkpointing` isn't available or `ClaudeCode.rewind_files/2` isn't defined, you may be on an older SDK version.
+
+**Solution:** Update to the latest SDK version in your `mix.exs`:
+
+```elixir
+{:claude_code, "~> 0.21"}
+```
+
+Then run `mix deps.get`.
+
 ### User messages don't have UUIDs
 
 If `uuid` is `nil` on user messages, ensure `enable_file_checkpointing: true` is set in your session options. The Elixir SDK automatically handles the `--input-format stream-json` flag which includes user messages in the response stream.
@@ -307,6 +329,7 @@ This error occurs when the checkpoint data doesn't exist for the specified user 
 
 **Common causes:**
 
+- The `CLAUDE_CODE_ENABLE_SDK_FILE_CHECKPOINTING` environment variable isn't set (the Elixir SDK sets this automatically when `enable_file_checkpointing: true` is passed)
 - The `enable_file_checkpointing: true` option wasn't set when starting the session
 - The session wasn't properly completed before attempting to rewind
 
@@ -314,5 +337,5 @@ This error occurs when the checkpoint data doesn't exist for the specified user 
 
 ## Next steps
 
-- [Sessions](sessions.md) -- Learn how to resume sessions and manage session IDs, which is useful for rewinding from the CLI after the session ends
-- [Permissions](permissions.md) -- Configure which tools Claude can use and how file modifications are approved
+- [Sessions](sessions.md) -- Learn how to resume sessions, which is required for rewinding from the CLI after the stream completes. Covers session IDs, resuming conversations, and session forking.
+- [Permissions](permissions.md) -- Configure which tools Claude can use and how file modifications are approved. Useful if you want more control over when edits happen.

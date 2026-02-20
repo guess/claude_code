@@ -52,7 +52,7 @@ Several providers specialize in secure container environments for AI code execut
 - **[Fly Machines](https://fly.io/docs/machines/)**
 - **[Vercel Sandbox](https://vercel.com/docs/functions/sandbox)**
 
-For self-hosted options (Docker, gVisor, Firecracker) and detailed isolation configuration, see [Isolation Technologies](secure-deployment.md).
+For self-hosted options (Docker, gVisor, Firecracker) and detailed isolation configuration, see [Isolation Technologies](secure-deployment.md#isolation-technologies).
 
 ## Production Deployment Patterns
 

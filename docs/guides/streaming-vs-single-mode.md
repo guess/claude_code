@@ -103,7 +103,7 @@ Single message input is simpler but more limited.
 Use single message input when:
 
 - You need a one-shot response
-- You do not need hooks, real-time streaming, etc.
+- You do not need image attachments, hooks, etc.
 - You need to operate in a stateless environment, such as a lambda function
 
 ### Limitations
@@ -112,10 +112,11 @@ Use single message input when:
 
 Single message input mode does **not** support:
 
+- Direct image attachments in messages
 - Dynamic message queueing
 - Real-time interruption
 - Hook integration
-- Natural multi-turn conversations (requires explicit session management)
+- Natural multi-turn conversations
 
 </div>
 

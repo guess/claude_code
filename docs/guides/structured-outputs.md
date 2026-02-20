@@ -271,6 +271,6 @@ IO.inspect(result.structured_output)
 
 ## Related resources
 
-- [JSON Schema documentation](https://json-schema.org/) - Learn JSON Schema syntax for defining complex schemas with nested objects, arrays, enums, and validation constraints
-- [API Structured Outputs](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs) - Use structured outputs with the Claude API directly for single-turn requests without tool use
-- [Custom Tools](custom-tools.md) - Give your agent custom tools to call during execution before returning structured output
+- [JSON Schema documentation](https://json-schema.org/) - learn JSON Schema syntax for defining complex schemas with nested objects, arrays, enums, and validation constraints
+- [API Structured Outputs](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs) - use structured outputs with the Claude API directly for single-turn requests without tool use
+- [Custom Tools](custom-tools.md) - give your agent custom tools to call during execution before returning structured output

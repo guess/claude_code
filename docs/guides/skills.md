@@ -1,6 +1,6 @@
 # Skills
 
-Extend Claude with specialized capabilities using Agent Skills.
+Extend Claude with specialized capabilities using Agent Skills in the ClaudeCode SDK.
 
 > **Official Documentation:** This guide is based on the [official Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/skills). Examples are adapted for Elixir.
 
@@ -10,12 +10,12 @@ Agent Skills extend Claude with specialized capabilities that Claude autonomousl
 
 For comprehensive information about Skills, including benefits, architecture, and authoring guidelines, see the [Agent Skills overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview).
 
-## How Skills work with the SDK
+## How Skills Work with the SDK
 
 When using the ClaudeCode SDK, Skills are:
 
 1. **Defined as filesystem artifacts** -- Created as `SKILL.md` files in specific directories (`.claude/skills/`)
-2. **Loaded from filesystem** -- Skills are loaded from configured filesystem locations. You must specify `setting_sources` to load Skills from the filesystem
+2. **Loaded from filesystem** -- Skills are loaded from configured filesystem locations. You must specify `setting_sources` to load Skills from the filesystem.
 3. **Automatically discovered** -- Once filesystem settings are loaded, Skill metadata is discovered at startup from user and project directories; full content loaded when triggered
 4. **Model-invoked** -- Claude autonomously chooses when to use them based on context
 5. **Enabled via allowed_tools** -- Add `"Skill"` to your `allowed_tools` to enable Skills
@@ -26,7 +26,7 @@ Unlike subagents (which can be defined programmatically), Skills must be created
 
 ## Using Skills with the SDK
 
-To use Skills, you need to:
+To use Skills with the SDK, you need to:
 
 1. Include `"Skill"` in your `allowed_tools` configuration
 2. Configure `setting_sources` to load Skills from the filesystem
@@ -41,45 +41,23 @@ Once configured, Claude automatically discovers Skills from the specified direct
 )
 ```
 
-## Skill locations
+## Skill Locations
 
 Skills are loaded from filesystem directories based on your `setting_sources` configuration:
 
-| Source         | Directory                                  | Loaded when                                     |
-| :------------- | :----------------------------------------- | :---------------------------------------------- |
-| Project Skills | `.claude/skills/` (relative to `cwd`)      | `setting_sources` includes `"project"`. Shared with your team via git. |
-| User Skills    | `~/.claude/skills/`                        | `setting_sources` includes `"user"`. Personal Skills across all projects. |
-| Plugin Skills  | Bundled with installed Claude Code plugins | Plugins are configured via the `plugins` option |
+- **Project Skills** (`.claude/skills/`): Shared with your team via git -- loaded when `setting_sources` includes `"project"`
+- **User Skills** (`~/.claude/skills/`): Personal Skills across all projects -- loaded when `setting_sources` includes `"user"`
+- **Plugin Skills**: Bundled with installed Claude Code plugins -- configured via the `plugins` option
 
 ## Creating Skills
 
 Skills are defined as directories containing a `SKILL.md` file with YAML frontmatter and Markdown content. The `description` field determines when Claude invokes your Skill.
 
-Example directory structure:
+**Example directory structure:**
 
-```
+```bash
 .claude/skills/processing-pdfs/
 └── SKILL.md
-```
-
-Example `SKILL.md`:
-
-```markdown
----
-description: Extract text and data from PDF documents using poppler utilities
-allowed-tools:
-  - Bash
-  - Read
-  - Write
----
-
-# PDF Processing
-
-When asked to process a PDF document:
-
-1. Use `pdftotext` to extract raw text
-2. Parse the extracted text for structured data
-3. Return the results in the requested format
 ```
 
 For complete guidance on creating Skills, including SKILL.md structure, multi-file Skills, and examples, see:
@@ -87,7 +65,7 @@ For complete guidance on creating Skills, including SKILL.md structure, multi-fi
 - [Agent Skills in Claude Code](https://code.claude.com/docs/en/skills) -- Complete guide with examples
 - [Agent Skills Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) -- Authoring guidelines and naming conventions
 
-## Tool restrictions
+## Tool Restrictions
 
 > The `allowed-tools` frontmatter field in `SKILL.md` is only supported when using the Claude Code CLI directly. **It does not apply when using Skills through the SDK.**
 >
@@ -102,11 +80,9 @@ To restrict tools for Skills in SDK applications, use the `allowed_tools` option
 )
 ```
 
-## Discovering available Skills
+## Discovering Available Skills
 
-To see which Skills are available in your SDK application, you can ask Claude directly or inspect the `ClaudeCode.Message.SystemMessage` emitted at the start of each query.
-
-### Asking Claude
+To see which Skills are available in your SDK application, simply ask Claude:
 
 ```elixir
 {:ok, result} = ClaudeCode.query("What Skills are available?",
@@ -149,7 +125,7 @@ Test Skills by asking questions that match their descriptions:
 
 Claude automatically invokes the relevant Skill if the description matches your request.
 
-To verify that a Skill was actually invoked, use `ClaudeCode.Stream.tool_uses/1` to inspect tool calls in the stream:
+To verify a Skill was actually invoked, use `ClaudeCode.Stream.tool_uses/1` to inspect tool calls in the stream:
 
 ```elixir
 alias ClaudeCode.Content.ToolUseBlock
@@ -176,7 +152,7 @@ Skills can be disabled using the `disable_slash_commands` option. This disables 
 
 ## Troubleshooting
 
-### Skills not found
+### Skills Not Found
 
 **Check `setting_sources` configuration.** Skills are only loaded when you explicitly configure `setting_sources`. This is the most common issue:
 
@@ -195,22 +171,7 @@ Skills can be disabled using the `disable_slash_commands` option. This disables 
 
 For more details on `setting_sources`, see the `ClaudeCode.Options` module documentation.
 
-**Check `allowed_tools` configuration.** Even with `setting_sources` configured, Skills require `"Skill"` in `allowed_tools`:
-
-```elixir
-# Wrong -- Skills are loaded but not enabled as a tool
-{:ok, session} = ClaudeCode.start_link(
-  setting_sources: ["user", "project"]
-)
-
-# Correct -- Skills are loaded and enabled
-{:ok, session} = ClaudeCode.start_link(
-  setting_sources: ["user", "project"],
-  allowed_tools: ["Skill"]
-)
-```
-
-**Check working directory.** The SDK loads project Skills relative to the `cwd` option. Ensure it points to a directory containing `.claude/skills/`:
+**Check working directory.** The SDK loads Skills relative to the `cwd` option. Ensure it points to a directory containing `.claude/skills/`:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
@@ -219,6 +180,8 @@ For more details on `setting_sources`, see the `ClaudeCode.Options` module docum
   allowed_tools: ["Skill"]
 )
 ```
+
+See the "Using Skills with the SDK" section above for the complete pattern.
 
 **Verify filesystem location:**
 
@@ -230,27 +193,28 @@ ls .claude/skills/*/SKILL.md
 ls ~/.claude/skills/*/SKILL.md
 ```
 
-### Skill not being used
+### Skill Not Being Used
 
 **Check the Skill tool is enabled.** Confirm `"Skill"` is in your `allowed_tools`.
 
 **Check the description.** Ensure it's specific and includes relevant keywords. See [Agent Skills Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices#writing-effective-descriptions) for guidance on writing effective descriptions.
 
-### Additional troubleshooting
+### Additional Troubleshooting
 
 For general Skills troubleshooting (YAML syntax, debugging, etc.), see the [Claude Code Skills troubleshooting section](https://code.claude.com/docs/en/skills#troubleshooting).
 
-## Related documentation
+## Related Documentation
 
-### Skills guides
+### Skills Guides
 
 - [Agent Skills in Claude Code](https://code.claude.com/docs/en/skills) -- Complete Skills guide with creation, examples, and troubleshooting
 - [Agent Skills Overview](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview) -- Conceptual overview, benefits, and architecture
 - [Agent Skills Best Practices](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices) -- Authoring guidelines for effective Skills
 - [Agent Skills Cookbook](https://platform.claude.com/cookbook/skills-notebooks-01-skills-introduction) -- Example Skills and templates
 
-### SDK guides
+### SDK Guides
 
+- [SDK Overview](https://platform.claude.com/docs/en/agent-sdk/overview) -- General SDK concepts
 - [Slash Commands](slash-commands.md) -- User-invoked commands (also loaded via `setting_sources`)
 - [Subagents](subagents.md) -- Similar filesystem-based agents with programmatic options
 - [Plugins](plugins.md) -- Plugin configuration and management

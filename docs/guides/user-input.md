@@ -32,7 +32,7 @@ The callback fires in two cases:
 1. **Tool needs approval**: Claude wants to use a tool that is not auto-approved by [permission rules](permissions.md) or modes. Check the `:tool_name` field for the tool (e.g., `"Bash"`, `"Write"`).
 2. **Claude asks a question**: Claude calls the `AskUserQuestion` tool. Check if `tool_name == "AskUserQuestion"` to handle it differently. If you specify a `:tools` list, include `"AskUserQuestion"` for this to work. See [Handle clarifying questions](#handle-clarifying-questions) for details.
 
-> **Note:** To automatically allow or deny tools without prompting users, use [hooks](hooks.md) instead. Hooks execute before `:can_use_tool` and can allow, deny, or modify requests based on your own logic.
+> **Note:** To automatically allow or deny tools without prompting users, use [hooks](hooks.md) instead. Hooks execute before `:can_use_tool` and can allow, deny, or modify requests based on your own logic. You can also use the [`PermissionRequest` hook](hooks.md#available-hooks) to send external notifications (Slack, email, push) when Claude is waiting for approval.
 
 ## Handle tool approval requests
 
@@ -294,6 +294,24 @@ The input contains Claude's generated questions in a `"questions"` list. Each qu
 | `"options"` | List of 2-4 choices, each with `"label"` and `"description"` |
 | `"multiSelect"` | If `true`, users can select multiple options |
 
+Here is an example of the structure you will receive:
+
+```json
+{
+  "questions": [
+    {
+      "question": "How should I format the output?",
+      "header": "Format",
+      "options": [
+        { "label": "Summary", "description": "Brief overview of key points" },
+        { "label": "Detailed", "description": "Full explanation with examples" }
+      ],
+      "multiSelect": false
+    }
+  ]
+}
+```
+
 ### Response format
 
 Return an `"answers"` map that maps each question's `"question"` field to the selected option's `"label"`:
@@ -304,6 +322,16 @@ Return an `"answers"` map that maps each question's `"question"` field to the se
 | `"answers"` | Map where keys are question text and values are selected labels |
 
 For multi-select questions, join multiple labels with `", "`. For free-text input, use the user's custom text directly.
+
+```json
+{
+  "questions": [...],
+  "answers": {
+    "How should I format the output?": "Summary",
+    "Which sections should I include?": "Introduction, Conclusion"
+  }
+}
+```
 
 #### Support free-text input
 
@@ -322,7 +350,7 @@ This example handles those questions in a terminal application:
 
 1. **Route the request**: The `:can_use_tool` callback checks if the tool name is `"AskUserQuestion"` and routes to a dedicated handler
 2. **Display questions**: The handler loops through the `"questions"` list and prints each question with numbered options
-3. **Collect input**: The user can enter a number to select an option, or type free text directly
+3. **Collect input**: The user can enter a number to select an option, or type free text directly (e.g., "jquery", "i don't know")
 4. **Map answers**: The code checks if input is numeric (uses the option's label) or free text (uses the text directly)
 5. **Return to Claude**: The response includes both the original `"questions"` list and the `"answers"` mapping
 

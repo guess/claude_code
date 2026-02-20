@@ -85,6 +85,6 @@ end
 
 ## Next steps
 
-- [Streaming Output](streaming-output.md) - Access raw API events including `message_delta` as they arrive
-- [Structured Output](structured-outputs.md) - Get typed JSON responses from the agent
-- [Cost Tracking](cost-tracking.md) - Understand token usage and billing from result messages
+- [Stream responses in real-time](streaming-output.md) - Access raw API events including `message_delta` as they arrive
+- [Structured outputs](structured-outputs.md) - Get typed JSON responses from the agent
+- [Tracking costs and usage](cost-tracking.md) - Understand token usage and billing from result messages
