@@ -304,7 +304,7 @@ defmodule ClaudeCode.OptionsTest do
     end
 
     test "validates effort option with valid values" do
-      for effort <- [:low, :medium, :high] do
+      for effort <- [:low, :medium, :high, :max] do
         opts = [effort: effort]
         assert {:ok, validated} = Options.validate_session_options(opts)
         assert validated[:effort] == effort

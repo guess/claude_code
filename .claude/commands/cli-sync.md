@@ -6,27 +6,39 @@ description: Synchronize SDK with current Claude CLI version
 
 Synchronize the SDK with the current Claude CLI by analyzing captured CLI data.
 
-## Step 1: Check for captured data
+## Step 1: Check captured data freshness
 
-Check if `.claude/skills/cli-sync/captured/` exists and has recent files. If it does, skip to Step 3. If it doesn't exist or is stale, proceed to Step 2.
+Run `claude --version` via Bash to get the currently installed CLI version. Then check if `.claude/skills/cli-sync/captured/cli-version.txt` exists and read it.
+
+**Compare the two versions:**
+
+- If captured data doesn't exist, go to Step 2.
+- If the installed CLI version is **newer** than the captured version, the data is **stale** — go to Step 2.
+- If versions match, the captured data is fresh — skip to Step 3.
 
 ## Step 2: Ask user to run capture script
 
+The capture script must be run by the user because Claude cannot invoke the `claude` CLI from within a session.
+
 Tell the user:
 
-> Please run the capture script from the project root, then confirm when done:
+> The captured CLI data is stale (or missing). Your installed CLI is **{installed_version}** but the captured data is from **{captured_version}**.
+>
+> Please run the capture script from the project root:
 >
 > ```bash
 > .claude/skills/cli-sync/scripts/capture-cli-data.sh
 > ```
 >
-> This captures CLI version, help output, test scenarios (schema samples), and Python SDK sources. It takes about 30 seconds.
+> This captures CLI version, help output, test scenarios (schema samples), and Python SDK sources. It takes about 30 seconds. Let me know when it's done.
 
 Use AskUserQuestion to ask "Have you run the capture script?" with options:
 - "Yes, it completed successfully"
 - "It failed or had errors"
 
-If they report failure, help troubleshoot based on which files are missing in `captured/`. If they confirm success, proceed.
+If they report failure, help troubleshoot based on which files are missing in `captured/`.
+
+If they confirm success, **re-read** `.claude/skills/cli-sync/captured/cli-version.txt` and verify it now matches the installed CLI version from Step 1. If it still doesn't match, tell the user and ask them to try again. Only proceed when versions match.
 
 ## Step 3: Analyze captured data
 

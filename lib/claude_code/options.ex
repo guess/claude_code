@@ -49,7 +49,7 @@ defmodule ClaudeCode.Options do
   | `betas`                | list    | -        | Beta headers for API requests               |
   | `max_thinking_tokens`  | integer | -        | Deprecated: use `thinking` instead          |
   | `thinking`             | atom/tuple | -     | Thinking config: `:adaptive`, `:disabled`, `{:enabled, budget_tokens: N}` |
-  | `effort`               | atom    | -        | Effort level: `:low`, `:medium`, `:high`    |
+  | `effort`               | atom    | -        | Effort level: `:low`, `:medium`, `:high`, `:max` |
 
   ### Timeouts
 
@@ -534,8 +534,8 @@ defmodule ClaudeCode.Options do
       """
     ],
     effort: [
-      type: {:in, [:low, :medium, :high]},
-      doc: "Effort level for the session (:low, :medium, :high)"
+      type: {:in, [:low, :medium, :high, :max]},
+      doc: "Effort level for the session (:low, :medium, :high, :max)"
     ],
     tools: [
       type: {:or, [{:in, [:default]}, {:list, :string}]},
@@ -666,7 +666,7 @@ defmodule ClaudeCode.Options do
       doc: "Override thinking config for this query (see session option for details)"
     ],
     effort: [
-      type: {:in, [:low, :medium, :high]},
+      type: {:in, [:low, :medium, :high, :max]},
       doc: "Override effort level for this query"
     ],
     tools: [

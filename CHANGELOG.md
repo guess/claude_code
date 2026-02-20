@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`:max` effort level** — The `:effort` option now accepts `:max` in addition to `:low`, `:medium`, and `:high`, aligning with the Python SDK.
+
+### Changed
+
+- **Bundled CLI version bumped to 2.1.49** — Updated from 2.1.42 to 2.1.49.
+
+### Fixed
+
+- **Doc warnings for hidden Hook.Response module** — Fixed references in the hooks guide that generated documentation warnings. ([6402c7a])
+
 ## [0.21.0] - 2026-02-14 | CC 2.1.42
 
 ### Added
