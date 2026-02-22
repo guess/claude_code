@@ -11,7 +11,7 @@ defmodule ClaudeCode.OptionsTest do
         system_prompt: "You are helpful",
         allowed_tools: ["View", "GlobTool", "Bash(git:*)"],
         max_turns: 20,
-        timeout: 60_000,
+        stream_timeout: 60_000,
         permission_mode: :bypass_permissions,
         add_dir: ["/tmp", "/var/log"]
       ]
@@ -19,7 +19,7 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       assert validated[:api_key] == "sk-ant-test"
       assert validated[:model] == "opus"
-      assert validated[:timeout] == 60_000
+      assert validated[:stream_timeout] == 60_000
       assert validated[:permission_mode] == :bypass_permissions
       assert validated[:add_dir] == ["/tmp", "/var/log"]
     end
@@ -30,7 +30,7 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       # No model default - CLI handles its own defaults
       refute Keyword.has_key?(validated, :model)
-      assert validated[:timeout] == 300_000
+      assert validated[:stream_timeout] == 300_000
       assert validated[:permission_mode] == :default
     end
 
@@ -472,7 +472,7 @@ defmodule ClaudeCode.OptionsTest do
     test "validates valid options" do
       opts = [
         system_prompt: "Focus on performance",
-        timeout: 120_000,
+        stream_timeout: 120_000,
         allowed_tools: ["Bash(git:*)"],
         permission_mode: :bypass_permissions,
         add_dir: ["/home/user/docs"]
@@ -480,7 +480,7 @@ defmodule ClaudeCode.OptionsTest do
 
       assert {:ok, validated} = Options.validate_query_options(opts)
       assert validated[:system_prompt] == "Focus on performance"
-      assert validated[:timeout] == 120_000
+      assert validated[:stream_timeout] == 120_000
       assert validated[:allowed_tools] == ["Bash(git:*)"]
       assert validated[:permission_mode] == :bypass_permissions
       assert validated[:add_dir] == ["/home/user/docs"]
@@ -594,21 +594,21 @@ defmodule ClaudeCode.OptionsTest do
     test "merges session and query options with query taking precedence" do
       session_opts = [
         system_prompt: "You are helpful",
-        timeout: 60_000,
+        stream_timeout: 60_000,
         allowed_tools: ["View", "GlobTool"],
         add_dir: ["/tmp", "/var/log"]
       ]
 
       query_opts = [
         system_prompt: "Focus on performance",
-        timeout: 120_000,
+        stream_timeout: 120_000,
         add_dir: ["/home/user/custom"]
       ]
 
       merged = Options.merge_options(session_opts, query_opts)
 
       assert merged[:system_prompt] == "Focus on performance"
-      assert merged[:timeout] == 120_000
+      assert merged[:stream_timeout] == 120_000
       assert merged[:allowed_tools] == ["View", "GlobTool"]
       assert merged[:add_dir] == ["/home/user/custom"]
     end
@@ -616,7 +616,7 @@ defmodule ClaudeCode.OptionsTest do
     test "preserves session options when query options are empty" do
       session_opts = [
         system_prompt: "You are helpful",
-        timeout: 60_000,
+        stream_timeout: 60_000,
         add_dir: ["/data"]
       ]
 
@@ -625,7 +625,7 @@ defmodule ClaudeCode.OptionsTest do
       merged = Options.merge_options(session_opts, query_opts)
 
       assert merged[:system_prompt] == "You are helpful"
-      assert merged[:timeout] == 60_000
+      assert merged[:stream_timeout] == 60_000
       assert merged[:add_dir] == ["/data"]
     end
 
@@ -634,13 +634,13 @@ defmodule ClaudeCode.OptionsTest do
 
       query_opts = [
         system_prompt: "Focus on performance",
-        timeout: 120_000
+        stream_timeout: 120_000
       ]
 
       merged = Options.merge_options(session_opts, query_opts)
 
       assert merged[:system_prompt] == "Focus on performance"
-      assert merged[:timeout] == 120_000
+      assert merged[:stream_timeout] == 120_000
     end
   end
 
@@ -670,15 +670,15 @@ defmodule ClaudeCode.OptionsTest do
     test "merges app config with session opts, session opts take precedence" do
       # Set app config
       Application.put_env(:claude_code, :model, "opus")
-      Application.put_env(:claude_code, :timeout, 180_000)
+      Application.put_env(:claude_code, :stream_timeout, 180_000)
 
       try do
-        result = Options.apply_app_config_defaults(timeout: 60_000)
+        result = Options.apply_app_config_defaults(stream_timeout: 60_000)
         assert result[:model] == "opus"
-        assert result[:timeout] == 60_000
+        assert result[:stream_timeout] == 60_000
       after
         Application.delete_env(:claude_code, :model)
-        Application.delete_env(:claude_code, :timeout)
+        Application.delete_env(:claude_code, :stream_timeout)
       end
     end
 
