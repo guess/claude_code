@@ -53,9 +53,10 @@ defmodule ClaudeCode.Options do
 
   ### Timeouts
 
-  | Option    | Type    | Default | Description                   |
-  | --------- | ------- | ------- | ----------------------------- |
-  | `timeout` | integer | 300_000 | Query timeout in milliseconds |
+  | Option            | Type    | Default | Description                                          |
+  | ----------------- | ------- | ------- | ---------------------------------------------------- |
+  | `timeout`         | integer | 300_000 | Stream timeout — max wait for next message (ms)      |
+  | `request_timeout` | integer | 300_000 | Wall-clock timeout for entire request start-to-finish |
 
   ### Tool Control
 
@@ -90,7 +91,8 @@ defmodule ClaudeCode.Options do
 
   | Option                     | Type    | Description                             |
   | -------------------------- | ------- | --------------------------------------- |
-  | `timeout`                  | integer | Override session timeout                |
+  | `timeout`                  | integer | Override stream timeout                 |
+  | `request_timeout`          | integer | Override wall-clock request timeout     |
   | `system_prompt`            | string  | Override system prompt for this query   |
   | `append_system_prompt`     | string  | Append to system prompt                 |
   | `max_turns`                | integer | Limit turns for this query              |
@@ -411,6 +413,12 @@ defmodule ClaudeCode.Options do
     api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
     timeout: [type: :timeout, default: 300_000, doc: "Query timeout in ms"],
+    request_timeout: [
+      type: :timeout,
+      default: 300_000,
+      doc:
+        "Wall-clock timeout in ms for the entire request from start to finish. Increase for long-running agentic tasks."
+    ],
     cli_path: [
       type: {:or, [{:in, [:bundled, :global]}, :string]},
       doc: """
@@ -689,6 +697,10 @@ defmodule ClaudeCode.Options do
     ],
     cwd: [type: :string, doc: "Override working directory for this query"],
     timeout: [type: :timeout, doc: "Override timeout for this query"],
+    request_timeout: [
+      type: :timeout,
+      doc: "Override wall-clock request timeout for this query"
+    ],
     permission_mode: [
       type: {:in, [:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan]},
       doc: "Override permission mode for this query"

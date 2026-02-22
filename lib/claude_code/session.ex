@@ -35,7 +35,7 @@ defmodule ClaudeCode.Session do
     adapter_status: :provisioning
   ]
 
-  @request_timeout 300_000
+  @default_request_timeout 300_000
 
   # Request tracking structure
   defmodule Request do
@@ -263,7 +263,10 @@ defmodule ClaudeCode.Session do
         {:noreply, state}
 
       request when request.status == :active ->
-        Logger.warning("Request #{inspect(request_id)} timed out after #{@request_timeout}ms")
+        elapsed =
+          System.monotonic_time(:millisecond) - System.convert_time_unit(request.created_at, :native, :millisecond)
+
+        Logger.warning("Request #{inspect(request_id)} timed out after #{elapsed}ms")
         notify_error(request, :timeout)
         new_requests = Map.put(state.requests, request_id, %{request | status: :completed})
         {:noreply, %{state | requests: new_requests}}
@@ -368,7 +371,8 @@ defmodule ClaudeCode.Session do
            query_opts
          ) do
       :ok ->
-        schedule_request_timeout(request.id)
+        request_timeout = Keyword.get(merged_opts, :request_timeout, @default_request_timeout)
+        schedule_request_timeout(request.id, request_timeout)
         {:ok, %{state | requests: Map.put(state.requests, request.id, request)}}
 
       {:error, reason} ->
@@ -431,8 +435,8 @@ defmodule ClaudeCode.Session do
     end
   end
 
-  defp schedule_request_timeout(request_id) do
-    Process.send_after(self(), {:request_timeout, request_id}, @request_timeout)
+  defp schedule_request_timeout(request_id, timeout) do
+    Process.send_after(self(), {:request_timeout, request_id}, timeout)
   end
 
   # ============================================================================
