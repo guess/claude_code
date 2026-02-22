@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`:request_timeout` option** — Configurable wall-clock timeout for entire requests from start to finish. Previously hardcoded at 300 seconds, making long-running agentic tasks (MCP tool calls, large file generation) impossible beyond 5 minutes. Available at session, query, and app-config levels. ([d1b6f02])
+
 ## [0.22.0] - 2026-02-20 | CC 2.1.49
 
 ### Added
