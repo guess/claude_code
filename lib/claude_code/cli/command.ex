@@ -59,6 +59,7 @@ defmodule ClaudeCode.CLI.Command do
     opts
     |> preprocess_sandbox()
     |> preprocess_thinking()
+    |> ensure_setting_sources()
     |> Enum.reduce([], fn {key, value}, acc ->
       case convert_option(key, value) do
         {flag, flag_value} -> [flag_value, flag | acc]
@@ -305,6 +306,12 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:allow_dangerously_skip_permissions, false), do: nil
 
+  defp convert_option(:dangerously_skip_permissions, true) do
+    ["--dangerously-skip-permissions"]
+  end
+
+  defp convert_option(:dangerously_skip_permissions, false), do: nil
+
   defp convert_option(:disable_slash_commands, true) do
     ["--disable-slash-commands"]
   end
@@ -368,6 +375,18 @@ defmodule ClaudeCode.CLI.Command do
     # Convert unknown keys to kebab-case flags
     flag_name = "--" <> (key |> to_string() |> String.replace("_", "-"))
     {flag_name, to_string(value)}
+  end
+
+  # -- Private: setting sources preprocessing ----------------------------------
+
+  # Always send --setting-sources to match Python SDK behavior.
+  # When not explicitly configured, send "" to prevent default loading.
+  defp ensure_setting_sources(opts) do
+    if Keyword.has_key?(opts, :setting_sources) do
+      opts
+    else
+      Keyword.put(opts, :setting_sources, [])
+    end
   end
 
   # -- Private: thinking preprocessing ----------------------------------------

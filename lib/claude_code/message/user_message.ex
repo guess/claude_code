@@ -37,7 +37,7 @@ defmodule ClaudeCode.Message.UserMessage do
           session_id: Types.session_id(),
           uuid: String.t() | nil,
           parent_tool_use_id: String.t() | nil,
-          tool_use_result: map() | nil
+          tool_use_result: map() | String.t() | nil
         }
 
   @doc """

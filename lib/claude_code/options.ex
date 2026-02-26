@@ -611,6 +611,12 @@ defmodule ClaudeCode.Options do
       doc:
         "Enable bypassing all permission checks as an option. Required when using permission_mode: :bypass_permissions. Recommended only for sandboxes with no internet access."
     ],
+    dangerously_skip_permissions: [
+      type: :boolean,
+      default: false,
+      doc:
+        "Bypass all permission checks. Recommended only for sandboxes with no internet access. Unlike :allow_dangerously_skip_permissions, this directly enables bypassing without requiring a separate permission mode."
+    ],
     disable_slash_commands: [
       type: :boolean,
       default: false,

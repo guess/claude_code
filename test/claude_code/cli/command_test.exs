@@ -679,6 +679,21 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "--allow-dangerously-skip-permissions" in args
     end
 
+    test "converts dangerously_skip_permissions true to --dangerously-skip-permissions" do
+      opts = [dangerously_skip_permissions: true]
+
+      args = Command.to_cli_args(opts)
+      assert "--dangerously-skip-permissions" in args
+      refute "true" in args
+    end
+
+    test "does not add flag when dangerously_skip_permissions is false" do
+      opts = [dangerously_skip_permissions: false]
+
+      args = Command.to_cli_args(opts)
+      refute "--dangerously-skip-permissions" in args
+    end
+
     test "converts disable_slash_commands true to --disable-slash-commands" do
       opts = [disable_slash_commands: true]
 
@@ -1035,13 +1050,14 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert Enum.at(args, -2) == "--new-flag"
     end
 
-    test "empty extra_args produces no extra arguments" do
+    test "empty extra_args produces no extra arguments beyond options" do
       opts = [model: "opus", extra_args: []]
 
       args = Command.to_cli_args(opts)
       assert "--model" in args
       assert "opus" in args
-      assert length(args) == 2
+      # --setting-sources "" is always added by ensure_setting_sources
+      refute "--extra-args" in args
     end
 
     test "extra_args appear after all converted options" do
@@ -1087,6 +1103,24 @@ defmodule ClaudeCode.CLI.CommandTest do
 
       args = Command.to_cli_args(opts)
       refute "--hooks" in args
+    end
+
+    test "always sends --setting-sources even when not explicitly configured" do
+      opts = [model: "opus"]
+
+      args = Command.to_cli_args(opts)
+      assert "--setting-sources" in args
+      # Should send empty string when not configured (matching Python SDK behavior)
+      idx = Enum.find_index(args, &(&1 == "--setting-sources"))
+      assert Enum.at(args, idx + 1) == ""
+    end
+
+    test "setting_sources explicitly set overrides default empty" do
+      opts = [setting_sources: ["user", "project"]]
+
+      args = Command.to_cli_args(opts)
+      assert "--setting-sources" in args
+      assert "user,project" in args
     end
   end
 end

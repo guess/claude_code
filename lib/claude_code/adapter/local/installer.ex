@@ -61,7 +61,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
   ]
 
   # Default CLI version - update this when releasing new SDK versions
-  @default_cli_version "2.1.49"
+  @default_cli_version "2.1.59"
 
   @doc """
   Returns the configured CLI version to install.

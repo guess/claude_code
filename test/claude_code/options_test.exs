@@ -108,6 +108,22 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:allow_dangerously_skip_permissions] == false
     end
 
+    test "validates dangerously_skip_permissions option" do
+      opts = [dangerously_skip_permissions: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:dangerously_skip_permissions] == true
+
+      opts = [dangerously_skip_permissions: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:dangerously_skip_permissions] == false
+    end
+
+    test "defaults dangerously_skip_permissions to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:dangerously_skip_permissions] == false
+    end
+
     test "validates disable_slash_commands option" do
       opts = [disable_slash_commands: true]
       assert {:ok, validated} = Options.validate_session_options(opts)

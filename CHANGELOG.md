@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`:stream_timeout` option** — New name for the per-message stream timeout (max wait for the next message). Replaces `:timeout` for clarity alongside `:request_timeout`.
+- **`:dangerously_skip_permissions` option** — Directly bypass all permission checks. Unlike `:allow_dangerously_skip_permissions` which only enables bypassing as an option, this flag activates it immediately. Recommended only for sandboxed environments with no internet access.
+
+### Changed
+
+- **Bundled CLI version bumped to 2.1.59** — Updated from 2.1.49 to 2.1.59.
+- **`--setting-sources` always sent** — The SDK now always sends `--setting-sources ""` when no setting sources are configured, matching the Python SDK behavior. This prevents unintended default setting source loading.
 
 ### Deprecated
 
