@@ -7,10 +7,15 @@ defmodule ClaudeCode.CLI.ParserTest do
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
+  alias ClaudeCode.Message.PromptSuggestionMessage
+  alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.ToolProgressMessage
+  alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
 
   # ============================================================================
@@ -375,6 +380,72 @@ defmodule ClaudeCode.CLI.ParserTest do
       }
 
       assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Parser.parse_message(data)
+    end
+
+    test "parses rate_limit_event messages" do
+      data = %{
+        "type" => "rate_limit_event",
+        "rate_limit_info" => %{
+          "status" => "allowed_warning",
+          "resetsAt" => 1_700_000_000_000,
+          "utilization" => 0.85
+        },
+        "uuid" => "uuid-rl",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %RateLimitEvent{type: :rate_limit_event}} = Parser.parse_message(data)
+    end
+
+    test "parses tool_progress messages" do
+      data = %{
+        "type" => "tool_progress",
+        "tool_use_id" => "toolu_abc",
+        "tool_name" => "Bash",
+        "parent_tool_use_id" => nil,
+        "elapsed_time_seconds" => 3.5,
+        "uuid" => "uuid-tp",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ToolProgressMessage{type: :tool_progress, tool_name: "Bash"}} = Parser.parse_message(data)
+    end
+
+    test "parses tool_use_summary messages" do
+      data = %{
+        "type" => "tool_use_summary",
+        "summary" => "Read 3 files",
+        "preceding_tool_use_ids" => ["toolu_1", "toolu_2"],
+        "uuid" => "uuid-tus",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ToolUseSummaryMessage{type: :tool_use_summary, summary: "Read 3 files"}} =
+               Parser.parse_message(data)
+    end
+
+    test "parses auth_status messages" do
+      data = %{
+        "type" => "auth_status",
+        "isAuthenticating" => true,
+        "output" => ["Authenticating..."],
+        "uuid" => "uuid-auth",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %AuthStatusMessage{type: :auth_status, is_authenticating: true}} = Parser.parse_message(data)
+    end
+
+    test "parses prompt_suggestion messages" do
+      data = %{
+        "type" => "prompt_suggestion",
+        "suggestion" => "Add tests for the new module",
+        "uuid" => "uuid-ps",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %PromptSuggestionMessage{type: :prompt_suggestion, suggestion: "Add tests for the new module"}} =
+               Parser.parse_message(data)
     end
 
     test "returns error for unknown message type" do
