@@ -1,7 +1,7 @@
 ---
 name: cli-sync
 description: This skill should be used when the user asks to "check CLI schema", "sync CLI version", "check for new CLI options", "update bundled CLI", "compare SDK structs", "check schema drift", "align message structs", "verify CLI compatibility", or mentions CLI compatibility, schema alignment, or wants to ensure the SDK matches the current Claude CLI. Consolidates schema checking, options validation, and version management into a single workflow.
-version: 1.1.0
+version: 1.2.0
 ---
 
 # CLI Sync
@@ -12,12 +12,16 @@ Synchronize the ClaudeCode Elixir SDK with the Claude CLI to detect schema chang
 
 The Claude CLI evolves independently of this SDK. This skill provides a systematic workflow to:
 
-1. **Detect schema drift** - Compare CLI JSON output against message/content structs
-2. **Find new CLI options** - Compare `--help` output against the Options module
-3. **Cross-reference SDK docs** - Check Python SDK types for canonical definitions
+1. **Detect schema drift** - Diff TS SDK type definitions against Elixir structs for complete type coverage
+2. **Find new CLI options** - Compare `--help` output and SDK sources against the Options module
+3. **Cross-reference SDK docs** - Check both TypeScript and Python SDK types for canonical definitions
 4. **Update bundled version** - Sync the installer to the current CLI version
 
-**Important**: The Python SDK (`claude-agent-sdk-python`) is a thin wrapper around the CLI — it spawns `claude` as a subprocess and communicates via streaming JSON, just like this SDK. Its `types.py` defines the canonical message types, content blocks, and options. When in doubt about whether a field or option belongs in this SDK, check the Python SDK first.
+**Type discovery strategy**: The TypeScript SDK (`@anthropic-ai/claude-agent-sdk`) is the canonical source for message types. Its `sdk.d.ts` exports an `SDKMessage` union listing all 20 message types. By git-tracking the captured SDK sources, version-to-version diffs automatically surface new types, removed types, and field changes.
+
+**Python SDK**: The Python SDK (`claude-agent-sdk-python`) is a thin wrapper around the CLI — it spawns `claude` as a subprocess and communicates via streaming JSON, just like this SDK. Its `types.py` defines a subset of message types (5 types) and the options interface. It remains useful for options cross-referencing and field-level validation.
+
+**Scenarios**: Live CLI scenarios remain useful for field-level validation (checking actual JSON keys against struct fields) but are no longer the primary method for type discovery.
 
 ## Workflow
 
@@ -45,7 +49,7 @@ Tell the user:
 > .claude/skills/cli-sync/scripts/capture-cli-data.sh
 > ```
 >
-> This captures CLI version, help output, test scenarios (schema samples), and Python SDK sources. It takes about 30 seconds. Let me know when it's done.
+> This captures CLI version, help output, test scenarios (schema samples), Python SDK sources, TypeScript SDK type definitions, and SDK version tracking. It takes about 30 seconds. Let me know when it's done.
 
 Use AskUserQuestion to ask "Have you run the capture script?" with options:
 - "Yes, it completed successfully"
@@ -62,22 +66,37 @@ Read ALL files in `.claude/skills/cli-sync/captured/` and dispatch three paralle
 #### Agent 1: Version Check
 - Read `captured/cli-version.txt` and `captured/bundled-version.txt`
 - Read `lib/claude_code/adapter/local/installer.ex` to find `@default_cli_version`
-- Report if versions match or differ
+- Read `captured/ts-sdk-version.txt` and `captured/py-sdk-version.txt` for SDK versions
+- Report if CLI versions match or differ
+- Report TypeScript SDK version and Python SDK version for reference
 
-#### Agent 2: Schema Check
+#### Agent 2: Schema Check (diff-based type discovery)
+
+**Primary: TS SDK type discovery**
+- Diff captured SDK types against previous git version: `git diff HEAD -- .claude/skills/cli-sync/captured/ts-sdk-types.d.ts` and `python-sdk-types.py`
+- Extract the `SDKMessage` union from `captured/ts-sdk-types.d.ts` — list all member types
+- Compare against Elixir implementations in `lib/claude_code/message/` and `lib/claude_code/cli/parser.ex`
+- Categorize each TS SDK type as: **fully implemented** (dedicated struct), **handled by catch-all** (e.g. system subtypes in SystemMessage), or **missing**
+
+**Secondary: Field-level validation via scenarios**
 - Read all scenario JSONL files (`scenario-a-basic.jsonl` through `scenario-f-thinking.jsonl`)
 - Read all files in `lib/claude_code/message/` and `lib/claude_code/content/`
-- Read `captured/python-sdk-types.py` for canonical type definitions
 - Compare JSON keys from each scenario against struct fields
 - Report new fields, missing fields, or type mismatches
-- Cross-reference against Python SDK types
+- Cross-reference against `captured/python-sdk-types.py` for Python SDK type definitions
+
+**Output: Coverage table**
+- Produce a table with columns: TS SDK Type | Wire Type (`type` field value) | Elixir Module | Status
+- Status values: Implemented, Catch-all, Missing
 - See `references/struct-definitions.md` for complete field mappings and coverage checklist
 
 #### Agent 3: Options Check
 - Read `captured/cli-help.txt`
 - Read `captured/python-sdk-subprocess-cli.py` for Python SDK's `_build_command()` flag mapping
+- Read `captured/ts-sdk-types.d.ts` for the TypeScript SDK Options type definition
 - Read `lib/claude_code/options.ex`
 - Compare CLI flags against `@session_opts_schema` and `convert_option_to_cli_flag/2` clauses
+- Cross-reference options from both TS and Python SDKs
 - Report new flags not in our schema or deprecated flags we still support
 - **Ignore SDK-internal**: `--verbose`, `--output-format`, `--input-format`, `--print` (always enabled)
 - **Ignore CLI-only**: `--chrome`, `--no-chrome`, `--ide`, `--replay-user-messages`
@@ -89,8 +108,9 @@ After all agents complete:
 
 1. Collect results from all three agents
 2. Present a structured summary:
-   - **Version**: synced or out of sync (with update instruction)
-   - **Schema drift**: new/missing/changed fields per message type
+   - **Version**: CLI synced or out of sync (with update instruction); TS/Python SDK versions
+   - **Type coverage**: coverage table from Agent 2 (TS SDK Type | Wire Type | Elixir Module | Status)
+   - **Schema drift**: new/missing/changed fields per message type (from scenario analysis)
    - **Options drift**: new/missing/changed CLI flags
 3. If version differs, offer to update `@default_cli_version` in `lib/claude_code/adapter/local/installer.ex`
 4. Recommend next steps for any schema or options changes found

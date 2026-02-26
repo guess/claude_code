@@ -132,12 +132,22 @@ end
 
 ## SDK Documentation
 
+### TypeScript SDK Source (captured)
+
+The capture script downloads the canonical type definitions:
+
+- **`captured/ts-sdk-types.d.ts`** - Full SDK type definitions including Options interface and SDKMessage union
+- **`captured/ts-sdk-version.txt`** - Version of `@anthropic-ai/claude-agent-sdk` that was captured
+
+The TS SDK Options type is useful for cross-referencing available options alongside CLI `--help` and Python SDK.
+
 ### Python SDK Source (captured)
 
 The capture script saves these files locally for analysis:
 
 - **`captured/python-sdk-subprocess-cli.py`** - Options→CLI flag mapping (the `_build_command` method)
 - **`captured/python-sdk-types.py`** - Options type definitions
+- **`captured/py-sdk-version.txt`** - Version of `claude-agent-sdk-python` that was captured
 
 ### Documentation URLs
 
@@ -149,4 +159,4 @@ For additional reference (may not be current):
 
 ## Checking for New Flags
 
-Read `captured/cli-help.txt` and look for `--` flags. Compare against `convert_option_to_cli_flag/2` patterns in `options.ex`.
+Read `captured/cli-help.txt` and look for `--` flags. Compare against `convert_option_to_cli_flag/2` patterns in `options.ex`. Also cross-reference with the Options type in `captured/ts-sdk-types.d.ts` and the `_build_command()` method in `captured/python-sdk-subprocess-cli.py`.

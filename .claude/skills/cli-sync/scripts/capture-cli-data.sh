@@ -14,6 +14,8 @@
 #   - CLI --help output
 #   - Test scenarios A-F (JSON schema samples)
 #   - Python SDK types.py and subprocess_cli.py (via gh)
+#   - TypeScript SDK sdk.d.ts type definitions (via npm/unpkg)
+#   - SDK version tracking files
 #
 # After running, tell Claude:
 #   "Read the captured CLI data in .claude/skills/cli-sync/captured/ and perform a sync analysis"
@@ -31,7 +33,7 @@ echo "Output directory: $OUTPUT_DIR"
 echo ""
 
 # --- Version Info ---
-echo "[1/9] Capturing CLI version..."
+echo "[1/12] Capturing CLI version..."
 if command -v claude &> /dev/null; then
     claude --version 2>/dev/null > "$OUTPUT_DIR/cli-version.txt" || echo "FAILED" > "$OUTPUT_DIR/cli-version.txt"
     echo "  Done: cli-version.txt"
@@ -41,7 +43,7 @@ else
 fi
 
 # --- Help Output ---
-echo "[2/9] Capturing CLI --help..."
+echo "[2/12] Capturing CLI --help..."
 if command -v claude &> /dev/null; then
     claude --help 2>&1 > "$OUTPUT_DIR/cli-help.txt" || echo "FAILED" > "$OUTPUT_DIR/cli-help.txt"
     echo "  Done: cli-help.txt"
@@ -50,7 +52,7 @@ else
 fi
 
 # --- Bundled Version ---
-echo "[3/9] Capturing bundled version..."
+echo "[3/12] Capturing bundled version..."
 INSTALLER_FILE="$PROJECT_ROOT/lib/claude_code/installer.ex"
 if [ -f "$INSTALLER_FILE" ]; then
     BUNDLED=$(grep '@default_cli_version' "$INSTALLER_FILE" | head -1 | grep -o '"[^"]*"' | tr -d '"')
@@ -62,7 +64,7 @@ else
 fi
 
 # --- Scenario A: Basic query ---
-echo "[4/9] Scenario A: Basic query (system, assistant, result, text_block)..."
+echo "[4/12] Scenario A: Basic query (system, assistant, result, text_block)..."
 if command -v claude &> /dev/null; then
     echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-a-basic.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-a-basic.jsonl"
@@ -72,7 +74,7 @@ else
 fi
 
 # --- Scenario B: Partial streaming ---
-echo "[5/9] Scenario B: Partial streaming (partial_assistant_message)..."
+echo "[5/12] Scenario B: Partial streaming (partial_assistant_message)..."
 if command -v claude &> /dev/null; then
     echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-b-partial.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-b-partial.jsonl"
@@ -82,7 +84,7 @@ else
 fi
 
 # --- Scenario C: Tool use ---
-echo "[6/9] Scenario C: Tool use (tool_use_block, tool_result_block, user_message)..."
+echo "[6/12] Scenario C: Tool use (tool_use_block, tool_result_block, user_message)..."
 if command -v claude &> /dev/null; then
     echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-c-tool.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-c-tool.jsonl"
@@ -92,7 +94,7 @@ else
 fi
 
 # --- Scenario D: Error max turns ---
-echo "[7/9] Scenario D: Error max turns (result with error_max_turns)..."
+echo "[7/12] Scenario D: Error max turns (result with error_max_turns)..."
 if command -v claude &> /dev/null; then
     echo "Create a file called /tmp/test_sync.txt with hello world, then read it back" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-d-error.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-d-error.jsonl"
@@ -102,7 +104,7 @@ else
 fi
 
 # --- Scenario F: Extended thinking ---
-echo "[8/9] Scenario F: Extended thinking (thinking_block)..."
+echo "[8/12] Scenario F: Extended thinking (thinking_block)..."
 if command -v claude &> /dev/null; then
     echo "Think step by step about why 17 is prime" | claude --output-format stream-json --verbose --max-turns 1 --model claude-opus-4-6 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-f-thinking.jsonl" || echo '{"error":"scenario_failed_or_thinking_not_available"}' > "$OUTPUT_DIR/scenario-f-thinking.jsonl"
@@ -112,7 +114,7 @@ else
 fi
 
 # --- Python SDK via gh ---
-echo "[9/9] Fetching Python SDK sources via gh..."
+echo "[9/12] Fetching Python SDK sources via gh..."
 if command -v gh &> /dev/null; then
     # types.py - canonical message/content type definitions
     gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' 2>/dev/null | base64 -d \
@@ -129,6 +131,42 @@ else
     echo "  WARNING: gh CLI not found, skipping Python SDK fetch"
 fi
 
+# --- TypeScript SDK types via npm/unpkg ---
+echo "[10/12] Fetching TypeScript SDK type definitions..."
+# Get latest version from npm registry
+TS_SDK_VERSION=$(curl -s "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/latest" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$TS_SDK_VERSION" ]; then
+    echo "$TS_SDK_VERSION" > "$OUTPUT_DIR/ts-sdk-version.txt"
+    echo "  TS SDK version: $TS_SDK_VERSION"
+
+    # Download sdk.d.ts from unpkg (canonical type definitions with SDKMessage union)
+    curl -sL "https://unpkg.com/@anthropic-ai/claude-agent-sdk@$TS_SDK_VERSION/dist/sdk.d.ts" \
+        > "$OUTPUT_DIR/ts-sdk-types.d.ts" 2>/dev/null || echo "// FAILED to fetch sdk.d.ts" > "$OUTPUT_DIR/ts-sdk-types.d.ts"
+    echo "  Done: ts-sdk-types.d.ts"
+else
+    echo "FAILED" > "$OUTPUT_DIR/ts-sdk-version.txt"
+    echo "// FAILED to fetch - npm registry unreachable" > "$OUTPUT_DIR/ts-sdk-types.d.ts"
+    echo "  WARNING: Could not reach npm registry for TS SDK version"
+fi
+
+# --- Python SDK version ---
+echo "[11/12] Recording Python SDK version..."
+if command -v gh &> /dev/null; then
+    PY_SDK_VERSION=$(gh api repos/anthropics/claude-agent-sdk-python/releases/latest --jq '.tag_name' 2>/dev/null)
+    if [ -n "$PY_SDK_VERSION" ]; then
+        echo "$PY_SDK_VERSION" > "$OUTPUT_DIR/py-sdk-version.txt"
+        echo "  Python SDK version: $PY_SDK_VERSION"
+    else
+        echo "FAILED" > "$OUTPUT_DIR/py-sdk-version.txt"
+        echo "  WARNING: Could not fetch Python SDK version"
+    fi
+else
+    echo "FAILED - gh not found" > "$OUTPUT_DIR/py-sdk-version.txt"
+    echo "  WARNING: gh CLI not found, skipping Python SDK version"
+fi
+
+# --- Summary ---
+echo "[12/12] Capture summary"
 echo ""
 echo "=== Capture Complete ==="
 echo ""

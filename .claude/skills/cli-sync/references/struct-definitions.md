@@ -2,20 +2,30 @@
 
 Complete field mappings for all message and content types in the ClaudeCode SDK.
 
+## Type Discovery Sources
+
+The TS SDK `SDKMessage` union is the canonical source for type discovery. It lists all message types the CLI can emit. The Python SDK `Message` union is a subset (5 types). Scenarios are used for field-level validation, not type discovery.
+
+| Source | File | Purpose |
+|--------|------|---------|
+| **TS SDK** | `captured/ts-sdk-types.d.ts` | Canonical `SDKMessage` union — all 20 message types |
+| **Python SDK** | `captured/python-sdk-types.py` | `Message` union — 5 types; options definitions |
+| **Scenarios** | `captured/scenario-*.jsonl` | Field-level validation of JSON keys vs struct fields |
+
 ## Test Coverage Matrix
 
-| Type | Scenario A (Basic) | Scenario B (Partial) | Scenario C (Tool) | Exceptional |
-|------|:------------------:|:--------------------:|:-----------------:|:-----------:|
-| system_message | ✓ | ✓ | ✓ | |
-| assistant_message | ✓ | ✓ | ✓ | |
-| user_message | | | ✓ | |
-| result_message | ✓ | ✓ | ✓ | |
-| partial_assistant_message | | ✓ | | |
-| compact_boundary_message | | | | ✓ |
-| text_block | ✓ | ✓ | ✓ | |
-| tool_use_block | | | ✓ | |
-| tool_result_block | | | ✓ | |
-| thinking_block | | | | ✓ |
+| Type | SDK Source | Scenario A (Basic) | Scenario B (Partial) | Scenario C (Tool) | Exceptional |
+|------|:---------:|:------------------:|:--------------------:|:-----------------:|:-----------:|
+| system_message | TS + Py | ✓ | ✓ | ✓ | |
+| assistant_message | TS + Py | ✓ | ✓ | ✓ | |
+| user_message | TS + Py | | | ✓ | |
+| result_message | TS + Py | ✓ | ✓ | ✓ | |
+| partial_assistant_message | TS | | ✓ | | |
+| compact_boundary_message | TS | | | | ✓ |
+| text_block | TS + Py | ✓ | ✓ | ✓ | |
+| tool_use_block | TS + Py | | | ✓ | |
+| tool_result_block | TS + Py | | | ✓ | |
+| thinking_block | TS + Py | | | | ✓ |
 
 **Exceptional cases** rely on SDK documentation rather than live testing.
 
@@ -113,6 +123,26 @@ Context compaction markers.
 |----------|--------------|------|-------|
 | `type` | `:type` | `:compact_boundary` atom | Always "compact_boundary" |
 | `direction` | `:direction` | atom | :start or :end |
+
+### System Subtypes (handled by SystemMessage catch-all)
+
+The `SystemMessage` struct handles all system subtypes via its `data` map. The `init` subtype has dedicated fields; all other subtypes store their data in the `:data` map with atom keys.
+
+These subtypes are known from the TS SDK and observed CLI output:
+
+| Subtype | Data Keys | Description |
+|---------|-----------|-------------|
+| `init` | *(dedicated struct fields)* | Session initialization — see SystemMessage above |
+| `status` | `status` (compacting\|null), `permission_mode` | Session status updates |
+| `hook_started` | `hook_id`, `hook_name`, `hook_event` | Hook execution began |
+| `hook_progress` | `hook_id`, `hook_name`, `hook_event`, `stdout`, `stderr`, `output` | Hook producing output |
+| `hook_response` | `hook_id`, `hook_name`, `hook_event`, `output`, `stdout`, `stderr`, `exit_code`, `outcome` | Hook completed |
+| `task_notification` | `task_id`, `tool_use_id`, `status`, `output_file`, `summary`, `usage` | Subagent task status update |
+| `task_started` | `task_id`, `tool_use_id`, `description`, `task_type` | Subagent task began |
+| `task_progress` | `task_id`, `tool_use_id`, `description`, `usage`, `last_tool_name` | Subagent task progress |
+| `files_persisted` | `files` (list), `failed` (list), `processed_at` | File checkpoint notification |
+
+**Note**: New system subtypes may appear in future CLI versions. The catch-all design means they are automatically captured in the `data` map without requiring code changes. The skill's diff-based type discovery will surface when new subtypes appear in the TS SDK.
 
 ## Content Block Types
 
