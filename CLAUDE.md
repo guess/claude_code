@@ -305,6 +305,10 @@ The `ClaudeCode.Options` module handles validation and conversion to CLI flags.
 
 - Never add a "Co-Authored-By" line to commit messages or PR descriptions
 
+## Documentation Conventions
+
+- In CHANGELOG.md, always use fully qualified module names (e.g., `ClaudeCode.Stream.filter_type/2`, not `Stream.filter_type/2`). ExDoc parses the changelog and will emit warnings for unresolved short names.
+
 ## Development Memories
 
 - When creating mock data for tests, run the real commands and print the outputs so that we can mimic the actual response and make sure we are handling them appropriately.

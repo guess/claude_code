@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **5 new CLI message types** — Parse `rate_limit_event`, `tool_progress`, `tool_use_summary`, `auth_status`, and `prompt_suggestion` messages instead of silently dropping them. ([0724eef])
-- **`Stream.filter_type/2` support for new types** — Filter streams by `:rate_limit_event`, `:tool_progress`, `:tool_use_summary`, `:auth_status`, and `:prompt_suggestion`. ([75e5a1b])
+- **`ClaudeCode.Stream.filter_type/2` support for new types** — Filter streams by `:rate_limit_event`, `:tool_progress`, `:tool_use_summary`, `:auth_status`, and `:prompt_suggestion`. ([75e5a1b])
 - **Factory functions for new message types** — `rate_limit_event/1`, `tool_progress_message/1`, `tool_use_summary_message/1`, `auth_status_message/1`, `prompt_suggestion_message/1` available in `ClaudeCode.Test.Factory`. ([75e5a1b])
 
 ### Changed
