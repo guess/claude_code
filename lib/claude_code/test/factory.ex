@@ -22,6 +22,7 @@ defmodule ClaudeCode.Test.Factory do
       assistant_message(message: %{content: [text_block(text: "Hello")]})
   """
 
+  alias ClaudeCode.Agent
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ThinkingBlock
   alias ClaudeCode.Content.ToolResultBlock
@@ -37,6 +38,23 @@ defmodule ClaudeCode.Test.Factory do
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
+
+  # ============================================================================
+  # Agents
+  # ============================================================================
+
+  @doc """
+  Creates an Agent with default values.
+
+      agent()
+      agent(name: "debugger", tools: ["Bash", "Read"])
+      agent(permission_mode: :plan, memory: :project)
+  """
+  def agent(attrs \\ []) do
+    name = Keyword.get(attrs, :name, "test-agent-#{unique_id()}")
+    attrs = Keyword.put(attrs, :name, name)
+    Agent.new(attrs)
+  end
 
   # ============================================================================
   # Content Blocks
