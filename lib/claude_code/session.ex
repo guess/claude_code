@@ -328,6 +328,10 @@ defmodule ClaudeCode.Session do
   # Private Functions - Request Management
   # ============================================================================
 
+  defp enqueue_or_execute(_request, _prompt, _opts, %{adapter_status: {:error, reason}} = state) do
+    {:error, {:provisioning_failed, reason}, state}
+  end
+
   defp enqueue_or_execute(request, prompt, opts, state) do
     cond do
       state.adapter_status != :ready ->
