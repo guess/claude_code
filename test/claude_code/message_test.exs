@@ -2,8 +2,13 @@ defmodule ClaudeCode.MessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message
+  alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.PromptSuggestionMessage
+  alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.ToolProgressMessage
+  alias ClaudeCode.Message.ToolUseSummaryMessage
 
   describe "type detection" do
     test "message?/1 returns true for any message type" do
@@ -52,6 +57,62 @@ defmodule ClaudeCode.MessageTest do
       assert Message.message?(event)
     end
 
+    test "message?/1 returns true for rate limit events" do
+      {:ok, msg} =
+        RateLimitEvent.new(%{
+          "type" => "rate_limit_event",
+          "rate_limit_info" => %{"status" => "allowed"},
+          "session_id" => "1"
+        })
+
+      assert Message.message?(msg)
+    end
+
+    test "message?/1 returns true for tool progress messages" do
+      {:ok, msg} =
+        ToolProgressMessage.new(%{
+          "type" => "tool_progress",
+          "tool_use_id" => "t1",
+          "tool_name" => "Bash",
+          "session_id" => "1"
+        })
+
+      assert Message.message?(msg)
+    end
+
+    test "message?/1 returns true for tool use summary messages" do
+      {:ok, msg} =
+        ToolUseSummaryMessage.new(%{
+          "type" => "tool_use_summary",
+          "summary" => "Read files",
+          "session_id" => "1"
+        })
+
+      assert Message.message?(msg)
+    end
+
+    test "message?/1 returns true for auth status messages" do
+      {:ok, msg} =
+        AuthStatusMessage.new(%{
+          "type" => "auth_status",
+          "isAuthenticating" => true,
+          "session_id" => "1"
+        })
+
+      assert Message.message?(msg)
+    end
+
+    test "message?/1 returns true for prompt suggestion messages" do
+      {:ok, msg} =
+        PromptSuggestionMessage.new(%{
+          "type" => "prompt_suggestion",
+          "suggestion" => "Next step",
+          "session_id" => "1"
+        })
+
+      assert Message.message?(msg)
+    end
+
     test "message?/1 returns false for non-messages" do
       refute Message.message?(%{})
       refute Message.message?("string")
@@ -91,6 +152,54 @@ defmodule ClaudeCode.MessageTest do
         })
 
       assert Message.message_type(compact) == :system
+    end
+
+    test "message_type/1 returns correct types for new message types" do
+      {:ok, rl} =
+        RateLimitEvent.new(%{
+          "type" => "rate_limit_event",
+          "rate_limit_info" => %{"status" => "allowed"},
+          "session_id" => "1"
+        })
+
+      assert Message.message_type(rl) == :rate_limit_event
+
+      {:ok, tp} =
+        ToolProgressMessage.new(%{
+          "type" => "tool_progress",
+          "tool_use_id" => "t1",
+          "tool_name" => "Bash",
+          "session_id" => "1"
+        })
+
+      assert Message.message_type(tp) == :tool_progress
+
+      {:ok, tus} =
+        ToolUseSummaryMessage.new(%{
+          "type" => "tool_use_summary",
+          "summary" => "Read files",
+          "session_id" => "1"
+        })
+
+      assert Message.message_type(tus) == :tool_use_summary
+
+      {:ok, auth} =
+        AuthStatusMessage.new(%{
+          "type" => "auth_status",
+          "isAuthenticating" => false,
+          "session_id" => "1"
+        })
+
+      assert Message.message_type(auth) == :auth_status
+
+      {:ok, ps} =
+        PromptSuggestionMessage.new(%{
+          "type" => "prompt_suggestion",
+          "suggestion" => "Next step",
+          "session_id" => "1"
+        })
+
+      assert Message.message_type(ps) == :prompt_suggestion
     end
   end
 end

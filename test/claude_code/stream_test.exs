@@ -341,6 +341,72 @@ defmodule ClaudeCode.StreamTest do
       tool_messages = messages |> Stream.filter_type(:tool_use) |> Enum.to_list()
       assert length(tool_messages) == 1
     end
+
+    test "filters rate_limit_event type" do
+      messages = [
+        system_message(),
+        assistant_message(),
+        rate_limit_event(),
+        rate_limit_event(),
+        result_message()
+      ]
+
+      filtered = messages |> Stream.filter_type(:rate_limit_event) |> Enum.to_list()
+      assert length(filtered) == 2
+      assert Enum.all?(filtered, &match?(%Message.RateLimitEvent{}, &1))
+    end
+
+    test "filters tool_progress type" do
+      messages = [
+        system_message(),
+        tool_progress_message(),
+        assistant_message(),
+        result_message()
+      ]
+
+      filtered = messages |> Stream.filter_type(:tool_progress) |> Enum.to_list()
+      assert length(filtered) == 1
+      assert match?(%Message.ToolProgressMessage{}, hd(filtered))
+    end
+
+    test "filters tool_use_summary type" do
+      messages = [
+        system_message(),
+        assistant_message(),
+        tool_use_summary_message(),
+        result_message()
+      ]
+
+      filtered = messages |> Stream.filter_type(:tool_use_summary) |> Enum.to_list()
+      assert length(filtered) == 1
+      assert match?(%Message.ToolUseSummaryMessage{}, hd(filtered))
+    end
+
+    test "filters auth_status type" do
+      messages = [
+        auth_status_message(),
+        system_message(),
+        assistant_message(),
+        result_message()
+      ]
+
+      filtered = messages |> Stream.filter_type(:auth_status) |> Enum.to_list()
+      assert length(filtered) == 1
+      assert match?(%Message.AuthStatusMessage{}, hd(filtered))
+    end
+
+    test "filters prompt_suggestion type" do
+      messages = [
+        system_message(),
+        assistant_message(),
+        result_message(),
+        prompt_suggestion_message()
+      ]
+
+      filtered = messages |> Stream.filter_type(:prompt_suggestion) |> Enum.to_list()
+      assert length(filtered) == 1
+      assert match?(%Message.PromptSuggestionMessage{}, hd(filtered))
+    end
   end
 
   describe "until_result/1" do

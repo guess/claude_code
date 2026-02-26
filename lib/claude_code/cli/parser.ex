@@ -17,13 +17,32 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
+  alias ClaudeCode.Message.PromptSuggestionMessage
+  alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.ToolProgressMessage
+  alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
 
   # -- Message parsing --------------------------------------------------------
+
+  # Maps wire type strings to their parser module's new/1 function.
+  # "system" is handled separately via parse_system/1 (dispatches on subtype).
+  @message_parsers %{
+    "assistant" => &AssistantMessage.new/1,
+    "user" => &UserMessage.new/1,
+    "result" => &ResultMessage.new/1,
+    "stream_event" => &PartialAssistantMessage.new/1,
+    "rate_limit_event" => &RateLimitEvent.new/1,
+    "tool_progress" => &ToolProgressMessage.new/1,
+    "tool_use_summary" => &ToolUseSummaryMessage.new/1,
+    "auth_status" => &AuthStatusMessage.new/1,
+    "prompt_suggestion" => &PromptSuggestionMessage.new/1
+  }
 
   @doc """
   Parses a decoded JSON map into a message struct.
@@ -40,14 +59,12 @@ defmodule ClaudeCode.CLI.Parser do
       {:error, {:unknown_message_type, "unknown"}}
   """
   @spec parse_message(map()) :: {:ok, ClaudeCode.Message.t()} | {:error, term()}
+  def parse_message(%{"type" => "system"} = data), do: parse_system(data)
+
   def parse_message(%{"type" => type} = data) do
-    case type do
-      "system" -> parse_system(data)
-      "assistant" -> AssistantMessage.new(data)
-      "user" -> UserMessage.new(data)
-      "result" -> ResultMessage.new(data)
-      "stream_event" -> PartialAssistantMessage.new(data)
-      other -> {:error, {:unknown_message_type, other}}
+    case Map.fetch(@message_parsers, type) do
+      {:ok, parser} -> parser.(data)
+      :error -> {:error, {:unknown_message_type, type}}
     end
   end
 
