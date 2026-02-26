@@ -377,6 +377,19 @@ defmodule ClaudeCode.CLI.ParserTest do
       assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Parser.parse_message(data)
     end
 
+    test "handles rate_limit_event as informational message" do
+      msg = %{
+        "type" => "rate_limit_event",
+        "rate_limit_info" => %{
+          "status" => "allowed",
+          "rateLimitType" => "five_hour",
+          "resetsAt" => 1_772_110_800
+        }
+      }
+
+      assert {:ok, :rate_limit_event} = Parser.parse_message(msg)
+    end
+
     test "returns error for unknown message type" do
       assert {:error, {:unknown_message_type, "unknown"}} = Parser.parse_message(%{"type" => "unknown"})
     end

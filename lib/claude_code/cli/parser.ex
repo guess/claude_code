@@ -47,6 +47,7 @@ defmodule ClaudeCode.CLI.Parser do
       "user" -> UserMessage.new(data)
       "result" -> ResultMessage.new(data)
       "stream_event" -> PartialAssistantMessage.new(data)
+      "rate_limit_event" -> {:ok, :rate_limit_event}
       other -> {:error, {:unknown_message_type, other}}
     end
   end

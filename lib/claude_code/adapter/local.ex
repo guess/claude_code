@@ -503,6 +503,10 @@ defmodule ClaudeCode.Adapter.Local do
 
   defp handle_sdk_message(json, state) do
     case Parser.parse_message(json) do
+      {:ok, :rate_limit_event} ->
+        Logger.debug("[Adapter.Local] Received rate_limit_event (informational, no action needed)")
+        state
+
       {:ok, message} ->
         Adapter.notify_message(state.session, state.current_request, message)
 
