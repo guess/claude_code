@@ -140,7 +140,7 @@ if [ -n "$TS_SDK_VERSION" ]; then
     echo "  TS SDK version: $TS_SDK_VERSION"
 
     # Download sdk.d.ts from unpkg (canonical type definitions with SDKMessage union)
-    curl -sL "https://unpkg.com/@anthropic-ai/claude-agent-sdk@$TS_SDK_VERSION/dist/sdk.d.ts" \
+    curl -sL "https://unpkg.com/@anthropic-ai/claude-agent-sdk@$TS_SDK_VERSION/sdk.d.ts" \
         > "$OUTPUT_DIR/ts-sdk-types.d.ts" 2>/dev/null || echo "// FAILED to fetch sdk.d.ts" > "$OUTPUT_DIR/ts-sdk-types.d.ts"
     echo "  Done: ts-sdk-types.d.ts"
 else
