@@ -41,7 +41,7 @@ Add to `mix.exs`:
 
 ```elixir
 def deps do
-  [{:claude_code, "~> 0.23"}]
+  [{:claude_code, "~> 0.24"}]
 end
 ```
 
