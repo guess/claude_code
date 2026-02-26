@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **5 new CLI message types** — Parse `rate_limit_event`, `tool_progress`, `tool_use_summary`, `auth_status`, and `prompt_suggestion` messages instead of silently dropping them. ([0724eef])
+- **`Stream.filter_type/2` support for new types** — Filter streams by `:rate_limit_event`, `:tool_progress`, `:tool_use_summary`, `:auth_status`, and `:prompt_suggestion`. ([75e5a1b])
+- **Factory functions for new message types** — `rate_limit_event/1`, `tool_progress_message/1`, `tool_use_summary_message/1`, `auth_status_message/1`, `prompt_suggestion_message/1` available in `ClaudeCode.Test.Factory`. ([75e5a1b])
+
+### Changed
+
+- **`RateLimitEvent.status` is now an atom** — The `status` field in `rate_limit_info` is parsed to `:allowed`, `:allowed_warning`, or `:rejected` instead of raw strings. ([75e5a1b])
+
+### Fixed
+
+- **Queries rejected immediately when adapter has failed** — Previously, if the adapter process crashed, queries would hang until timeout. Now they return `{:error, {:adapter_not_running, reason}}` immediately. ([17a6b89])
+
 ## [0.24.0] - 2026-02-26 | CC 2.1.59
 
 ### Added
