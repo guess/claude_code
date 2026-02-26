@@ -6,10 +6,15 @@ defmodule ClaudeCode.JSONEncoderTest do
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
+  alias ClaudeCode.Message.PromptSuggestionMessage
+  alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.ToolProgressMessage
+  alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
 
   describe "to_encodable/1" do
@@ -268,6 +273,168 @@ defmodule ClaudeCode.JSONEncoderTest do
       assert decoded["compact_metadata"]["trigger"] == "auto"
       assert decoded["compact_metadata"]["pre_tokens"] == 5000
     end
+
+    test "encodes RateLimitEvent" do
+      message = %RateLimitEvent{
+        type: :rate_limit_event,
+        rate_limit_info: %{
+          status: :allowed_warning,
+          resets_at: 1_700_000_000_000,
+          utilization: 0.85
+        },
+        uuid: "uuid_123",
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "rate_limit_event"
+      assert decoded["rate_limit_info"]["status"] == "allowed_warning"
+      assert decoded["rate_limit_info"]["resets_at"] == 1_700_000_000_000
+      assert decoded["rate_limit_info"]["utilization"] == 0.85
+      refute Map.has_key?(decoded, "uuid") == false
+    end
+
+    test "encodes RateLimitEvent excluding nil fields" do
+      message = %RateLimitEvent{
+        type: :rate_limit_event,
+        rate_limit_info: %{status: :allowed, resets_at: nil, utilization: nil},
+        uuid: nil,
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "rate_limit_event"
+      refute Map.has_key?(decoded, "uuid")
+    end
+
+    test "encodes ToolProgressMessage" do
+      message = %ToolProgressMessage{
+        type: :tool_progress,
+        tool_use_id: "toolu_abc123",
+        tool_name: "Bash",
+        parent_tool_use_id: "toolu_parent",
+        elapsed_time_seconds: 5.2,
+        uuid: "uuid_123",
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "tool_progress"
+      assert decoded["tool_use_id"] == "toolu_abc123"
+      assert decoded["tool_name"] == "Bash"
+      assert decoded["parent_tool_use_id"] == "toolu_parent"
+      assert decoded["elapsed_time_seconds"] == 5.2
+    end
+
+    test "encodes ToolProgressMessage excluding nil fields" do
+      message = %ToolProgressMessage{
+        type: :tool_progress,
+        tool_use_id: "toolu_abc123",
+        tool_name: "Bash",
+        parent_tool_use_id: nil,
+        elapsed_time_seconds: nil,
+        task_id: nil,
+        uuid: nil,
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded, "parent_tool_use_id")
+      refute Map.has_key?(decoded, "elapsed_time_seconds")
+      refute Map.has_key?(decoded, "task_id")
+      refute Map.has_key?(decoded, "uuid")
+    end
+
+    test "encodes ToolUseSummaryMessage" do
+      message = %ToolUseSummaryMessage{
+        type: :tool_use_summary,
+        summary: "Read 3 files and edited 1 file",
+        preceding_tool_use_ids: ["toolu_abc", "toolu_def"],
+        uuid: "uuid_123",
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "tool_use_summary"
+      assert decoded["summary"] == "Read 3 files and edited 1 file"
+      assert decoded["preceding_tool_use_ids"] == ["toolu_abc", "toolu_def"]
+    end
+
+    test "encodes AuthStatusMessage" do
+      message = %AuthStatusMessage{
+        type: :auth_status,
+        is_authenticating: true,
+        output: ["Authenticating...", "Waiting for response"],
+        error: nil,
+        uuid: "uuid_123",
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "auth_status"
+      assert decoded["is_authenticating"] == true
+      assert decoded["output"] == ["Authenticating...", "Waiting for response"]
+      refute Map.has_key?(decoded, "error")
+    end
+
+    test "encodes AuthStatusMessage with error" do
+      message = %AuthStatusMessage{
+        type: :auth_status,
+        is_authenticating: false,
+        output: [],
+        error: "Invalid API key",
+        uuid: nil,
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["is_authenticating"] == false
+      assert decoded["error"] == "Invalid API key"
+      refute Map.has_key?(decoded, "uuid")
+    end
+
+    test "encodes PromptSuggestionMessage" do
+      message = %PromptSuggestionMessage{
+        type: :prompt_suggestion,
+        suggestion: "Now add tests for the new function",
+        uuid: "uuid_123",
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "prompt_suggestion"
+      assert decoded["suggestion"] == "Now add tests for the new function"
+    end
+
+    test "encodes PromptSuggestionMessage excluding nil fields" do
+      message = %PromptSuggestionMessage{
+        type: :prompt_suggestion,
+        suggestion: "Run the tests",
+        uuid: nil,
+        session_id: "sess_123"
+      }
+
+      json = Jason.encode!(message)
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded, "uuid")
+    end
   end
 
   describe "JSON.Encoder (Elixir built-in)" do
@@ -347,6 +514,72 @@ defmodule ClaudeCode.JSONEncoderTest do
 
       assert json =~ "\"result\":"
       assert json =~ "\"is_error\":"
+    end
+
+    test "encodes RateLimitEvent" do
+      message = %RateLimitEvent{
+        type: :rate_limit_event,
+        rate_limit_info: %{status: :allowed_warning, resets_at: 1_700_000_000_000, utilization: 0.85},
+        session_id: "sess_123"
+      }
+
+      json = JSON.encode!(message)
+
+      assert json =~ "\"rate_limit_info\":"
+      assert json =~ "\"type\":"
+    end
+
+    test "encodes ToolProgressMessage" do
+      message = %ToolProgressMessage{
+        type: :tool_progress,
+        tool_use_id: "toolu_abc",
+        tool_name: "Bash",
+        session_id: "sess_123"
+      }
+
+      json = JSON.encode!(message)
+
+      assert json =~ "\"tool_use_id\":"
+      assert json =~ "\"tool_name\":"
+    end
+
+    test "encodes ToolUseSummaryMessage" do
+      message = %ToolUseSummaryMessage{
+        type: :tool_use_summary,
+        summary: "Read 3 files",
+        session_id: "sess_123"
+      }
+
+      json = JSON.encode!(message)
+
+      assert json =~ "\"summary\":"
+      assert json =~ "\"type\":"
+    end
+
+    test "encodes AuthStatusMessage" do
+      message = %AuthStatusMessage{
+        type: :auth_status,
+        is_authenticating: true,
+        session_id: "sess_123"
+      }
+
+      json = JSON.encode!(message)
+
+      assert json =~ "\"is_authenticating\":"
+      assert json =~ "\"type\":"
+    end
+
+    test "encodes PromptSuggestionMessage" do
+      message = %PromptSuggestionMessage{
+        type: :prompt_suggestion,
+        suggestion: "Add tests",
+        session_id: "sess_123"
+      }
+
+      json = JSON.encode!(message)
+
+      assert json =~ "\"suggestion\":"
+      assert json =~ "\"type\":"
     end
   end
 

@@ -27,10 +27,15 @@ defmodule ClaudeCode.Test.Factory do
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
+  alias ClaudeCode.Message.PromptSuggestionMessage
+  alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.ToolProgressMessage
+  alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
 
   # ============================================================================
@@ -278,6 +283,103 @@ defmodule ClaudeCode.Test.Factory do
         permission_denials: nil,
         structured_output: nil,
         errors: nil
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a RateLimitEvent with default values.
+
+      rate_limit_event()
+      rate_limit_event(rate_limit_info: %{status: :rejected, resets_at: 1_700_000_060_000})
+  """
+  def rate_limit_event(attrs \\ []) do
+    merge(
+      %RateLimitEvent{
+        type: :rate_limit_event,
+        rate_limit_info: %{status: :allowed, resets_at: nil, utilization: nil},
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a ToolProgressMessage with default values.
+
+      tool_progress_message()
+      tool_progress_message(tool_name: "Bash", elapsed_time_seconds: 5.2)
+  """
+  def tool_progress_message(attrs \\ []) do
+    merge(
+      %ToolProgressMessage{
+        type: :tool_progress,
+        tool_use_id: "toolu_#{unique_id()}",
+        tool_name: "Read",
+        parent_tool_use_id: nil,
+        elapsed_time_seconds: 1.0,
+        task_id: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a ToolUseSummaryMessage with default values.
+
+      tool_use_summary_message()
+      tool_use_summary_message(summary: "Read 3 files")
+  """
+  def tool_use_summary_message(attrs \\ []) do
+    merge(
+      %ToolUseSummaryMessage{
+        type: :tool_use_summary,
+        summary: "Read 1 file",
+        preceding_tool_use_ids: [],
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates an AuthStatusMessage with default values.
+
+      auth_status_message()
+      auth_status_message(is_authenticating: false, error: "Invalid key")
+  """
+  def auth_status_message(attrs \\ []) do
+    merge(
+      %AuthStatusMessage{
+        type: :auth_status,
+        is_authenticating: true,
+        output: [],
+        error: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a PromptSuggestionMessage with default values.
+
+      prompt_suggestion_message()
+      prompt_suggestion_message(suggestion: "Run the tests")
+  """
+  def prompt_suggestion_message(attrs \\ []) do
+    merge(
+      %PromptSuggestionMessage{
+        type: :prompt_suggestion,
+        suggestion: "Add tests for the new module",
+        uuid: uuid(),
+        session_id: session_id()
       },
       attrs
     )

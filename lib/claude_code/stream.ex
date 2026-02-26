@@ -608,6 +608,11 @@ defmodule ClaudeCode.Stream do
   defp message_type_matches?(%Message.SystemMessage{}, :system), do: true
   defp message_type_matches?(%Message.UserMessage{}, :user), do: true
   defp message_type_matches?(%PartialAssistantMessage{}, :stream_event), do: true
+  defp message_type_matches?(%Message.RateLimitEvent{}, :rate_limit_event), do: true
+  defp message_type_matches?(%Message.ToolProgressMessage{}, :tool_progress), do: true
+  defp message_type_matches?(%Message.ToolUseSummaryMessage{}, :tool_use_summary), do: true
+  defp message_type_matches?(%Message.AuthStatusMessage{}, :auth_status), do: true
+  defp message_type_matches?(%Message.PromptSuggestionMessage{}, :prompt_suggestion), do: true
 
   defp message_type_matches?(%Message.AssistantMessage{message: message}, :tool_use) do
     Enum.any?(message.content, &match?(%Content.ToolUseBlock{}, &1))

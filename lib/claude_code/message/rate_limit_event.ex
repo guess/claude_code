@@ -9,7 +9,7 @@ defmodule ClaudeCode.Message.RateLimitEvent do
   ## Fields
 
   - `:rate_limit_info` - Map with rate limit details:
-    - `:status` - One of `"allowed"`, `"allowed_warning"`, or `"rejected"`
+    - `:status` - One of `:allowed`, `:allowed_warning`, or `:rejected`
     - `:resets_at` - Unix timestamp (ms) when the limit resets (optional)
     - `:utilization` - Current utilization as a float 0.0–1.0 (optional)
   - `:uuid` - Message UUID
@@ -39,10 +39,12 @@ defmodule ClaudeCode.Message.RateLimitEvent do
     :session_id
   ]
 
+  @type status :: :allowed | :allowed_warning | :rejected
+
   @type t :: %__MODULE__{
           type: :rate_limit_event,
           rate_limit_info: %{
-            status: String.t(),
+            status: status(),
             resets_at: integer() | nil,
             utilization: number() | nil
           },
@@ -88,11 +90,16 @@ defmodule ClaudeCode.Message.RateLimitEvent do
 
   defp parse_rate_limit_info(info) when is_map(info) do
     %{
-      status: info["status"],
+      status: parse_status(info["status"]),
       resets_at: info["resetsAt"],
       utilization: info["utilization"]
     }
   end
+
+  defp parse_status("allowed"), do: :allowed
+  defp parse_status("allowed_warning"), do: :allowed_warning
+  defp parse_status("rejected"), do: :rejected
+  defp parse_status(other), do: other
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Message.RateLimitEvent do

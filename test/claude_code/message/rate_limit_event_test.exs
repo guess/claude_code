@@ -18,7 +18,7 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
 
       assert {:ok, message} = RateLimitEvent.new(json)
       assert message.type == :rate_limit_event
-      assert message.rate_limit_info.status == "allowed_warning"
+      assert message.rate_limit_info.status == :allowed_warning
       assert message.rate_limit_info.resets_at == 1_700_000_000_000
       assert message.rate_limit_info.utilization == 0.85
       assert message.uuid == "uuid-123"
@@ -33,7 +33,7 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
       }
 
       assert {:ok, message} = RateLimitEvent.new(json)
-      assert message.rate_limit_info.status == "allowed"
+      assert message.rate_limit_info.status == :allowed
       assert message.rate_limit_info.resets_at == nil
       assert message.rate_limit_info.utilization == nil
       assert message.uuid == nil
@@ -51,7 +51,7 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
       }
 
       assert {:ok, message} = RateLimitEvent.new(json)
-      assert message.rate_limit_info.status == "rejected"
+      assert message.rate_limit_info.status == :rejected
       assert message.rate_limit_info.resets_at == 1_700_000_060_000
     end
 
