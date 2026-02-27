@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **All subagent frontmatter fields on `ClaudeCode.Agent`** — Added `disallowed_tools`, `permission_mode`, `max_turns`, `skills`, `mcp_servers`, `hooks`, `memory`, `background`, and `isolation` fields. Uses existing `ClaudeCode.Types.permission_mode()` atoms and new atom types for `memory` (`:user | :project | :local`) and `isolation` (`:worktree`). Also adds `agent/1` test factory to `ClaudeCode.Test.Factory`. ([1e2fb95])
+- **Result metadata in `ClaudeCode.Stream.collect/1`** — The summary map now includes `session_id`, `usage`, `total_cost_usd`, `stop_reason`, and `num_turns` from the result message, so callers can track costs, resume sessions, and understand why a conversation ended. ([7444177])
+- **`replay_user_messages` option** — Support the `--replay-user-messages` CLI flag which re-emits user messages from stdin back on stdout, useful for synchronization in bidirectional streaming conversations. ([caf6c1d])
+
+### Fixed
+
+- **Interrupt sent before closing port** — On terminate, the adapter now sends an interrupt control request to the CLI before closing the port, preventing continued API token consumption. ([3a93f43])
+- **User environment variables take precedence over SDK defaults** — Fixed `Map.merge` order so user-provided environment variables override SDK-injected ones instead of the reverse. ([7385c03])
 
 ## [0.25.0] - 2026-02-26 | CC 2.1.59
 
