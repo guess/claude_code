@@ -293,6 +293,12 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:include_partial_messages, false), do: nil
 
+  defp convert_option(:replay_user_messages, true) do
+    ["--replay-user-messages"]
+  end
+
+  defp convert_option(:replay_user_messages, false), do: nil
+
   defp convert_option(:strict_mcp_config, true) do
     # Boolean flag without value - return as list to be flattened
     ["--strict-mcp-config"]

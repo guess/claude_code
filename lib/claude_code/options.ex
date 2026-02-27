@@ -605,6 +605,11 @@ defmodule ClaudeCode.Options do
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
     ],
+    replay_user_messages: [
+      type: :boolean,
+      default: false,
+      doc: "Re-emit user messages from stdin back on stdout for acknowledgment (only works with stream-json input/output)"
+    ],
     allow_dangerously_skip_permissions: [
       type: :boolean,
       default: false,

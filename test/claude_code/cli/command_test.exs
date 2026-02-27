@@ -648,6 +648,21 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert "10" in args
     end
 
+    test "converts replay_user_messages true to --replay-user-messages" do
+      opts = [replay_user_messages: true]
+
+      args = Command.to_cli_args(opts)
+      assert "--replay-user-messages" in args
+      refute "true" in args
+    end
+
+    test "does not add flag when replay_user_messages is false" do
+      opts = [replay_user_messages: false]
+
+      args = Command.to_cli_args(opts)
+      refute "--replay-user-messages" in args
+    end
+
     test "converts strict_mcp_config true to --strict-mcp-config" do
       opts = [strict_mcp_config: true]
 

@@ -387,6 +387,22 @@ defmodule ClaudeCode.OptionsTest do
       refute Keyword.has_key?(validated, :sandbox)
     end
 
+    test "validates replay_user_messages option" do
+      opts = [replay_user_messages: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:replay_user_messages] == true
+
+      opts = [replay_user_messages: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:replay_user_messages] == false
+    end
+
+    test "defaults replay_user_messages to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:replay_user_messages] == false
+    end
+
     test "validates enable_file_checkpointing option" do
       opts = [enable_file_checkpointing: true]
       assert {:ok, validated} = Options.validate_session_options(opts)
