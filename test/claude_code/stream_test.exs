@@ -769,6 +769,11 @@ defmodule ClaudeCode.StreamTest do
       assert summary.thinking == ""
       assert summary.result == nil
       assert summary.is_error == false
+      assert summary.session_id == nil
+      assert summary.usage == nil
+      assert summary.total_cost_usd == nil
+      assert summary.stop_reason == nil
+      assert summary.num_turns == nil
     end
 
     test "collects multiple tool calls with results" do
@@ -833,6 +838,30 @@ defmodule ClaudeCode.StreamTest do
       [{tool_use, tool_result}] = summary.tool_calls
       assert tool_use.name == "Read"
       assert tool_result == nil
+    end
+
+    test "collects result metadata fields" do
+      usage = %{input_tokens: 100, output_tokens: 50}
+
+      messages = [
+        assistant_message(message: %{content: [text_content("Hello")]}),
+        result_message(
+          result: "Done",
+          session_id: "sess_abc123",
+          usage: usage,
+          total_cost_usd: 0.0042,
+          stop_reason: :end_turn,
+          num_turns: 3
+        )
+      ]
+
+      summary = Stream.collect(messages)
+
+      assert summary.session_id == "sess_abc123"
+      assert summary.usage == usage
+      assert summary.total_cost_usd == 0.0042
+      assert summary.stop_reason == :end_turn
+      assert summary.num_turns == 3
     end
   end
 

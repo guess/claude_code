@@ -355,6 +355,11 @@ defmodule ClaudeCode.Stream do
   - `thinking` - All thinking content concatenated
   - `result` - The final result text
   - `is_error` - Whether the result was an error
+  - `session_id` - The session ID (useful for resuming conversations)
+  - `usage` - Token usage map (input_tokens, output_tokens, cache tokens, etc.)
+  - `total_cost_usd` - Total cost of the query in USD
+  - `stop_reason` - Why the conversation ended (`:end_turn`, `:max_tokens`, etc.)
+  - `num_turns` - Number of turns in the conversation
 
   ## Examples
 
@@ -365,6 +370,9 @@ defmodule ClaudeCode.Stream do
       IO.puts("Claude said: \#{summary.text}")
       IO.puts("Tool calls: \#{length(summary.tool_calls)}")
       IO.puts("Final result: \#{summary.result}")
+      IO.puts("Session: \#{summary.session_id}")
+      IO.puts("Cost: $\#{summary.total_cost_usd}")
+      IO.puts("Turns: \#{summary.num_turns}")
 
       # Process each tool call with its result
       Enum.each(summary.tool_calls, fn {tool_use, tool_result} ->
@@ -377,7 +385,12 @@ defmodule ClaudeCode.Stream do
           tool_calls: [{Content.ToolUseBlock.t(), Content.ToolResultBlock.t() | nil}],
           thinking: String.t(),
           result: String.t() | nil,
-          is_error: boolean()
+          is_error: boolean(),
+          session_id: String.t() | nil,
+          usage: map() | nil,
+          total_cost_usd: float() | nil,
+          stop_reason: atom() | nil,
+          num_turns: non_neg_integer() | nil
         }
   def collect(stream) do
     initial = %{
@@ -390,7 +403,12 @@ defmodule ClaudeCode.Stream do
       tool_result_map: %{},
       thinking: [],
       result: nil,
-      is_error: false
+      is_error: false,
+      session_id: nil,
+      usage: nil,
+      total_cost_usd: nil,
+      stop_reason: nil,
+      num_turns: nil
     }
 
     stream
@@ -423,8 +441,17 @@ defmodule ClaudeCode.Stream do
 
         %{acc | tool_result_map: tool_result_map}
 
-      %Message.ResultMessage{result: result, is_error: is_error}, acc ->
-        %{acc | result: result, is_error: is_error}
+      %Message.ResultMessage{} = result_msg, acc ->
+        %{
+          acc
+          | result: result_msg.result,
+            is_error: result_msg.is_error,
+            session_id: result_msg.session_id,
+            usage: result_msg.usage,
+            total_cost_usd: result_msg.total_cost_usd,
+            stop_reason: result_msg.stop_reason,
+            num_turns: result_msg.num_turns
+        }
 
       _, acc ->
         acc
@@ -443,7 +470,12 @@ defmodule ClaudeCode.Stream do
         tool_calls: tool_calls,
         thinking: Enum.join(acc.thinking),
         result: acc.result,
-        is_error: acc.is_error
+        is_error: acc.is_error,
+        session_id: acc.session_id,
+        usage: acc.usage,
+        total_cost_usd: acc.total_cost_usd,
+        stop_reason: acc.stop_reason,
+        num_turns: acc.num_turns
       }
     end)
   end
