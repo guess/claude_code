@@ -271,6 +271,12 @@ defmodule ClaudeCode.Adapter.Local do
   @impl GenServer
   def terminate(_reason, state) do
     if state.port && Port.info(state.port) do
+      # Send interrupt to stop any in-flight generation before closing the port.
+      # Without this, the CLI keeps consuming API tokens until it notices
+      # the broken pipe on its next stdout write.
+      {request_id, _} = next_request_id(state.control_counter)
+      json = Control.interrupt_request(request_id)
+      Port.command(state.port, json <> "\n")
       Port.close(state.port)
     end
 
