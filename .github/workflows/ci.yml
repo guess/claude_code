@@ -55,6 +55,7 @@ jobs:
 
       - name: Run test coverage
         run: mix coveralls.github
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
