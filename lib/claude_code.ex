@@ -147,7 +147,7 @@ defmodule ClaudeCode do
         allowed_tools: ["View", "Edit", "Bash(git:*)"],
         add_dir: ["/tmp", "/var/log"],
         max_turns: 20,
-        timeout: 180_000,
+        stream_timeout: :infinity,
         name: :my_session
       )
   """

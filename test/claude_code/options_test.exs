@@ -30,7 +30,7 @@ defmodule ClaudeCode.OptionsTest do
       assert {:ok, validated} = Options.validate_session_options(opts)
       # No model default - CLI handles its own defaults
       refute Keyword.has_key?(validated, :model)
-      assert validated[:stream_timeout] == 300_000
+      assert validated[:stream_timeout] == :infinity
       assert validated[:permission_mode] == :default
     end
 

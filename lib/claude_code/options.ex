@@ -55,9 +55,9 @@ defmodule ClaudeCode.Options do
 
   | Option            | Type    | Default | Description                                           |
   | ----------------- | ------- | ------- | ----------------------------------------------------- |
-  | `stream_timeout`  | integer | 300_000 | Max wait for next message on the stream (ms)          |
-  | `request_timeout` | integer | 300_000 | Wall-clock timeout for entire request start-to-finish |
-  | `timeout`         | integer | -       | Deprecated alias for `stream_timeout`                 |
+  | `stream_timeout`  | timeout | :infinity | Max wait for next message on the stream (ms or :infinity) |
+  | `request_timeout` | timeout | :infinity | Wall-clock timeout for entire request start-to-finish     |
+  | `timeout`         | timeout | -         | Deprecated alias for `stream_timeout`                     |
 
   ### Tool Control
 
@@ -92,9 +92,9 @@ defmodule ClaudeCode.Options do
 
   | Option                     | Type    | Description                             |
   | -------------------------- | ------- | --------------------------------------- |
-  | `stream_timeout`           | integer | Override stream timeout                 |
-  | `request_timeout`          | integer | Override wall-clock request timeout     |
-  | `timeout`                  | integer | Deprecated alias for `stream_timeout`   |
+  | `stream_timeout`           | timeout | Override stream timeout                 |
+  | `request_timeout`          | timeout | Override wall-clock request timeout     |
+  | `timeout`                  | timeout | Deprecated alias for `stream_timeout`   |
   | `system_prompt`            | string  | Override system prompt for this query   |
   | `append_system_prompt`     | string  | Append to system prompt                 |
   | `max_turns`                | integer | Limit turns for this query              |
@@ -169,7 +169,7 @@ defmodule ClaudeCode.Options do
 
       # config/prod.exs
       config :claude_code,
-        stream_timeout: 300_000,
+        stream_timeout: :infinity,
         permission_mode: :default
 
       # config/test.exs
@@ -416,8 +416,9 @@ defmodule ClaudeCode.Options do
     name: [type: :atom, doc: "Process name for the session"],
     stream_timeout: [
       type: :timeout,
-      default: 300_000,
-      doc: "Max time in ms to wait for the next message on the stream. Resets on each message."
+      default: :infinity,
+      doc:
+        "Max time in ms to wait for the next message on the stream. Resets on each message. Accepts a positive integer or :infinity."
     ],
     timeout: [
       type: :timeout,
@@ -425,9 +426,8 @@ defmodule ClaudeCode.Options do
     ],
     request_timeout: [
       type: :timeout,
-      default: 300_000,
-      doc:
-        "Wall-clock timeout in ms for the entire request from start to finish. Increase for long-running agentic tasks."
+      default: :infinity,
+      doc: "Wall-clock timeout for the entire request from start to finish. Accepts a positive integer (ms) or :infinity."
     ],
     cli_path: [
       type: {:or, [{:in, [:bundled, :global]}, :string]},
@@ -783,10 +783,10 @@ defmodule ClaudeCode.Options do
   ## Examples
 
       iex> ClaudeCode.Options.validate_session_options([api_key: "sk-test"])
-      {:ok, [api_key: "sk-test", stream_timeout: 300_000, request_timeout: 300_000]}
+      {:ok, [api_key: "sk-test", stream_timeout: :infinity, request_timeout: :infinity]}
 
       iex> ClaudeCode.Options.validate_session_options([])
-      {:ok, [stream_timeout: 300_000, request_timeout: 300_000]}
+      {:ok, [stream_timeout: :infinity, request_timeout: :infinity]}
   """
   def validate_session_options(opts) do
     validated =

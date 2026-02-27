@@ -35,7 +35,7 @@ defmodule ClaudeCode.Session do
     adapter_status: :provisioning
   ]
 
-  @default_request_timeout 300_000
+  @default_request_timeout :infinity
 
   # Request tracking structure
   defmodule Request do
@@ -438,6 +438,8 @@ defmodule ClaudeCode.Session do
       {:empty, empty} -> {Enum.reverse(acc), empty}
     end
   end
+
+  defp schedule_request_timeout(_request_id, :infinity), do: :ok
 
   defp schedule_request_timeout(request_id, timeout) do
     Process.send_after(self(), {:request_timeout, request_id}, timeout)

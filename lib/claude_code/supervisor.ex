@@ -70,7 +70,7 @@ defmodule ClaudeCode.Supervisor do
       # config/config.exs
       config :claude_code,
         model: "opus",
-        timeout: 300_000
+        stream_timeout: :infinity
 
       # Supervisor sessions automatically use app config
       {ClaudeCode.Supervisor, [
