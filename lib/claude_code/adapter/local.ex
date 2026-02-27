@@ -431,8 +431,8 @@ defmodule ClaudeCode.Adapter.Local do
     user_env = Keyword.get(session_options, :env, %{})
 
     System.get_env()
-    |> Map.merge(user_env)
     |> Map.merge(sdk_env_vars())
+    |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)
     |> maybe_put_file_checkpointing(session_options)
   end
