@@ -338,22 +338,21 @@ defmodule ClaudeCode.Adapter.LocalTest do
       assert env["CLAUDE_AGENT_SDK_VERSION"] == ClaudeCode.version()
     end
 
-    test "SDK vars override user env" do
-      # User cannot override SDK-required vars
+    test "user env overrides SDK vars" do
       env =
         Local.build_env(
           [
             env: %{
-              "CLAUDE_CODE_ENTRYPOINT" => "malicious",
+              "CLAUDE_CODE_ENTRYPOINT" => "custom-entrypoint",
               "CLAUDE_AGENT_SDK_VERSION" => "0.0.0"
             }
           ],
           nil
         )
 
-      # SDK vars win
-      assert env["CLAUDE_CODE_ENTRYPOINT"] == "sdk-ex"
-      assert env["CLAUDE_AGENT_SDK_VERSION"] == ClaudeCode.version()
+      # User env wins over SDK defaults
+      assert env["CLAUDE_CODE_ENTRYPOINT"] == "custom-entrypoint"
+      assert env["CLAUDE_AGENT_SDK_VERSION"] == "0.0.0"
     end
 
     test "api_key overrides ANTHROPIC_API_KEY from system" do
