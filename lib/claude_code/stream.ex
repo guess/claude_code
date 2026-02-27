@@ -395,11 +395,8 @@ defmodule ClaudeCode.Stream do
   def collect(stream) do
     initial = %{
       text: [],
-      # Map of tool_use_id => ToolUseBlock for pairing
       tool_use_map: %{},
-      # Ordered list of tool_use_ids to preserve order
       tool_use_order: [],
-      # Map of tool_use_id => ToolResultBlock
       tool_result_map: %{},
       thinking: [],
       result: nil,
@@ -414,32 +411,23 @@ defmodule ClaudeCode.Stream do
     stream
     |> Enum.reduce(initial, fn
       %Message.AssistantMessage{message: message}, acc ->
-        {text, thinking, tools} = extract_content_parts(message.content)
-
-        # Track tool uses by ID
-        {tool_use_map, tool_use_order} =
-          Enum.reduce(tools, {acc.tool_use_map, acc.tool_use_order}, fn tool, {map, order} ->
-            {Map.put(map, tool.id, tool), order ++ [tool.id]}
-          end)
+        %{texts: texts, thinking: thinking, tools: tools} = extract_content_parts(message.content)
 
         %{
           acc
-          | text: acc.text ++ text,
-            thinking: acc.thinking ++ thinking,
-            tool_use_map: tool_use_map,
-            tool_use_order: tool_use_order
+          | text: texts ++ acc.text,
+            thinking: thinking ++ acc.thinking,
+            tool_use_map: Map.merge(acc.tool_use_map, Map.new(tools, &{&1.id, &1})),
+            tool_use_order: Enum.map(tools, & &1.id) ++ acc.tool_use_order
         }
 
       %Message.UserMessage{message: message}, acc ->
-        # Extract tool results and index by tool_use_id
         tool_result_map =
           message.content
           |> Enum.filter(&match?(%Content.ToolResultBlock{}, &1))
-          |> Enum.reduce(acc.tool_result_map, fn result, map ->
-            Map.put(map, result.tool_use_id, result)
-          end)
+          |> Map.new(&{&1.tool_use_id, &1})
 
-        %{acc | tool_result_map: tool_result_map}
+        %{acc | tool_result_map: Map.merge(acc.tool_result_map, tool_result_map)}
 
       %Message.ResultMessage{} = result_msg, acc ->
         %{
@@ -456,28 +444,7 @@ defmodule ClaudeCode.Stream do
       _, acc ->
         acc
     end)
-    |> then(fn acc ->
-      # Pair tool uses with their results in order
-      tool_calls =
-        Enum.map(acc.tool_use_order, fn id ->
-          tool_use = Map.fetch!(acc.tool_use_map, id)
-          tool_result = Map.get(acc.tool_result_map, id)
-          {tool_use, tool_result}
-        end)
-
-      %{
-        text: Enum.join(acc.text),
-        tool_calls: tool_calls,
-        thinking: Enum.join(acc.thinking),
-        result: acc.result,
-        is_error: acc.is_error,
-        session_id: acc.session_id,
-        usage: acc.usage,
-        total_cost_usd: acc.total_cost_usd,
-        stop_reason: acc.stop_reason,
-        num_turns: acc.num_turns
-      }
-    end)
+    |> finalize_summary()
   end
 
   @doc """
@@ -569,8 +536,6 @@ defmodule ClaudeCode.Stream do
 
   # Private functions
 
-  # Remove init_stream as it's no longer needed
-
   defp next_message(%{done: true} = state) do
     {:halt, state}
   end
@@ -657,16 +622,38 @@ defmodule ClaudeCode.Stream do
 
   defp message_type_matches?(_, _), do: false
 
+  defp finalize_summary(acc) do
+    tool_calls =
+      acc.tool_use_order
+      |> Enum.reverse()
+      |> Enum.map(fn id ->
+        {Map.fetch!(acc.tool_use_map, id), Map.get(acc.tool_result_map, id)}
+      end)
+
+    %{
+      text: acc.text |> Enum.reverse() |> Enum.join(),
+      tool_calls: tool_calls,
+      thinking: acc.thinking |> Enum.reverse() |> Enum.join(),
+      result: acc.result,
+      is_error: acc.is_error,
+      session_id: acc.session_id,
+      usage: acc.usage,
+      total_cost_usd: acc.total_cost_usd,
+      stop_reason: acc.stop_reason,
+      num_turns: acc.num_turns
+    }
+  end
+
   defp extract_content_parts(content) do
-    Enum.reduce(content, {[], [], []}, fn
-      %Content.TextBlock{text: text}, {texts, thinking, tools} ->
-        {texts ++ [text], thinking, tools}
+    Enum.reduce(content, %{texts: [], thinking: [], tools: []}, fn
+      %Content.TextBlock{text: text}, acc ->
+        %{acc | texts: [text | acc.texts]}
 
-      %Content.ThinkingBlock{thinking: thought}, {texts, thinking, tools} ->
-        {texts, thinking ++ [thought], tools}
+      %Content.ThinkingBlock{thinking: thought}, acc ->
+        %{acc | thinking: [thought | acc.thinking]}
 
-      %Content.ToolUseBlock{} = tool, {texts, thinking, tools} ->
-        {texts, thinking, tools ++ [tool]}
+      %Content.ToolUseBlock{} = tool, acc ->
+        %{acc | tools: [tool | acc.tools]}
 
       _, acc ->
         acc
