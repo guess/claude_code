@@ -13,7 +13,9 @@ defmodule ClaudeCode.Message.UserMessage do
     message: MessageParam,  # from Anthropic SDK
     session_id: string,
     parent_tool_use_id?: string | null,
-    tool_use_result?: object | null  # Rich metadata about the tool result
+    tool_use_result?: object | null,  # Rich metadata about the tool result
+    isSynthetic?: boolean,            # Whether this is a synthetic message
+    isReplay?: boolean                # Whether this is a replayed message
   }
   ```
   """
@@ -28,7 +30,9 @@ defmodule ClaudeCode.Message.UserMessage do
     :session_id,
     :uuid,
     :parent_tool_use_id,
-    :tool_use_result
+    :tool_use_result,
+    :is_synthetic,
+    :is_replay
   ]
 
   @type t :: %__MODULE__{
@@ -37,7 +41,9 @@ defmodule ClaudeCode.Message.UserMessage do
           session_id: Types.session_id(),
           uuid: String.t() | nil,
           parent_tool_use_id: String.t() | nil,
-          tool_use_result: map() | String.t() | nil
+          tool_use_result: map() | String.t() | nil,
+          is_synthetic: boolean() | nil,
+          is_replay: boolean() | nil
         }
 
   @doc """
@@ -83,7 +89,9 @@ defmodule ClaudeCode.Message.UserMessage do
           session_id: parent_json["session_id"],
           uuid: parent_json["uuid"],
           parent_tool_use_id: parent_json["parent_tool_use_id"],
-          tool_use_result: parent_json["tool_use_result"]
+          tool_use_result: parent_json["tool_use_result"],
+          is_synthetic: parent_json["isSynthetic"],
+          is_replay: parent_json["isReplay"]
         }
 
         {:ok, message_struct}

@@ -12,10 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **All subagent frontmatter fields on `ClaudeCode.Agent`** — Added `disallowed_tools`, `permission_mode`, `max_turns`, `skills`, `mcp_servers`, `hooks`, `memory`, `background`, and `isolation` fields. Uses existing `ClaudeCode.Types.permission_mode()` atoms and new atom types for `memory` (`:user | :project | :local`) and `isolation` (`:worktree`). Also adds `agent/1` test factory to `ClaudeCode.Test.Factory`. ([1e2fb95])
 - **Result metadata in `ClaudeCode.Stream.collect/1`** — The summary map now includes `session_id`, `usage`, `total_cost_usd`, `stop_reason`, and `num_turns` from the result message, so callers can track costs, resume sessions, and understand why a conversation ended. ([7444177])
 - **`replay_user_messages` option** — Support the `--replay-user-messages` CLI flag which re-emits user messages from stdin back on stdout, useful for synchronization in bidirectional streaming conversations. ([caf6c1d])
+- **`is_replay` and `is_synthetic` fields on `ClaudeCode.Message.UserMessage`** — Track whether a user message is a replay or synthetic message from the CLI. Both fields default to `nil`.
 
 ### Changed
 
+- **Bundled CLI version bumped to 2.1.62** — Updated from 2.1.59 to 2.1.62.
 - **Removed `:request_timeout`, renamed `:stream_timeout` back to `:timeout`** — Since `:request_timeout` has been removed (use `Task.yield` for wall-clock caps externally), there's only one timeout again, so the simpler `:timeout` name is restored. Default remains `:infinity`. The `:stream_timeout` and `:request_timeout` options are no longer accepted.
+- **`:max_output_tokens` in `ClaudeCode.Message.AssistantMessage` error type** — Added explicit typespec entry and match clause for the `max_output_tokens` error, previously handled by a catch-all.
 
 ### Fixed
 

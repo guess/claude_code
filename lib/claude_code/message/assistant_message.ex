@@ -14,7 +14,8 @@ defmodule ClaudeCode.Message.AssistantMessage do
     session_id: string,
     parent_tool_use_id?: string | null,
     error?: "authentication_failed" | "billing_error" | "rate_limit"
-            | "invalid_request" | "server_error" | "unknown" | null
+            | "invalid_request" | "server_error" | "max_output_tokens"
+            | "unknown" | null
   }
   ```
   """
@@ -42,6 +43,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
           | :rate_limit
           | :invalid_request
           | :server_error
+          | :max_output_tokens
           | :unknown
 
   @type t :: %__MODULE__{
@@ -156,6 +158,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
   defp parse_error("rate_limit"), do: :rate_limit
   defp parse_error("invalid_request"), do: :invalid_request
   defp parse_error("server_error"), do: :server_error
+  defp parse_error("max_output_tokens"), do: :max_output_tokens
   defp parse_error("unknown"), do: :unknown
   defp parse_error(other) when is_binary(other), do: String.to_atom(other)
 end

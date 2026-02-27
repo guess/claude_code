@@ -180,6 +180,39 @@ defmodule ClaudeCode.Message.UserMessageTest do
     end
   end
 
+  describe "is_replay and is_synthetic fields" do
+    test "parses is_replay from JSON" do
+      json = Map.put(valid_user_json(), "isReplay", true)
+
+      assert {:ok, message} = UserMessage.new(json)
+      assert message.is_replay == true
+    end
+
+    test "parses is_synthetic from JSON" do
+      json = Map.put(valid_user_json(), "isSynthetic", true)
+
+      assert {:ok, message} = UserMessage.new(json)
+      assert message.is_synthetic == true
+    end
+
+    test "is_replay and is_synthetic default to nil" do
+      assert {:ok, message} = UserMessage.new(valid_user_json())
+      assert message.is_replay == nil
+      assert message.is_synthetic == nil
+    end
+
+    test "parses replayed user message with both flags" do
+      json =
+        valid_user_json()
+        |> Map.put("isReplay", true)
+        |> Map.put("isSynthetic", false)
+
+      assert {:ok, message} = UserMessage.new(json)
+      assert message.is_replay == true
+      assert message.is_synthetic == false
+    end
+  end
+
   defp valid_user_json do
     %{
       "type" => "user",

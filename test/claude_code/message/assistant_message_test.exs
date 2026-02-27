@@ -240,6 +240,36 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
     end
   end
 
+  describe "error field" do
+    test "parses max_output_tokens error" do
+      json = Map.put(valid_assistant_json(), "error", "max_output_tokens")
+
+      assert {:ok, message} = AssistantMessage.new(json)
+      assert message.error == :max_output_tokens
+    end
+
+    test "parses known error types" do
+      for {error_str, error_atom} <- [
+            {"authentication_failed", :authentication_failed},
+            {"billing_error", :billing_error},
+            {"rate_limit", :rate_limit},
+            {"invalid_request", :invalid_request},
+            {"server_error", :server_error},
+            {"unknown", :unknown},
+            {"max_output_tokens", :max_output_tokens}
+          ] do
+        json = Map.put(valid_assistant_json(), "error", error_str)
+        assert {:ok, message} = AssistantMessage.new(json)
+        assert message.error == error_atom
+      end
+    end
+
+    test "error defaults to nil" do
+      assert {:ok, message} = AssistantMessage.new(valid_assistant_json())
+      assert message.error == nil
+    end
+  end
+
   describe "usage fields" do
     test "parses inference_geo from usage" do
       json = valid_assistant_json()
