@@ -35,8 +35,6 @@ defmodule ClaudeCode.Session do
     adapter_status: :provisioning
   ]
 
-  @default_request_timeout :infinity
-
   # Request tracking structure
   defmodule Request do
     @moduledoc false
@@ -257,25 +255,6 @@ defmodule ClaudeCode.Session do
     end
   end
 
-  def handle_info({:request_timeout, request_id}, state) do
-    case Map.get(state.requests, request_id) do
-      nil ->
-        {:noreply, state}
-
-      request when request.status == :active ->
-        elapsed =
-          System.monotonic_time(:millisecond) - System.convert_time_unit(request.created_at, :native, :millisecond)
-
-        Logger.warning("Request #{inspect(request_id)} timed out after #{elapsed}ms")
-        notify_error(request, :timeout)
-        new_requests = Map.put(state.requests, request_id, %{request | status: :completed})
-        {:noreply, %{state | requests: new_requests}}
-
-      _completed ->
-        {:noreply, state}
-    end
-  end
-
   def handle_info({:adapter_control_request, request_id, request}, state) do
     Logger.warning("Received unhandled control request from adapter: #{inspect(request)} (#{request_id})")
 
@@ -375,8 +354,6 @@ defmodule ClaudeCode.Session do
            query_opts
          ) do
       :ok ->
-        request_timeout = Keyword.get(merged_opts, :request_timeout, @default_request_timeout)
-        schedule_request_timeout(request.id, request_timeout)
         {:ok, %{state | requests: Map.put(state.requests, request.id, request)}}
 
       {:error, reason} ->
@@ -437,12 +414,6 @@ defmodule ClaudeCode.Session do
       {{:value, item}, rest} -> drain_queue(rest, [item | acc])
       {:empty, empty} -> {Enum.reverse(acc), empty}
     end
-  end
-
-  defp schedule_request_timeout(_request_id, :infinity), do: :ok
-
-  defp schedule_request_timeout(request_id, timeout) do
-    Process.send_after(self(), {:request_timeout, request_id}, timeout)
   end
 
   # ============================================================================

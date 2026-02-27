@@ -44,7 +44,7 @@ defmodule ClaudeCode.CLI.Command do
   @doc """
   Converts Elixir options to CLI arguments.
 
-  Ignores internal options like :api_key, :name, :stream_timeout, and :request_timeout that are not CLI flags.
+  Ignores internal options like :api_key, :name, and :timeout that are not CLI flags.
 
   ## Examples
 
@@ -76,8 +76,6 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:api_key, _value), do: nil
   defp convert_option(:name, _value), do: nil
   defp convert_option(:timeout, _value), do: nil
-  defp convert_option(:stream_timeout, _value), do: nil
-  defp convert_option(:request_timeout, _value), do: nil
   # :can_use_tool triggers --permission-prompt-tool stdio; the callback itself
   # is handled by the adapter, not passed as a CLI flag
   defp convert_option(:can_use_tool, nil), do: nil

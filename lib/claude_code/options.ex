@@ -16,13 +16,13 @@ defmodule ClaudeCode.Options do
   4. **Default values** — built-in defaults
 
       # Application config (lowest priority)
-      config :claude_code, stream_timeout: 300_000
+      config :claude_code, timeout: 300_000
 
       # Session-level overrides app config
-      {:ok, session} = ClaudeCode.start_link(stream_timeout: 120_000)
+      {:ok, session} = ClaudeCode.start_link(timeout: 120_000)
 
       # Query-level overrides session
-      ClaudeCode.stream(session, "Hello", stream_timeout: 60_000)
+      ClaudeCode.stream(session, "Hello", timeout: 60_000)
 
   ## Session Options
 
@@ -53,11 +53,9 @@ defmodule ClaudeCode.Options do
 
   ### Timeouts
 
-  | Option            | Type    | Default | Description                                           |
-  | ----------------- | ------- | ------- | ----------------------------------------------------- |
-  | `stream_timeout`  | timeout | :infinity | Max wait for next message on the stream (ms or :infinity) |
-  | `request_timeout` | timeout | :infinity | Wall-clock timeout for entire request start-to-finish     |
-  | `timeout`         | timeout | -         | Deprecated alias for `stream_timeout`                     |
+  | Option    | Type    | Default   | Description                                                   |
+  | --------- | ------- | --------- | ------------------------------------------------------------- |
+  | `timeout` | timeout | :infinity | Max wait for next message on the stream (ms or :infinity)     |
 
   ### Tool Control
 
@@ -92,9 +90,7 @@ defmodule ClaudeCode.Options do
 
   | Option                     | Type    | Description                             |
   | -------------------------- | ------- | --------------------------------------- |
-  | `stream_timeout`           | timeout | Override stream timeout                 |
-  | `request_timeout`          | timeout | Override wall-clock request timeout     |
-  | `timeout`                  | timeout | Deprecated alias for `stream_timeout`   |
+  | `timeout`                  | timeout | Override stream timeout                 |
   | `system_prompt`            | string  | Override system prompt for this query   |
   | `append_system_prompt`     | string  | Append to system prompt                 |
   | `max_turns`                | integer | Limit turns for this query              |
@@ -164,18 +160,18 @@ defmodule ClaudeCode.Options do
 
       # config/dev.exs
       config :claude_code,
-        stream_timeout: 60_000,
+        timeout: 60_000,
         permission_mode: :accept_edits
 
       # config/prod.exs
       config :claude_code,
-        stream_timeout: :infinity,
+        timeout: :infinity,
         permission_mode: :default
 
       # config/test.exs
       config :claude_code,
         api_key: "test-key",
-        stream_timeout: 5_000
+        timeout: 5_000
 
   ## Model Selection
 
@@ -394,8 +390,8 @@ defmodule ClaudeCode.Options do
 
   Invalid options raise descriptive errors:
 
-      {:ok, session} = ClaudeCode.start_link(stream_timeout: "not a number")
-      # => ** (NimbleOptions.ValidationError) invalid value for :stream_timeout option:
+      {:ok, session} = ClaudeCode.start_link(timeout: "not a number")
+      # => ** (NimbleOptions.ValidationError) invalid value for :timeout option:
       #       expected positive integer, got: "not a number"
 
   ## Security Considerations
@@ -414,20 +410,11 @@ defmodule ClaudeCode.Options do
     # Elixir-specific options
     api_key: [type: :string, doc: "Anthropic API key"],
     name: [type: :atom, doc: "Process name for the session"],
-    stream_timeout: [
+    timeout: [
       type: :timeout,
       default: :infinity,
       doc:
         "Max time in ms to wait for the next message on the stream. Resets on each message. Accepts a positive integer or :infinity."
-    ],
-    timeout: [
-      type: :timeout,
-      doc: "Deprecated: use :stream_timeout instead. Alias for :stream_timeout."
-    ],
-    request_timeout: [
-      type: :timeout,
-      default: :infinity,
-      doc: "Wall-clock timeout for the entire request from start to finish. Accepts a positive integer (ms) or :infinity."
     ],
     cli_path: [
       type: {:or, [{:in, [:bundled, :global]}, :string]},
@@ -717,12 +704,7 @@ defmodule ClaudeCode.Options do
       doc: "Only use MCP servers from mcp_config/mcp_servers, ignoring global MCP configurations"
     ],
     cwd: [type: :string, doc: "Override working directory for this query"],
-    stream_timeout: [type: :timeout, doc: "Override stream timeout for this query"],
-    timeout: [type: :timeout, doc: "Deprecated: use :stream_timeout instead."],
-    request_timeout: [
-      type: :timeout,
-      doc: "Override wall-clock request timeout for this query"
-    ],
+    timeout: [type: :timeout, doc: "Override stream timeout for this query"],
     permission_mode: [
       type: {:in, [:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan]},
       doc: "Override permission mode for this query"
@@ -783,21 +765,20 @@ defmodule ClaudeCode.Options do
   ## Examples
 
       iex> ClaudeCode.Options.validate_session_options([api_key: "sk-test"])
-      {:ok, [api_key: "sk-test", stream_timeout: :infinity, request_timeout: :infinity]}
+      {:ok, [api_key: "sk-test", timeout: :infinity]}
 
       iex> ClaudeCode.Options.validate_session_options([])
-      {:ok, [stream_timeout: :infinity, request_timeout: :infinity]}
+      {:ok, [timeout: :infinity]}
   """
   def validate_session_options(opts) do
     validated =
-      opts |> normalize_agents() |> NimbleOptions.validate!(@session_opts_schema) |> normalize_timeout()
+      opts |> normalize_agents() |> NimbleOptions.validate!(@session_opts_schema)
 
     if Keyword.get(validated, :can_use_tool) && Keyword.get(validated, :permission_prompt_tool) do
       raise ArgumentError,
             "cannot use both :can_use_tool and :permission_prompt_tool options together"
     end
 
-    warn_deprecated_timeout(validated)
     warn_deprecated_max_thinking_tokens(validated)
     {:ok, validated}
   rescue
@@ -810,15 +791,14 @@ defmodule ClaudeCode.Options do
 
   ## Examples
 
-      iex> ClaudeCode.Options.validate_query_options([stream_timeout: 60_000])
-      {:ok, [stream_timeout: 60_000]}
+      iex> ClaudeCode.Options.validate_query_options([timeout: 60_000])
+      {:ok, [timeout: 60_000]}
 
       iex> ClaudeCode.Options.validate_query_options([invalid: "option"])
       {:error, %NimbleOptions.ValidationError{}}
   """
   def validate_query_options(opts) do
-    validated = opts |> normalize_agents() |> NimbleOptions.validate!(@query_opts_schema) |> normalize_timeout()
-    warn_deprecated_timeout(validated)
+    validated = opts |> normalize_agents() |> NimbleOptions.validate!(@query_opts_schema)
     warn_deprecated_max_thinking_tokens(validated)
     {:ok, validated}
   rescue
@@ -890,23 +870,6 @@ defmodule ClaudeCode.Options do
       Logger.warning(
         ":max_thinking_tokens is deprecated, use thinking: :adaptive | :disabled | {:enabled, budget_tokens: N} instead"
       )
-    end
-  end
-
-  defp warn_deprecated_timeout(opts) do
-    if Keyword.has_key?(opts, :timeout) && !Keyword.has_key?(opts, :stream_timeout) do
-      Logger.warning(":timeout is deprecated, use :stream_timeout instead")
-    end
-  end
-
-  # Promote deprecated :timeout to :stream_timeout (if :stream_timeout not already set)
-  defp normalize_timeout(opts) do
-    case {Keyword.get(opts, :timeout), Keyword.get(opts, :stream_timeout)} do
-      {value, nil} when not is_nil(value) ->
-        opts |> Keyword.delete(:timeout) |> Keyword.put(:stream_timeout, value)
-
-      _ ->
-        Keyword.delete(opts, :timeout)
     end
   end
 

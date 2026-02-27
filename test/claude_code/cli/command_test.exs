@@ -55,13 +55,12 @@ defmodule ClaudeCode.CLI.CommandTest do
       args =
         Command.build_args(
           "hello",
-          [api_key: "sk-test", stream_timeout: 60_000, request_timeout: 300_000, name: :my_session],
+          [api_key: "sk-test", timeout: 60_000, name: :my_session],
           nil
         )
 
       refute "--api-key" in args
-      refute "--stream-timeout" in args
-      refute "--request-timeout" in args
+      refute "--timeout" in args
       refute "--name" in args
     end
   end
@@ -184,21 +183,19 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "/tmp" in args
     end
 
-    test "does not convert timeout options to CLI flags" do
-      args = Command.to_cli_args(stream_timeout: 120_000, request_timeout: 300_000)
-      refute "--stream-timeout" in args
-      refute "--request-timeout" in args
+    test "does not convert timeout to CLI flag" do
+      args = Command.to_cli_args(timeout: 120_000)
+      refute "--timeout" in args
       refute "120000" in args
-      refute "300000" in args
     end
 
-    test "ignores internal options (api_key, name, stream_timeout)" do
-      opts = [api_key: "sk-ant-test", name: :session, stream_timeout: 60_000, model: "opus"]
+    test "ignores internal options (api_key, name, timeout)" do
+      opts = [api_key: "sk-ant-test", name: :session, timeout: 60_000, model: "opus"]
 
       args = Command.to_cli_args(opts)
       refute "--api-key" in args
       refute "--name" in args
-      refute "--stream-timeout" in args
+      refute "--timeout" in args
       refute "sk-ant-test" in args
       refute ":session" in args
       refute "60000" in args

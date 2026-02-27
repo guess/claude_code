@@ -27,7 +27,7 @@ defmodule ClaudeCode.Stream do
 
   ## Options
 
-    * `:stream_timeout` - Maximum time to wait for each message (default: :infinity)
+    * `:timeout` - Maximum time to wait for each message (default: :infinity)
     * `:filter` - Message type filter (:all, :assistant, :tool_use, :result)
 
   ## Examples
@@ -51,7 +51,7 @@ defmodule ClaudeCode.Stream do
           opts: opts,
           initialized: false,
           request_ref: nil,
-          timeout: Keyword.get(opts, :stream_timeout, Keyword.get(opts, :timeout, :infinity)),
+          timeout: Keyword.get(opts, :timeout, :infinity),
           filter: Keyword.get(opts, :filter, :all),
           done: false
         }

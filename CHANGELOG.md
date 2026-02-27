@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Result metadata in `ClaudeCode.Stream.collect/1`** — The summary map now includes `session_id`, `usage`, `total_cost_usd`, `stop_reason`, and `num_turns` from the result message, so callers can track costs, resume sessions, and understand why a conversation ended. ([7444177])
 - **`replay_user_messages` option** — Support the `--replay-user-messages` CLI flag which re-emits user messages from stdin back on stdout, useful for synchronization in bidirectional streaming conversations. ([caf6c1d])
 
+### Changed
+
+- **Removed `:request_timeout`, renamed `:stream_timeout` back to `:timeout`** — Since `:request_timeout` has been removed (use `Task.yield` for wall-clock caps externally), there's only one timeout again, so the simpler `:timeout` name is restored. Default remains `:infinity`. The `:stream_timeout` and `:request_timeout` options are no longer accepted.
+
 ### Fixed
 
 - **Interrupt sent before closing port** — On terminate, the adapter now sends an interrupt control request to the CLI before closing the port, preventing continued API token consumption. ([3a93f43])
@@ -45,10 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Bundled CLI version bumped to 2.1.59** — Updated from 2.1.49 to 2.1.59.
 - **`--setting-sources` always sent** — The SDK now always sends `--setting-sources ""` when no setting sources are configured, matching the Python SDK behavior. This prevents unintended default setting source loading.
-
-### Deprecated
-
-- **`:timeout` option** — Use `:stream_timeout` instead. The old name continues to work but emits a deprecation warning.
 
 ## [0.23.0] - 2026-02-22 | CC 2.1.49
 
