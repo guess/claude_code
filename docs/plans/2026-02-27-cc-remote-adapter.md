@@ -230,6 +230,15 @@ When the WebSocket connection drops:
 
 This leverages CC's existing resume capability with no additional infrastructure.
 
+### Heartbeat
+
+The adapter sends a WebSocket ping every 30 seconds to prevent silent disconnects through proxies and load balancers (which typically kill idle connections after 30-60s). During long-running tool executions, no CC messages may flow for minutes — the heartbeat keeps the connection alive.
+
+- Adapter sends `Mint.WebSocket.encode(:ping)` every 30s via `Process.send_after` loop
+- Expects pong within 10s — if no pong, marks connection as degraded
+- Two consecutive missed pongs → treat as disconnect, trigger reconnection flow
+- Sidecar responds to pings automatically (standard WebSocket behavior, no custom handling needed)
+
 ---
 
 ## Component 2: `ClaudeCode.Sidecar`
@@ -254,6 +263,7 @@ All messages are JSON objects with a `type` field. Same NDJSON format as the loc
 | `init`      | `{protocol_version, session_opts, workspace_id, resume?}` | On connection. `protocol_version: 1`. Session opts: model, system_prompt, hooks, mcp_servers, max_turns, etc. Optional `resume: session_id` for reconnection. API key via env var on the runner, NOT in this message |
 | `query`     | `{request_id, prompt, opts}`    | Start a new query                                                                                                                             |
 | `control`   | `{request_id, subtype, params}` | Control request (model switch, etc.)                                                                                                          |
+| `control`   | `{request_id, subtype: "can_use_tool_response", allowed: bool}` | Response to `can_use_tool` forwarding (reserved, not implemented in v1)                                                                       |
 | `interrupt` | `{}`                            | Interrupt current query                                                                                                                       |
 | `stop`      | `{}`                            | End session, clean up                                                                                                                         |
 
@@ -265,6 +275,7 @@ All messages are JSON objects with a `type` field. Same NDJSON format as the loc
 | `message`          | `{request_id, message_json}`  | Each CC message (same JSON as local adapter NDJSON lines) |
 | `done`             | `{request_id, reason}`        | Query complete                                            |
 | `error`            | `{request_id, code, details}` | Error occurred                                            |
+| `control`          | `{request_id, subtype: "can_use_tool", tool_name, tool_input}` | Forwarded permission check from CC (reserved, not implemented in v1) |
 | `control_response` | `{request_id, response}`      | Response to control request                               |
 
 ### Session Management — Adapter.Local Bridge
@@ -322,7 +333,10 @@ Hooks run **on the sidecar** (the remote server), not on the host. The hook conf
 - Workspace directory created on first use, persists across sessions
 - Git initialized automatically. Snapshot before/after each session via hooks
 - Workspace ID passed in the `init` message (typically the agent's xid)
-- Old workspaces cleaned up by a periodic job or manual admin action
+- Old workspaces cleaned up by the operator — this is an ops concern, not an SDK responsibility. Cleanup policy varies by use case: some agents need workspaces to persist for weeks, others can be cleaned after every session. Options:
+  - Cron job: `find /workspaces -maxdepth 1 -atime +7 -exec rm -rf {} \;`
+  - Post-session hook that deletes the workspace if the host signals it's disposable
+  - The sidecar does NOT auto-delete workspaces — explicit cleanup prevents accidental data loss
 
 ### Sandbox (Bubblewrap)
 
@@ -350,6 +364,8 @@ The sidecar validates connections via a shared auth token:
 - Host sends token in WebSocket handshake: `Authorization: Bearer <token>`
 - Invalid token → connection rejected
 
+This single shared token is appropriate for single-tenant deployments (one host application, one runner). For multi-tenant scenarios where multiple applications or teams share a runner, place an authenticating reverse proxy (e.g., nginx with per-client certificates, or an API gateway with scoped tokens) in front of the sidecar rather than building multi-tenant auth into the sidecar itself.
+
 ### Configuration
 
 The sidecar app has minimal config:
@@ -357,9 +373,13 @@ The sidecar app has minimal config:
 ```elixir
 config :claude_code_sidecar,
   port: 4040,
-  workspaces_root: "/workspaces"
+  workspaces_root: "/workspaces",
+  max_concurrent_sessions: 20,
+  session_idle_timeout_ms: 600_000  # 10 min — kill sessions with no query activity
   # API key set via ANTHROPIC_API_KEY env var (NOT passed over WebSocket)
 ```
+
+The sidecar rejects new WebSocket connections with HTTP 503 when `max_concurrent_sessions` is reached. The idle timeout kills sessions that haven't sent a query in the configured window — this protects against leaked connections and runaway clients. The timeout resets on each `query` message, not on heartbeat pings.
 
 ---
 
@@ -410,6 +430,15 @@ qultr-api (Server A)  ──WSS──▶  Agent Runner (Server B:4040)
 - Server A needs outbound WSS to Server B:4040
 - Server B exposes only port 4040 (sidecar WebSocket)
 
+### Scaling
+
+The v1 architecture assumes a single sidecar instance. Workspaces live on local disk, so sessions are sticky to a specific server. This is fine for most use cases — a single server with adequate CPU/RAM handles many concurrent CC sessions, since the heavy compute happens on Anthropic's API, not locally.
+
+For horizontal scaling, standard approaches apply:
+- **Shared storage** (NFS/EFS) for workspace directories, allowing any sidecar instance to serve any workspace
+- **Session-affinity load balancing** at the WebSocket layer (e.g., consistent hashing on `workspace_id`)
+- These are deployment-level concerns, not SDK changes
+
 ### MCP Tools in Remote Context
 
 The CC session on the agent runner needs to call the host's MCP tools (e.g. qultr-api's docs, api, messages). Two options:
@@ -436,9 +465,9 @@ Features that work differently or are unavailable in remote mode:
 | ------- | ------ | ------ |
 | Elixir function hooks | Not supported | Closures and module callbacks cannot be serialized over WebSocket. Use shell command hooks or webhook handlers instead |
 | SDK MCP servers (in-process) | Not supported | Elixir MCP server modules must be loaded in the BEAM. The sidecar doesn't have the host application's code. Use HTTP/SSE MCP servers that the sidecar can reach over the network |
-| `can_use_tool` callback | Not supported | Requires an Elixir function. Use `permission_mode: :bypass_permissions` or `permission_mode: :plan` on the sidecar instead |
+| `can_use_tool` callback | Not supported (v1) | Requires an Elixir function. Protocol slot reserved for WebSocket-based forwarding in a future version. For v1, use `permission_mode: :bypass_permissions` or `permission_mode: :plan` on the sidecar instead |
 
-These limitations arise from the fundamental constraint that Elixir functions cannot be serialized and transmitted over the wire. Future versions could add WebSocket-based forwarding for `can_use_tool` and `mcp_message` control requests if needed.
+These limitations arise from the fundamental constraint that Elixir functions cannot be serialized and transmitted over the wire. The protocol reserves a `can_use_tool` control envelope subtype for future WebSocket-based forwarding — when implemented, the sidecar would forward CC's permission check to the host over the WebSocket, the host would evaluate its `can_use_tool` callback locally, and return the decision. This avoids a protocol version bump when the feature ships.
 
 ---
 

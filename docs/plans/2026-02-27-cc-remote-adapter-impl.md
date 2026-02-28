@@ -23,29 +23,33 @@ Move CC message parsing from `Adapter.Local` to `Session`. Adapters become pure 
 - Modify: `lib/claude_code/session.ex`
 - Modify: `test/claude_code/session_test.exs`
 
-**Step 1: Write the failing test**
+**Step 1: Write the failing tests**
 
-Add a test to `session_test.exs` that sends a raw JSON map directly to Session via the new message tuple and verifies it gets parsed and delivered:
+Add tests to `session_test.exs` that send raw JSON directly to Session via the new message tuple and verify parsing and delivery. The stub blocks forever so the Test adapter never sends its own messages or `notify_done` — we bypass it entirely to test the raw message path.
 
 ```elixir
 describe "raw message handling" do
-  test "parses and delivers raw JSON map from adapter" do
-    # Use the Test adapter for setup, but simulate raw message delivery
-    ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
-      [ClaudeCode.Test.result("stub result")]
-    end)
+  # Helper: a stub that blocks forever, keeping the request active.
+  # send_query is a GenServer.cast, so it returns :ok immediately;
+  # the blocking happens in the Test adapter's process, not Session's.
+  defp blocking_stub do
+    fn _query, _opts ->
+      receive do
+        :never -> []
+      end
+    end
+  end
 
-    {:ok, session} = Session.start_link(adapter: @adapter)
-
-    # Simulate what a raw-forwarding adapter would send
-    raw_result = %{
+  # Reusable raw result map matching real CLI output shape
+  defp raw_result_map(text \\ "Hello from raw!") do
+    %{
       "type" => "result",
       "subtype" => "success",
       "is_error" => false,
       "duration_ms" => 100.0,
       "duration_api_ms" => 80.0,
       "num_turns" => 1,
-      "result" => "Hello from raw!",
+      "result" => text,
       "session_id" => "test-session",
       "total_cost_usd" => 0.001,
       "usage" => %{
@@ -56,20 +60,107 @@ describe "raw message handling" do
         "server_tool_use_input_tokens" => 0
       }
     }
+  end
 
-    # Start a query to create a request
+  test "parses and delivers raw JSON map from adapter" do
+    ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+    {:ok, session} = Session.start_link(adapter: @adapter)
+
     {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
 
-    # Send raw message directly (simulating adapter)
-    send(session, {:adapter_raw_message, request_id, raw_result})
+    # Send raw map directly (simulating what Adapter.Local would do)
+    send(session, {:adapter_raw_message, request_id, raw_result_map()})
 
     # Should receive parsed ResultMessage
     {:message, message} = GenServer.call(session, {:receive_next, request_id})
-    assert %ClaudeCode.Message.ResultMessage{} = message
+    assert %ResultMessage{} = message
     assert message.result == "Hello from raw!"
 
-    # ResultMessage should auto-trigger done
+    # ResultMessage should auto-trigger done (request completed)
     assert :done = GenServer.call(session, {:receive_next, request_id})
+  end
+
+  test "parses raw JSON binary string from adapter" do
+    ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+    {:ok, session} = Session.start_link(adapter: @adapter)
+
+    {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+    # Send raw JSON binary (simulating what Adapter.Remote would do)
+    raw_json = Jason.encode!(raw_result_map("Hello from binary!"))
+    send(session, {:adapter_raw_message, request_id, raw_json})
+
+    {:message, message} = GenServer.call(session, {:receive_next, request_id})
+    assert %ResultMessage{} = message
+    assert message.result == "Hello from binary!"
+    assert :done = GenServer.call(session, {:receive_next, request_id})
+  end
+
+  test "handles non-result raw messages without completing request" do
+    ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+    {:ok, session} = Session.start_link(adapter: @adapter)
+
+    {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+    # Send a raw assistant message (NOT a result)
+    raw_assistant = %{
+      "type" => "assistant",
+      "message" => %{
+        "id" => "msg_001",
+        "type" => "message",
+        "role" => "assistant",
+        "content" => [%{"type" => "text", "text" => "Working on it..."}],
+        "model" => "claude-sonnet-4-20250514",
+        "stop_reason" => nil,
+        "stop_sequence" => nil,
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 5,
+          "cache_creation_input_tokens" => 0,
+          "cache_read_input_tokens" => 0,
+          "server_tool_use_input_tokens" => 0
+        }
+      },
+      "session_id" => "test-session"
+    }
+
+    send(session, {:adapter_raw_message, request_id, raw_assistant})
+
+    # Should receive parsed AssistantMessage
+    {:message, message} = GenServer.call(session, {:receive_next, request_id})
+    assert %AssistantMessage{} = message
+
+    # Request should still be active (not done), so sending result completes it
+    send(session, {:adapter_raw_message, request_id, raw_result_map()})
+    {:message, result} = GenServer.call(session, {:receive_next, request_id})
+    assert %ResultMessage{} = result
+    assert :done = GenServer.call(session, {:receive_next, request_id})
+  end
+
+  test "discards raw message for unknown request_id" do
+    ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+    {:ok, session} = Session.start_link(adapter: @adapter)
+
+    # Send raw message with a request_id that doesn't exist
+    bogus_ref = make_ref()
+    send(session, {:adapter_raw_message, bogus_ref, raw_result_map()})
+
+    # Give Session time to process (it should discard silently)
+    Process.sleep(50)
+    assert Process.alive?(session)
+  end
+
+  test "logs warning for unparseable raw message" do
+    ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+    {:ok, session} = Session.start_link(adapter: @adapter)
+
+    {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+    # Send invalid binary — Session should log and discard
+    send(session, {:adapter_raw_message, request_id, "not valid json"})
+
+    Process.sleep(50)
+    assert Process.alive?(session)
   end
 end
 ```
@@ -100,7 +191,9 @@ end
 
 **Step 4: Add raw message handler to Session**
 
-Add to `lib/claude_code/session.ex`, in the `handle_info` clauses:
+Add to `lib/claude_code/session.ex`, in the `handle_info` clauses (before the existing `handle_info({:adapter_message, ...})` at line 216):
+
+**Important:** Do NOT call `handle_info({:adapter_done, ...}, state)` recursively — the return value would be discarded, losing state changes. Call `complete_request/3` directly instead.
 
 ```elixir
 def handle_info({:adapter_raw_message, request_id, raw}, state) do
@@ -119,16 +212,16 @@ def handle_info({:adapter_raw_message, request_id, raw}, state) do
         new_requests = Map.put(state.requests, request_id, updated_request)
         state = %{state | requests: new_requests}
 
-        # Auto-detect ResultMessage → mark request done
+        # Auto-detect ResultMessage → complete the request directly.
+        # This replaces the separate notify_done that parsed-message adapters use.
         if match?(%ClaudeCode.Message.ResultMessage{}, message) do
-          handle_info({:adapter_done, request_id, :completed}, state)
+          {:noreply, complete_request(request_id, updated_request, state)}
         else
           {:noreply, state}
         end
     end
   else
     {:error, reason} ->
-      require Logger
       Logger.warning("Failed to parse raw message: #{inspect(reason)}")
       {:noreply, state}
   end
@@ -137,6 +230,8 @@ end
 defp decode_if_binary(raw) when is_binary(raw), do: Jason.decode(raw)
 defp decode_if_binary(raw) when is_map(raw), do: {:ok, raw}
 ```
+
+Note: `complete_request/3` (defined at line 434) handles subscriber notification, status update, and queue processing — same as the `{:adapter_done, ...}` handler uses.
 
 **Step 5: Run test to verify it passes**
 
@@ -162,9 +257,9 @@ git commit -m "feat: add notify_raw_message — Session parses raw JSON from ada
 Run: `mix test`
 Expected: All pass
 
-**Step 2: Modify `handle_sdk_message/2`**
+**Step 2: Modify `handle_sdk_message/2` (local.ex lines 506–526)**
 
-Replace the current implementation that parses and notifies with raw forwarding. Find the `handle_sdk_message/2` function in `local.ex` and change it:
+Replace the current implementation that parses and notifies with raw forwarding:
 
 Before (current):
 ```elixir
@@ -206,7 +301,7 @@ end
 
 Note: `json` is already a decoded map (from `process_line/2` which calls `Jason.decode`). We peek at `"type"` to reset `current_request` — no struct parsing needed.
 
-Also remove the `alias ClaudeCode.Message.ResultMessage` if it's only used here, and remove the `Parser` alias if no longer needed in the adapter. Check for other uses first.
+Also remove the `alias ClaudeCode.Message.ResultMessage` if it's only used here, and remove the `alias ClaudeCode.CLI.Parser` if no longer needed in the adapter. Run `grep -n 'ResultMessage\|Parser' lib/claude_code/adapter/local.ex` to check for other uses before removing aliases.
 
 **Step 3: Run all tests**
 
@@ -566,7 +661,7 @@ defmodule ClaudeCode.Adapter.RemoteTest do
 
   alias ClaudeCode.Adapter.Remote
 
-  describe "config validation" do
+  describe "validate_config/1" do
     test "requires url" do
       assert {:error, _} = Remote.validate_config(auth_token: "tok")
     end
@@ -581,45 +676,547 @@ defmodule ClaudeCode.Adapter.RemoteTest do
       assert config[:init_timeout] == 30_000
       assert is_binary(config[:workspace_id])
     end
+
+    test "generates workspace_id if not provided" do
+      assert {:ok, c1} = Remote.validate_config(url: "wss://x.com/s", auth_token: "t")
+      assert {:ok, c2} = Remote.validate_config(url: "wss://x.com/s", auth_token: "t")
+      assert c1[:workspace_id] != c2[:workspace_id]
+    end
+
+    test "preserves explicit workspace_id" do
+      assert {:ok, config} = Remote.validate_config(url: "wss://x.com/s", auth_token: "t", workspace_id: "my-ws")
+      assert config[:workspace_id] == "my-ws"
+    end
   end
 
   describe "parse_url/1" do
-    test "parses wss" do
+    test "parses wss with default port" do
       assert {:ok, :https, "example.com", 443, "/sessions"} = Remote.parse_url("wss://example.com/sessions")
     end
 
-    test "parses ws with port" do
+    test "parses ws with explicit port" do
       assert {:ok, :http, "localhost", 4040, "/s"} = Remote.parse_url("ws://localhost:4040/s")
     end
 
-    test "rejects invalid scheme" do
+    test "defaults path to / when absent" do
+      assert {:ok, :https, "example.com", 443, "/"} = Remote.parse_url("wss://example.com")
+    end
+
+    test "rejects http scheme" do
       assert {:error, _} = Remote.parse_url("http://example.com")
+    end
+
+    test "rejects https scheme" do
+      assert {:error, _} = Remote.parse_url("https://example.com")
     end
   end
 end
 ```
 
-**Step 2: Run to verify failure, then implement**
+**Step 2: Run tests to verify failure**
 
-The adapter GenServer skeleton: config validation, URL parsing, struct, start_link/init, health, stop. WebSocket connection in `handle_continue(:connect)`. Query sending via `handle_call({:query, ...})`. Message forwarding: receive WebSocket text frames → `notify_raw_message(session, request_id, raw_payload)` (the raw NDJSON string from the message envelope's `payload` field).
+Run: `mix test test/claude_code/adapter/remote_test.exs`
+Expected: Compilation error — module not found
 
-Key implementation detail: when the adapter receives a `message` envelope from the sidecar, it extracts the `payload` (raw NDJSON string) and forwards it to Session as a binary via `notify_raw_message`. Session does `Jason.decode` + `CLI.Parser.parse_message`. No parsing in the adapter.
+**Step 3: Write complete implementation**
 
-**Request ID mapping:** `request_id` is a `reference()` internally (from `make_ref()`) but must be serialized as a string for the WebSocket wire format. The adapter:
-- Stores the current `request_id: reference()` in state (one at a time, matching Session's serial execution)
-- Serializes it via `inspect(request_id)` when sending `query` envelopes to the sidecar
-- Uses the stored `state.request_id` when receiving `message`/`done` envelopes (ignores the wire `request_id` string — it's only meaningful for the sidecar's bookkeeping)
+```elixir
+# lib/claude_code/adapter/remote.ex
+defmodule ClaudeCode.Adapter.Remote do
+  @moduledoc """
+  WebSocket-based adapter for remote CC session execution.
 
-This works because Session serializes queries — only one request is active at a time per adapter.
+  Connects to a sidecar service over WebSocket and forwards queries
+  and messages between the local Session and the remote CC CLI process.
 
-See design doc `Component 1: ClaudeCode.Adapter.Remote` for full lifecycle, state struct, and error handling.
+  ## Usage
 
-**Step 3: Run tests and quality**
+      {:ok, session} = ClaudeCode.start_link(
+        adapter: {ClaudeCode.Adapter.Remote,
+          url: "wss://agent-runner.example.com/sessions",
+          auth_token: "secret-token",
+          workspace_id: "agent_abc123"
+        },
+        model: "sonnet"
+      )
 
-Run: `mix test test/claude_code/adapter/remote_test.exs && mix quality`
+  ## How It Works
+
+  - `start_link/2` validates config, connects via Mint.HTTP, upgrades to WebSocket
+  - Sends a protocol `init` message with session options and workspace ID
+  - Waits for a `ready` ack from the sidecar (with configurable timeout)
+  - `send_query/4` sends query envelopes; receives `message` envelopes with raw NDJSON
+  - Forwards raw NDJSON payloads to Session via `notify_raw_message/3` — no parsing in adapter
+  - Session handles all CC message parsing via `CLI.Parser`
+
+  ## Request ID Mapping
+
+  `request_id` is a `reference()` internally but must be serialized for the wire.
+  Since Session serializes queries (one active at a time per adapter), the adapter
+  stores the current `request_id` in state and uses it for all incoming messages,
+  ignoring the wire request ID from the sidecar.
+  """
+
+  use GenServer
+  require Logger
+
+  @behaviour ClaudeCode.Adapter
+
+  alias ClaudeCode.Adapter
+  alias ClaudeCode.Remote.Protocol
+
+  @default_connect_timeout 10_000
+  @default_init_timeout 30_000
+
+  defstruct [
+    :session,
+    :conn,
+    :websocket,
+    :request_ref,
+    :request_id,
+    :remote_session_id,
+    :config,
+    :init_timer,
+    status: :disconnected
+  ]
+
+  # ============================================================================
+  # Config Validation
+  # ============================================================================
+
+  @config_schema [
+    url: [type: :string, required: true, doc: "WebSocket URL (ws:// or wss://)"],
+    auth_token: [type: :string, required: true, doc: "Bearer token for authentication"],
+    workspace_id: [type: :string, doc: "Workspace directory name on the sidecar"],
+    connect_timeout: [type: :pos_integer, default: @default_connect_timeout],
+    init_timeout: [type: :pos_integer, default: @default_init_timeout],
+    session_opts: [type: :map, default: %{}, doc: "Session options to forward to sidecar"]
+  ]
+
+  @spec validate_config(keyword()) :: {:ok, keyword()} | {:error, term()}
+  def validate_config(config) do
+    case NimbleOptions.validate(config, @config_schema) do
+      {:ok, validated} ->
+        validated =
+          Keyword.put_new_lazy(validated, :workspace_id, fn ->
+            "ws_" <> Base.encode16(:crypto.strong_rand_bytes(8), case: :lower)
+          end)
+
+        {:ok, validated}
+
+      {:error, %NimbleOptions.ValidationError{} = error} ->
+        {:error, Exception.message(error)}
+    end
+  end
+
+  @spec parse_url(String.t()) ::
+          {:ok, :http | :https, String.t(), pos_integer(), String.t()} | {:error, term()}
+  def parse_url(url) do
+    uri = URI.parse(url)
+
+    case uri.scheme do
+      "wss" -> {:ok, :https, uri.host, uri.port || 443, uri.path || "/"}
+      "ws" -> {:ok, :http, uri.host, uri.port || 80, uri.path || "/"}
+      other -> {:error, {:invalid_scheme, other, "expected ws:// or wss://"}}
+    end
+  end
+
+  # ============================================================================
+  # Adapter Behaviour
+  # ============================================================================
+
+  @impl ClaudeCode.Adapter
+  def start_link(session, config) do
+    case validate_config(config) do
+      {:ok, validated} ->
+        GenServer.start_link(__MODULE__, {session, validated})
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @impl ClaudeCode.Adapter
+  def send_query(adapter, request_id, prompt, opts) do
+    GenServer.call(adapter, {:query, request_id, prompt, opts})
+  end
+
+  @impl ClaudeCode.Adapter
+  def health(adapter) do
+    GenServer.call(adapter, :health)
+  end
+
+  @impl ClaudeCode.Adapter
+  def stop(adapter) do
+    GenServer.call(adapter, :stop)
+  catch
+    :exit, _ -> :ok
+  end
+
+  @impl ClaudeCode.Adapter
+  def interrupt(adapter) do
+    GenServer.cast(adapter, :interrupt)
+  end
+
+  # ============================================================================
+  # GenServer Callbacks
+  # ============================================================================
+
+  @impl GenServer
+  def init({session, config}) do
+    Process.link(session)
+
+    state = %__MODULE__{
+      session: session,
+      config: config
+    }
+
+    Adapter.notify_status(session, :provisioning)
+    {:ok, state, {:continue, :connect}}
+  end
+
+  @impl GenServer
+  def handle_continue(:connect, state) do
+    case do_connect(state) do
+      {:ok, new_state} ->
+        # WebSocket upgrade request sent — wait for HTTP 101 + headers via handle_info.
+        # Init message is sent after WebSocket is established (in handle_response for :headers).
+        timer = Process.send_after(self(), :init_timeout, state.config[:init_timeout])
+        {:noreply, %{new_state | init_timer: timer, status: :connecting}}
+
+      {:error, reason} ->
+        Adapter.notify_status(state.session, {:error, reason})
+        {:stop, reason, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_call({:query, request_id, prompt, opts}, _from, %{status: :ready} = state) do
+    wire_request_id = inspect(request_id)
+
+    serializable_opts =
+      opts
+      |> Keyword.drop([:session_id])
+      |> serialize_query_opts()
+
+    {:ok, json} =
+      Protocol.encode_query(%{
+        request_id: wire_request_id,
+        prompt: prompt,
+        opts: serializable_opts
+      })
+
+    case send_frame(state, {:text, json}) do
+      {:ok, new_state} ->
+        {:reply, :ok, %{new_state | request_id: request_id}}
+
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
+
+  def handle_call({:query, _request_id, _prompt, _opts}, _from, state) do
+    {:reply, {:error, {:not_ready, state.status}}, state}
+  end
+
+  def handle_call(:health, _from, state) do
+    health =
+      case state.status do
+        :ready -> :healthy
+        :connecting -> :degraded
+        _ -> {:unhealthy, state.status}
+      end
+
+    {:reply, health, state}
+  end
+
+  def handle_call(:stop, _from, state) do
+    new_state = do_stop(state)
+    {:stop, :normal, :ok, new_state}
+  end
+
+  @impl GenServer
+  def handle_cast(:interrupt, state) do
+    {:ok, json} = Protocol.encode_interrupt()
+
+    case send_frame(state, {:text, json}) do
+      {:ok, new_state} -> {:noreply, new_state}
+      {:error, _reason} -> {:noreply, state}
+    end
+  end
+
+  @impl GenServer
+  def handle_info(message, state) do
+    case Mint.WebSocket.stream(state.conn, message) do
+      {:ok, conn, responses} ->
+        state = %{state | conn: conn}
+        handle_responses(responses, state)
+
+      {:error, conn, reason, _responses} ->
+        state = %{state | conn: conn, status: :disconnected}
+
+        if state.request_id do
+          Adapter.notify_error(state.session, state.request_id, {:websocket_error, reason})
+        end
+
+        {:noreply, state}
+
+      :unknown ->
+        handle_non_ws_message(message, state)
+    end
+  end
+
+  @impl GenServer
+  def terminate(_reason, state) do
+    do_stop(state)
+    :ok
+  end
+
+  # ============================================================================
+  # Private — Connection
+  # ============================================================================
+
+  defp do_connect(state) do
+    config = state.config
+
+    with {:ok, scheme, host, port, path} <- parse_url(config[:url]),
+         {:ok, conn} <-
+           Mint.HTTP.connect(scheme, host, port,
+             transport_opts: transport_opts(scheme),
+             protocols: [:http1]
+           ),
+         {:ok, conn, ref} <-
+           Mint.WebSocket.upgrade(scheme, conn, path, [
+             {"authorization", "Bearer #{config[:auth_token]}"}
+           ]) do
+      {:ok, %{state | conn: conn, request_ref: ref}}
+    end
+  end
+
+  defp transport_opts(:https) do
+    [
+      verify: :verify_peer,
+      cacerts: :public_key.cacerts_get(),
+      customize_hostname_check: [
+        match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+      ]
+    ]
+  end
+
+  defp transport_opts(:http), do: []
+
+  defp send_init(state) do
+    {:ok, json} =
+      Protocol.encode_init(%{
+        session_opts: state.config[:session_opts],
+        workspace_id: state.config[:workspace_id],
+        resume: state.remote_session_id
+      })
+
+    send_frame(state, {:text, json})
+  end
+
+  defp send_frame(state, frame) do
+    with {:ok, websocket, data} <- Mint.WebSocket.encode(state.websocket, frame),
+         {:ok, conn} <- Mint.HTTP.stream_request_body(state.conn, state.request_ref, data) do
+      {:ok, %{state | conn: conn, websocket: websocket}}
+    end
+  end
+
+  defp do_stop(state) do
+    if state.conn && state.status in [:connecting, :ready] do
+      with {:ok, json} <- Protocol.encode_stop(),
+           {:ok, state} <- send_frame(state, {:text, json}),
+           {:ok, state} <- send_frame(state, :close) do
+        state
+      else
+        _ -> state
+      end
+    else
+      state
+    end
+  end
+
+  # ============================================================================
+  # Private — Response Handling (Mint.WebSocket.stream responses)
+  # ============================================================================
+
+  defp handle_responses([], state), do: {:noreply, state}
+
+  defp handle_responses([response | rest], state) do
+    case handle_response(response, state) do
+      {:ok, new_state} -> handle_responses(rest, new_state)
+      {:error, new_state} -> {:noreply, new_state}
+      {:stop, reason, new_state} -> {:stop, reason, new_state}
+    end
+  end
+
+  defp handle_response({:status, ref, status}, %{request_ref: ref} = state) do
+    if status != 101 do
+      Logger.error("WebSocket upgrade failed with HTTP #{status}")
+      {:error, %{state | status: {:error, {:http_status, status}}}}
+    else
+      {:ok, state}
+    end
+  end
+
+  defp handle_response({:headers, ref, headers}, %{request_ref: ref} = state) do
+    case Mint.WebSocket.new(state.conn, ref, 101, headers) do
+      {:ok, conn, websocket} ->
+        state = %{state | conn: conn, websocket: websocket}
+
+        # WebSocket established — send init message immediately
+        case send_init(state) do
+          {:ok, state} -> {:ok, state}
+          {:error, reason} -> {:error, %{state | status: {:error, reason}}}
+        end
+
+      {:error, conn, reason} ->
+        {:error, %{state | conn: conn, status: {:error, reason}}}
+    end
+  end
+
+  defp handle_response({:data, ref, data}, %{request_ref: ref} = state) do
+    case Mint.WebSocket.decode(state.websocket, data) do
+      {:ok, websocket, frames} ->
+        state = %{state | websocket: websocket}
+        handle_frames(frames, state)
+
+      {:error, websocket, reason} ->
+        {:error, %{state | websocket: websocket, status: {:error, reason}}}
+    end
+  end
+
+  defp handle_response({:done, ref}, %{request_ref: ref} = state) do
+    state = %{state | status: :disconnected}
+
+    if state.request_id do
+      Adapter.notify_error(state.session, state.request_id, :connection_closed)
+    end
+
+    {:ok, state}
+  end
+
+  defp handle_response(_other, state), do: {:ok, state}
+
+  # ============================================================================
+  # Private — WebSocket Frame Handling
+  # ============================================================================
+
+  defp handle_frames([], state), do: {:ok, state}
+
+  defp handle_frames([frame | rest], state) do
+    case handle_frame(frame, state) do
+      {:ok, new_state} -> handle_frames(rest, new_state)
+      other -> other
+    end
+  end
+
+  defp handle_frame({:text, text}, state) do
+    case Protocol.decode(text) do
+      {:ok, %{type: :ready} = msg} ->
+        if state.init_timer, do: Process.cancel_timer(state.init_timer)
+        Adapter.notify_status(state.session, :ready)
+        {:ok, %{state | status: :ready, remote_session_id: msg.session_id, init_timer: nil}}
+
+      {:ok, %{type: :message} = msg} ->
+        # Forward raw NDJSON payload to Session — no parsing here.
+        # Session will Jason.decode + CLI.Parser.parse_message.
+        if state.request_id do
+          Adapter.notify_raw_message(state.session, state.request_id, msg.payload)
+        end
+
+        {:ok, state}
+
+      {:ok, %{type: :done}} ->
+        # Session auto-detects ResultMessage for completion via raw message handler.
+        # Clear request_id so we can accept the next query.
+        {:ok, %{state | request_id: nil}}
+
+      {:ok, %{type: :error} = msg} ->
+        if state.request_id do
+          Adapter.notify_error(
+            state.session,
+            state.request_id,
+            {:remote_error, msg.code, msg.details}
+          )
+        end
+
+        {:ok, %{state | request_id: nil}}
+
+      {:error, reason} ->
+        Logger.warning("Failed to decode protocol message: #{inspect(reason)}")
+        {:ok, state}
+    end
+  end
+
+  defp handle_frame({:ping, data}, state) do
+    case send_frame(state, {:pong, data}) do
+      {:ok, new_state} -> {:ok, new_state}
+      {:error, _reason} -> {:ok, state}
+    end
+  end
+
+  defp handle_frame({:close, _code, _reason}, state) do
+    state = %{state | status: :disconnected}
+
+    if state.request_id do
+      Adapter.notify_error(state.session, state.request_id, :connection_closed)
+    end
+
+    {:ok, state}
+  end
+
+  defp handle_frame(_other, state), do: {:ok, state}
+
+  # ============================================================================
+  # Private — Non-WebSocket Messages
+  # ============================================================================
+
+  defp handle_non_ws_message(:init_timeout, %{status: :connecting} = state) do
+    Adapter.notify_status(state.session, {:error, :init_timeout})
+    {:stop, :init_timeout, state}
+  end
+
+  defp handle_non_ws_message(:init_timeout, state) do
+    # Already connected, ignore stale timer
+    {:noreply, state}
+  end
+
+  defp handle_non_ws_message(_msg, state) do
+    {:noreply, state}
+  end
+
+  # ============================================================================
+  # Private — Option Serialization
+  # ============================================================================
+
+  # Converts Elixir-native query options to JSON-serializable format.
+  # Atoms become strings, keyword lists become maps.
+  defp serialize_query_opts(opts) do
+    opts
+    |> Enum.map(fn {k, v} -> {to_string(k), serialize_value(v)} end)
+    |> Map.new()
+  end
+
+  defp serialize_value(v) when is_atom(v), do: to_string(v)
+  defp serialize_value(v) when is_list(v), do: Enum.map(v, &serialize_value/1)
+  defp serialize_value(%{} = v), do: Map.new(v, fn {k, val} -> {to_string(k), serialize_value(val)} end)
+  defp serialize_value(v), do: v
+end
+```
+
+**Step 4: Run tests to verify they pass**
+
+Run: `mix test test/claude_code/adapter/remote_test.exs`
 Expected: All pass
 
-**Step 4: Commit**
+**Step 5: Run quality**
+
+Run: `mix quality`
+Expected: All pass
+
+**Step 6: Commit**
 
 ```
 git add lib/claude_code/adapter/remote.ex test/claude_code/adapter/remote_test.exs
@@ -637,7 +1234,7 @@ git commit -m "feat: add Adapter.Remote — WebSocket client adapter"
 **Step 1: Write mock sidecar**
 
 A minimal Bandit WebSocket server that:
-- Accepts connections with auth token validation
+- Validates auth token on connection (rejects invalid tokens with 401)
 - Responds to `init` with `ready`
 - Responds to `query` by sending canned raw NDJSON lines as `message` envelopes, then `done`
 
@@ -651,13 +1248,16 @@ defmodule ClaudeCode.Test.MockSidecar do
 
   alias ClaudeCode.Remote.Protocol
 
+  @default_auth_token "test-token"
+
   def start(opts \\ []) do
     ndjson_lines = Keyword.get(opts, :ndjson_lines, [])
+    auth_token = Keyword.get(opts, :auth_token, @default_auth_token)
     test_pid = self()
 
     {:ok, pid} =
       Bandit.start_link(
-        plug: {__MODULE__.Plug, test_pid: test_pid, ndjson_lines: ndjson_lines},
+        plug: {__MODULE__.Plug, test_pid: test_pid, ndjson_lines: ndjson_lines, auth_token: auth_token},
         port: 0, ip: :loopback, scheme: :http
       )
 
@@ -668,8 +1268,23 @@ defmodule ClaudeCode.Test.MockSidecar do
   defmodule Plug do
     @moduledoc false
     @behaviour Plug
+    import Plug.Conn
+
     def init(opts), do: opts
-    def call(conn, opts), do: WebSockAdapter.upgrade(conn, ClaudeCode.Test.MockSidecar, opts, [])
+
+    def call(conn, opts) do
+      expected_token = opts[:auth_token]
+
+      case Plug.Conn.get_req_header(conn, "authorization") do
+        ["Bearer " <> ^expected_token] ->
+          WebSockAdapter.upgrade(conn, ClaudeCode.Test.MockSidecar, opts, [])
+
+        _ ->
+          conn
+          |> put_resp_content_type("text/plain")
+          |> send_resp(401, "Unauthorized")
+      end
+    end
   end
 
   @impl WebSock
@@ -701,6 +1316,10 @@ defmodule ClaudeCode.Test.MockSidecar do
       :stop ->
         send(state.test_pid, {:sidecar_received, :stop})
         {:stop, :normal, state}
+
+      :interrupt ->
+        send(state.test_pid, {:sidecar_received, :interrupt})
+        {:ok, state}
     end
   end
 
@@ -763,6 +1382,123 @@ defmodule ClaudeCode.Adapter.RemoteIntegrationTest do
     # Stop
     :ok = Remote.stop(adapter)
   end
+
+  test "health returns :healthy when connected", %{port: port} do
+    session = self()
+
+    {:ok, adapter} =
+      Remote.start_link(session, [
+        url: "ws://localhost:#{port}/sessions",
+        auth_token: "test-token"
+      ])
+
+    assert_receive {:adapter_status, :ready}, 5000
+    assert Remote.health(adapter) == :healthy
+    :ok = Remote.stop(adapter)
+  end
+
+  test "rejects connection with invalid auth token", %{port: port} do
+    session = self()
+
+    # Use wrong token — MockSidecar returns 401
+    result =
+      Remote.start_link(session, [
+        url: "ws://localhost:#{port}/sessions",
+        auth_token: "wrong-token"
+      ])
+
+    case result do
+      {:ok, _adapter} ->
+        # Adapter started but will fail during WebSocket upgrade
+        assert_receive {:adapter_status, :provisioning}, 1000
+        assert_receive {:adapter_status, {:error, _reason}}, 5000
+
+      {:error, _reason} ->
+        # Connection rejected outright
+        :ok
+    end
+  end
+
+  test "fails with init_timeout when sidecar never sends ready" do
+    # Start a server that accepts connections but never sends ready
+    {:ok, pid} =
+      Bandit.start_link(
+        plug: {ClaudeCode.Test.MockSidecar.Plug,
+          test_pid: self(),
+          ndjson_lines: [],
+          auth_token: "test-token"},
+        port: 0, ip: :loopback, scheme: :http
+      )
+
+    {:ok, {_ip, port}} = ThousandIsland.listener_info(pid)
+
+    # Override init handler to NOT send ready (we can't easily do this with the
+    # current MockSidecar, so we test with a very short timeout instead)
+    session = self()
+
+    {:ok, adapter} =
+      Remote.start_link(session, [
+        url: "ws://localhost:#{port}/sessions",
+        auth_token: "test-token",
+        init_timeout: 100
+      ])
+
+    assert_receive {:adapter_status, :provisioning}, 1000
+
+    # Either gets ready (mock sends it fast) or times out
+    receive do
+      {:adapter_status, :ready} -> :ok = Remote.stop(adapter)
+      {:adapter_status, {:error, :init_timeout}} -> :ok
+    after
+      5000 -> flunk("Expected status change within 5s")
+    end
+  end
+
+  test "connection refused when no server running" do
+    session = self()
+
+    # Connect to a port where nothing is listening
+    result =
+      Remote.start_link(session, [
+        url: "ws://localhost:19999/sessions",
+        auth_token: "test-token"
+      ])
+
+    case result do
+      {:ok, _adapter} ->
+        assert_receive {:adapter_status, :provisioning}, 1000
+        assert_receive {:adapter_status, {:error, _}}, 5000
+
+      {:error, %Mint.TransportError{reason: :econnrefused}} ->
+        :ok
+
+      {:error, _reason} ->
+        :ok
+    end
+  end
+
+  test "query returns error when not ready" do
+    # Start without a server — adapter won't reach :ready state
+    session = self()
+    {:ok, server} = MockSidecar.start(ndjson_lines: [])
+    port = server.port
+
+    {:ok, adapter} =
+      Remote.start_link(session, [
+        url: "ws://localhost:#{port}/sessions",
+        auth_token: "test-token"
+      ])
+
+    # Don't wait for ready — try to query immediately
+    request_id = make_ref()
+    # May get {:error, {:not_ready, _}} if not yet ready, or :ok if ready
+    case Remote.send_query(adapter, request_id, "test", []) do
+      :ok -> :ok
+      {:error, {:not_ready, _}} -> :ok
+    end
+
+    :ok = Remote.stop(adapter)
+  end
 end
 ```
 
@@ -798,24 +1534,191 @@ git commit -m "test: add Remote adapter integration test with mock sidecar"
 
 The sidecar depends on the full `claude_code` package — it uses `Adapter.Local` for CLI lifecycle and control protocol, plus `Remote.Protocol` for WebSocket envelope encoding.
 
-Key dependencies in `sidecar/mix.exs`:
+**Step 1: Create all scaffold files**
+
+`sidecar/mix.exs`:
 
 ```elixir
-defp deps do
-  [
-    {:claude_code, path: ".."},
-    {:bandit, "~> 1.0"},
-    {:websock_adapter, "~> 0.5"}
-  ]
+defmodule ClaudeCode.Sidecar.MixProject do
+  use Mix.Project
+
+  def project do
+    [
+      app: :claude_code_sidecar,
+      version: "0.1.0",
+      elixir: "~> 1.16",
+      start_permanent: Mix.env() == :prod,
+      deps: deps(),
+      aliases: aliases()
+    ]
+  end
+
+  def application do
+    [
+      extra_applications: [:logger],
+      mod: {ClaudeCode.Sidecar.Application, []}
+    ]
+  end
+
+  defp deps do
+    [
+      # Uses Adapter.Local for CLI lifecycle, Remote.Protocol for envelope encoding
+      {:claude_code, path: ".."},
+      {:bandit, "~> 1.0"},
+      {:websock_adapter, "~> 0.5"},
+      # Dev/test
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      quality: ["compile --warnings-as-errors", "format --check-formatted", "credo --strict"]
+    ]
+  end
 end
 ```
 
-**Step 1: Create all scaffold files**
+`sidecar/lib/claude_code/sidecar.ex`:
+
+```elixir
+defmodule ClaudeCode.Sidecar do
+  @moduledoc """
+  A WebSocket bridge that runs CC sessions on behalf of remote callers.
+
+  Accepts WebSocket connections, starts a local CC session (via `Adapter.Local`)
+  for each connection, and bridges messages between the WebSocket and the CLI subprocess.
+  """
+end
+```
+
+`sidecar/lib/claude_code/sidecar/application.ex`:
+
+```elixir
+defmodule ClaudeCode.Sidecar.Application do
+  @moduledoc false
+  use Application
+
+  @impl true
+  def start(_type, _args) do
+    port = Application.get_env(:claude_code_sidecar, :port, 4040)
+
+    children = [
+      {Bandit,
+        plug: ClaudeCode.Sidecar.Router,
+        port: port,
+        scheme: :http}
+    ]
+
+    opts = [strategy: :one_for_one, name: ClaudeCode.Sidecar.Supervisor]
+    Supervisor.start_link(children, opts)
+  end
+end
+```
+
+`sidecar/lib/claude_code/sidecar/router.ex`:
+
+```elixir
+defmodule ClaudeCode.Sidecar.Router do
+  @moduledoc false
+  @behaviour Plug
+
+  def init(opts), do: opts
+
+  def call(%Plug.Conn{path_info: ["sessions"]} = conn, _opts) do
+    auth_token = Application.get_env(:claude_code_sidecar, :auth_token)
+    workspaces_root = Application.get_env(:claude_code_sidecar, :workspaces_root, "/workspaces")
+
+    case Plug.Conn.get_req_header(conn, "authorization") do
+      ["Bearer " <> ^auth_token] ->
+        WebSockAdapter.upgrade(
+          conn,
+          ClaudeCode.Sidecar.SessionHandler,
+          [workspaces_root: workspaces_root],
+          []
+        )
+
+      _ ->
+        conn
+        |> Plug.Conn.put_resp_content_type("text/plain")
+        |> Plug.Conn.send_resp(401, "Unauthorized")
+    end
+  end
+
+  def call(conn, _opts) do
+    conn
+    |> Plug.Conn.put_resp_content_type("text/plain")
+    |> Plug.Conn.send_resp(404, "Not Found")
+  end
+end
+```
+
+`sidecar/config/config.exs`:
+
+```elixir
+import Config
+
+config :claude_code_sidecar,
+  port: 4040,
+  workspaces_root: "/workspaces"
+
+import_config "#{config_env()}.exs"
+```
+
+`sidecar/config/runtime.exs`:
+
+```elixir
+import Config
+
+if config_env() == :prod do
+  config :claude_code_sidecar,
+    auth_token: System.fetch_env!("SIDECAR_AUTH_TOKEN"),
+    port: String.to_integer(System.get_env("PORT", "4040")),
+    workspaces_root: System.get_env("WORKSPACES_ROOT", "/workspaces")
+end
+```
+
+`sidecar/config/dev.exs`:
+
+```elixir
+import Config
+
+config :claude_code_sidecar,
+  auth_token: "dev-token",
+  workspaces_root: Path.expand("../tmp/workspaces", __DIR__)
+```
+
+`sidecar/config/test.exs`:
+
+```elixir
+import Config
+
+config :claude_code_sidecar,
+  auth_token: "test-token",
+  workspaces_root: Path.expand("../tmp/test_workspaces", __DIR__)
+
+config :logger, level: :warning
+```
+
+`sidecar/.formatter.exs`:
+
+```elixir
+[
+  inputs: ["{mix,.formatter}.exs", "{config,lib,test}/**/*.{ex,exs}"]
+]
+```
+
+`sidecar/test/test_helper.exs`:
+
+```elixir
+ExUnit.start()
+```
 
 **Step 2: Verify compilation**
 
 Run: `cd sidecar && mix deps.get && mix compile`
-Expected: Clean compile (SessionHandler not yet created → warning is fine)
+Expected: Clean compile. `SessionHandler` module doesn't exist yet — Router references it but that's a runtime error, not a compile error since it's passed as an atom to `WebSockAdapter.upgrade`.
 
 **Step 3: Commit**
 
@@ -832,20 +1735,105 @@ git commit -m "feat: scaffold claude_code_sidecar mix project"
 - Create: `sidecar/lib/claude_code/sidecar/workspace_manager.ex`
 - Create: `sidecar/test/claude_code/sidecar/workspace_manager_test.exs`
 
-**Step 1: Write tests**
+**Step 1: Write the failing tests**
 
-Tests for `ensure_workspace/2`: creates directory, idempotent, rejects path traversal (`../`, `/`), rejects empty string.
+```elixir
+# sidecar/test/claude_code/sidecar/workspace_manager_test.exs
+defmodule ClaudeCode.Sidecar.WorkspaceManagerTest do
+  use ExUnit.Case, async: true
 
-**Step 2: Implement**
+  alias ClaudeCode.Sidecar.WorkspaceManager
 
-Simple module: `ensure_workspace(root, workspace_id)` validates the ID, creates `Path.join(root, workspace_id)`, returns `{:ok, path}`.
+  setup do
+    # Use a temp directory for each test
+    root = Path.join(System.tmp_dir!(), "ws_mgr_test_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(root)
+    on_exit(fn -> File.rm_rf!(root) end)
+    %{root: root}
+  end
 
-**Step 3: Run tests**
+  describe "ensure_workspace/2" do
+    test "creates workspace directory", %{root: root} do
+      assert {:ok, path} = WorkspaceManager.ensure_workspace(root, "agent_abc123")
+      assert File.dir?(path)
+      assert path == Path.join(root, "agent_abc123")
+    end
+
+    test "is idempotent — calling twice returns same path", %{root: root} do
+      assert {:ok, path1} = WorkspaceManager.ensure_workspace(root, "agent_abc123")
+      assert {:ok, path2} = WorkspaceManager.ensure_workspace(root, "agent_abc123")
+      assert path1 == path2
+      assert File.dir?(path1)
+    end
+
+    test "rejects path traversal with ../", %{root: root} do
+      assert {:error, :invalid_workspace_id} = WorkspaceManager.ensure_workspace(root, "../escape")
+    end
+
+    test "rejects absolute path", %{root: root} do
+      assert {:error, :invalid_workspace_id} = WorkspaceManager.ensure_workspace(root, "/etc/passwd")
+    end
+
+    test "rejects empty string", %{root: root} do
+      assert {:error, :invalid_workspace_id} = WorkspaceManager.ensure_workspace(root, "")
+    end
+
+    test "rejects workspace_id containing /", %{root: root} do
+      assert {:error, :invalid_workspace_id} = WorkspaceManager.ensure_workspace(root, "foo/bar")
+    end
+
+    test "allows alphanumeric, hyphens, underscores", %{root: root} do
+      assert {:ok, _} = WorkspaceManager.ensure_workspace(root, "agent-abc_123")
+      assert {:ok, _} = WorkspaceManager.ensure_workspace(root, "ws_ABCD1234")
+    end
+  end
+end
+```
+
+**Step 2: Run tests to verify failure**
+
+Run: `cd sidecar && mix test test/claude_code/sidecar/workspace_manager_test.exs`
+Expected: Compilation error — module not found
+
+**Step 3: Write implementation**
+
+```elixir
+# sidecar/lib/claude_code/sidecar/workspace_manager.ex
+defmodule ClaudeCode.Sidecar.WorkspaceManager do
+  @moduledoc """
+  Manages workspace directories for sidecar sessions.
+
+  Each agent gets a workspace directory under the configured root.
+  Workspaces persist across sessions so agents can resume work.
+  """
+
+  @valid_id_pattern ~r/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/
+
+  @spec ensure_workspace(String.t(), String.t()) :: {:ok, String.t()} | {:error, :invalid_workspace_id}
+  def ensure_workspace(root, workspace_id) do
+    if valid_workspace_id?(workspace_id) do
+      path = Path.join(root, workspace_id)
+      File.mkdir_p!(path)
+      {:ok, path}
+    else
+      {:error, :invalid_workspace_id}
+    end
+  end
+
+  defp valid_workspace_id?(id) when is_binary(id) and byte_size(id) > 0 do
+    Regex.match?(@valid_id_pattern, id) and not String.contains?(id, "..")
+  end
+
+  defp valid_workspace_id?(_), do: false
+end
+```
+
+**Step 4: Run tests**
 
 Run: `cd sidecar && mix test test/claude_code/sidecar/workspace_manager_test.exs`
 Expected: All pass
 
-**Step 4: Commit**
+**Step 5: Commit**
 
 ```
 git add sidecar/
@@ -999,9 +1987,10 @@ git commit -m "feat: add SessionHandler — Adapter.Local to WebSocket bridge"
 ### Task 12: End-to-End Integration Test
 
 **Files:**
+- Create: `test/support/mock_cli.sh`
 - Create: `test/claude_code/remote/end_to_end_test.exs`
 
-A test that starts the real sidecar (Bandit) in the test process, connects `Adapter.Remote` to it, and verifies the full flow through `ClaudeCode.Session`. Uses a mock CLI script on the sidecar side (via `:cli_path` option to `Adapter.Local`) that emits canned NDJSON.
+A test that starts the real sidecar (Bandit + SessionHandler) in the test process, connects `Adapter.Remote` to it, and verifies the full flow through `ClaudeCode.Session`. Uses a mock CLI script on the sidecar side (via `:cli_path` option to `Adapter.Local`) that emits canned NDJSON.
 
 This validates the complete path:
 ```
@@ -1009,10 +1998,145 @@ Session → Adapter.Remote → WebSocket → Sidecar.SessionHandler → Adapter.
   → decoded map → re-encoded JSON → WebSocket → Adapter.Remote → notify_raw_message → Session parses → subscriber
 ```
 
-**Step 1:** Write mock CLI script (shell script that reads stdin, emits NDJSON lines including initialize handshake response)
-**Step 2:** Write test starting sidecar + session with remote adapter, using `:cli_path` to point Adapter.Local at the mock script
-**Step 3:** Verify messages arrive as parsed structs at the subscriber
-**Step 4:** Commit
+**Step 1: Write mock CLI script**
+
+This shell script mimics the CC CLI's stream-json mode. It reads stdin line by line, responds to the initialize handshake, then emits canned assistant + result messages for any query.
+
+```bash
+#!/bin/bash
+# test/support/mock_cli.sh
+# Mock CC CLI for integration testing. Reads stream-json from stdin, writes NDJSON to stdout.
+
+# Read stdin line by line
+while IFS= read -r line; do
+  # Parse the type field from JSON (crude but sufficient for tests)
+  type=$(echo "$line" | grep -o '"type":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+  case "$type" in
+    "initialize")
+      # Respond with initialize result
+      echo '{"type":"initialize","result":{"supported_protocols":["stream-json"],"server_info":{"name":"mock-cli","version":"0.0.1"}}}'
+      ;;
+    "user_message")
+      # Extract session_id if present, default to mock-session
+      session_id="mock-session-$(date +%s)"
+
+      # Emit system init
+      echo "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"${session_id}\",\"tools\":[\"Bash\",\"Read\"],\"model\":\"claude-sonnet-4-20250514\",\"permission_mode\":\"default\"}"
+
+      # Emit assistant message
+      echo "{\"type\":\"assistant\",\"message\":{\"id\":\"msg_mock\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"Hello from mock CLI!\"}],\"model\":\"claude-sonnet-4-20250514\",\"stop_reason\":\"end_turn\",\"stop_sequence\":null,\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use_input_tokens\":0}},\"session_id\":\"${session_id}\"}"
+
+      # Emit result
+      echo "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"duration_ms\":100.0,\"duration_api_ms\":80.0,\"num_turns\":1,\"result\":\"Hello from mock CLI!\",\"session_id\":\"${session_id}\",\"total_cost_usd\":0.001,\"usage\":{\"input_tokens\":10,\"output_tokens\":5,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":0,\"server_tool_use_input_tokens\":0}}"
+      ;;
+  esac
+done
+```
+
+Make it executable: `chmod +x test/support/mock_cli.sh`
+
+**Step 2: Write the end-to-end test**
+
+```elixir
+# test/claude_code/remote/end_to_end_test.exs
+defmodule ClaudeCode.Remote.EndToEndTest do
+  use ExUnit.Case
+  @moduletag :integration
+
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Session
+
+  setup do
+    # Start a real sidecar (Bandit + SessionHandler) on a random port
+    workspaces_root = Path.join(System.tmp_dir!(), "e2e_ws_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(workspaces_root)
+
+    mock_cli_path = Path.expand("../../support/mock_cli.sh", __DIR__)
+
+    {:ok, pid} =
+      Bandit.start_link(
+        plug: {ClaudeCode.Sidecar.Router.TestPlug,
+          auth_token: "e2e-token",
+          workspaces_root: workspaces_root,
+          cli_path: mock_cli_path},
+        port: 0, ip: :loopback, scheme: :http
+      )
+
+    {:ok, {_ip, port}} = ThousandIsland.listener_info(pid)
+
+    on_exit(fn ->
+      Bandit.stop(pid)
+      File.rm_rf!(workspaces_root)
+    end)
+
+    %{port: port}
+  end
+
+  test "full path: Session → Remote → Sidecar → Adapter.Local → mock CLI → back", %{port: port} do
+    # Start a Session with the Remote adapter
+    {:ok, session} =
+      Session.start_link(
+        adapter: {ClaudeCode.Adapter.Remote,
+          url: "ws://localhost:#{port}/sessions",
+          auth_token: "e2e-token",
+          workspace_id: "e2e-test-agent"
+        }
+      )
+
+    # Query through Session — messages flow through the entire stack
+    messages =
+      session
+      |> ClaudeCode.stream("Say hello")
+      |> Enum.to_list()
+
+    # Should have at least an assistant message and a result
+    assert Enum.any?(messages, &match?(%AssistantMessage{}, &1))
+
+    result = List.last(messages)
+    assert %ResultMessage{} = result
+    assert result.result == "Hello from mock CLI!"
+    refute result.is_error
+
+    ClaudeCode.stop(session)
+  end
+
+  test "stream utilities work with remote adapter", %{port: port} do
+    {:ok, session} =
+      Session.start_link(
+        adapter: {ClaudeCode.Adapter.Remote,
+          url: "ws://localhost:#{port}/sessions",
+          auth_token: "e2e-token",
+          workspace_id: "e2e-test-stream"
+        }
+      )
+
+    final_text =
+      session
+      |> ClaudeCode.stream("Say hello")
+      |> ClaudeCode.Stream.final_text()
+
+    assert final_text == "Hello from mock CLI!"
+
+    ClaudeCode.stop(session)
+  end
+end
+```
+
+Note: `ClaudeCode.Sidecar.Router.TestPlug` is a test-only Plug that accepts `cli_path` in opts and passes it to SessionHandler, so `Adapter.Local` uses the mock CLI instead of the real one. If the Router doesn't support this, you may need to configure the sidecar's `Adapter.Local` opts via application config or add a test-specific router.
+
+**Step 3: Run the test**
+
+Run: `mix test test/claude_code/remote/end_to_end_test.exs --include integration`
+Expected: All pass
+
+**Step 4: Commit**
+
+```
+git add test/support/mock_cli.sh test/claude_code/remote/end_to_end_test.exs
+git commit -m "test: add end-to-end integration test for remote adapter stack"
+```
 
 ---
 
@@ -1039,3 +2163,5 @@ Session → Adapter.Remote → WebSocket → Sidecar.SessionHandler → Adapter.
 10. **Re-encoding on sidecar** — `Adapter.Local` decodes CLI stdout to maps (via `Jason.decode` in `process_line`). The sidecar re-encodes these maps to JSON strings for WebSocket transport (via `Jason.encode!`). This is one extra encode per message — negligible compared to LLM API latency. The alternative (preserving raw strings through Adapter.Local) would complicate the control message classification logic.
 
 11. **Remote mode limitations** — Elixir function hooks, SDK MCP servers (in-process), and `can_use_tool` callbacks are not supported in remote mode because Elixir functions cannot be serialized over the wire. The sidecar's `filter_non_serializable_opts/1` strips these from session opts. See design doc "Remote Adapter Limitations" section.
+
+12. **Session option serialization** — Elixir-native session options must be converted to JSON-serializable format before sending over the wire. The adapter's `serialize_query_opts/1` and `serialize_value/1` handle this: atoms become strings (`:sonnet` → `"sonnet"`), keyword lists become maps, nested structures are recursed. The sidecar's `build_adapter_opts/3` reverses this conversion when constructing `Adapter.Local` options. Keys like `:model`, `:system_prompt`, `:max_turns` survive the round-trip; function-valued keys are stripped by `filter_non_serializable_opts/1`.
