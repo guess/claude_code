@@ -451,8 +451,25 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       assert {:ok, %{type: :message}} = Protocol.decode(~s({"type":"message","request_id":"r","payload":"raw"}))
       assert {:ok, %{type: :done}} = Protocol.decode(~s({"type":"done","request_id":"r","reason":"completed"}))
       assert {:ok, %{type: :error}} = Protocol.decode(~s({"type":"error","request_id":"r","code":"c","details":"d"}))
+      assert {:ok, %{type: :control}} = Protocol.decode(~s({"type":"control","request_id":"r","subtype":"can_use_tool","params":{}}))
+      assert {:ok, %{type: :control_response}} = Protocol.decode(~s({"type":"control_response","request_id":"r","response":{}}))
       assert {:ok, %{type: :stop}} = Protocol.decode(~s({"type":"stop"}))
       assert {:ok, %{type: :interrupt}} = Protocol.decode(~s({"type":"interrupt"}))
+    end
+
+    test "decodes control with can_use_tool subtype" do
+      json = ~s({"type":"control","request_id":"r","subtype":"can_use_tool","params":{"tool_name":"Bash","tool_input":{"command":"ls"}}})
+      {:ok, decoded} = Protocol.decode(json)
+      assert decoded.type == :control
+      assert decoded.subtype == "can_use_tool"
+      assert decoded.params["tool_name"] == "Bash"
+    end
+
+    test "decodes control_response with allowed field" do
+      json = ~s({"type":"control_response","request_id":"r","response":{"allowed":true}})
+      {:ok, decoded} = Protocol.decode(json)
+      assert decoded.type == :control_response
+      assert decoded.response["allowed"] == true
     end
 
     test "message payload preserved as raw string" do
@@ -710,6 +727,16 @@ defmodule ClaudeCode.Adapter.RemoteTest do
       assert {:error, _} = Remote.parse_url("https://example.com")
     end
   end
+
+  describe "heartbeat constants" do
+    test "heartbeat interval is 30 seconds" do
+      assert Remote.heartbeat_interval_ms() == 30_000
+    end
+
+    test "pong timeout is 10 seconds" do
+      assert Remote.pong_timeout_ms() == 10_000
+    end
+  end
 end
 ```
 
@@ -768,6 +795,14 @@ defmodule ClaudeCode.Adapter.Remote do
   @default_connect_timeout 10_000
   @default_init_timeout 30_000
 
+  @heartbeat_interval_ms 30_000
+  @pong_timeout_ms 10_000
+
+  @doc false
+  def heartbeat_interval_ms, do: @heartbeat_interval_ms
+  @doc false
+  def pong_timeout_ms, do: @pong_timeout_ms
+
   defstruct [
     :session,
     :conn,
@@ -777,6 +812,9 @@ defmodule ClaudeCode.Adapter.Remote do
     :remote_session_id,
     :config,
     :init_timer,
+    :heartbeat_timer,
+    :pong_timer,
+    missed_pongs: 0,
     status: :disconnected
   ]
 
@@ -1117,7 +1155,9 @@ defmodule ClaudeCode.Adapter.Remote do
       {:ok, %{type: :ready} = msg} ->
         if state.init_timer, do: Process.cancel_timer(state.init_timer)
         Adapter.notify_status(state.session, :ready)
-        {:ok, %{state | status: :ready, remote_session_id: msg.session_id, init_timer: nil}}
+        # Start heartbeat loop now that connection is established
+        heartbeat_timer = Process.send_after(self(), :heartbeat, @heartbeat_interval_ms)
+        {:ok, %{state | status: :ready, remote_session_id: msg.session_id, init_timer: nil, heartbeat_timer: heartbeat_timer}}
 
       {:ok, %{type: :message} = msg} ->
         # Forward raw NDJSON payload to Session — no parsing here.
@@ -1157,6 +1197,12 @@ defmodule ClaudeCode.Adapter.Remote do
     end
   end
 
+  defp handle_frame({:pong, _data}, state) do
+    # Pong received — cancel pong timeout, reset missed count
+    if state.pong_timer, do: Process.cancel_timer(state.pong_timer)
+    {:ok, %{state | pong_timer: nil, missed_pongs: 0}}
+  end
+
   defp handle_frame({:close, _code, _reason}, state) do
     state = %{state | status: :disconnected}
 
@@ -1181,6 +1227,41 @@ defmodule ClaudeCode.Adapter.Remote do
   defp handle_non_ws_message(:init_timeout, state) do
     # Already connected, ignore stale timer
     {:noreply, state}
+  end
+
+  defp handle_non_ws_message(:heartbeat, %{status: :ready} = state) do
+    case send_frame(state, :ping) do
+      {:ok, new_state} ->
+        # Schedule pong timeout check and next heartbeat
+        pong_timer = Process.send_after(self(), :pong_timeout, @pong_timeout_ms)
+        heartbeat_timer = Process.send_after(self(), :heartbeat, @heartbeat_interval_ms)
+        {:noreply, %{new_state | pong_timer: pong_timer, heartbeat_timer: heartbeat_timer}}
+
+      {:error, _reason} ->
+        {:noreply, state}
+    end
+  end
+
+  defp handle_non_ws_message(:heartbeat, state) do
+    # Not ready, skip heartbeat
+    {:noreply, state}
+  end
+
+  defp handle_non_ws_message(:pong_timeout, state) do
+    missed = state.missed_pongs + 1
+
+    if missed >= 2 do
+      # Two consecutive missed pongs — treat as disconnect
+      Logger.warning("WebSocket heartbeat failed: #{missed} missed pongs, disconnecting")
+
+      if state.request_id do
+        Adapter.notify_error(state.session, state.request_id, :heartbeat_timeout)
+      end
+
+      {:noreply, %{state | status: :disconnected, missed_pongs: missed}}
+    else
+      {:noreply, %{state | missed_pongs: missed}}
+    end
   end
 
   defp handle_non_ws_message(_msg, state) do
@@ -1525,6 +1606,7 @@ git commit -m "test: add Remote adapter integration test with mock sidecar"
 - Create: `sidecar/lib/claude_code/sidecar.ex`
 - Create: `sidecar/lib/claude_code/sidecar/application.ex`
 - Create: `sidecar/lib/claude_code/sidecar/router.ex`
+- Create: `sidecar/lib/claude_code/sidecar/session_registry.ex`
 - Create: `sidecar/config/config.exs`
 - Create: `sidecar/config/runtime.exs`
 - Create: `sidecar/config/dev.exs`
@@ -1605,6 +1687,7 @@ defmodule ClaudeCode.Sidecar.Application do
     port = Application.get_env(:claude_code_sidecar, :port, 4040)
 
     children = [
+      ClaudeCode.Sidecar.SessionRegistry,
       {Bandit,
         plug: ClaudeCode.Sidecar.Router,
         port: port,
@@ -1629,20 +1712,31 @@ defmodule ClaudeCode.Sidecar.Router do
   def call(%Plug.Conn{path_info: ["sessions"]} = conn, _opts) do
     auth_token = Application.get_env(:claude_code_sidecar, :auth_token)
     workspaces_root = Application.get_env(:claude_code_sidecar, :workspaces_root, "/workspaces")
+    max_sessions = Application.get_env(:claude_code_sidecar, :max_concurrent_sessions, 20)
+    idle_timeout = Application.get_env(:claude_code_sidecar, :session_idle_timeout_ms, 600_000)
 
-    case Plug.Conn.get_req_header(conn, "authorization") do
-      ["Bearer " <> ^auth_token] ->
-        WebSockAdapter.upgrade(
-          conn,
-          ClaudeCode.Sidecar.SessionHandler,
-          [workspaces_root: workspaces_root],
-          []
-        )
+    # Enforce connection limit
+    active = ClaudeCode.Sidecar.SessionRegistry.count()
 
-      _ ->
-        conn
-        |> Plug.Conn.put_resp_content_type("text/plain")
-        |> Plug.Conn.send_resp(401, "Unauthorized")
+    if active >= max_sessions do
+      conn
+      |> Plug.Conn.put_resp_content_type("text/plain")
+      |> Plug.Conn.send_resp(503, "Max concurrent sessions reached (#{max_sessions})")
+    else
+      case Plug.Conn.get_req_header(conn, "authorization") do
+        ["Bearer " <> ^auth_token] ->
+          WebSockAdapter.upgrade(
+            conn,
+            ClaudeCode.Sidecar.SessionHandler,
+            [workspaces_root: workspaces_root, idle_timeout_ms: idle_timeout],
+            []
+          )
+
+        _ ->
+          conn
+          |> Plug.Conn.put_resp_content_type("text/plain")
+          |> Plug.Conn.send_resp(401, "Unauthorized")
+      end
     end
   end
 
@@ -1654,6 +1748,40 @@ defmodule ClaudeCode.Sidecar.Router do
 end
 ```
 
+`sidecar/lib/claude_code/sidecar/session_registry.ex`:
+
+```elixir
+defmodule ClaudeCode.Sidecar.SessionRegistry do
+  @moduledoc """
+  Tracks active WebSocket sessions for connection limiting.
+
+  Uses an Agent wrapping a simple counter. SessionHandler calls
+  `register/0` on init and `unregister/0` on terminate.
+  """
+
+  use Agent
+
+  def start_link(_opts) do
+    Agent.start_link(fn -> 0 end, name: __MODULE__)
+  end
+
+  @spec register() :: :ok
+  def register do
+    Agent.update(__MODULE__, &(&1 + 1))
+  end
+
+  @spec unregister() :: :ok
+  def unregister do
+    Agent.update(__MODULE__, &max(&1 - 1, 0))
+  end
+
+  @spec count() :: non_neg_integer()
+  def count do
+    Agent.get(__MODULE__, & &1)
+  end
+end
+```
+
 `sidecar/config/config.exs`:
 
 ```elixir
@@ -1661,7 +1789,9 @@ import Config
 
 config :claude_code_sidecar,
   port: 4040,
-  workspaces_root: "/workspaces"
+  workspaces_root: "/workspaces",
+  max_concurrent_sessions: 20,
+  session_idle_timeout_ms: 600_000
 
 import_config "#{config_env()}.exs"
 ```
@@ -1675,7 +1805,9 @@ if config_env() == :prod do
   config :claude_code_sidecar,
     auth_token: System.fetch_env!("SIDECAR_AUTH_TOKEN"),
     port: String.to_integer(System.get_env("PORT", "4040")),
-    workspaces_root: System.get_env("WORKSPACES_ROOT", "/workspaces")
+    workspaces_root: System.get_env("WORKSPACES_ROOT", "/workspaces"),
+    max_concurrent_sessions: String.to_integer(System.get_env("MAX_CONCURRENT_SESSIONS", "20")),
+    session_idle_timeout_ms: String.to_integer(System.get_env("SESSION_IDLE_TIMEOUT_MS", "600000"))
 end
 ```
 
@@ -1850,11 +1982,12 @@ git commit -m "feat: add WorkspaceManager for sidecar workspace isolation"
 
 This is the core of the sidecar. It's a WebSock handler that bridges `Adapter.Local` to the WebSocket:
 1. Receives `init` → creates workspace, starts `Adapter.Local` with itself as session process, waits for `{:adapter_status, :ready}`, sends `ready`
-2. Receives `query` → calls `Adapter.Local.send_query/4`
+2. Receives `query` → calls `Adapter.Local.send_query/4`, resets idle timer
 3. Receives `{:adapter_raw_message, request_id, decoded_map}` from `Adapter.Local` → re-encodes to JSON, forwards as `message` envelope
 4. Detects `decoded_map["type"] == "result"` → sends `done` envelope
 5. Receives `{:adapter_error, request_id, reason}` → sends `error` envelope
-6. WebSocket disconnect → calls `Adapter.Local.stop/1`
+6. WebSocket disconnect → calls `Adapter.Local.stop/1`, unregisters from SessionRegistry
+7. Idle timeout → stops session if no query activity within configured window
 
 **Step 1: Write tests**
 
@@ -1867,11 +2000,17 @@ Key implementation — the Adapter.Local notification handlers:
 ```elixir
 @impl WebSock
 def init(opts) do
+  ClaudeCode.Sidecar.SessionRegistry.register()
+  idle_timeout_ms = opts[:idle_timeout_ms] || 600_000
+  idle_timer = Process.send_after(self(), :idle_timeout, idle_timeout_ms)
+
   {:ok, %{
     adapter_pid: nil,
     request_id: nil,
     workspace_id: nil,
-    workspaces_root: opts[:workspaces_root] || "/workspaces"
+    workspaces_root: opts[:workspaces_root] || "/workspaces",
+    idle_timeout_ms: idle_timeout_ms,
+    idle_timer: idle_timer
   }}
 end
 
@@ -1905,11 +2044,15 @@ defp handle_init(msg, state) do
 end
 
 defp handle_query(msg, state) do
+  # Reset idle timer on each query
+  if state.idle_timer, do: Process.cancel_timer(state.idle_timer)
+  idle_timer = Process.send_after(self(), :idle_timeout, state.idle_timeout_ms)
+
   request_id = make_ref()
   :ok = ClaudeCode.Adapter.Local.send_query(
     state.adapter_pid, request_id, msg.prompt, Enum.to_list(msg.opts || %{})
   )
-  {:ok, %{state | request_id: request_id, wire_request_id: msg.request_id}}
+  {:ok, %{state | request_id: request_id, wire_request_id: msg.request_id, idle_timer: idle_timer}}
 end
 
 # Adapter.Local sends these as regular Erlang messages to our process:
@@ -1947,6 +2090,22 @@ end
 def handle_info({:adapter_status, {:error, reason}}, state) do
   {:ok, json} = Protocol.encode_error(nil, "init_error", inspect(reason))
   {:push, {:text, json}, state}
+end
+
+def handle_info(:idle_timeout, state) do
+  Logger.info("Session idle timeout reached, closing connection")
+  {:stop, :normal, state}
+end
+
+@impl WebSock
+def terminate(_reason, state) do
+  ClaudeCode.Sidecar.SessionRegistry.unregister()
+
+  if state.adapter_pid && Process.alive?(state.adapter_pid) do
+    ClaudeCode.Adapter.Local.stop(state.adapter_pid)
+  end
+
+  :ok
 end
 ```
 
@@ -2165,3 +2324,11 @@ git commit -m "test: add end-to-end integration test for remote adapter stack"
 11. **Remote mode limitations** — Elixir function hooks, SDK MCP servers (in-process), and `can_use_tool` callbacks are not supported in remote mode because Elixir functions cannot be serialized over the wire. The sidecar's `filter_non_serializable_opts/1` strips these from session opts. See design doc "Remote Adapter Limitations" section.
 
 12. **Session option serialization** — Elixir-native session options must be converted to JSON-serializable format before sending over the wire. The adapter's `serialize_query_opts/1` and `serialize_value/1` handle this: atoms become strings (`:sonnet` → `"sonnet"`), keyword lists become maps, nested structures are recursed. The sidecar's `build_adapter_opts/3` reverses this conversion when constructing `Adapter.Local` options. Keys like `:model`, `:system_prompt`, `:max_turns` survive the round-trip; function-valued keys are stripped by `filter_non_serializable_opts/1`.
+
+13. **Heartbeat keepalive** — The adapter sends a WebSocket ping every 30s via `Process.send_after` loop, starting once the connection reaches `:ready` state. Expects pong within 10s. Two consecutive missed pongs trigger disconnect. This prevents silent WebSocket drops through proxies and load balancers during long-running tool executions where no CC messages flow for minutes. The sidecar responds to pings automatically (standard WebSocket behavior).
+
+14. **Connection limits** — `SessionRegistry` (Agent-based counter) tracks active WebSocket sessions. The Router checks the count before upgrading connections and returns HTTP 503 when `max_concurrent_sessions` is reached. Default: 20.
+
+15. **Idle timeout** — SessionHandler starts a timer on init and resets it on each `query` message (not on heartbeat pings). When the timer fires with no query activity, the handler closes the WebSocket connection, which triggers `terminate/2` to unregister from SessionRegistry and stop `Adapter.Local`. Default: 10 minutes.
+
+16. **`can_use_tool` protocol slot** — The `control` envelope type with `subtype: "can_use_tool"` is reserved in the protocol for future WebSocket-based forwarding of CC permission checks. Not implemented in v1 — the protocol slot exists so a future version can add it without a protocol version bump. See design doc "Remote Adapter Limitations" section.
