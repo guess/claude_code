@@ -58,14 +58,15 @@ Agent Runner (Server B — dedicated server)
 | Bridge protocol       | WebSocket (JSON)                   | Bidirectional, well-understood. Same NDJSON format as local adapter            |
 | Sandbox               | Bubblewrap / filesystem namespaces | Lightweight, Linux-native. Agents are our own code, not untrusted              |
 | Workspace persistence | Directories on disk                | Trivial. Git-managed snapshots per run                                         |
-| Hooks                 | Run on sidecar (agent runner)      | No round-trip. Hook config serialized in init message                          |
-| Code location         | Separate packages in same repo     | Adapter in `claude_code`; sidecar in `claude_code_sidecar` (released independently) |
+| Hooks                 | Run on sidecar (agent runner)      | No round-trip. JSON-serializable hooks only (Elixir function hooks out of scope) |
+| Code location         | Separate packages in same repo     | Adapter in `claude_code`; sidecar in `claude_code_sidecar` (depends on full `claude_code` package) |
 | WS client (adapter)   | `mint_web_socket`                  | Built on Mint (common transitive dep). Process-less, fits GenServer adapter    |
 | WS server (sidecar)   | `bandit` + `websock`               | Standard Elixir WebSocket server stack                                         |
 | Reconnection          | Session dies; resume on reconnect  | Sidecar stops CC session on disconnect. Workspace persists. Adapter reconnects with `resume: session_id` to continue conversation via CC's `--resume` |
 | Protocol versioning   | `protocol_version` in init message | Cheap insurance for future protocol evolution                                  |
-| Parsing layer         | Session parses, adapters forward raw | Adapters are pure transport. Sidecar becomes a dumb pipe. No re-serialization |
-| CC message transport  | Raw NDJSON passthrough               | Sidecar forwards CLI stdout as-is over WebSocket. Zero parsing on sidecar     |
+| Parsing layer         | Session parses, adapters forward raw | Adapters are pure transport. No re-serialization on host side                 |
+| CC message transport  | Decoded map → re-encoded JSON        | Sidecar's `Adapter.Local` decodes CLI stdout; sidecar re-encodes to JSON for WebSocket. One extra encode per message — negligible vs API latency |
+| Sidecar CLI management | `Adapter.Local` internally         | Reuses full CLI lifecycle, control protocol, hook handling. Sidecar is a bridge, not a reimplementation |
 
 ---
 
@@ -79,17 +80,17 @@ Adapters are transport layers — they should not parse application-level messag
 
 ```
 Adapter.Local:
-  Port stdout → JSON.decode (classify control vs CC) → if CC message:
+  Port stdout → Jason.decode (classify control vs CC) → if CC message:
     notify_raw_message(session, request_id, decoded_map)
     peek: if map["type"] == "result" → reset current_request
 
 Adapter.Remote:
-  WebSocket text frame (raw NDJSON line) →
+  WebSocket text frame → Protocol.decode envelope → extract payload →
     notify_raw_message(session, request_id, raw_binary)
 
 Session:
   {:adapter_raw_message, ref, map_or_binary} →
-    JSON.decode if binary → CLI.Parser.parse_message → struct
+    Jason.decode if binary → CLI.Parser.parse_message → struct
     if ResultMessage → mark request done (replaces notify_done)
     extract_session_id → dispatch to subscriber
 
@@ -113,15 +114,16 @@ notify_raw_message(session, request_id, json_map_or_binary)
 
 Session handles both `{:adapter_message, ...}` and `{:adapter_raw_message, ...}`.
 
-### Sidecar Simplification
+### Sidecar Architecture
 
-With raw passthrough, the sidecar becomes a dumb pipe:
+The sidecar uses `Adapter.Local` internally to manage the CC CLI subprocess. This reuses the full CLI lifecycle — control protocol handshake, hook callbacks, interrupt handling — without reimplementation.
 
-- Spawns CC CLI via Port directly (uses `CLI.Command` for arg building, `CLI.Input` for stdin)
-- Reads raw NDJSON lines from Port stdout
-- Forwards each line as a WebSocket text frame (zero parsing, zero struct dependencies)
+- Starts `Adapter.Local` with itself as the session process for each WebSocket connection
+- `Adapter.Local` handles: CLI binary resolution, Port management, initialize handshake, hook callbacks, control protocol
+- Receives `{:adapter_raw_message, request_id, decoded_map}` from `Adapter.Local`
+- Re-encodes the decoded map to JSON and forwards as WebSocket `message` envelope
+- Peeks at `decoded_map["type"] == "result"` to send `done` envelope
 - Only understands protocol envelope messages (`init`, `query`, `stop`, `ready`, `done`, `error`)
-- Does NOT import `ClaudeCode.Message`, `ClaudeCode.Content`, or `CLI.Parser`
 
 ---
 
@@ -195,8 +197,9 @@ init/1:
 
 send_query/4:
   1. Send query message: {request_id, prompt, opts}
-  2. Receive messages → parse → notify_message(session, request_id, message)
-  3. On ResultMessage → notify_done(session, request_id, :completed)
+  2. Receive message envelopes → extract raw NDJSON payload
+  3. notify_raw_message(session, request_id, raw_payload)
+  4. Session parses raw payload → if ResultMessage → marks request done
 
 health/1:
   1. WebSocket ping/pong → :healthy
@@ -264,47 +267,43 @@ All messages are JSON objects with a `type` field. Same NDJSON format as the loc
 | `error`            | `{request_id, code, details}` | Error occurred                                            |
 | `control_response` | `{request_id, response}`      | Response to control request                               |
 
-### Session Management — Dumb Pipe
+### Session Management — Adapter.Local Bridge
 
-Each WebSocket connection = one CC CLI subprocess. The sidecar does NOT use `ClaudeCode.Session` or `ClaudeCode.Adapter.Local` — it spawns the CLI directly via Port and pipes raw NDJSON:
+Each WebSocket connection = one `Adapter.Local` instance. The sidecar starts `Adapter.Local` with itself as the session process, reusing the full CLI lifecycle and control protocol handling.
 
 ```elixir
 # On "init" message:
 workspace_path = Path.join(@workspaces_root, workspace_id)
 File.mkdir_p!(workspace_path)
 
-# Build CLI command using shared protocol modules
-{executable, args} = ClaudeCode.CLI.Command.build(session_opts)
-port = Port.open({:spawn_executable, "/bin/sh"}, [:binary, :exit_status, ...])
+# Start Adapter.Local — it handles CLI resolution, Port, initialize handshake, hooks
+adapter_opts = build_adapter_opts(session_opts, workspace_path)
+{:ok, adapter_pid} = ClaudeCode.Adapter.Local.start_link(self(), adapter_opts)
 
-# Send ready ack
+# Adapter.Local sends {:adapter_status, :ready} → send ready ack
 send_ws(conn, %{type: "ready", session_id: workspace_id})
 
 # On "query" message:
-json = ClaudeCode.CLI.Input.user_message(prompt, session_id)
-Port.command(port, json <> "\n")
+ClaudeCode.Adapter.Local.send_query(adapter_pid, request_id, prompt, opts)
 
-# Port stdout lines → WebSocket (raw passthrough, zero parsing):
-# Each NDJSON line from CLI is forwarded as-is
-send_ws(conn, %{type: "message", request_id: req_id, payload: raw_ndjson_line})
+# Adapter.Local sends {:adapter_raw_message, request_id, decoded_map}:
+# Re-encode and forward as message envelope
+json = Jason.encode!(decoded_map)
+send_ws(conn, %{type: "message", request_id: req_id, payload: json})
 
-# Peek at line to detect result type (no struct parsing):
-if String.contains?(line, "\"type\":\"result\"") ->
+# Peek at decoded map for result type (reliable map key lookup):
+if decoded_map["type"] == "result" ->
   send_ws(conn, %{type: "done", request_id: req_id, reason: "completed"})
 
 # On WebSocket disconnect:
-Port.close(port)
+ClaudeCode.Adapter.Local.stop(adapter_pid)
 ```
 
 ### Hooks
 
-Hooks run **on the sidecar** (the remote server), not on the host. The hook config is serialized in the `init` message, and the sidecar's local CC session processes them with no round-trip back to the host.
+Hooks run **on the sidecar** (the remote server), not on the host. The hook config is serialized as JSON in the `init` message and passed to `Adapter.Local` on the sidecar.
 
-This means:
-
-- Elixir function hooks must be available on the sidecar
-- For host-specific hooks, use webhook handlers that call back to the host over HTTP
-- MCP-based hooks (in-process servers) work naturally since the CC session runs on the sidecar
+**Limitation: Only JSON-serializable hooks are supported in remote mode.** Elixir function hooks (closures, module callbacks) cannot be serialized over the wire. This is a known limitation — use shell command hooks or webhook handlers that call back to the host over HTTP instead.
 
 ### Workspace Management
 
@@ -429,6 +428,20 @@ The CC session on the agent runner needs to call the host's MCP tools (e.g. qult
 
 ---
 
+## Remote Adapter Limitations
+
+Features that work differently or are unavailable in remote mode:
+
+| Feature | Status | Reason |
+| ------- | ------ | ------ |
+| Elixir function hooks | Not supported | Closures and module callbacks cannot be serialized over WebSocket. Use shell command hooks or webhook handlers instead |
+| SDK MCP servers (in-process) | Not supported | Elixir MCP server modules must be loaded in the BEAM. The sidecar doesn't have the host application's code. Use HTTP/SSE MCP servers that the sidecar can reach over the network |
+| `can_use_tool` callback | Not supported | Requires an Elixir function. Use `permission_mode: :bypass_permissions` or `permission_mode: :plan` on the sidecar instead |
+
+These limitations arise from the fundamental constraint that Elixir functions cannot be serialized and transmitted over the wire. Future versions could add WebSocket-based forwarding for `can_use_tool` and `mcp_message` control requests if needed.
+
+---
+
 ## Package Structure
 
 Two packages in the same repo, released independently to Hex:
@@ -450,21 +463,21 @@ New dependency:
 
 ### `claude_code_sidecar` (new package, same repo)
 
-Lives in `sidecar/` directory. Depends on `claude_code` only for `CLI.Command` (arg building), `CLI.Input` (stdin messages), and `Remote.Protocol` (envelope encoding). Does NOT depend on Session, Adapter, Parser, or any message/content structs.
+Lives in `sidecar/` directory. Depends on full `claude_code` package — uses `Adapter.Local` for CLI lifecycle and control protocol, plus `Remote.Protocol` for WebSocket envelope encoding.
 
 | Module                                            | Description                                              |
 | ------------------------------------------------- | -------------------------------------------------------- |
 | `ClaudeCode.Sidecar`                               | Application entry point                                  |
-| `ClaudeCode.Sidecar.SessionHandler`                | Per-connection WebSocket handler: Port ↔ WebSocket pipe  |
+| `ClaudeCode.Sidecar.SessionHandler`                | Per-connection WebSocket handler: Adapter.Local ↔ WebSocket bridge |
 | `ClaudeCode.Sidecar.WorkspaceManager`              | Creates/manages workspace directories                    |
 
 Dependencies:
 
-| Dep           | Purpose                     |
-| ------------- | --------------------------- |
-| `claude_code` | CLI.Command, CLI.Input, Remote.Protocol only |
-| `bandit`      | HTTP/WebSocket server       |
-| `websock`     | WebSocket handler behaviour |
+| Dep           | Purpose                                    |
+| ------------- | ------------------------------------------ |
+| `claude_code` | Adapter.Local, Remote.Protocol, CLI modules |
+| `bandit`      | HTTP/WebSocket server                      |
+| `websock`     | WebSocket handler behaviour (transitive via bandit) |
 
 ---
 

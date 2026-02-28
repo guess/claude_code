@@ -2,11 +2,11 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Refactor the parsing layer so adapters are pure transport, then add a WebSocket-based remote adapter and a dumb-pipe sidecar, enabling CC sessions to run on a remote server.
+**Goal:** Refactor the parsing layer so adapters are pure transport, then add a WebSocket-based remote adapter and an Adapter.Local-based sidecar, enabling CC sessions to run on a remote server.
 
-**Architecture:** Move message parsing from `Adapter.Local` to `Session`. Add `ClaudeCode.Remote.Protocol` for the WebSocket envelope format. Add `ClaudeCode.Adapter.Remote` as a WebSocket client. Add `claude_code_sidecar` package in `sidecar/` that pipes raw CLI NDJSON over WebSocket without parsing.
+**Architecture:** Move message parsing from `Adapter.Local` to `Session`. Add `ClaudeCode.Remote.Protocol` for the WebSocket envelope format. Add `ClaudeCode.Adapter.Remote` as a WebSocket client. Add `claude_code_sidecar` package in `sidecar/` that uses `Adapter.Local` internally and bridges CLI messages over WebSocket.
 
-**Tech Stack:** `mint_web_socket` (adapter WS client), `bandit` + `websock` (sidecar WS server), built-in `JSON` module (Elixir 1.18+), existing `ClaudeCode.Adapter` behaviour.
+**Tech Stack:** `mint_web_socket` (adapter WS client), `bandit` + `websock` (sidecar WS server), `Jason` (JSON encoding, matching existing codebase), existing `ClaudeCode.Adapter` behaviour.
 
 **Design doc:** `docs/plans/2026-02-27-cc-remote-adapter.md`
 
@@ -134,7 +134,7 @@ def handle_info({:adapter_raw_message, request_id, raw}, state) do
   end
 end
 
-defp decode_if_binary(raw) when is_binary(raw), do: JSON.decode(raw)
+defp decode_if_binary(raw) when is_binary(raw), do: Jason.decode(raw)
 defp decode_if_binary(raw) when is_map(raw), do: {:ok, raw}
 ```
 
@@ -204,7 +204,7 @@ defp handle_sdk_message(json, state) do
 end
 ```
 
-Note: `json` is already a decoded map (from `process_line/2` which calls `JSON.decode`). We peek at `"type"` to reset `current_request` — no struct parsing needed.
+Note: `json` is already a decoded map (from `process_line/2` which calls `Jason.decode`). We peek at `"type"` to reset `current_request` — no struct parsing needed.
 
 Also remove the `alias ClaudeCode.Message.ResultMessage` if it's only used here, and remove the `Parser` alias if no longer needed in the adapter. Check for other uses first.
 
@@ -256,7 +256,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       }
 
       {:ok, json} = Protocol.encode_init(opts)
-      decoded = JSON.decode!(json)
+      decoded = Jason.decode!(json)
 
       assert decoded["type"] == "init"
       assert decoded["protocol_version"] == 1
@@ -269,7 +269,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       opts = %{session_opts: %{}, workspace_id: "ws1", resume: "session-uuid"}
 
       {:ok, json} = Protocol.encode_init(opts)
-      assert JSON.decode!(json)["resume"] == "session-uuid"
+      assert Jason.decode!(json)["resume"] == "session-uuid"
     end
   end
 
@@ -278,7 +278,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       msg = %{request_id: "req-1", prompt: "Hello", opts: %{max_turns: 5}}
 
       {:ok, json} = Protocol.encode_query(msg)
-      decoded = JSON.decode!(json)
+      decoded = Jason.decode!(json)
 
       assert decoded["type"] == "query"
       assert decoded["request_id"] == "req-1"
@@ -289,14 +289,14 @@ defmodule ClaudeCode.Remote.ProtocolTest do
   describe "encode_stop/0" do
     test "encodes stop message" do
       {:ok, json} = Protocol.encode_stop()
-      assert JSON.decode!(json)["type"] == "stop"
+      assert Jason.decode!(json)["type"] == "stop"
     end
   end
 
   describe "encode_interrupt/0" do
     test "encodes interrupt message" do
       {:ok, json} = Protocol.encode_interrupt()
-      assert JSON.decode!(json)["type"] == "interrupt"
+      assert Jason.decode!(json)["type"] == "interrupt"
     end
   end
 
@@ -305,7 +305,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
   describe "encode_ready/1" do
     test "encodes ready ack" do
       {:ok, json} = Protocol.encode_ready("session-456")
-      decoded = JSON.decode!(json)
+      decoded = Jason.decode!(json)
 
       assert decoded["type"] == "ready"
       assert decoded["session_id"] == "session-456"
@@ -316,7 +316,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
     test "wraps raw NDJSON line in envelope" do
       raw_line = ~s({"type":"assistant","message":{"role":"assistant"}})
       {:ok, json} = Protocol.encode_message("req-1", raw_line)
-      decoded = JSON.decode!(json)
+      decoded = Jason.decode!(json)
 
       assert decoded["type"] == "message"
       assert decoded["request_id"] == "req-1"
@@ -328,7 +328,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
   describe "encode_done/2" do
     test "encodes done" do
       {:ok, json} = Protocol.encode_done("req-1", "completed")
-      decoded = JSON.decode!(json)
+      decoded = Jason.decode!(json)
 
       assert decoded["type"] == "done"
       assert decoded["request_id"] == "req-1"
@@ -339,7 +339,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
   describe "encode_error/3" do
     test "encodes error" do
       {:ok, json} = Protocol.encode_error("req-1", "session_failed", "CLI exited")
-      decoded = JSON.decode!(json)
+      decoded = Jason.decode!(json)
 
       assert decoded["type"] == "error"
       assert decoded["code"] == "session_failed"
@@ -362,7 +362,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
 
     test "message payload preserved as raw string" do
       raw = ~s({"type":"assistant","content":[]})
-      json = JSON.encode!(%{type: "message", request_id: "r", payload: raw})
+      json = Jason.encode!(%{type: "message", request_id: "r", payload: raw})
       {:ok, decoded} = Protocol.decode(json)
       assert decoded.payload == raw
     end
@@ -422,19 +422,19 @@ defmodule ClaudeCode.Remote.Protocol do
       %{type: "init", protocol_version: @protocol_version, workspace_id: workspace_id, session_opts: session_opts}
       |> maybe_put(:resume, Map.get(opts, :resume))
 
-    {:ok, JSON.encode!(message)}
+    {:ok, Jason.encode!(message)}
   end
 
   @spec encode_query(map()) :: {:ok, String.t()}
   def encode_query(%{request_id: request_id, prompt: prompt} = msg) do
-    {:ok, JSON.encode!(%{type: "query", request_id: request_id, prompt: prompt, opts: Map.get(msg, :opts, %{})})}
+    {:ok, Jason.encode!(%{type: "query", request_id: request_id, prompt: prompt, opts: Map.get(msg, :opts, %{})})}
   end
 
   @spec encode_stop() :: {:ok, String.t()}
-  def encode_stop, do: {:ok, JSON.encode!(%{type: "stop"})}
+  def encode_stop, do: {:ok, Jason.encode!(%{type: "stop"})}
 
   @spec encode_interrupt() :: {:ok, String.t()}
-  def encode_interrupt, do: {:ok, JSON.encode!(%{type: "interrupt"})}
+  def encode_interrupt, do: {:ok, Jason.encode!(%{type: "interrupt"})}
 
   # ============================================================================
   # Sidecar → Host
@@ -442,23 +442,23 @@ defmodule ClaudeCode.Remote.Protocol do
 
   @spec encode_ready(String.t()) :: {:ok, String.t()}
   def encode_ready(session_id) do
-    {:ok, JSON.encode!(%{type: "ready", session_id: session_id})}
+    {:ok, Jason.encode!(%{type: "ready", session_id: session_id})}
   end
 
   @doc "Wraps a raw NDJSON line in a message envelope. Payload is NOT parsed."
   @spec encode_message(String.t(), String.t()) :: {:ok, String.t()}
   def encode_message(request_id, raw_ndjson_line) do
-    {:ok, JSON.encode!(%{type: "message", request_id: request_id, payload: raw_ndjson_line})}
+    {:ok, Jason.encode!(%{type: "message", request_id: request_id, payload: raw_ndjson_line})}
   end
 
   @spec encode_done(String.t(), String.t()) :: {:ok, String.t()}
   def encode_done(request_id, reason) do
-    {:ok, JSON.encode!(%{type: "done", request_id: request_id, reason: reason})}
+    {:ok, Jason.encode!(%{type: "done", request_id: request_id, reason: reason})}
   end
 
   @spec encode_error(String.t(), String.t(), String.t()) :: {:ok, String.t()}
   def encode_error(request_id, code, details) do
-    {:ok, JSON.encode!(%{type: "error", request_id: request_id, code: code, details: details})}
+    {:ok, Jason.encode!(%{type: "error", request_id: request_id, code: code, details: details})}
   end
 
   # ============================================================================
@@ -467,7 +467,7 @@ defmodule ClaudeCode.Remote.Protocol do
 
   @spec decode(String.t()) :: {:ok, map()} | {:error, term()}
   def decode(json) do
-    case JSON.decode(json) do
+    case Jason.decode(json) do
       {:ok, %{"type" => type} = raw} -> decode_typed(type, raw)
       {:ok, _} -> {:error, :missing_type_field}
       {:error, reason} -> {:error, {:json_decode_error, reason}}
@@ -603,7 +603,14 @@ end
 
 The adapter GenServer skeleton: config validation, URL parsing, struct, start_link/init, health, stop. WebSocket connection in `handle_continue(:connect)`. Query sending via `handle_call({:query, ...})`. Message forwarding: receive WebSocket text frames → `notify_raw_message(session, request_id, raw_payload)` (the raw NDJSON string from the message envelope's `payload` field).
 
-Key implementation detail: when the adapter receives a `message` envelope from the sidecar, it extracts the `payload` (raw NDJSON string) and forwards it to Session as a binary via `notify_raw_message`. Session does `JSON.decode` + `CLI.Parser.parse_message`. No parsing in the adapter.
+Key implementation detail: when the adapter receives a `message` envelope from the sidecar, it extracts the `payload` (raw NDJSON string) and forwards it to Session as a binary via `notify_raw_message`. Session does `Jason.decode` + `CLI.Parser.parse_message`. No parsing in the adapter.
+
+**Request ID mapping:** `request_id` is a `reference()` internally (from `make_ref()`) but must be serialized as a string for the WebSocket wire format. The adapter:
+- Stores the current `request_id: reference()` in state (one at a time, matching Session's serial execution)
+- Serializes it via `inspect(request_id)` when sending `query` envelopes to the sidecar
+- Uses the stored `state.request_id` when receiving `message`/`done` envelopes (ignores the wire `request_id` string — it's only meaningful for the sidecar's bookkeeping)
+
+This works because Session serializes queries — only one request is active at a time per adapter.
 
 See design doc `Component 1: ClaudeCode.Adapter.Remote` for full lifecycle, state struct, and error handling.
 
@@ -789,9 +796,19 @@ git commit -m "test: add Remote adapter integration test with mock sidecar"
 - Create: `sidecar/.formatter.exs`
 - Create: `sidecar/test/test_helper.exs`
 
-The sidecar is a minimal Elixir app. It depends on `claude_code` only for `CLI.Command`, `CLI.Input`, and `Remote.Protocol`. It does NOT import Session, Adapter, Parser, or any message/content structs.
+The sidecar depends on the full `claude_code` package — it uses `Adapter.Local` for CLI lifecycle and control protocol, plus `Remote.Protocol` for WebSocket envelope encoding.
 
-See design doc `Task 9` in the previous plan version for the full scaffold code, adapted with `ClaudeCode.Sidecar` module naming.
+Key dependencies in `sidecar/mix.exs`:
+
+```elixir
+defp deps do
+  [
+    {:claude_code, path: ".."},
+    {:bandit, "~> 1.0"},
+    {:websock_adapter, "~> 0.5"}
+  ]
+end
+```
 
 **Step 1: Create all scaffold files**
 
@@ -837,51 +854,115 @@ git commit -m "feat: add WorkspaceManager for sidecar workspace isolation"
 
 ---
 
-### Task 9: Sidecar — SessionHandler (Dumb Pipe)
+### Task 9: Sidecar — SessionHandler (Adapter.Local Bridge)
 
 **Files:**
 - Create: `sidecar/lib/claude_code/sidecar/session_handler.ex`
 - Create: `sidecar/test/claude_code/sidecar/session_handler_test.exs`
 
-This is the core of the sidecar. It's a WebSock handler that:
-1. Receives `init` → creates workspace, spawns CC CLI via Port, sends `ready`
-2. Receives `query` → sends user message to Port via `CLI.Input.user_message/2`
-3. Port stdout lines → forward as `message` envelopes over WebSocket (raw, no parsing)
-4. Detects result type in raw line → sends `done`
-5. WebSocket disconnect → closes Port
+This is the core of the sidecar. It's a WebSock handler that bridges `Adapter.Local` to the WebSocket:
+1. Receives `init` → creates workspace, starts `Adapter.Local` with itself as session process, waits for `{:adapter_status, :ready}`, sends `ready`
+2. Receives `query` → calls `Adapter.Local.send_query/4`
+3. Receives `{:adapter_raw_message, request_id, decoded_map}` from `Adapter.Local` → re-encodes to JSON, forwards as `message` envelope
+4. Detects `decoded_map["type"] == "result"` → sends `done` envelope
+5. Receives `{:adapter_error, request_id, reason}` → sends `error` envelope
+6. WebSocket disconnect → calls `Adapter.Local.stop/1`
 
 **Step 1: Write tests**
 
-Test the dumb pipe behavior: send init, verify ready; send query, verify raw NDJSON lines forwarded. Use a mock CLI script (shell script that emits canned NDJSON) instead of the real CLI.
+Test the bridge behavior: send init, verify ready; send query, verify CC messages forwarded. Use a mock CLI script (shell script that emits canned NDJSON) set via `:cli_path` option so `Adapter.Local` runs the mock instead of the real CLI.
 
 **Step 2: Implement SessionHandler**
 
-Key implementation — the Port stdout handler forwards raw lines:
+Key implementation — the Adapter.Local notification handlers:
 
 ```elixir
-def handle_info({port, {:data, data}}, state) when port == state.port do
-  {lines, buffer} = extract_lines(state.buffer <> data)
+@impl WebSock
+def init(opts) do
+  {:ok, %{
+    adapter_pid: nil,
+    request_id: nil,
+    workspace_id: nil,
+    workspaces_root: opts[:workspaces_root] || "/workspaces"
+  }}
+end
 
+@impl WebSock
+def handle_in({text, [opcode: :text]}, state) do
+  {:ok, msg} = Protocol.decode(text)
+
+  case msg.type do
+    :init -> handle_init(msg, state)
+    :query -> handle_query(msg, state)
+    :stop -> handle_stop(state)
+    :interrupt -> handle_interrupt(state)
+  end
+end
+
+defp handle_init(msg, state) do
+  {:ok, workspace_path} = WorkspaceManager.ensure_workspace(
+    state.workspaces_root, msg.workspace_id
+  )
+
+  # Build adapter opts from session_opts, setting cwd to workspace
+  adapter_opts =
+    msg.session_opts
+    |> build_adapter_opts(workspace_path, msg.resume)
+    |> filter_non_serializable_opts()
+
+  {:ok, adapter_pid} = ClaudeCode.Adapter.Local.start_link(self(), adapter_opts)
+
+  # Adapter.Local will send {:adapter_status, :ready} via handle_info
+  {:ok, %{state | adapter_pid: adapter_pid, workspace_id: msg.workspace_id}}
+end
+
+defp handle_query(msg, state) do
+  request_id = make_ref()
+  :ok = ClaudeCode.Adapter.Local.send_query(
+    state.adapter_pid, request_id, msg.prompt, Enum.to_list(msg.opts || %{})
+  )
+  {:ok, %{state | request_id: request_id, wire_request_id: msg.request_id}}
+end
+
+# Adapter.Local sends these as regular Erlang messages to our process:
+@impl WebSock
+def handle_info({:adapter_status, :ready}, state) do
+  {:ok, json} = Protocol.encode_ready(state.workspace_id)
+  {:push, {:text, json}, state}
+end
+
+def handle_info({:adapter_raw_message, _request_id, decoded_map}, state) do
+  # Re-encode the decoded map to JSON for wire transport
+  raw_json = Jason.encode!(decoded_map)
+  {:ok, msg_json} = Protocol.encode_message(state.wire_request_id, raw_json)
+  frames = [{:text, msg_json}]
+
+  # Detect result → send done envelope
   frames =
-    Enum.flat_map(lines, fn line ->
-      {:ok, json} = Protocol.encode_message(state.request_id, line)
-      frames = [{:text, json}]
+    if decoded_map["type"] == "result" do
+      {:ok, done_json} = Protocol.encode_done(state.wire_request_id, "completed")
+      frames ++ [{:text, done_json}]
+    else
+      frames
+    end
 
-      # Peek at raw line for result type (no parsing)
-      if String.starts_with?(line, "{\"type\":\"result\"") or
-         String.contains?(line, "\"type\":\"result\"") do
-        {:ok, done} = Protocol.encode_done(state.request_id, "completed")
-        frames ++ [{:text, done}]
-      else
-        frames
-      end
-    end)
+  {:push, frames, state}
+end
 
-  {:push, frames, %{state | buffer: buffer}}
+def handle_info({:adapter_error, _request_id, reason}, state) do
+  {:ok, json} = Protocol.encode_error(
+    state.wire_request_id, "session_error", inspect(reason)
+  )
+  {:push, {:text, json}, state}
+end
+
+def handle_info({:adapter_status, {:error, reason}}, state) do
+  {:ok, json} = Protocol.encode_error(nil, "init_error", inspect(reason))
+  {:push, {:text, json}, state}
 end
 ```
 
-The handler uses `CLI.Command.build/1` to construct the CLI command args and `CLI.Input.user_message/2` to format stdin queries. It does NOT use Session, Adapter, Parser, or any message structs.
+Note: `filter_non_serializable_opts/1` strips Elixir function hooks and SDK MCP servers from the session opts, since these cannot work in remote mode (see Limitations in design doc).
 
 **Step 3: Run tests**
 
@@ -892,7 +973,7 @@ Expected: All pass
 
 ```
 git add sidecar/
-git commit -m "feat: add SessionHandler — dumb pipe bridging Port stdout to WebSocket"
+git commit -m "feat: add SessionHandler — Adapter.Local to WebSocket bridge"
 ```
 
 ---
@@ -920,16 +1001,16 @@ git commit -m "feat: add SessionHandler — dumb pipe bridging Port stdout to We
 **Files:**
 - Create: `test/claude_code/remote/end_to_end_test.exs`
 
-A test that starts the real sidecar (Bandit) in the test process, connects `Adapter.Remote` to it, and verifies the full flow through `ClaudeCode.Session`. Uses a mock CLI script on the sidecar side that emits canned NDJSON.
+A test that starts the real sidecar (Bandit) in the test process, connects `Adapter.Remote` to it, and verifies the full flow through `ClaudeCode.Session`. Uses a mock CLI script on the sidecar side (via `:cli_path` option to `Adapter.Local`) that emits canned NDJSON.
 
 This validates the complete path:
 ```
-Session → Adapter.Remote → WebSocket → Sidecar.SessionHandler → Port (mock CLI)
-  → raw NDJSON → WebSocket → Adapter.Remote → notify_raw_message → Session parses → subscriber
+Session → Adapter.Remote → WebSocket → Sidecar.SessionHandler → Adapter.Local → Port (mock CLI)
+  → decoded map → re-encoded JSON → WebSocket → Adapter.Remote → notify_raw_message → Session parses → subscriber
 ```
 
-**Step 1:** Write mock CLI script (shell script that reads stdin, emits NDJSON lines)
-**Step 2:** Write test starting sidecar + session with remote adapter
+**Step 1:** Write mock CLI script (shell script that reads stdin, emits NDJSON lines including initialize handshake response)
+**Step 2:** Write test starting sidecar + session with remote adapter, using `:cli_path` to point Adapter.Local at the mock script
 **Step 3:** Verify messages arrive as parsed structs at the subscriber
 **Step 4:** Commit
 
@@ -941,16 +1022,20 @@ Session → Adapter.Remote → WebSocket → Sidecar.SessionHandler → Port (mo
 
 2. **Request ID mapping** — `request_id` is a `reference()` internally but serialized to string via `inspect/1` for the wire. The adapter maps back using `state.request_id`.
 
-3. **Raw NDJSON passthrough** — The sidecar's `message` envelope has a `payload` field containing the raw NDJSON string. The adapter extracts it and sends to Session as a binary. Session does `JSON.decode` + `CLI.Parser.parse_message`. No double-parsing.
+3. **Raw NDJSON passthrough** — The sidecar's `message` envelope has a `payload` field containing the raw NDJSON string (re-encoded from `Adapter.Local`'s decoded map). The adapter extracts it and sends to Session as a binary. Session does `Jason.decode` + `CLI.Parser.parse_message`. No parsing in the adapter.
 
-4. **ResultMessage detection** — Both Adapter.Local and the sidecar peek at the raw JSON to detect `"type":"result"` without struct parsing. Adapter.Local checks the decoded map (`json["type"] == "result"`). The sidecar checks the raw string.
+4. **ResultMessage detection** — Both Adapter.Local and the sidecar peek at the decoded map to detect `json["type"] == "result"` without struct parsing. Adapter.Local resets its `current_request`; the sidecar sends a `done` envelope. Session also auto-detects ResultMessage when parsing raw messages.
 
-5. **Built-in `JSON` module** — Elixir 1.18+ provides `JSON.encode!/1` and `JSON.decode/1` (returns `{:ok, result} | {:error, reason}`). Use everywhere instead of Jason.
+5. **`Jason` module** — Use `Jason` consistently throughout the codebase (matching the existing convention). All new code uses `Jason.encode!/1` and `Jason.decode/1`.
 
 6. **Sidecar module naming** — Package is `claude_code_sidecar` on Hex, module namespace is `ClaudeCode.Sidecar.*` (like `phoenix_live_view` → `Phoenix.LiveView`). Files under `sidecar/lib/claude_code/sidecar/`.
 
-7. **Sidecar is a dumb pipe** — It depends on `claude_code` only for `CLI.Command` (arg building), `CLI.Input` (stdin formatting), and `Remote.Protocol` (envelope encoding). No Session, Adapter, Parser, or message/content struct imports.
+7. **Sidecar uses Adapter.Local** — It depends on the full `claude_code` package and uses `Adapter.Local` to manage the CLI subprocess. This reuses the complete CLI lifecycle: binary resolution, Port management, initialize handshake, hook callbacks, and control protocol handling. The sidecar itself only bridges between `Adapter.Local` notifications and WebSocket envelopes.
 
 8. **Protocol version validation** — The sidecar's `Protocol.decode/1` rejects `init` messages with unsupported protocol versions. This is enforced at decode time, not just declared.
 
 9. **TLS config** — `transport_opts(:https)` uses `:public_key.cacerts_get()` (OTP 25+). For older OTP, use the `castore` package.
+
+10. **Re-encoding on sidecar** — `Adapter.Local` decodes CLI stdout to maps (via `Jason.decode` in `process_line`). The sidecar re-encodes these maps to JSON strings for WebSocket transport (via `Jason.encode!`). This is one extra encode per message — negligible compared to LLM API latency. The alternative (preserving raw strings through Adapter.Local) would complicate the control message classification logic.
+
+11. **Remote mode limitations** — Elixir function hooks, SDK MCP servers (in-process), and `can_use_tool` callbacks are not supported in remote mode because Elixir functions cannot be serialized over the wire. The sidecar's `filter_non_serializable_opts/1` strips these from session opts. See design doc "Remote Adapter Limitations" section.
