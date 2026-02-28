@@ -6,7 +6,7 @@
 
 **Architecture:** Two new modules in `claude_code` (`ClaudeCode.Remote.Protocol` for shared wire format, `ClaudeCode.Adapter.Remote` for the WebSocket client adapter). A separate `sidecar/` mix project (`claude_code_sidecar`) for the WebSocket server that bridges connections to local CC sessions.
 
-**Tech Stack:** `mint_web_socket` (adapter WS client), `bandit` + `websock` (sidecar WS server), `jason` (JSON encoding), existing `ClaudeCode.Adapter` behaviour.
+**Tech Stack:** `mint_web_socket` (adapter WS client), `bandit` + `websock` (sidecar WS server), built-in `JSON` module (Elixir 1.18+), existing `ClaudeCode.Adapter` behaviour.
 
 **Design doc:** `docs/plans/2026-02-27-cc-remote-adapter.md`
 
@@ -37,7 +37,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       }
 
       {:ok, json} = Protocol.encode_init(opts)
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["type"] == "init"
       assert decoded["protocol_version"] == 1
@@ -55,7 +55,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       }
 
       {:ok, json} = Protocol.encode_init(opts)
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["resume"] == "session-uuid-123"
     end
@@ -66,7 +66,7 @@ defmodule ClaudeCode.Remote.ProtocolTest do
       msg = %{request_id: "req-1", prompt: "Hello", opts: %{max_turns: 5}}
 
       {:ok, json} = Protocol.encode_query(msg)
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["type"] == "query"
       assert decoded["request_id"] == "req-1"
@@ -78,14 +78,14 @@ defmodule ClaudeCode.Remote.ProtocolTest do
   describe "encode_stop/0" do
     test "encodes stop message" do
       {:ok, json} = Protocol.encode_stop()
-      assert Jason.decode!(json) == %{"type" => "stop"}
+      assert JSON.decode!(json) == %{"type" => "stop"}
     end
   end
 
   describe "encode_interrupt/0" do
     test "encodes interrupt message" do
       {:ok, json} = Protocol.encode_interrupt()
-      assert Jason.decode!(json) == %{"type" => "interrupt"}
+      assert JSON.decode!(json) == %{"type" => "interrupt"}
     end
   end
 end
@@ -148,14 +148,14 @@ defmodule ClaudeCode.Remote.Protocol do
         session_id -> Map.put(message, :resume, session_id)
       end
 
-    {:ok, Jason.encode!(message)}
+    {:ok, JSON.encode!(message)}
   end
 
   @doc "Encodes a `query` message to start a new query."
   @spec encode_query(map()) :: {:ok, String.t()}
   def encode_query(%{request_id: request_id, prompt: prompt} = msg) do
     {:ok,
-     Jason.encode!(%{
+     JSON.encode!(%{
        type: "query",
        request_id: request_id,
        prompt: prompt,
@@ -165,11 +165,11 @@ defmodule ClaudeCode.Remote.Protocol do
 
   @doc "Encodes a `stop` message to end the session."
   @spec encode_stop() :: {:ok, String.t()}
-  def encode_stop, do: {:ok, Jason.encode!(%{type: "stop"})}
+  def encode_stop, do: {:ok, JSON.encode!(%{type: "stop"})}
 
   @doc "Encodes an `interrupt` message to cancel the current query."
   @spec encode_interrupt() :: {:ok, String.t()}
-  def encode_interrupt, do: {:ok, Jason.encode!(%{type: "interrupt"})}
+  def encode_interrupt, do: {:ok, JSON.encode!(%{type: "interrupt"})}
 end
 ```
 
@@ -203,7 +203,7 @@ Add to `protocol_test.exs`:
   describe "encode_ready/1" do
     test "encodes ready ack with session_id" do
       {:ok, json} = Protocol.encode_ready("session-uuid-456")
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["type"] == "ready"
       assert decoded["session_id"] == "session-uuid-456"
@@ -213,7 +213,7 @@ Add to `protocol_test.exs`:
   describe "encode_message/2" do
     test "encodes a CC message envelope" do
       {:ok, json} = Protocol.encode_message("req-1", %{"type" => "assistant", "message" => %{}})
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["type"] == "message"
       assert decoded["request_id"] == "req-1"
@@ -224,7 +224,7 @@ Add to `protocol_test.exs`:
   describe "encode_done/2" do
     test "encodes done with reason" do
       {:ok, json} = Protocol.encode_done("req-1", "completed")
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["type"] == "done"
       assert decoded["request_id"] == "req-1"
@@ -235,7 +235,7 @@ Add to `protocol_test.exs`:
   describe "encode_error/3" do
     test "encodes error with code and details" do
       {:ok, json} = Protocol.encode_error("req-1", "session_failed", "CLI exited with code 1")
-      decoded = Jason.decode!(json)
+      decoded = JSON.decode!(json)
 
       assert decoded["type"] == "error"
       assert decoded["request_id"] == "req-1"
@@ -315,25 +315,25 @@ Add to `protocol.ex`:
   @doc "Encodes a `ready` ack with the CC session ID."
   @spec encode_ready(String.t()) :: {:ok, String.t()}
   def encode_ready(session_id) do
-    {:ok, Jason.encode!(%{type: "ready", session_id: session_id})}
+    {:ok, JSON.encode!(%{type: "ready", session_id: session_id})}
   end
 
   @doc "Encodes a `message` envelope wrapping a CC message."
   @spec encode_message(String.t(), map()) :: {:ok, String.t()}
   def encode_message(request_id, payload) do
-    {:ok, Jason.encode!(%{type: "message", request_id: request_id, payload: payload})}
+    {:ok, JSON.encode!(%{type: "message", request_id: request_id, payload: payload})}
   end
 
   @doc "Encodes a `done` message signaling query completion."
   @spec encode_done(String.t(), String.t()) :: {:ok, String.t()}
   def encode_done(request_id, reason) do
-    {:ok, Jason.encode!(%{type: "done", request_id: request_id, reason: reason})}
+    {:ok, JSON.encode!(%{type: "done", request_id: request_id, reason: reason})}
   end
 
   @doc "Encodes an `error` message."
   @spec encode_error(String.t(), String.t(), String.t()) :: {:ok, String.t()}
   def encode_error(request_id, code, details) do
-    {:ok, Jason.encode!(%{type: "error", request_id: request_id, code: code, details: details})}
+    {:ok, JSON.encode!(%{type: "error", request_id: request_id, code: code, details: details})}
   end
 
   # ============================================================================
@@ -347,7 +347,7 @@ Add to `protocol.ex`:
   """
   @spec decode(String.t()) :: {:ok, map()} | {:error, term()}
   def decode(json) do
-    case Jason.decode(json) do
+    case JSON.decode(json) do
       {:ok, %{"type" => type} = raw} -> decode_typed(type, raw)
       {:ok, _other} -> {:error, :missing_type_field}
       {:error, reason} -> {:error, {:json_decode_error, reason}}
@@ -534,7 +534,7 @@ defmodule ClaudeCode.Adapter.Remote do
   @moduledoc """
   WebSocket client adapter for remote CC session execution.
 
-  Connects to a `ClaudeCodeSidecar` instance over WebSocket and bridges
+  Connects to a `ClaudeCode.Sidecar` instance over WebSocket and bridges
   messages between the Session GenServer and the remote CC session.
 
   ## Usage
@@ -1222,9 +1222,9 @@ defmodule ClaudeCode.Test.MockSidecar do
 
   @impl WebSock
   def handle_in({text, [opcode: :text]}, state) do
-    case Jason.decode!(text) do
+    case JSON.decode!(text) do
       %{"type" => "init"} ->
-        send(state.test_pid, {:sidecar_received, :init, Jason.decode!(text)})
+        send(state.test_pid, {:sidecar_received, :init, JSON.decode!(text)})
         {:ok, ready_json} = ClaudeCode.Remote.Protocol.encode_ready("test-session-123")
         {:push, {:text, ready_json}, %{state | ready: true}}
 
@@ -1417,8 +1417,8 @@ git commit -m "feat: add interrupt support to Adapter.Remote"
 
 **Files:**
 - Create: `sidecar/mix.exs`
-- Create: `sidecar/lib/claude_code_sidecar.ex`
-- Create: `sidecar/lib/claude_code_sidecar/application.ex`
+- Create: `sidecar/lib/claude_code/sidecar.ex`
+- Create: `sidecar/lib/claude_code/sidecar/application.ex`
 - Create: `sidecar/config/config.exs`
 - Create: `sidecar/config/runtime.exs`
 - Create: `sidecar/.formatter.exs`
@@ -1428,7 +1428,7 @@ git commit -m "feat: add interrupt support to Adapter.Remote"
 
 ```elixir
 # sidecar/mix.exs
-defmodule ClaudeCodeSidecar.MixProject do
+defmodule ClaudeCode.Sidecar.MixProject do
   use Mix.Project
 
   @version "0.1.0"
@@ -1448,7 +1448,7 @@ defmodule ClaudeCodeSidecar.MixProject do
   def application do
     [
       extra_applications: [:logger],
-      mod: {ClaudeCodeSidecar.Application, []}
+      mod: {ClaudeCode.Sidecar.Application, []}
     ]
   end
 
@@ -1459,7 +1459,6 @@ defmodule ClaudeCodeSidecar.MixProject do
       {:websock_adapter, "~> 0.5"},
 
       # Dev/test
-      {:jason, "~> 1.4"},
       {:styler, "~> 1.0", only: [:dev, :test], runtime: false}
     ]
   end
@@ -1486,8 +1485,8 @@ end
 **Step 2: Create application module**
 
 ```elixir
-# sidecar/lib/claude_code_sidecar/application.ex
-defmodule ClaudeCodeSidecar.Application do
+# sidecar/lib/claude_code/sidecar/application.ex
+defmodule ClaudeCode.Sidecar.Application do
   @moduledoc false
   use Application
 
@@ -1499,14 +1498,14 @@ defmodule ClaudeCodeSidecar.Application do
 
     children = [
       {Bandit,
-       plug: ClaudeCodeSidecar.Router,
+       plug: ClaudeCode.Sidecar.Router,
        port: port,
        scheme: :http}
     ]
 
-    Logger.info("ClaudeCodeSidecar starting on port #{port}")
+    Logger.info("ClaudeCode.Sidecar starting on port #{port}")
 
-    opts = [strategy: :one_for_one, name: ClaudeCodeSidecar.Supervisor]
+    opts = [strategy: :one_for_one, name: ClaudeCode.Sidecar.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
@@ -1515,8 +1514,8 @@ end
 **Step 3: Create main module**
 
 ```elixir
-# sidecar/lib/claude_code_sidecar.ex
-defmodule ClaudeCodeSidecar do
+# sidecar/lib/claude_code/sidecar.ex
+defmodule ClaudeCode.Sidecar do
   @moduledoc """
   ClaudeCode Sidecar — remote agent runner for ClaudeCode sessions.
 
@@ -1529,8 +1528,8 @@ end
 **Step 4: Create router (Plug)**
 
 ```elixir
-# sidecar/lib/claude_code_sidecar/router.ex
-defmodule ClaudeCodeSidecar.Router do
+# sidecar/lib/claude_code/sidecar/router.ex
+defmodule ClaudeCode.Sidecar.Router do
   @moduledoc false
   use Plug.Router
 
@@ -1543,7 +1542,7 @@ defmodule ClaudeCodeSidecar.Router do
     case get_req_header(conn, "authorization") do
       ["Bearer " <> token] when token == auth_token ->
         conn
-        |> WebSockAdapter.upgrade(ClaudeCodeSidecar.SessionHandler, [], [])
+        |> WebSockAdapter.upgrade(ClaudeCode.Sidecar.SessionHandler, [], [])
 
       _ ->
         conn
@@ -1631,17 +1630,17 @@ git commit -m "feat: scaffold claude_code_sidecar mix project"
 ### Task 10: Sidecar — WorkspaceManager
 
 **Files:**
-- Create: `sidecar/lib/claude_code_sidecar/workspace_manager.ex`
-- Create: `sidecar/test/claude_code_sidecar/workspace_manager_test.exs`
+- Create: `sidecar/lib/claude_code/sidecar/workspace_manager.ex`
+- Create: `sidecar/test/claude_code/sidecar/workspace_manager_test.exs`
 
 **Step 1: Write the failing tests**
 
 ```elixir
-# sidecar/test/claude_code_sidecar/workspace_manager_test.exs
-defmodule ClaudeCodeSidecar.WorkspaceManagerTest do
+# sidecar/test/claude_code/sidecar/workspace_manager_test.exs
+defmodule ClaudeCode.Sidecar.WorkspaceManagerTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCodeSidecar.WorkspaceManager
+  alias ClaudeCode.Sidecar.WorkspaceManager
 
   setup do
     root = Path.join(System.tmp_dir!(), "ws_test_#{:rand.uniform(100_000)}")
@@ -1687,8 +1686,8 @@ Expected: Compilation error
 **Step 3: Write implementation**
 
 ```elixir
-# sidecar/lib/claude_code_sidecar/workspace_manager.ex
-defmodule ClaudeCodeSidecar.WorkspaceManager do
+# sidecar/lib/claude_code/sidecar/workspace_manager.ex
+defmodule ClaudeCode.Sidecar.WorkspaceManager do
   @moduledoc """
   Manages workspace directories for CC agent sessions.
 
@@ -1734,7 +1733,7 @@ Expected: All pass
 **Step 5: Commit**
 
 ```
-git add sidecar/lib/claude_code_sidecar/workspace_manager.ex sidecar/test/claude_code_sidecar/workspace_manager_test.exs
+git add sidecar/lib/claude_code/sidecar/workspace_manager.ex sidecar/test/claude_code/sidecar/workspace_manager_test.exs
 git commit -m "feat: add WorkspaceManager for sidecar workspace directory management"
 ```
 
@@ -1743,14 +1742,14 @@ git commit -m "feat: add WorkspaceManager for sidecar workspace directory manage
 ### Task 11: Sidecar — SessionHandler (WebSocket Handler)
 
 **Files:**
-- Create: `sidecar/lib/claude_code_sidecar/session_handler.ex`
-- Create: `sidecar/test/claude_code_sidecar/session_handler_test.exs`
+- Create: `sidecar/lib/claude_code/sidecar/session_handler.ex`
+- Create: `sidecar/test/claude_code/sidecar/session_handler_test.exs`
 
 **Step 1: Write the failing tests**
 
 ```elixir
-# sidecar/test/claude_code_sidecar/session_handler_test.exs
-defmodule ClaudeCodeSidecar.SessionHandlerTest do
+# sidecar/test/claude_code/sidecar/session_handler_test.exs
+defmodule ClaudeCode.Sidecar.SessionHandlerTest do
   use ExUnit.Case
 
   alias ClaudeCode.Remote.Protocol
@@ -1802,8 +1801,8 @@ Expected: Compilation error — SessionHandler not found
 **Step 3: Write SessionHandler**
 
 ```elixir
-# sidecar/lib/claude_code_sidecar/session_handler.ex
-defmodule ClaudeCodeSidecar.SessionHandler do
+# sidecar/lib/claude_code/sidecar/session_handler.ex
+defmodule ClaudeCode.Sidecar.SessionHandler do
   @moduledoc """
   WebSocket handler for a single remote CC session.
 
@@ -1874,7 +1873,7 @@ defmodule ClaudeCodeSidecar.SessionHandler do
     workspaces_root = Application.get_env(:claude_code_sidecar, :workspaces_root, "/workspaces")
     workspace_id = msg.workspace_id || generate_id()
 
-    case ClaudeCodeSidecar.WorkspaceManager.ensure_workspace(workspaces_root, workspace_id) do
+    case ClaudeCode.Sidecar.WorkspaceManager.ensure_workspace(workspaces_root, workspace_id) do
       {:ok, workspace_path} ->
         session_opts = build_session_opts(msg, workspace_path)
 
@@ -2010,7 +2009,7 @@ Expected: Auth rejection test passes
 **Step 5: Commit**
 
 ```
-git add sidecar/lib/claude_code_sidecar/session_handler.ex sidecar/test/claude_code_sidecar/session_handler_test.exs
+git add sidecar/lib/claude_code/sidecar/session_handler.ex sidecar/test/claude_code/sidecar/session_handler_test.exs
 git commit -m "feat: add SessionHandler — WebSocket handler bridging remote connections to CC sessions"
 ```
 
@@ -2072,8 +2071,12 @@ git commit -m "chore: fix quality issues in claude_code_sidecar"
 
 4. **`bandit` is already a dev dep** in the main package (for tidewave). For tests, add it to `:test` env too. For the sidecar, it's a production dep.
 
-5. **`ClaudeCode.JSONEncoder`** — check if this module exists. If not, messages can be re-encoded by converting structs back to maps with `Map.from_struct/1` recursively. The sidecar needs to send CC messages back as JSON maps matching the original CLI output format.
+5. **Built-in `JSON` module** — Elixir 1.18+ provides `JSON.encode!/1`, `JSON.decode!/1`, and `JSON.decode/1` (returns `{:ok, result} | {:error, reason}`). Use these everywhere instead of `Jason`. The `jason` dep is still needed by other parts of `claude_code` but the Protocol module should use built-in `JSON` exclusively.
 
-6. **`atomize_keys/1`** in SessionHandler uses `String.to_existing_atom/1` for safety. Unknown option keys will raise — the NimbleOptions validator in `ClaudeCode.Options` will catch invalid keys. Consider using `String.to_atom/1` if the sidecar is trusted.
+6. **`ClaudeCode.JSONEncoder`** — check if this module exists. If not, messages can be re-encoded by converting structs back to maps with `Map.from_struct/1` recursively. The sidecar needs to send CC messages back as JSON maps matching the original CLI output format.
 
-7. **TLS config** — `transport_opts(:https)` uses `:public_key.cacerts_get()` (OTP 25+). For older OTP, use the `castore` package.
+7. **`atomize_keys/1`** in SessionHandler uses `String.to_existing_atom/1` for safety. Unknown option keys will raise — the NimbleOptions validator in `ClaudeCode.Options` will catch invalid keys. Consider using `String.to_atom/1` if the sidecar is trusted.
+
+8. **Sidecar module naming** — The package is `claude_code_sidecar` on Hex but uses the `ClaudeCode.Sidecar` module namespace (like `phoenix_live_view` uses `Phoenix.LiveView`). Files live under `sidecar/lib/claude_code/sidecar/`.
+
+9. **TLS config** — `transport_opts(:https)` uses `:public_key.cacerts_get()` (OTP 25+). For older OTP, use the `castore` package.

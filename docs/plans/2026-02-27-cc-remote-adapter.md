@@ -171,7 +171,7 @@ This leverages CC's existing resume capability with no additional infrastructure
 
 ---
 
-## Component 2: `ClaudeCodeSidecar`
+## Component 2: `ClaudeCode.Sidecar`
 
 A minimal Elixir application that runs on the agent runner server. Separate package (`claude_code_sidecar`) in the same repo, released independently to Hex.
 
@@ -393,9 +393,9 @@ Lives in `sidecar/` directory. Depends on `claude_code` for the adapter behaviou
 
 | Module                                            | Description                                              |
 | ------------------------------------------------- | -------------------------------------------------------- |
-| `ClaudeCodeSidecar`                               | Application entry point                                  |
-| `ClaudeCodeSidecar.SessionHandler`                | Per-connection WebSocket handler: bridges WS <-> CC session |
-| `ClaudeCodeSidecar.WorkspaceManager`              | Creates/manages workspace directories                    |
+| `ClaudeCode.Sidecar`                               | Application entry point                                  |
+| `ClaudeCode.Sidecar.SessionHandler`                | Per-connection WebSocket handler: bridges WS <-> CC session |
+| `ClaudeCode.Sidecar.WorkspaceManager`              | Creates/manages workspace directories                    |
 
 Dependencies:
 
