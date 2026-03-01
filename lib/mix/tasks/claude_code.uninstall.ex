@@ -25,7 +25,7 @@ defmodule Mix.Tasks.ClaudeCode.Uninstall do
 
   use Mix.Task
 
-  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Port.Installer
 
   @impl Mix.Task
   def run(_args) do

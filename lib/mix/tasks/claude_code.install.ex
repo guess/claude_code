@@ -37,7 +37,7 @@ defmodule Mix.Tasks.ClaudeCode.Install do
 
   use Mix.Task
 
-  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Port.Installer
 
   @switches [
     version: :string,

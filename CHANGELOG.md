@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`ClaudeCode.Adapter.Node` for distributed sessions** — Offload CLI processes to dedicated sandbox servers via Erlang distribution, so your app server stays lightweight and scales independently of CLI resource consumption. Add `adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox"]}` to `ClaudeCode.start_link/1` — everything else (`ClaudeCode.stream/3`, `ClaudeCode.Stream` utilities, session resumption) works unchanged. See [Distributed Sessions](docs/guides/distributed-sessions.md). ([9accfd2])
+
+### Changed
+
+- **`ClaudeCode.Adapter.Local` renamed to `ClaudeCode.Adapter.Port`** — The local CLI adapter and its nested modules (`Installer`, `Resolver`) now live under `ClaudeCode.Adapter.Port`. Update any direct references: `ClaudeCode.Adapter.Local` → `ClaudeCode.Adapter.Port`. ([9accfd2])
+- **Session merges top-level opts into adapter config** — Session-level options (`:cwd`, `:model`, `:system_prompt`, etc.) are now automatically merged into the adapter config. The adapter tuple only needs adapter-specific options (e.g., `:node`, `:cookie`). ([9accfd2])
+
 ## [0.26.0] - 2026-02-27 | CC 2.1.62
 
 ### Added

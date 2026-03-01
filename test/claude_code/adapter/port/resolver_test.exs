@@ -1,7 +1,7 @@
-defmodule ClaudeCode.Adapter.Local.ResolverTest do
+defmodule ClaudeCode.Adapter.Port.ResolverTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Adapter.Local.Resolver
+  alias ClaudeCode.Adapter.Port.Resolver
 
   describe "find_binary/1 with explicit path" do
     test "finds claude binary via explicit string path" do

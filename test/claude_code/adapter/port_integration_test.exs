@@ -1,10 +1,10 @@
-defmodule ClaudeCode.Adapter.LocalIntegrationTest do
+defmodule ClaudeCode.Adapter.PortIntegrationTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Message.ResultMessage
 
   # ============================================================================
-  # Local Adapter health/1 Tests
+  # Port Adapter health/1 Tests
   # ============================================================================
 
   describe "health/1 during provisioning" do
