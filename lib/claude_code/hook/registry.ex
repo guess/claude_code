@@ -1,6 +1,8 @@
 defmodule ClaudeCode.Hook.Registry do
   @moduledoc false
 
+  @type t :: %__MODULE__{}
+
   defstruct callbacks: %{}, can_use_tool: nil, localities: %{}
 
   @doc """

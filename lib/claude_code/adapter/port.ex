@@ -14,15 +14,13 @@ defmodule ClaudeCode.Adapter.Port do
   use GenServer
 
   alias ClaudeCode.Adapter
+  alias ClaudeCode.Adapter.ControlHandler
   alias ClaudeCode.Adapter.Port.Installer
   alias ClaudeCode.Adapter.Port.Resolver
   alias ClaudeCode.CLI.Command
   alias ClaudeCode.CLI.Control
   alias ClaudeCode.CLI.Input
-  alias ClaudeCode.Hook
   alias ClaudeCode.Hook.Registry, as: HookRegistry
-  alias ClaudeCode.Hook.Response, as: HookResponse
-  alias ClaudeCode.MCP.Router, as: MCPRouter
   alias ClaudeCode.MCP.Server, as: MCPServer
 
   require Logger
@@ -555,16 +553,15 @@ defmodule ClaudeCode.Adapter.Port do
     response_data =
       case subtype do
         "can_use_tool" ->
-          handle_can_use_tool(request, state)
+          ControlHandler.handle_can_use_tool(request, state.hook_registry)
 
         "hook_callback" ->
-          handle_hook_callback(request, state)
+          ControlHandler.handle_hook_callback(request, state.hook_registry)
 
         "mcp_message" ->
           server_name = request["server_name"]
           jsonrpc = request["message"]
-          mcp_response = handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
-          %{"mcp_response" => mcp_response}
+          ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
 
         _ ->
           Logger.warning("Received unhandled control request: #{subtype}")
@@ -581,51 +578,6 @@ defmodule ClaudeCode.Adapter.Port do
     if state.port, do: Port.command(state.port, response <> "\n")
     state
   end
-
-  defp handle_can_use_tool(request, state) do
-    case state.hook_registry.can_use_tool do
-      nil ->
-        # No can_use_tool callback -- allow by default
-        %{"behavior" => "allow"}
-
-      callback ->
-        input = %{
-          tool_name: request["tool_name"],
-          input: request["input"],
-          permission_suggestions: request["permission_suggestions"],
-          blocked_path: request["blocked_path"]
-        }
-
-        tool_use_id = nil
-        result = Hook.invoke(callback, input, tool_use_id)
-        HookResponse.to_can_use_tool_wire(result)
-    end
-  end
-
-  defp handle_hook_callback(request, state) do
-    callback_id = request["callback_id"]
-    input = atomize_keys(request["input"])
-    tool_use_id = request["tool_use_id"]
-
-    case HookRegistry.lookup(state.hook_registry, callback_id) do
-      {:ok, callback} ->
-        result = Hook.invoke(callback, input, tool_use_id)
-        HookResponse.to_hook_callback_wire(result)
-
-      :error ->
-        Logger.warning("Unknown hook callback ID: #{callback_id}")
-        %{}
-    end
-  end
-
-  defp atomize_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), value}
-      {key, value} -> {key, value}
-    end)
-  end
-
-  defp atomize_keys(other), do: other
 
   @doc false
   def extract_sdk_mcp_servers(opts) do
@@ -655,17 +607,8 @@ defmodule ClaudeCode.Adapter.Port do
 
   @doc false
   def handle_mcp_message(server_name, jsonrpc, sdk_mcp_servers) do
-    case Map.get(sdk_mcp_servers, server_name) do
-      nil ->
-        %{
-          "jsonrpc" => "2.0",
-          "id" => jsonrpc["id"],
-          "error" => %{"code" => -32_601, "message" => "Server '#{server_name}' not found"}
-        }
-
-      {module, assigns} ->
-        MCPRouter.handle_request(module, jsonrpc, assigns)
-    end
+    %{"mcp_response" => response} = ControlHandler.handle_mcp_message(server_name, jsonrpc, sdk_mcp_servers)
+    response
   end
 
   defp next_request_id(counter) do
