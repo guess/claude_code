@@ -166,8 +166,10 @@ defmodule ClaudeCode.SessionAdapterTest do
       adapter_opts = GenServer.call(state.adapter_pid, :get_opts)
 
       assert Keyword.get(adapter_opts, :custom) == true
-      # No extra keys injected — adapters get exactly what they're configured with
-      assert Keyword.keys(adapter_opts) == [:custom]
+      # Session merges top-level opts into adapter config so adapters
+      # like Adapter.Node can receive :cwd, :model, etc. automatically.
+      # Adapter-specific keys take precedence over session defaults.
+      assert :custom in Keyword.keys(adapter_opts)
 
       GenServer.stop(session)
     end

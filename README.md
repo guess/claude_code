@@ -7,6 +7,7 @@ The idiomatic Elixir SDK for building AI agents with Claude. Native streams, in-
 - **🏭 OTP Native** – Sessions are GenServers with standard OTP lifecycle management
 - **🔄 Elixir Streams** – Native streaming with backpressure and composable pipelines
 - **🔌 In-Process Tools & Hooks** – BEAM-native tools and lifecycle hooks with full access to application state
+- **🌐 Distributed Sessions** – Offload CLI processes to remote sandboxes, scale app and CLI independently
 - **⚡ Phoenix LiveView** – Stream tokens directly into LiveView and PubSub
 
 [![Hex.pm](https://img.shields.io/hexpm/v/claude_code.svg)](https://hex.pm/packages/claude_code)
@@ -34,6 +35,7 @@ AI agents are long-lived processes that execute tools, maintain state, and strea
 - **Sessions are GenServers** – link to a LiveView, spawn per-request, or supervise as a service
 - **Elixir Streams** – backpressure, composability, and direct piping into LiveView
 - **In-process tools** – direct access to Ecto repos, GenServers, and caches from inside the BEAM
+- **Distributed by default** – offload heavy CLI processes to dedicated sandbox servers via Erlang distribution. Your app stays lightweight; CLI resources scale independently.
 
 ## Install
 
@@ -331,13 +333,45 @@ Connect to any MCP server – stdio, HTTP, SSE, in-process, or Hermes modules. M
 
 [MCP guide →](docs/guides/mcp.md)
 
-### Hosting
+### Distributed Sessions
 
-Every session is a GenServer wrapping a CLI subprocess. Start sessions linked to a LiveView, spawn per-request, or supervise as a named service – whatever fits your use case.
+Every session spawns a Claude CLI subprocess — a Node.js process that consumes real CPU and memory. On a single machine, your concurrency is capped by CLI overhead, not the BEAM. Distributed sessions fix this:
 
-Each session maintains its own conversation context and CLI process (~50-100MB), so the typical pattern is per-user or per-request sessions rather than shared singletons. `ClaudeCode.Supervisor` is available for cases where you need named, long-lived sessions with automatic restart (e.g., a dedicated CI agent).
+```mermaid
+graph LR
+  subgraph "Your App Server (lightweight)"
+    S1[Session]
+    S2[Session]
+    S3[Session]
+  end
+  subgraph "Sandbox Server (beefy)"
+    C1["CLI process"]
+    C2["CLI process"]
+    C3["CLI process"]
+  end
+  S1 -- "Erlang distribution" --> C1
+  S2 -- "Erlang distribution" --> C2
+  S3 -- "Erlang distribution" --> C3
+```
 
-[Hosting guide →](docs/guides/hosting.md)
+One line changes in your code — everything else stays the same:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  cwd: "/workspaces/#{tenant_id}",
+  adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox-server"]}
+)
+
+# Same API — streaming, tools, hooks, resumption all work unchanged
+session
+|> ClaudeCode.stream("Analyze the codebase")
+|> ClaudeCode.Stream.text_content()
+|> Enum.each(&IO.write/1)
+```
+
+Your app server runs only GenServers. All CLI resource consumption lives on dedicated hardware you size and scale independently. `GenServer.call/2` and `send/2` work transparently across BEAM nodes — no custom protocol, no WebSocket, no sidecar.
+
+[Distributed sessions guide →](docs/guides/distributed-sessions.md) | [Hosting guide →](docs/guides/hosting.md)
 
 ### And More
 

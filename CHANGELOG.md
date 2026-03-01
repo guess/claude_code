@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`ClaudeCode.Adapter.Node` for distributed sessions** — Run Claude sessions on remote BEAM nodes via Erlang distribution. Connect to a remote node, and the adapter starts `ClaudeCode.Adapter.Port` there via RPC. All standard session APIs (`ClaudeCode.stream/3`, `ClaudeCode.Stream` utilities, session resumption) work identically over distributed sessions. See [Distributed Sessions](docs/guides/distributed-sessions.md). ([9accfd2])
+- **`ClaudeCode.Adapter.Node` for distributed sessions** — Offload CLI processes to dedicated sandbox servers via Erlang distribution, so your app server stays lightweight and scales independently of CLI resource consumption. Add `adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox"]}` to `ClaudeCode.start_link/1` — everything else (`ClaudeCode.stream/3`, `ClaudeCode.Stream` utilities, session resumption) works unchanged. See [Distributed Sessions](docs/guides/distributed-sessions.md). ([9accfd2])
 
 ### Changed
 

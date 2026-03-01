@@ -1,8 +1,35 @@
 # Distributed Sessions
 
-Run Claude Code sessions on remote BEAM nodes via Erlang distribution.
+Decouple your app's scalability from the Claude CLI's resource footprint.
 
-`ClaudeCode.Adapter.Node` connects to a remote BEAM node, creates a workspace directory, and starts `ClaudeCode.Adapter.Port` there. After startup, Session talks directly to the remote adapter — `GenServer.call/2` and `send/2` work transparently across connected BEAM nodes. No custom protocol, no sidecar package, no WebSocket.
+## The Problem
+
+Every `ClaudeCode.Session` spawns a Claude CLI subprocess — a Node.js process that consumes real CPU and memory. On a single machine, your app's concurrency is capped by how many CLI processes the box can sustain, not by the BEAM. You could have 100k lightweight GenServers ready to go, but 50 concurrent CLI subprocesses will pin your server.
+
+This means the BEAM's core strength — massive lightweight concurrency — is bottlenecked by a resource it doesn't control.
+
+## The Solution
+
+`ClaudeCode.Adapter.Node` separates the two concerns. Sessions stay on your app server as lightweight GenServers. CLI subprocesses run on dedicated remote machines. You scale them independently.
+
+```mermaid
+graph LR
+  subgraph "Your App Server (lightweight)"
+    S1[Session]
+    S2[Session]
+    S3[Session]
+  end
+  subgraph "Sandbox Server (beefy)"
+    C1["CLI process"]
+    C2["CLI process"]
+    C3["CLI process"]
+  end
+  S1 -- "Erlang distribution" --> C1
+  S2 -- "Erlang distribution" --> C2
+  S3 -- "Erlang distribution" --> C3
+```
+
+The transport is Erlang distribution — `GenServer.call/2` and `send/2` work transparently across connected BEAM nodes. No custom protocol, no sidecar package, no WebSocket. `ClaudeCode.Adapter.Node` connects to a remote node, starts `ClaudeCode.Adapter.Port` there, and gets out of the way. Everything after `start_link` is the same API.
 
 ## Prerequisites
 
@@ -12,8 +39,6 @@ Run Claude Code sessions on remote BEAM nodes via Erlang distribution.
 - **Network connectivity** between nodes (the Erlang distribution port, typically 4369 for EPMD plus dynamic ports)
 
 ## Quick Start
-
-Start a named local node and connect to a remote node running the Claude CLI:
 
 ```elixir
 # On the remote node (already running as claude@gpu-server):
@@ -72,34 +97,40 @@ The `:cwd` option is required for distributed sessions — it specifies the work
 
 ```mermaid
 graph LR
-  subgraph Local BEAM Node
-    Session
+  subgraph "Your App Server"
+    S1[Session]
+    S2[Session]
+    S3[Session]
   end
-  subgraph Remote BEAM Node
-    Port["Adapter.Port<br/>(CLI Port)"]
+  subgraph "Sandbox Server"
+    P1["Adapter.Port + CLI"]
+    P2["Adapter.Port + CLI"]
+    P3["Adapter.Port + CLI"]
   end
-  Session -- "GenServer.call" --> Port
-  Port -- "send(session, msg)" --> Session
-  Session -. "distributed link" .- Port
+  S1 -- "Erlang distribution" --> P1
+  S2 -- "Erlang distribution" --> P2
+  S3 -- "Erlang distribution" --> P3
 ```
 
 ### What runs where
 
-| Component | Node | Notes |
-|-----------|------|-------|
-| `ClaudeCode.Session` | Local | GenServer managing lifecycle and message parsing |
-| `ClaudeCode.Adapter.Node` | Local | Factory only — no long-lived process |
-| `ClaudeCode.Adapter.Port` | Remote | Owns the CLI Port, sends raw JSON to Session |
-| Claude CLI subprocess | Remote | Spawned by Adapter.Port via Erlang Port |
-| Hooks | Remote | Execute where the CLI runs |
+| Component | Where | Resource cost |
+|-----------|-------|---------------|
+| `ClaudeCode.Session` | Your app server | Minimal — a GenServer with message parsing |
+| `ClaudeCode.Adapter.Node` | Your app server | None — factory only, no long-lived process |
+| `ClaudeCode.Adapter.Port` | Sandbox server | Moderate — manages the CLI Port |
+| Claude CLI subprocess | Sandbox server | Heavy — Node.js process, the resource you're offloading |
+| Hooks | Sandbox server | Execute where the CLI runs |
 
 `ClaudeCode.Adapter.Node` is a **factory**, not a long-running process. During `start_link/2`, it connects to the remote node, creates the workspace directory via RPC, and starts `ClaudeCode.Adapter.Port` on the remote node. It then returns the remote PID. From that point on, Session communicates directly with the remote `ClaudeCode.Adapter.Port` — all calls and messages flow over Erlang distribution transparently.
 
+This is the key architectural insight: your app server only runs GenServers. All CLI resource consumption lives on dedicated hardware that you can size, scale, and replace independently of your application.
+
 ## Production Patterns
 
-### Single sandbox server, multiple workspaces
+### Single sandbox server, multiple tenants
 
-Run a single remote BEAM node as a sandbox server. Each tenant gets an isolated workspace directory:
+The most common pattern. Run a single beefy sandbox server for all your CLI processes. Your app server stays lean — it's just coordinating Sessions:
 
 ```elixir
 defmodule MyApp.Claude do
@@ -118,14 +149,15 @@ defmodule MyApp.Claude do
   end
 end
 
-# Each tenant gets a separate session with its own workspace
+# Each tenant gets a separate session — lightweight on your app server,
+# CLI resources consumed on the sandbox server
 {:ok, session_a} = MyApp.Claude.start_session("tenant-a")
 {:ok, session_b} = MyApp.Claude.start_session("tenant-b")
 ```
 
 ### Per-user sessions in Phoenix LiveView
 
-Start a remote Claude session when a user connects, stream responses back through the LiveView:
+Start a remote Claude session when a user connects, stream responses back through the LiveView. The LiveView process is cheap — the CLI runs elsewhere:
 
 ```elixir
 defmodule MyAppWeb.ChatLive do
@@ -443,21 +475,21 @@ For comprehensive security hardening, see [Secure Deployment](secure-deployment.
 
 The `ANTHROPIC_API_KEY` environment variable must be set on the **remote** node where the CLI runs. It is never sent over Erlang distribution. For per-session API keys, pass `:api_key` in the adapter options — it will be forwarded to the remote `ClaudeCode.Adapter.Port` and set in the CLI subprocess environment.
 
-## Comparison with Local Sessions
+## Local vs Distributed
 
-| Aspect | Local (`ClaudeCode.Adapter.Port`) | Distributed (`ClaudeCode.Adapter.Node`) |
-|--------|-----------------------------------|----------------------------------------|
-| CLI runs on | Same machine as your app | Remote BEAM node |
+| Aspect | Local (`Adapter.Port`) | Distributed (`Adapter.Node`) |
+|--------|------------------------|------------------------------|
+| CLI runs on | Same machine as your app | Dedicated sandbox server |
+| App server load | Sessions + CLI processes | Sessions only (lightweight) |
+| Scaling ceiling | Limited by single machine | App and CLI scale independently |
 | Transport | Erlang Port (stdin/stdout) | Erlang distribution + Port |
 | Setup | Just works | Requires named nodes + cookie |
 | Session API | `ClaudeCode.start_link/1` | Same, with `:adapter` option |
 | Streaming | All utilities work | Identical behavior |
 | Failure mode | Port crash → Session error | Nodedown → Session error |
-| Resume | Via `:resume` option | Same, requires same `:cwd` |
-| Resource usage | Local CPU/memory | Remote CPU/memory |
-| Use case | Development, single-machine deployment | Multi-machine, sandbox isolation |
+| Best for | Development, low concurrency | Production multi-tenant, high concurrency |
 
-The key difference is in `start_link/1` — you add the `:adapter` option with the remote node config. Everything else stays the same.
+The only difference in your code is the `:adapter` option in `start_link/1`. Everything else stays the same.
 
 ## Next Steps
 
