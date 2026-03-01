@@ -82,6 +82,72 @@ defmodule ClaudeCode.Hook.RegistryTest do
       {registry, _wire} = Registry.new(hooks, nil)
       assert map_size(registry.callbacks) == 1
     end
+
+    test "tracks locality for each callback ID" do
+      hooks = %{
+        PreToolUse: [
+          %{matcher: "Bash", hooks: [DenyBash], where: :remote},
+          %{hooks: [AllowAll]}
+        ]
+      }
+
+      {registry, _wire} = Registry.new(hooks, nil)
+      assert Registry.locality(registry, "hook_0") == :remote
+      assert Registry.locality(registry, "hook_1") == :local
+    end
+
+    test "defaults :where to :local when not specified" do
+      hooks = %{
+        PreToolUse: [%{hooks: [DenyBash]}]
+      }
+
+      {registry, _wire} = Registry.new(hooks, nil)
+      assert Registry.locality(registry, "hook_0") == :local
+    end
+
+    test "wire format includes callbacks from all localities" do
+      hooks = %{
+        PreToolUse: [
+          %{matcher: "Bash", hooks: [DenyBash], where: :remote},
+          %{hooks: [AllowAll], where: :local}
+        ]
+      }
+
+      {_registry, wire} = Registry.new(hooks, nil)
+      assert %{"PreToolUse" => entries} = wire
+      assert length(entries) == 2
+
+      [remote_entry, local_entry] = entries
+      assert remote_entry["hookCallbackIds"] == ["hook_0"]
+      assert local_entry["hookCallbackIds"] == ["hook_1"]
+    end
+
+    test "split/1 partitions registry by locality" do
+      hooks = %{
+        PreToolUse: [
+          %{matcher: "Bash", hooks: [DenyBash], where: :remote},
+          %{hooks: [AllowAll]}
+        ],
+        PostToolUse: [
+          %{hooks: [AuditLogger], where: :remote}
+        ]
+      }
+
+      {registry, _wire} = Registry.new(hooks, AllowAll)
+      {local_reg, remote_reg} = Registry.split(registry)
+
+      # Local gets hook_1 (AllowAll from PreToolUse) + can_use_tool
+      assert {:ok, AllowAll} = Registry.lookup(local_reg, "hook_1")
+      assert :error = Registry.lookup(local_reg, "hook_0")
+      assert :error = Registry.lookup(local_reg, "hook_2")
+      assert local_reg.can_use_tool == AllowAll
+
+      # Remote gets hook_0 (DenyBash) + hook_2 (AuditLogger), no can_use_tool
+      assert {:ok, DenyBash} = Registry.lookup(remote_reg, "hook_0")
+      assert {:ok, AuditLogger} = Registry.lookup(remote_reg, "hook_2")
+      assert :error = Registry.lookup(remote_reg, "hook_1")
+      assert remote_reg.can_use_tool == nil
+    end
   end
 
   describe "to_wire_format/1 (via new/2)" do

@@ -1,7 +1,7 @@
 defmodule ClaudeCode.Hook.Registry do
   @moduledoc false
 
-  defstruct callbacks: %{}, can_use_tool: nil
+  defstruct callbacks: %{}, can_use_tool: nil, localities: %{}
 
   @doc """
   Builds a registry from the `:hooks` map and `:can_use_tool` callback.
@@ -19,16 +19,17 @@ defmodule ClaudeCode.Hook.Registry do
   end
 
   def new(hooks_map, can_use_tool) when is_map(hooks_map) do
-    {callbacks, wire_format, _counter} =
-      Enum.reduce(hooks_map, {%{}, %{}, 0}, fn {event_name, matchers}, {cb_acc, wire_acc, counter} ->
-        {matcher_entries, new_cb_acc, new_counter} =
-          Enum.reduce(matchers, {[], cb_acc, counter}, fn matcher_config, {entries, cbs, cnt} ->
+    {callbacks, localities, wire_format, _counter} =
+      Enum.reduce(hooks_map, {%{}, %{}, %{}, 0}, fn {event_name, matchers}, {cb_acc, loc_acc, wire_acc, counter} ->
+        {matcher_entries, new_cb_acc, new_loc_acc, new_counter} =
+          Enum.reduce(matchers, {[], cb_acc, loc_acc, counter}, fn matcher_config, {entries, cbs, locs, cnt} ->
             hook_list = Map.get(matcher_config, :hooks, [])
+            where = Map.get(matcher_config, :where, :local)
 
-            {ids, updated_cbs, updated_cnt} =
-              Enum.reduce(hook_list, {[], cbs, cnt}, fn hook, {id_acc, cb, c} ->
+            {ids, updated_cbs, updated_locs, updated_cnt} =
+              Enum.reduce(hook_list, {[], cbs, locs, cnt}, fn hook, {id_acc, cb, lc, c} ->
                 id = "hook_#{c}"
-                {id_acc ++ [id], Map.put(cb, id, hook), c + 1}
+                {id_acc ++ [id], Map.put(cb, id, hook), Map.put(lc, id, where), c + 1}
               end)
 
             entry =
@@ -37,16 +38,16 @@ defmodule ClaudeCode.Hook.Registry do
                 Map.get(matcher_config, :timeout)
               )
 
-            {entries ++ [entry], updated_cbs, updated_cnt}
+            {entries ++ [entry], updated_cbs, updated_locs, updated_cnt}
           end)
 
         event_key = to_string(event_name)
-        {new_cb_acc, Map.put(wire_acc, event_key, matcher_entries), new_counter}
+        {new_cb_acc, new_loc_acc, Map.put(wire_acc, event_key, matcher_entries), new_counter}
       end)
 
     wire = if wire_format == %{}, do: nil, else: wire_format
 
-    {%__MODULE__{callbacks: callbacks, can_use_tool: can_use_tool}, wire}
+    {%__MODULE__{callbacks: callbacks, can_use_tool: can_use_tool, localities: localities}, wire}
   end
 
   @doc """
@@ -55,6 +56,44 @@ defmodule ClaudeCode.Hook.Registry do
   @spec lookup(%__MODULE__{}, String.t()) :: {:ok, module() | function()} | :error
   def lookup(%__MODULE__{callbacks: callbacks}, callback_id) do
     Map.fetch(callbacks, callback_id)
+  end
+
+  @doc """
+  Returns the locality (`:local` or `:remote`) for a callback ID, or `nil` if not found.
+  """
+  @spec locality(%__MODULE__{}, String.t()) :: :local | :remote | nil
+  def locality(%__MODULE__{localities: localities}, callback_id) do
+    Map.get(localities, callback_id)
+  end
+
+  @doc """
+  Splits the registry into `{local_registry, remote_registry}` based on locality.
+
+  The local registry retains `can_use_tool`; the remote registry sets it to `nil`.
+  """
+  @spec split(%__MODULE__{}) :: {%__MODULE__{}, %__MODULE__{}}
+  def split(%__MODULE__{} = registry) do
+    {local_cbs, remote_cbs} =
+      Enum.split_with(registry.callbacks, fn {id, _cb} ->
+        Map.get(registry.localities, id, :local) == :local
+      end)
+
+    {local_locs, remote_locs} =
+      Enum.split_with(registry.localities, fn {_id, where} -> where == :local end)
+
+    local = %__MODULE__{
+      callbacks: Map.new(local_cbs),
+      can_use_tool: registry.can_use_tool,
+      localities: Map.new(local_locs)
+    }
+
+    remote = %__MODULE__{
+      callbacks: Map.new(remote_cbs),
+      can_use_tool: nil,
+      localities: Map.new(remote_locs)
+    }
+
+    {local, remote}
   end
 
   defp maybe_put_timeout(entry, nil), do: entry
