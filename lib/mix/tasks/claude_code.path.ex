@@ -27,7 +27,7 @@ defmodule Mix.Tasks.ClaudeCode.Path do
 
   use Mix.Task
 
-  alias ClaudeCode.Adapter.Local.Resolver
+  alias ClaudeCode.Adapter.Port.Resolver
 
   @impl Mix.Task
   def run(_args) do

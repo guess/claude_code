@@ -37,6 +37,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 ### Production
 - **[Hosting](guides/hosting.md)** - OTP supervision and deployment
+- **[Distributed Sessions](guides/distributed-sessions.md)** - Run sessions on remote BEAM nodes
 - **[Testing](reference/testing.md)** - Testing with the ClaudeCode test adapter
 
 ## Integration

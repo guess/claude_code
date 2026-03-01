@@ -7,29 +7,41 @@ defmodule ClaudeCode.Adapter do
 
   ## Message Protocol
 
-  Adapters communicate with Session using the notification helpers:
+  Adapters communicate with Session by sending messages via the notification helpers.
+  Session receives these as `handle_info` tuples:
 
-  - `notify_message(session, request_id, message)` - A parsed message from Claude
-  - `notify_done(session, request_id, reason)` - Query complete (reason: :completed)
-  - `notify_error(session, request_id, reason)` - Error occurred
-  - `notify_status(session, status)` - Adapter status change (:provisioning | :ready | {:error, reason})
+  ### Transport notifications
+
+  - `notify_message/3` → `{:adapter_message, request_id, struct | map | binary}` —
+    A message struct, raw JSON map, or binary string. Structs are delivered
+    directly; maps and binaries are parsed via `CLI.Parser`. Session
+    auto-detects `ResultMessage` to complete the request.
+
+  ### Lifecycle notifications
+
+  - `notify_error/3` → `{:adapter_error, request_id, reason}` —
+    An error occurred during the request (connection lost, CLI crash, etc.).
+
+  - `notify_status/2` → `{:adapter_status, status}` —
+    Adapter status change. Statuses: `:provisioning`, `:ready`, `{:error, reason}`.
+
+  - `notify_control_request/3` → `{:adapter_control_request, request_id, request}` —
+    Forwards a control protocol request (e.g. `can_use_tool`) from the CLI to Session.
 
   ## Usage
 
   Adapters are specified as `{Module, config}` tuples:
 
       {:ok, session} = ClaudeCode.start_link(
-        adapter: {ClaudeCode.Adapter.Local, cli_path: "/usr/bin/claude"},
+        adapter: {ClaudeCode.Adapter.Port, cli_path: "/usr/bin/claude"},
         model: "opus"
       )
 
-  The default adapter is `ClaudeCode.Adapter.Local`.
+  The default adapter is `ClaudeCode.Adapter.Port`.
   """
 
   @type adapter_config :: keyword()
   @type health :: :healthy | :degraded | {:unhealthy, reason :: term()}
-  @type done_reason :: :completed
-
   @doc """
   Starts the adapter process and provisions the execution environment.
 
@@ -47,11 +59,11 @@ defmodule ClaudeCode.Adapter do
   @doc """
   Sends a query to the adapter.
 
-  The adapter should send messages back to the session via `send/2`:
+  The adapter should send messages back to the session via the notification
+  helpers (see module doc for the full protocol). Typical flow:
 
-  - `{:adapter_message, request_id, message}` for each message
-  - `{:adapter_done, request_id, reason}` when the query completes
-  - `{:adapter_error, request_id, reason}` on errors
+  - `notify_message/3` for each CLI message (Session auto-completes on ResultMessage)
+  - `notify_error/3` on errors
 
   ## Parameters
 
@@ -108,20 +120,16 @@ defmodule ClaudeCode.Adapter do
   # ============================================================================
 
   @doc """
-  Sends a parsed message to the session for a specific request.
-  """
-  @spec notify_message(pid(), reference(), term()) :: :ok
-  def notify_message(session, request_id, message) do
-    send(session, {:adapter_message, request_id, message})
-    :ok
-  end
+  Sends a message to the session for delivery.
 
-  @doc """
-  Notifies the session that a request has completed.
+  Accepts an already-parsed message struct, a raw JSON map, or a binary
+  string. Structs are delivered directly; maps and binaries are decoded
+  and parsed via `CLI.Parser`. Auto-completes the request when a
+  `ResultMessage` is detected.
   """
-  @spec notify_done(pid(), reference(), done_reason()) :: :ok
-  def notify_done(session, request_id, reason) do
-    send(session, {:adapter_done, request_id, reason})
+  @spec notify_message(pid(), reference(), struct() | map() | binary()) :: :ok
+  def notify_message(session, request_id, raw) do
+    send(session, {:adapter_message, request_id, raw})
     :ok
   end
 

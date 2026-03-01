@@ -1,9 +1,9 @@
-defmodule ClaudeCode.Adapter.Local.InstallerTest do
+defmodule ClaudeCode.Adapter.Port.InstallerTest do
   use ExUnit.Case, async: true
 
   import Mox
 
-  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Port.Installer
   alias ClaudeCode.SystemCmd.Mock
 
   setup :verify_on_exit!

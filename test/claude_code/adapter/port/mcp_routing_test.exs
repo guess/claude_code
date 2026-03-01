@@ -1,7 +1,7 @@
-defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
+defmodule ClaudeCode.Adapter.Port.MCPRoutingTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Adapter.Local
+  alias ClaudeCode.Adapter.Port
 
   describe "extract_sdk_mcp_servers/1" do
     test "extracts MCP.Server modules from mcp_servers option" do
@@ -12,7 +12,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
         }
       ]
 
-      result = Local.extract_sdk_mcp_servers(opts)
+      result = Port.extract_sdk_mcp_servers(opts)
       assert result == %{"calc" => {ClaudeCode.TestTools, %{}}}
     end
 
@@ -25,7 +25,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
         }
       ]
 
-      result = Local.extract_sdk_mcp_servers(opts)
+      result = Port.extract_sdk_mcp_servers(opts)
       assert result == %{"calc" => {ClaudeCode.TestTools, assigns}}
     end
 
@@ -36,17 +36,17 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
         }
       ]
 
-      result = Local.extract_sdk_mcp_servers(opts)
+      result = Port.extract_sdk_mcp_servers(opts)
       assert result == %{"calc" => {ClaudeCode.TestTools, %{}}}
     end
 
     test "returns empty map when no mcp_servers" do
-      assert Local.extract_sdk_mcp_servers([]) == %{}
+      assert Port.extract_sdk_mcp_servers([]) == %{}
     end
 
     test "returns empty map when no sdk servers in mcp_servers" do
       opts = [mcp_servers: %{"ext" => %{command: "npx", args: ["something"]}}]
-      assert Local.extract_sdk_mcp_servers(opts) == %{}
+      assert Port.extract_sdk_mcp_servers(opts) == %{}
     end
   end
 
@@ -61,7 +61,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
         "params" => %{"name" => "add", "arguments" => %{"x" => 2, "y" => 3}}
       }
 
-      response = Local.handle_mcp_message("calc", jsonrpc, servers)
+      response = Port.handle_mcp_message("calc", jsonrpc, servers)
       assert response["result"]["content"] == [%{"type" => "text", "text" => "5"}]
     end
 
@@ -69,7 +69,7 @@ defmodule ClaudeCode.Adapter.Local.MCPRoutingTest do
       servers = %{"calc" => {ClaudeCode.TestTools, %{}}}
       jsonrpc = %{"jsonrpc" => "2.0", "id" => 1, "method" => "tools/list"}
 
-      response = Local.handle_mcp_message("unknown", jsonrpc, servers)
+      response = Port.handle_mcp_message("unknown", jsonrpc, servers)
       assert response["error"]["code"] == -32_601
       assert response["error"]["message"] =~ "unknown"
     end

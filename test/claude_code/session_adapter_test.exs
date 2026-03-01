@@ -2,6 +2,7 @@ defmodule ClaudeCode.SessionAdapterTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Session
+  alias ClaudeCode.Test.Factory
 
   # ============================================================================
   # Session eager init failure (adapter start_link returns {:error, reason})
@@ -98,7 +99,8 @@ defmodule ClaudeCode.SessionAdapterTest do
 
         @impl GenServer
         def handle_cast({:query, request_id}, state) do
-          send(state.session, {:adapter_done, request_id, :completed})
+          msg = Factory.result_message(result: "done")
+          ClaudeCode.Adapter.notify_message(state.session, request_id, msg)
           {:noreply, state}
         end
 
@@ -117,17 +119,15 @@ defmodule ClaudeCode.SessionAdapterTest do
       adapter_pid = state.adapter_pid
       assert is_pid(adapter_pid)
 
-      # The adapter should have received the config with :callers added
+      # The adapter should have received the config as-is
       adapter_opts = GenServer.call(adapter_pid, :get_opts)
       assert Keyword.get(adapter_opts, :my_key) == "my_value"
       assert Keyword.get(adapter_opts, :another_key) == 42
-      # :callers is automatically injected by resolve_adapter
-      assert is_list(Keyword.get(adapter_opts, :callers))
 
       GenServer.stop(session)
     end
 
-    test "callers list contains the calling process" do
+    test "custom adapter receives config without extra keys injected" do
       defmodule CallerCheckAdapter do
         @moduledoc false
         @behaviour ClaudeCode.Adapter
@@ -160,16 +160,14 @@ defmodule ClaudeCode.SessionAdapterTest do
         end
       end
 
-      test_pid = self()
-
       {:ok, session} = Session.start_link(adapter: {CallerCheckAdapter, [custom: true]})
 
       state = :sys.get_state(session)
       adapter_opts = GenServer.call(state.adapter_pid, :get_opts)
 
-      callers = Keyword.get(adapter_opts, :callers)
-      assert is_list(callers)
-      assert test_pid in callers
+      assert Keyword.get(adapter_opts, :custom) == true
+      # No extra keys injected — adapters get exactly what they're configured with
+      assert Keyword.keys(adapter_opts) == [:custom]
 
       GenServer.stop(session)
     end
@@ -220,20 +218,8 @@ defmodule ClaudeCode.SessionAdapterTest do
 
       @impl GenServer
       def handle_cast({:query, request_id, _prompt, _opts}, state) do
-        Adapter.notify_message(state.session, request_id, %ClaudeCode.Message.ResultMessage{
-          type: :result,
-          result: "provisioned response",
-          is_error: false,
-          subtype: :success,
-          session_id: "test-session",
-          duration_ms: 50.0,
-          duration_api_ms: 40.0,
-          num_turns: 1,
-          total_cost_usd: 0.001,
-          usage: %{}
-        })
-
-        Adapter.notify_done(state.session, request_id, :completed)
+        msg = Factory.result_message(result: "provisioned response")
+        Adapter.notify_message(state.session, request_id, msg)
         {:noreply, state}
       end
     end

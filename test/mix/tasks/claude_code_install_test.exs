@@ -4,7 +4,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
   import ExUnit.CaptureIO
   import Mox
 
-  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Port.Installer
   alias ClaudeCode.SystemCmd.Mock
   alias Mix.Tasks.ClaudeCode.Install
 

@@ -26,15 +26,6 @@ defmodule ClaudeCode.AdapterTest do
       assert_receive {:adapter_message, ^request_id, ^message}
     end
 
-    test "notify_done/3 sends adapter_done to session" do
-      session = self()
-      request_id = make_ref()
-
-      ClaudeCode.Adapter.notify_done(session, request_id, :completed)
-
-      assert_receive {:adapter_done, ^request_id, :completed}
-    end
-
     test "notify_error/3 sends adapter_error to session" do
       session = self()
       request_id = make_ref()

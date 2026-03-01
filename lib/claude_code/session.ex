@@ -6,12 +6,13 @@ defmodule ClaudeCode.Session do
   request queuing, subscriber management, and session continuity.
 
   The session uses adapters for communication:
-  - `ClaudeCode.Adapter.Local` (default) - Manages a CLI subprocess via Port
+  - `ClaudeCode.Adapter.Port` (default) - Manages a CLI subprocess via Port
   - `ClaudeCode.Adapter.Test` - Delivers mock messages for testing
   """
 
   use GenServer
 
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
@@ -213,45 +214,37 @@ defmodule ClaudeCode.Session do
     {:noreply, %{new_state | adapter_status: {:error, reason}}}
   end
 
-  def handle_info({:adapter_message, request_id, message}, state) do
-    # Extract session ID if present
-    new_session_id = extract_session_id(message) || state.session_id
+  def handle_info({:adapter_message, request_id, raw}, state) do
+    with {:ok, message} <- maybe_parse(raw),
+         {:ok, request} <- fetch_request(state, request_id) do
+      state = update_session_id(state, message)
+      updated_request = dispatch_message(message, request)
+      state = %{state | requests: Map.put(state.requests, request_id, updated_request)}
 
-    state = %{state | session_id: new_session_id}
-
-    # Find the request and dispatch message
-    case Map.get(state.requests, request_id) do
-      nil ->
+      if match?(%ResultMessage{}, message) do
+        {:noreply, complete_request(request_id, updated_request, state)}
+      else
+        {:noreply, state}
+      end
+    else
+      :unknown_request ->
         {:noreply, state}
 
-      request ->
-        updated_request = dispatch_message(message, request)
-        new_requests = Map.put(state.requests, request_id, updated_request)
-        {:noreply, %{state | requests: new_requests}}
-    end
-  end
-
-  def handle_info({:adapter_done, request_id, _reason}, state) do
-    case Map.get(state.requests, request_id) do
-      nil ->
+      {:error, reason} ->
+        Logger.warning("Failed to parse raw message: #{inspect(reason)}")
         {:noreply, state}
-
-      request ->
-        new_state = complete_request(request_id, request, state)
-        {:noreply, new_state}
     end
   end
 
   def handle_info({:adapter_error, request_id, reason}, state) do
-    case Map.get(state.requests, request_id) do
-      nil ->
-        {:noreply, state}
-
-      request ->
+    case fetch_request(state, request_id) do
+      {:ok, request} ->
         notify_error(request, reason)
         new_requests = Map.put(state.requests, request_id, %{request | status: :completed})
-        new_state = %{state | requests: new_requests}
-        {:noreply, process_next_in_queue(new_state)}
+        {:noreply, process_next_in_queue(%{state | requests: new_requests})}
+
+      :unknown_request ->
+        {:noreply, state}
     end
   end
 
@@ -285,7 +278,7 @@ defmodule ClaudeCode.Session do
     case Keyword.get(opts, :adapter) do
       nil ->
         # Default: CLI adapter with session opts as adapter config
-        {ClaudeCode.Adapter.Local, opts}
+        {ClaudeCode.Adapter.Port, opts}
 
       {ClaudeCode.Test, stub_name} ->
         # Test adapter — backward compatible
@@ -293,9 +286,9 @@ defmodule ClaudeCode.Session do
         {ClaudeCode.Adapter.Test, adapter_opts}
 
       {module, config} when is_atom(module) and is_list(config) ->
-        # New pattern: {Module, adapter_config_keyword_list}
-        adapter_opts = Keyword.put(config, :callers, callers)
-        {module, adapter_opts}
+        # Merge session opts with adapter-specific config.
+        # Adapter config takes precedence over session opts.
+        {module, Keyword.merge(opts, config)}
 
       {module, _name} ->
         # Legacy custom adapter pattern
@@ -449,10 +442,30 @@ defmodule ClaudeCode.Session do
     end)
   end
 
+  defp fetch_request(state, request_id) do
+    case Map.get(state.requests, request_id) do
+      nil -> :unknown_request
+      request -> {:ok, request}
+    end
+  end
+
+  defp update_session_id(state, message) do
+    new_session_id = extract_session_id(message) || state.session_id
+    %{state | session_id: new_session_id}
+  end
+
   defp extract_session_id(%SystemMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(%AssistantMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(%ResultMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(_), do: nil
+
+  defp maybe_parse(%{__struct__: _} = struct), do: {:ok, struct}
+
+  defp maybe_parse(raw) when is_binary(raw) do
+    with {:ok, json_map} <- Jason.decode(raw), do: Parser.parse_message(json_map)
+  end
+
+  defp maybe_parse(raw) when is_map(raw), do: Parser.parse_message(raw)
 
   defp supports_control?(adapter_module) do
     function_exported?(adapter_module, :send_control_request, 3)

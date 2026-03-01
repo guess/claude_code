@@ -1,11 +1,11 @@
-defmodule ClaudeCode.Adapter.Local do
+defmodule ClaudeCode.Adapter.Port do
   @moduledoc """
   Local CLI adapter that manages a persistent Port connection to the Claude CLI.
 
   This adapter:
   - Spawns the CLI subprocess with `--input-format stream-json`
   - Receives async messages from the Port
-  - Parses JSON and forwards structured messages to Session
+  - Forwards raw decoded JSON maps to Session for parsing
   - Handles Port lifecycle (connect, reconnect, cleanup)
   """
 
@@ -14,18 +14,16 @@ defmodule ClaudeCode.Adapter.Local do
   use GenServer
 
   alias ClaudeCode.Adapter
-  alias ClaudeCode.Adapter.Local.Installer
-  alias ClaudeCode.Adapter.Local.Resolver
+  alias ClaudeCode.Adapter.Port.Installer
+  alias ClaudeCode.Adapter.Port.Resolver
   alias ClaudeCode.CLI.Command
   alias ClaudeCode.CLI.Control
   alias ClaudeCode.CLI.Input
-  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Hook
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.Hook.Response, as: HookResponse
   alias ClaudeCode.MCP.Router, as: MCPRouter
   alias ClaudeCode.MCP.Server, as: MCPServer
-  alias ClaudeCode.Message.ResultMessage
 
   require Logger
 
@@ -503,25 +501,15 @@ defmodule ClaudeCode.Adapter.Local do
     end
   end
 
-  defp handle_sdk_message(_json, %{current_request: nil} = state) do
-    state
-  end
+  defp handle_sdk_message(_json, %{current_request: nil} = state), do: state
 
   defp handle_sdk_message(json, state) do
-    case Parser.parse_message(json) do
-      {:ok, message} ->
-        Adapter.notify_message(state.session, state.current_request, message)
+    Adapter.notify_message(state.session, state.current_request, json)
 
-        if match?(%ResultMessage{}, message) do
-          Adapter.notify_done(state.session, state.current_request, :completed)
-          %{state | current_request: nil}
-        else
-          state
-        end
-
-      {:error, _} ->
-        Logger.debug("Failed to parse message: #{inspect(json)}")
-        state
+    if json["type"] == "result" do
+      %{state | current_request: nil}
+    else
+      state
     end
   end
 

@@ -6,7 +6,7 @@ defmodule ClaudeCode.CLI.Command do
   - Converting Elixir options to CLI flags (`to_cli_args/1`)
   - Assembling the full argument list for a CLI invocation (`build_args/3`)
 
-  It is used by `ClaudeCode.Adapter.Local` for local subprocess management.
+  It is used by `ClaudeCode.Adapter.Port` for local subprocess management.
   """
 
   alias ClaudeCode.MCP.Server

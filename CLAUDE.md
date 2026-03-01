@@ -22,6 +22,9 @@ mix test                        # Run all tests
 mix test test/path/to_test.exs # Run specific test file
 mix test.all                    # Run tests with coverage report
 mix coveralls.html              # Generate HTML coverage report
+
+# Distributed tests (Adapter.Node) require a named BEAM node:
+elixir --sname test -S mix test --include distributed
 ```
 
 ### Development
@@ -40,15 +43,16 @@ The SDK is organized in three layers:
 
 1. **Adapter-agnostic** — Session, Stream, Options (validation), Types, Message/Content structs
 2. **CLI protocol** — CLI.Command (flags), CLI.Input (stdin), CLI.Parser (JSON parsing)
-3. **Local adapter** — Adapter.Local (Port), Adapter.Local.Resolver (binary), Adapter.Local.Installer (download)
+3. **Adapters** — Adapter.Port (local CLI via Port), Adapter.Node (distributed via BEAM), Adapter.Test (in-memory stubs)
 
 Key modules:
 - **ClaudeCode.Session** - GenServer that manages the adapter subprocess lifecycle
-- **ClaudeCode.Adapter.Local** - Port-based adapter that spawns the CLI as a local subprocess
+- **ClaudeCode.Adapter.Port** - Port-based adapter that spawns the CLI as a local subprocess
+- **ClaudeCode.Adapter.Node** - Distributed adapter that runs Adapter.Port on a remote BEAM node via Erlang distribution
 - **ClaudeCode.CLI** - Thin facade: binary resolution + command building (delegates to Resolver + Command)
 - **ClaudeCode.CLI.Command** - Converts Elixir options to CLI flags and builds argument lists
 - **ClaudeCode.CLI.Parser** - Parses newline-delimited JSON from CLI output into structs
-- **ClaudeCode.Adapter.Local.Installer** - CLI binary download and version management
+- **ClaudeCode.Adapter.Port.Installer** - CLI binary download and version management
 
 Key CLI flags used:
 - `--input-format stream-json` - Bidirectional streaming mode (reads from stdin)
@@ -108,10 +112,11 @@ Core capabilities:
   - `content/` - Content block modules (text, tool_use, tool_result, thinking)
   - `adapter.ex` - Adapter behaviour definition + notification helpers
   - `adapter/`
-    - `local.ex` - Local CLI adapter GenServer (Port, shell, env, reconnect)
-    - `local/`
+    - `port.ex` - Port-based CLI adapter GenServer (Port, shell, env, reconnect)
+    - `port/`
       - `installer.ex` - CLI binary download and installation
       - `resolver.ex` - CLI binary resolution and validation
+    - `node.ex` - Distributed adapter (runs Adapter.Port on a remote BEAM node)
     - `test.ex` - Test adapter (mock)
   - `cli.ex` - Thin facade: find_binary + build_command (delegates to Resolver + Command)
   - `cli/`

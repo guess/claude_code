@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Adapter.Local.Installer do
+defmodule ClaudeCode.Adapter.Port.Installer do
   @moduledoc """
   Manages Claude CLI binary installation.
 
@@ -22,7 +22,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## CLI Resolution Modes
 
-  The `:cli_path` option controls how the CLI binary is found (see `ClaudeCode.Adapter.Local.Resolver.find_binary/1`):
+  The `:cli_path` option controls how the CLI binary is found (see `ClaudeCode.Adapter.Port.Resolver.find_binary/1`):
 
   - `:bundled` (default) — Uses priv/bin/ binary. Auto-installs if missing.
     Verifies version matches the SDK's pinned version and re-installs on mismatch.
@@ -70,7 +70,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Adapter.Local.Installer.configured_version()
+      iex> ClaudeCode.Adapter.Port.Installer.configured_version()
       "#{@default_cli_version}"
   """
   @spec configured_version() :: String.t()
@@ -85,7 +85,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Adapter.Local.Installer.cli_dir()
+      iex> ClaudeCode.Adapter.Port.Installer.cli_dir()
       "/path/to/app/priv/bin"
   """
   @spec cli_dir() :: String.t()
@@ -101,7 +101,7 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Adapter.Local.Installer.bundled_path()
+      iex> ClaudeCode.Adapter.Port.Installer.bundled_path()
       "/path/to/app/priv/bin/claude"
   """
   @spec bundled_path() :: String.t()
@@ -123,13 +123,13 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Adapter.Local.Installer.install!()
+      iex> ClaudeCode.Adapter.Port.Installer.install!()
       :ok
 
-      iex> ClaudeCode.Adapter.Local.Installer.install!(version: "#{@default_cli_version}")
+      iex> ClaudeCode.Adapter.Port.Installer.install!(version: "#{@default_cli_version}")
       :ok
 
-      iex> ClaudeCode.Adapter.Local.Installer.install!(return_info: true)
+      iex> ClaudeCode.Adapter.Port.Installer.install!(return_info: true)
       {:ok, %{version: "#{@default_cli_version}", path: "/path/to/claude", size_bytes: 1234567}}
   """
   @spec install!(keyword()) :: :ok | {:ok, map()}
@@ -166,10 +166,10 @@ defmodule ClaudeCode.Adapter.Local.Installer do
 
   ## Examples
 
-      iex> ClaudeCode.Adapter.Local.Installer.version_of("/usr/local/bin/claude")
+      iex> ClaudeCode.Adapter.Port.Installer.version_of("/usr/local/bin/claude")
       {:ok, "#{@default_cli_version}"}
 
-      iex> ClaudeCode.Adapter.Local.Installer.version_of("/nonexistent")
+      iex> ClaudeCode.Adapter.Port.Installer.version_of("/nonexistent")
       {:error, {:execution_failed, "enoent"}}
   """
   @spec version_of(String.t()) :: {:ok, String.t()} | {:error, term()}

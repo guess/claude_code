@@ -187,6 +187,146 @@ defmodule ClaudeCode.SessionTest do
   end
 
   # ============================================================================
+  # Raw message handling tests
+  # ============================================================================
+
+  describe "raw message handling" do
+    # Helper: a stub that blocks forever, keeping the request active.
+    # send_query is a GenServer.cast, so it returns :ok immediately;
+    # the blocking happens in the Test adapter's process, not Session's.
+    defp blocking_stub do
+      fn _query, _opts ->
+        receive do
+          :never -> []
+        end
+      end
+    end
+
+    # Reusable raw result map matching real CLI output shape
+    defp raw_result_map(text \\ "Hello from raw!") do
+      %{
+        "type" => "result",
+        "subtype" => "success",
+        "is_error" => false,
+        "duration_ms" => 100.0,
+        "duration_api_ms" => 80.0,
+        "num_turns" => 1,
+        "result" => text,
+        "session_id" => "test-session",
+        "total_cost_usd" => 0.001,
+        "usage" => %{
+          "input_tokens" => 10,
+          "output_tokens" => 5,
+          "cache_creation_input_tokens" => 0,
+          "cache_read_input_tokens" => 0,
+          "server_tool_use_input_tokens" => 0
+        }
+      }
+    end
+
+    test "parses and delivers raw JSON map from adapter" do
+      ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+      # Send raw map directly (simulating what Adapter.Port would do)
+      send(session, {:adapter_message, request_id, raw_result_map()})
+
+      # Should receive parsed ResultMessage
+      {:message, message} = GenServer.call(session, {:receive_next, request_id})
+      assert %ResultMessage{} = message
+      assert message.result == "Hello from raw!"
+
+      # ResultMessage should auto-trigger done (request completed)
+      assert :done = GenServer.call(session, {:receive_next, request_id})
+    end
+
+    test "parses raw JSON binary string from adapter" do
+      ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+      # Send raw JSON binary (simulating a remote adapter)
+      raw_json = Jason.encode!(raw_result_map("Hello from binary!"))
+      send(session, {:adapter_message, request_id, raw_json})
+
+      {:message, message} = GenServer.call(session, {:receive_next, request_id})
+      assert %ResultMessage{} = message
+      assert message.result == "Hello from binary!"
+      assert :done = GenServer.call(session, {:receive_next, request_id})
+    end
+
+    test "handles non-result raw messages without completing request" do
+      ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+      # Send a raw assistant message (NOT a result)
+      raw_assistant = %{
+        "type" => "assistant",
+        "message" => %{
+          "id" => "msg_001",
+          "type" => "message",
+          "role" => "assistant",
+          "content" => [%{"type" => "text", "text" => "Working on it..."}],
+          "model" => "claude-sonnet-4-20250514",
+          "stop_reason" => nil,
+          "stop_sequence" => nil,
+          "usage" => %{
+            "input_tokens" => 10,
+            "output_tokens" => 5,
+            "cache_creation_input_tokens" => 0,
+            "cache_read_input_tokens" => 0,
+            "server_tool_use_input_tokens" => 0
+          }
+        },
+        "session_id" => "test-session"
+      }
+
+      send(session, {:adapter_message, request_id, raw_assistant})
+
+      # Should receive parsed AssistantMessage
+      {:message, message} = GenServer.call(session, {:receive_next, request_id})
+      assert %AssistantMessage{} = message
+
+      # Request should still be active (not done), so sending result completes it
+      send(session, {:adapter_message, request_id, raw_result_map()})
+      {:message, result} = GenServer.call(session, {:receive_next, request_id})
+      assert %ResultMessage{} = result
+      assert :done = GenServer.call(session, {:receive_next, request_id})
+    end
+
+    test "discards raw message for unknown request_id" do
+      ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      # Send raw message with a request_id that doesn't exist
+      bogus_ref = make_ref()
+      send(session, {:adapter_message, bogus_ref, raw_result_map()})
+
+      # Give Session time to process (it should discard silently)
+      Process.sleep(50)
+      assert Process.alive?(session)
+    end
+
+    test "logs warning for unparseable raw message" do
+      ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
+      {:ok, session} = Session.start_link(adapter: @adapter)
+
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+
+      # Send invalid binary — Session should log and discard
+      send(session, {:adapter_message, request_id, "not valid json"})
+
+      Process.sleep(50)
+      assert Process.alive?(session)
+    end
+  end
+
+  # ============================================================================
   # GenServer lifecycle tests
   # ============================================================================
 

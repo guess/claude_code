@@ -3,7 +3,7 @@ defmodule Mix.Tasks.ClaudeCode.UninstallTest do
 
   import ExUnit.CaptureIO
 
-  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Port.Installer
   alias Mix.Tasks.ClaudeCode.Uninstall
 
   describe "run/1" do

@@ -58,7 +58,6 @@ defmodule ClaudeCode.MixProject do
       {:nimble_options, "~> 1.0"},
       {:nimble_ownership, "~> 1.0"},
       {:telemetry, "~> 1.2"},
-
       # Optional dependencies
       {:hermes_mcp, "~> 0.14", optional: true},
 
@@ -71,7 +70,7 @@ defmodule ClaudeCode.MixProject do
       {:mox, "~> 1.1", only: :test},
       {:stream_data, "~> 1.1", only: [:test, :dev]},
       # Tidewave
-      {:bandit, "~> 1.0", only: :dev},
+      {:bandit, "~> 1.0", only: [:dev, :test]},
       {:tidewave, "~> 0.5", only: :dev}
     ]
   end
@@ -136,6 +135,7 @@ defmodule ClaudeCode.MixProject do
         "docs/guides/plugins.md",
         # Production
         "docs/guides/hosting.md",
+        "docs/guides/distributed-sessions.md",
         "docs/guides/secure-deployment.md",
         "docs/guides/file-checkpointing.md",
         "docs/guides/cost-tracking.md",
@@ -173,6 +173,7 @@ defmodule ClaudeCode.MixProject do
         ],
         Production: [
           "docs/guides/hosting.md",
+          "docs/guides/distributed-sessions.md",
           "docs/guides/secure-deployment.md",
           "docs/guides/file-checkpointing.md",
           "docs/guides/cost-tracking.md"
@@ -212,15 +213,16 @@ defmodule ClaudeCode.MixProject do
         Messages: ~r/ClaudeCode.Message/,
         "Content Blocks": ~r/ClaudeCode.Content/,
         Installation: [
-          ClaudeCode.Adapter.Local.Installer,
-          ClaudeCode.Adapter.Local.Resolver,
+          ClaudeCode.Adapter.Port.Installer,
+          ClaudeCode.Adapter.Port.Resolver,
           Mix.Tasks.ClaudeCode.Install,
           Mix.Tasks.ClaudeCode.Uninstall,
           Mix.Tasks.ClaudeCode.Path
         ],
         Internal: [
           ClaudeCode.Adapter,
-          ClaudeCode.Adapter.Local,
+          ClaudeCode.Adapter.Port,
+          ClaudeCode.Adapter.Node,
           ClaudeCode.CLI.Command,
           ClaudeCode.CLI.Control,
           ClaudeCode.CLI.Input,

@@ -1,4 +1,4 @@
-defmodule ClaudeCode.Adapter.Local.Resolver do
+defmodule ClaudeCode.Adapter.Port.Resolver do
   @moduledoc """
   Resolves the Claude CLI binary for the local adapter.
 
@@ -14,7 +14,7 @@ defmodule ClaudeCode.Adapter.Local.Resolver do
       config :claude_code, cli_path: :global
   """
 
-  alias ClaudeCode.Adapter.Local.Installer
+  alias ClaudeCode.Adapter.Port.Installer
 
   require Logger
 
@@ -35,13 +35,13 @@ defmodule ClaudeCode.Adapter.Local.Resolver do
 
   ## Examples
 
-      iex> ClaudeCode.Adapter.Local.Resolver.find_binary()
+      iex> ClaudeCode.Adapter.Port.Resolver.find_binary()
       {:ok, "/path/to/priv/bin/claude"}
 
-      iex> ClaudeCode.Adapter.Local.Resolver.find_binary(cli_path: :global)
+      iex> ClaudeCode.Adapter.Port.Resolver.find_binary(cli_path: :global)
       {:ok, "/usr/local/bin/claude"}
 
-      iex> ClaudeCode.Adapter.Local.Resolver.find_binary(cli_path: "/custom/path/claude")
+      iex> ClaudeCode.Adapter.Port.Resolver.find_binary(cli_path: "/custom/path/claude")
       {:ok, "/custom/path/claude"}
   """
   @spec find_binary(keyword()) :: {:ok, String.t()} | {:error, term()}

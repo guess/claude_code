@@ -65,12 +65,11 @@ defmodule ClaudeCode.Adapter.Test do
     # Get messages from stub via ClaudeCode.Test, using captured callers
     messages = ClaudeCode.Test.stream(state.stub_name, prompt, opts, state.callers)
 
-    # Send all messages to session
     Enum.each(messages, fn msg ->
       Adapter.notify_message(state.session, request_id, msg)
     end)
 
-    Adapter.notify_done(state.session, request_id, :completed)
+    # No notify_done needed — Session auto-completes on ResultMessage detection.
 
     {:noreply, state}
   end
