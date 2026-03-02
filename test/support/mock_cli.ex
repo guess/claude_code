@@ -239,7 +239,104 @@ defmodule MockCLI do
     end
   end
 
+  # ---------------------------------------------------------------------------
+  # Control Request Helpers (for testing inbound CLI → SDK control requests)
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Sets up a mock CLI that sends inbound control requests to the SDK.
+
+  The mock CLI handles the initialize handshake normally, then when it receives
+  a user message it emits a system init message, sends each control request
+  in order (reading back the SDK's response each time), and finishes with a
+  result message. Responses are written to a temp file for verification.
+
+  Returns `{mock_script, response_file}`.
+
+  ## Example
+
+      {mock_script, response_file} = MockCLI.setup_with_control_requests([
+        Jason.encode!(%{type: "control_request", request_id: "r1", request: %{subtype: "can_use_tool", ...}})
+      ])
+
+      # ... start adapter with cli_path: mock_script, send a query ...
+
+      [response] = MockCLI.read_responses(response_file, 1)
+  """
+  def setup_with_control_requests(control_requests) do
+    response_file = Path.join(System.tmp_dir!(), "mock_cli_responses_#{:rand.uniform(999_999)}")
+    File.write!(response_file, "")
+
+    script_content = build_control_request_script(control_requests, response_file)
+    {:ok, ctx} = setup_with_script(script_content)
+
+    ExUnit.Callbacks.on_exit(fn -> File.rm(response_file) end)
+
+    {ctx[:mock_script], response_file}
+  end
+
+  @doc """
+  Reads decoded JSON responses from a control request response file.
+
+  Polls until `expected_count` lines are present or `timeout` expires.
+  """
+  def read_responses(response_file, expected_count, timeout \\ 5_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+
+    poll = fn poll_fn ->
+      content = File.read!(response_file)
+      lines = content |> String.trim() |> String.split("\n", trim: true)
+
+      if length(lines) >= expected_count do
+        Enum.map(lines, &Jason.decode!/1)
+      else
+        if System.monotonic_time(:millisecond) >= deadline do
+          raise "Timed out waiting for #{expected_count} responses, got #{length(lines)}: #{content}"
+        end
+
+        Process.sleep(50)
+        poll_fn.(poll_fn)
+      end
+    end
+
+    poll.(poll)
+  end
+
+  @doc """
+  Waits until an Adapter.Port process reaches `:ready` status.
+
+  Unlike `wait_until_ready/2` which polls a Session, this polls the
+  adapter GenServer directly via `:sys.get_state/1`.
+  """
+  def wait_until_adapter_ready(adapter, timeout \\ 5_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout
+
+    poll = fn poll_fn ->
+      state = :sys.get_state(adapter)
+
+      if state.status == :ready do
+        :ok
+      else
+        if System.monotonic_time(:millisecond) >= deadline do
+          raise "Timed out waiting for adapter to be ready (status: #{inspect(state.status)})"
+        end
+
+        receive do
+          _ -> :ok
+        after
+          10 -> :ok
+        end
+
+        poll_fn.(poll_fn)
+      end
+    end
+
+    poll.(poll)
+  end
+
+  # ---------------------------------------------------------------------------
   # Private helpers
+  # ---------------------------------------------------------------------------
 
   defp build_script(messages, sleep) do
     # Build a streaming-aware script that:
@@ -276,5 +373,50 @@ defmodule MockCLI do
 
   defp generate_session_id do
     "test-#{:rand.uniform(999_999)}"
+  end
+
+  defp build_control_request_script(control_requests, response_file) do
+    request_lines =
+      control_requests
+      |> Enum.with_index()
+      |> Enum.map_join("\n", fn {request_json, idx} ->
+        escaped = String.replace(request_json, "'", "'\\''")
+
+        """
+            echo '#{escaped}'
+            IFS= read -r resp_#{idx}
+            echo "$resp_#{idx}" >> "#{response_file}"
+        """
+      end)
+
+    """
+    #!/bin/bash
+
+    # Phase 1: Handle SDK control requests (initialize, etc.)
+    while IFS= read -r line; do
+      if echo "$line" | grep -q '"type":"control_request"'; then
+        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+      else
+        # Got user message — emit system init, then send our control requests
+        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"ctrl-req","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+
+    #{request_lines}
+
+        # Emit result
+        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"done","session_id":"ctrl-req","total_cost_usd":0.001,"usage":{}}'
+        break
+      fi
+    done
+
+    # Drain remaining stdin to prevent broken pipe
+    while IFS= read -r line; do
+      if echo "$line" | grep -q '"type":"control_request"'; then
+        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+      fi
+    done
+    exit 0
+    """
   end
 end

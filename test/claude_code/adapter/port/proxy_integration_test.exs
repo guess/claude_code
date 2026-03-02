@@ -14,7 +14,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
   alias ClaudeCode.Hook.Registry, as: HookRegistry
 
   # ============================================================================
-  # Test Hook Module
+  # Test Hook Modules
   # ============================================================================
 
   defmodule AllowHook do
@@ -34,103 +34,11 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
   end
 
   # ============================================================================
-  # Helper: build a mock CLI script that sends inbound control requests
+  # Helpers
   # ============================================================================
 
-  defp build_control_request_script(control_requests, response_file) do
-    # Build lines that send each control request and read the response.
-    # Responses are written to a temp file so tests can verify content.
-    request_lines =
-      control_requests
-      |> Enum.with_index()
-      |> Enum.map_join("\n", fn {request_json, idx} ->
-        escaped = String.replace(request_json, "'", "'\\''")
-
-        """
-            echo '#{escaped}'
-            IFS= read -r resp_#{idx}
-            echo "$resp_#{idx}" >> "#{response_file}"
-        """
-      end)
-
-    """
-    #!/bin/bash
-
-    # Phase 1: Handle SDK control requests (initialize, etc.)
-    while IFS= read -r line; do
-      if echo "$line" | grep -q '"type":"control_request"'; then
-        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
-      else
-        # Got user message — emit system init, then send our control requests
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"proxy-int","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
-
-    #{request_lines}
-
-        # Emit result
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"done","session_id":"proxy-int","total_cost_usd":0.001,"usage":{}}'
-        break
-      fi
-    done
-
-    # Drain remaining stdin to prevent broken pipe
-    while IFS= read -r line; do
-      if echo "$line" | grep -q '"type":"control_request"'; then
-        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
-      fi
-    done
-    exit 0
-    """
-  end
-
-  defp setup_mock_cli(control_requests) do
-    response_file = Path.join(System.tmp_dir!(), "proxy_int_#{:rand.uniform(999_999)}")
-    File.write!(response_file, "")
-
-    mock_dir = Path.join(System.tmp_dir!(), "claude_proxy_int_#{:rand.uniform(999_999)}")
-    File.mkdir_p!(mock_dir)
-
-    mock_script = Path.join(mock_dir, "claude")
-    script_content = build_control_request_script(control_requests, response_file)
-    File.write!(mock_script, script_content)
-    File.chmod!(mock_script, 0o755)
-
-    on_exit(fn ->
-      File.rm_rf!(mock_dir)
-      File.rm(response_file)
-    end)
-
-    {mock_script, response_file}
-  end
-
-  defp read_responses(response_file, expected_count, timeout \\ 5_000) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-
-    poll = fn poll_fn ->
-      content = File.read!(response_file)
-      lines = content |> String.trim() |> String.split("\n", trim: true)
-
-      if length(lines) >= expected_count do
-        Enum.map(lines, &Jason.decode!/1)
-      else
-        if System.monotonic_time(:millisecond) >= deadline do
-          raise "Timed out waiting for #{expected_count} responses, got #{length(lines)}: #{content}"
-        end
-
-        Process.sleep(50)
-        poll_fn.(poll_fn)
-      end
-    end
-
-    poll.(poll)
-  end
-
-  defp start_session_with_proxy(mock_script, proxy, remote_registry, opts \\ []) do
+  defp start_adapter_with_proxy(mock_script, proxy, remote_registry, opts \\ []) do
     callback_timeout = Keyword.get(opts, :callback_timeout, 5_000)
-
-    # Start the session with the mock CLI. We pass callback_proxy and
-    # hook_registry through a workaround: start the adapter directly.
     session = self()
 
     {:ok, adapter} =
@@ -143,36 +51,8 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
         sdk_mcp_servers: %{}
       )
 
-    # Wait for the adapter to be ready (it sends status notifications)
-    wait_for_ready(adapter)
+    MockCLI.wait_until_adapter_ready(adapter)
     adapter
-  end
-
-  defp wait_for_ready(adapter, timeout \\ 5_000) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-
-    poll = fn poll_fn ->
-      state = :sys.get_state(adapter)
-
-      if state.status == :ready do
-        :ok
-      else
-        if System.monotonic_time(:millisecond) >= deadline do
-          raise "Timed out waiting for adapter to be ready (status: #{inspect(state.status)})"
-        end
-
-        # Drain any messages sent to us (status notifications)
-        receive do
-          _ -> :ok
-        after
-          10 -> :ok
-        end
-
-        poll_fn.(poll_fn)
-      end
-    end
-
-    poll.(poll)
   end
 
   # ============================================================================
@@ -181,7 +61,6 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
 
   describe "MCP routing through proxy" do
     test "mcp_message control request is routed to CallbackProxy and response returned" do
-      # Build the control request the mock CLI will send
       mcp_request =
         Jason.encode!(%{
           type: "control_request",
@@ -198,24 +77,19 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
           }
         })
 
-      {mock_script, response_file} = setup_mock_cli([mcp_request])
+      {mock_script, response_file} = MockCLI.setup_with_control_requests([mcp_request])
 
-      # Start proxy with the test MCP server
       {:ok, proxy} =
         CallbackProxy.start_link(
           mcp_servers: %{"test-tools" => ClaudeCode.TestTools},
           hook_registry: %HookRegistry{}
         )
 
-      adapter = start_session_with_proxy(mock_script, proxy, %HookRegistry{})
-
-      # Send a query to trigger the mock CLI's control request phase
+      adapter = start_adapter_with_proxy(mock_script, proxy, %HookRegistry{})
       AdapterPort.send_query(adapter, "req_1", "test", [])
 
-      # Read the response the mock CLI received
-      [response] = read_responses(response_file, 1)
+      [response] = MockCLI.read_responses(response_file, 1)
 
-      # The response should be a control_response with the MCP result
       assert response["type"] == "control_response"
       resp = response["response"]
       assert resp["subtype"] == "success"
@@ -247,17 +121,15 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
           }
         })
 
-      {mock_script, response_file} = setup_mock_cli([cut_request])
+      {mock_script, response_file} = MockCLI.setup_with_control_requests([cut_request])
 
-      # Start proxy with a can_use_tool callback
       {:ok, proxy} =
         CallbackProxy.start_link(hook_registry: %{} |> HookRegistry.new(CanUseToolCallback) |> elem(0))
 
-      adapter = start_session_with_proxy(mock_script, proxy, %HookRegistry{})
-
+      adapter = start_adapter_with_proxy(mock_script, proxy, %HookRegistry{})
       AdapterPort.send_query(adapter, "req_1", "test", [])
 
-      [response] = read_responses(response_file, 1)
+      [response] = MockCLI.read_responses(response_file, 1)
 
       assert response["type"] == "control_response"
       resp = response["response"]
@@ -275,8 +147,6 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
 
   describe "hook_callback routing" do
     test "hook_callback for remote hook is handled locally by Adapter.Port" do
-      # Build a hook_callback request targeting hook_0 (which will be in the
-      # remote registry, handled locally by Adapter.Port)
       hook_request =
         Jason.encode!(%{
           type: "control_request",
@@ -289,21 +159,18 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
           }
         })
 
-      {mock_script, response_file} = setup_mock_cli([hook_request])
+      {mock_script, response_file} = MockCLI.setup_with_control_requests([hook_request])
 
-      # Create a registry with a remote hook (this is what Adapter.Port holds)
+      # Remote hook lives in Adapter.Port's registry — proxy shouldn't be called
       hooks = %{PreToolUse: [%{hooks: [AllowHook], where: :remote}]}
       {full_registry, _wire} = HookRegistry.new(hooks, nil)
       {_local, remote_registry} = HookRegistry.split(full_registry)
 
-      # Start proxy (empty — the hook is remote, so it shouldn't be called)
       {:ok, proxy} = CallbackProxy.start_link(hook_registry: %HookRegistry{})
-
-      adapter = start_session_with_proxy(mock_script, proxy, remote_registry)
-
+      adapter = start_adapter_with_proxy(mock_script, proxy, remote_registry)
       AdapterPort.send_query(adapter, "req_1", "test", [])
 
-      [response] = read_responses(response_file, 1)
+      [response] = MockCLI.read_responses(response_file, 1)
 
       assert response["type"] == "control_response"
       resp = response["response"]
@@ -316,8 +183,6 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
     end
 
     test "hook_callback for local hook is delegated to CallbackProxy" do
-      # Build a hook_callback request targeting hook_0 (which will NOT be in
-      # the remote registry, so Adapter.Port delegates to proxy)
       hook_request =
         Jason.encode!(%{
           type: "control_request",
@@ -330,22 +195,18 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
           }
         })
 
-      {mock_script, response_file} = setup_mock_cli([hook_request])
+      {mock_script, response_file} = MockCLI.setup_with_control_requests([hook_request])
 
-      # Create registries — hook_0 is LOCAL, so it goes in the proxy
+      # Local hook lives in the proxy's registry — Adapter.Port delegates
       hooks = %{PreToolUse: [%{hooks: [AllowHook]}]}
       {full_registry, _wire} = HookRegistry.new(hooks, nil)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 
-      # Proxy holds the local hook
       {:ok, proxy} = CallbackProxy.start_link(hook_registry: local_registry)
-
-      # Adapter.Port holds the remote registry (empty in this case)
-      adapter = start_session_with_proxy(mock_script, proxy, remote_registry)
-
+      adapter = start_adapter_with_proxy(mock_script, proxy, remote_registry)
       AdapterPort.send_query(adapter, "req_1", "test", [])
 
-      [response] = read_responses(response_file, 1)
+      [response] = MockCLI.read_responses(response_file, 1)
 
       assert response["type"] == "control_response"
       resp = response["response"]
