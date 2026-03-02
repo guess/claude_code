@@ -136,16 +136,14 @@ defmodule ClaudeCode.Hook.RegistryTest do
       {registry, _wire} = Registry.new(hooks, AllowAll)
       {local_reg, remote_reg} = Registry.split(registry)
 
-      # Local gets hook_1 (AllowAll from PreToolUse) + can_use_tool
-      assert {:ok, AllowAll} = Registry.lookup(local_reg, "hook_1")
-      assert :error = Registry.lookup(local_reg, "hook_0")
-      assert :error = Registry.lookup(local_reg, "hook_2")
+      # Local gets AllowAll (the only :local hook) + can_use_tool
+      local_callbacks = Map.values(local_reg.callbacks)
+      assert local_callbacks == [AllowAll]
       assert local_reg.can_use_tool == AllowAll
 
-      # Remote gets hook_0 (DenyBash) + hook_2 (AuditLogger), no can_use_tool
-      assert {:ok, DenyBash} = Registry.lookup(remote_reg, "hook_0")
-      assert {:ok, AuditLogger} = Registry.lookup(remote_reg, "hook_2")
-      assert :error = Registry.lookup(remote_reg, "hook_1")
+      # Remote gets DenyBash + AuditLogger, no can_use_tool
+      remote_callbacks = remote_reg.callbacks |> Map.values() |> MapSet.new()
+      assert remote_callbacks == MapSet.new([DenyBash, AuditLogger])
       assert remote_reg.can_use_tool == nil
     end
   end
