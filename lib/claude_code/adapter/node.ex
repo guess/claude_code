@@ -80,14 +80,13 @@ defmodule ClaudeCode.Adapter.Node do
 
       # Start proxy on LOCAL node if there are local callbacks
       proxy =
-        if has_local_callbacks?(local_registry, can_use_tool, mcp_servers) do
+        if has_local_callbacks?(local_registry, mcp_servers) do
           {:ok, pid} =
             CallbackProxy.start_link(
               mcp_servers: mcp_servers,
               hook_registry: local_registry
             )
 
-          Process.link(pid)
           pid
         end
 
@@ -135,10 +134,10 @@ defmodule ClaudeCode.Adapter.Node do
   # Private Helpers
   # ---------------------------------------------------------------------------
 
-  defp has_local_callbacks?(local_registry, can_use_tool, mcp_servers) do
+  defp has_local_callbacks?(local_registry, mcp_servers) do
     has_mcp = mcp_servers != nil and mcp_servers != %{}
     has_hooks = map_size(local_registry.callbacks) > 0
-    has_can_use_tool = can_use_tool != nil
+    has_can_use_tool = local_registry.can_use_tool != nil
     has_mcp or has_hooks or has_can_use_tool
   end
 
