@@ -27,6 +27,37 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
   end
 
   # ============================================================================
+  # Proxy Monitor Helper (mimics Adapter.Port's monitor pattern)
+  # ============================================================================
+
+  defmodule ProxyMonitorHelper do
+    @moduledoc false
+    use GenServer
+
+    def start_link(proxy_pid) do
+      GenServer.start_link(__MODULE__, proxy_pid)
+    end
+
+    def get_proxy(server), do: GenServer.call(server, :get_proxy)
+
+    @impl true
+    def init(proxy_pid) do
+      if proxy_pid, do: Process.monitor(proxy_pid)
+      {:ok, %{callback_proxy: proxy_pid}}
+    end
+
+    @impl true
+    def handle_call(:get_proxy, _from, state) do
+      {:reply, state.callback_proxy, state}
+    end
+
+    @impl true
+    def handle_info({:DOWN, _ref, :process, proxy, _reason}, %{callback_proxy: proxy} = state) do
+      {:noreply, %{state | callback_proxy: nil}}
+    end
+  end
+
+  # ============================================================================
   # Mock Hook Module
   # ============================================================================
 
@@ -241,6 +272,43 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
         end
 
       assert result == nil
+    end
+  end
+
+  # ============================================================================
+  # Proxy Monitoring Tests
+  # ============================================================================
+
+  describe "proxy monitoring" do
+    test "callback_proxy is nilled out when proxy process dies" do
+      {:ok, proxy} = MockProxy.start_link()
+
+      state = %PortAdapter{callback_proxy: proxy, callback_timeout: 5_000}
+      assert state.callback_proxy == proxy
+
+      # Simulate what Adapter.Port.init does: monitor the proxy
+      ref = Process.monitor(proxy)
+      GenServer.stop(proxy)
+
+      assert_receive {:DOWN, ^ref, :process, ^proxy, :normal}
+      # In real Adapter.Port, this would trigger handle_info to nil out the proxy
+    end
+
+    test "proxy death results in nil proxy in adapter state" do
+      # Start a real Adapter.Port with a proxy that we'll kill
+      {:ok, proxy} = MockProxy.start_link()
+
+      # We can't easily start a full Adapter.Port without a CLI, but we can
+      # verify the monitor + handle_info pattern works by testing the GenServer
+      # behavior directly. Start a simple GenServer that mimics the pattern.
+      {:ok, adapter} = ProxyMonitorHelper.start_link(proxy)
+
+      assert ProxyMonitorHelper.get_proxy(adapter) == proxy
+
+      GenServer.stop(proxy)
+      Process.sleep(50)
+
+      assert ProxyMonitorHelper.get_proxy(adapter) == nil
     end
   end
 

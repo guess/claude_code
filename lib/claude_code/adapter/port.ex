@@ -115,6 +115,7 @@ defmodule ClaudeCode.Adapter.Port do
     }
 
     Process.link(session)
+    if state.callback_proxy, do: Process.monitor(state.callback_proxy)
     Adapter.notify_status(session, :provisioning)
 
     {:ok, state, {:continue, :connect}}
@@ -268,6 +269,12 @@ defmodule ClaudeCode.Adapter.Port do
         GenServer.reply(from, {:error, :control_timeout})
         {:noreply, %{state | pending_control_requests: remaining}}
     end
+  end
+
+  def handle_info({:DOWN, _ref, :process, proxy, reason}, %{callback_proxy: proxy} = state)
+       when is_pid(proxy) do
+    Logger.warning("Callback proxy down: #{inspect(reason)}")
+    {:noreply, %{state | callback_proxy: nil}}
   end
 
   def handle_info(msg, state) do
