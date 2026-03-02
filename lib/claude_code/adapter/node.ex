@@ -68,7 +68,7 @@ defmodule ClaudeCode.Adapter.Node do
       can_use_tool = Keyword.get(config, :can_use_tool)
       mcp_servers = Keyword.get(config, :mcp_servers)
 
-      # Build full registry so we can partition by locality
+      # Build full registry so we can partition by execution target
       {full_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 

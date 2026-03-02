@@ -83,7 +83,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
       assert map_size(registry.callbacks) == 1
     end
 
-    test "tracks locality for each callback ID" do
+    test "tracks execution target for each callback ID" do
       hooks = %{
         PreToolUse: [
           %{matcher: "Bash", hooks: [DenyBash], where: :remote},
@@ -92,8 +92,8 @@ defmodule ClaudeCode.Hook.RegistryTest do
       }
 
       {registry, _wire} = Registry.new(hooks, nil)
-      assert Registry.locality(registry, "hook_0") == :remote
-      assert Registry.locality(registry, "hook_1") == :local
+      assert Registry.target(registry, "hook_0") == :remote
+      assert Registry.target(registry, "hook_1") == :local
     end
 
     test "defaults :where to :local when not specified" do
@@ -102,10 +102,10 @@ defmodule ClaudeCode.Hook.RegistryTest do
       }
 
       {registry, _wire} = Registry.new(hooks, nil)
-      assert Registry.locality(registry, "hook_0") == :local
+      assert Registry.target(registry, "hook_0") == :local
     end
 
-    test "wire format includes callbacks from all localities" do
+    test "wire format includes callbacks from all execution targets" do
       hooks = %{
         PreToolUse: [
           %{matcher: "Bash", hooks: [DenyBash], where: :remote},
@@ -122,7 +122,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
       assert local_entry["hookCallbackIds"] == ["hook_1"]
     end
 
-    test "split/1 partitions registry by locality" do
+    test "split/1 partitions registry by execution target" do
       hooks = %{
         PreToolUse: [
           %{matcher: "Bash", hooks: [DenyBash], where: :remote},
