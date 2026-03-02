@@ -20,8 +20,21 @@ defmodule ClaudeCode.Adapter.Node do
   Session-level options (`:model`, `:cwd`, `:system_prompt`, etc.) are passed
   to `start_link/1` as usual. They are merged into the adapter config
   automatically. The adapter tuple only needs Node-specific options (`:node`,
-  `:cookie`, `:connect_timeout`) which are consumed by this module and not
-  forwarded to the remote `Adapter.Port`.
+  `:cookie`, `:connect_timeout`, `:callback_timeout`) which are consumed by
+  this module and not forwarded to the remote `Adapter.Port`.
+
+  ## In-Process MCP Tools and Hooks
+
+  MCP tools (defined with `ClaudeCode.MCP.Server`) always execute on the local
+  node — they are routed through a `CallbackProxy` GenServer that lives on your
+  app server.
+
+  Hooks support a `:where` option on matcher configs:
+
+    - `:local` (default) — runs on your app server via the proxy
+    - `:remote` — runs on the sandbox server in the remote `Adapter.Port`
+
+  The `can_use_tool` callback always runs locally.
 
   ## Failure Handling
 
@@ -33,7 +46,11 @@ defmodule ClaudeCode.Adapter.Node do
 
   @behaviour ClaudeCode.Adapter
 
-  @node_opts [:node, :cookie, :connect_timeout]
+  alias ClaudeCode.Adapter.Node.CallbackProxy
+  alias ClaudeCode.Adapter.Port, as: AdapterPort
+  alias ClaudeCode.Hook.Registry, as: HookRegistry
+
+  @node_opts [:node, :cookie, :connect_timeout, :callback_timeout]
 
   @impl ClaudeCode.Adapter
   def start_link(session, config) do
@@ -41,12 +58,55 @@ defmodule ClaudeCode.Adapter.Node do
     cookie = Keyword.get(config, :cookie)
     cwd = Keyword.fetch!(config, :cwd)
     timeout = Keyword.get(config, :connect_timeout, 5_000)
+    callback_timeout = Keyword.get(config, :callback_timeout, 30_000)
 
     if cookie, do: Node.set_cookie(node, cookie)
 
     with :ok <- connect_node(node, timeout),
          :ok <- ensure_workspace(node, cwd) do
-      adapter_opts = Keyword.drop(config, @node_opts)
+      hooks_map = Keyword.get(config, :hooks)
+      can_use_tool = Keyword.get(config, :can_use_tool)
+      mcp_servers = Keyword.get(config, :mcp_servers)
+
+      # Build full registry so we can partition by locality
+      {full_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
+      {local_registry, remote_registry} = HookRegistry.split(full_registry)
+
+      # Build stub sdk_mcp_servers map: names only (nil values), since the
+      # actual modules live on the local node and execute via the proxy.
+      # Port reads Map.keys/1 for the initialize handshake, and nil values
+      # produce clean "server not found" errors if the proxy is unavailable.
+      local_sdk_servers = AdapterPort.extract_sdk_mcp_servers(mcp_servers: mcp_servers)
+
+      stub_sdk_servers =
+        if local_sdk_servers == %{},
+          do: %{},
+          else: Map.new(local_sdk_servers, fn {name, _} -> {name, nil} end)
+
+      # Start proxy on LOCAL node if there are local callbacks
+      proxy =
+        if has_local_callbacks?(local_registry, mcp_servers) do
+          {:ok, pid} =
+            CallbackProxy.start_link(
+              mcp_servers: mcp_servers,
+              hook_registry: local_registry
+            )
+
+          pid
+        end
+
+      # Build config for the REMOTE Adapter.Port.
+      # :hooks stays so Port can build the wire format for the initialize handshake.
+      # :mcp_servers is dropped because modules aren't available on the remote node;
+      # :sdk_mcp_servers stub provides just the names Port needs.
+      adapter_opts =
+        config
+        |> Keyword.drop(@node_opts ++ [:mcp_servers])
+        |> Keyword.put(:hook_registry, remote_registry)
+        |> Keyword.put(:sdk_mcp_servers, stub_sdk_servers)
+        |> Keyword.put(:can_use_tool, if(can_use_tool, do: :proxied))
+        |> Keyword.put(:callback_proxy, proxy)
+        |> Keyword.put(:callback_timeout, callback_timeout)
 
       # Use GenServer.start (not start_link) via RPC to avoid linking the
       # adapter to the ephemeral RPC handler process.  Adapter.Port.init/1
@@ -80,6 +140,13 @@ defmodule ClaudeCode.Adapter.Node do
   # ---------------------------------------------------------------------------
   # Private Helpers
   # ---------------------------------------------------------------------------
+
+  defp has_local_callbacks?(local_registry, mcp_servers) do
+    has_mcp = mcp_servers != nil and mcp_servers != %{}
+    has_hooks = map_size(local_registry.callbacks) > 0
+    has_can_use_tool = local_registry.can_use_tool != nil
+    has_mcp or has_hooks or has_can_use_tool
+  end
 
   defp connect_node(node, timeout) do
     task = Task.async(fn -> Node.connect(node) end)

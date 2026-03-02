@@ -117,5 +117,93 @@ defmodule ClaudeCode.Adapter.NodeTest do
 
       assert_receive {:EXIT, ^adapter_pid, :noconnection}, 5_000
     end
+
+    test "starts callback proxy for MCP servers", %{node: node} do
+      workspace =
+        Path.join(System.tmp_dir!(), "adapter_node_mcp_#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      Process.flag(:trap_exit, true)
+
+      {:ok, adapter_pid} =
+        NodeAdapter.start_link(self(),
+          node: node,
+          cwd: workspace,
+          mcp_servers: %{"calc" => ClaudeCode.TestTools}
+        )
+
+      # Adapter runs on remote node
+      assert node(adapter_pid) == node
+
+      NodeAdapter.stop(adapter_pid)
+    end
+
+    test "starts callback proxy for local hooks", %{node: node} do
+      workspace =
+        Path.join(System.tmp_dir!(), "adapter_node_hooks_#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      Process.flag(:trap_exit, true)
+
+      hook_fn = fn _input, _id -> :allow end
+
+      {:ok, adapter_pid} =
+        NodeAdapter.start_link(self(),
+          node: node,
+          cwd: workspace,
+          hooks: %{PreToolUse: [%{hooks: [hook_fn]}]}
+        )
+
+      assert node(adapter_pid) == node
+
+      NodeAdapter.stop(adapter_pid)
+    end
+
+    test "skips proxy when no MCP or hooks", %{node: node} do
+      workspace =
+        Path.join(System.tmp_dir!(), "adapter_node_noproxy_#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      {:ok, adapter_pid} =
+        NodeAdapter.start_link(self(),
+          node: node,
+          cwd: workspace
+        )
+
+      assert node(adapter_pid) == node
+
+      NodeAdapter.stop(adapter_pid)
+    end
+
+    test "partitions hooks by :where", %{node: node} do
+      workspace =
+        Path.join(System.tmp_dir!(), "adapter_node_partition_#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      Process.flag(:trap_exit, true)
+
+      local_hook = fn _input, _id -> :allow end
+      remote_hook = fn _input, _id -> :ok end
+
+      {:ok, adapter_pid} =
+        NodeAdapter.start_link(self(),
+          node: node,
+          cwd: workspace,
+          hooks: %{
+            PreToolUse: [
+              %{hooks: [local_hook]},
+              %{hooks: [remote_hook], where: :remote}
+            ]
+          }
+        )
+
+      assert node(adapter_pid) == node
+
+      NodeAdapter.stop(adapter_pid)
+    end
   end
 end

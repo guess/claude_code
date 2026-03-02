@@ -903,18 +903,14 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert_receive {:adapter_status, :provisioning}, 1000
 
       # Poll until the initialize control request has been sent
-      poll_until = fn poll_fn ->
-        state = :sys.get_state(adapter)
-
-        if map_size(state.pending_control_requests) > 0 do
-          state
-        else
-          Process.sleep(10)
-          poll_fn.(poll_fn)
-        end
-      end
-
-      state = poll_until.(poll_until)
+      state =
+        MockCLI.poll_until(
+          fn ->
+            state = :sys.get_state(adapter)
+            if map_size(state.pending_control_requests) > 0, do: {:ok, state}, else: :retry
+          end,
+          timeout: :infinity
+        )
 
       case Map.keys(state.pending_control_requests) do
         [req_id | _] -> send(adapter, {:control_timeout, req_id})
@@ -1419,6 +1415,61 @@ defmodule ClaudeCode.Adapter.PortTest do
 
       state = :sys.get_state(adapter)
       assert state.server_info["hooks_received"] == true
+
+      GenServer.stop(adapter)
+    end
+
+    test "uses hooks from session opts and pre-built sdk_mcp_servers for handshake" do
+      # Simulates the distributed path: hooks stay in session opts (Port builds
+      # wire from them), sdk_mcp_servers is a pre-built stub map with nil values
+      # (Port reads Map.keys for the handshake).
+      hook_fn = fn _input, _tool_use_id -> :ok end
+
+      hooks = %{
+        "PreToolUse" => [
+          %{matcher: %{"tool_name" => "Bash"}, hooks: [hook_fn]}
+        ]
+      }
+
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"subtype":"initialize"'; then
+            HOOKS_OK="false"
+            MCP_OK="false"
+            if echo "$line" | grep -q '"hookCallbackIds"'; then
+              HOOKS_OK="true"
+            fi
+            if echo "$line" | grep -q '"my_mcp_server"'; then
+              MCP_OK="true"
+            fi
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"hooks_ok\\\":$HOOKS_OK,\\\"mcp_ok\\\":$MCP_OK}}}"
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          hooks: hooks,
+          sdk_mcp_servers: %{"my_mcp_server" => nil},
+          hook_registry: nil |> ClaudeCode.Hook.Registry.new(nil) |> elem(0)
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 10_000
+
+      state = :sys.get_state(adapter)
+      assert state.server_info["hooks_ok"] == true
+      assert state.server_info["mcp_ok"] == true
 
       GenServer.stop(adapter)
     end
