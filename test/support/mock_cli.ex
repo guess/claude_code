@@ -186,6 +186,54 @@ defmodule MockCLI do
   end
 
   @doc """
+  Generic polling helper that retries until a condition is met.
+
+  `check_fn` is a zero-arity function that returns `{:ok, value}` when
+  the condition is satisfied, or `:retry` to keep polling.
+
+  ## Options
+
+    * `:timeout` - Maximum time in milliseconds (default: 5_000, supports `:infinity`)
+    * `:interval` - Sleep between attempts in milliseconds (default: 10)
+    * `:on_timeout` - Zero-arity function returning a descriptive error message string
+
+  ## Examples
+
+      MockCLI.poll_until(fn ->
+        state = :sys.get_state(pid)
+        if state.status == :ready, do: {:ok, state}, else: :retry
+      end, timeout: 2_000)
+  """
+  def poll_until(check_fn, opts \\ []) do
+    timeout = Keyword.get(opts, :timeout, 5_000)
+    interval = Keyword.get(opts, :interval, 10)
+    on_timeout = Keyword.get(opts, :on_timeout, fn -> "poll_until timed out" end)
+
+    deadline =
+      case timeout do
+        :infinity -> :infinity
+        ms -> System.monotonic_time(:millisecond) + ms
+      end
+
+    do_poll(check_fn, deadline, interval, on_timeout)
+  end
+
+  defp do_poll(check_fn, deadline, interval, on_timeout) do
+    case check_fn.() do
+      {:ok, value} ->
+        value
+
+      :retry ->
+        if deadline != :infinity and System.monotonic_time(:millisecond) >= deadline do
+          raise on_timeout.()
+        end
+
+        Process.sleep(interval)
+        do_poll(check_fn, deadline, interval, on_timeout)
+    end
+  end
+
+  @doc """
   Waits until a session's adapter status becomes `:ready`.
 
   Polls the session's internal state at short intervals instead of
@@ -197,24 +245,17 @@ defmodule MockCLI do
       MockCLI.wait_until_ready(session, 2000)
   """
   def wait_until_ready(session, timeout \\ 5_000) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-
-    poll = fn poll_fn ->
-      state = :sys.get_state(session)
-
-      if state.adapter_status == :ready do
-        :ok
-      else
-        if System.monotonic_time(:millisecond) >= deadline do
-          raise "Timed out waiting for session to become ready (status: #{inspect(state.adapter_status)})"
-        end
-
-        Process.sleep(10)
-        poll_fn.(poll_fn)
+    poll_until(
+      fn ->
+        state = :sys.get_state(session)
+        if state.adapter_status == :ready, do: {:ok, :ok}, else: :retry
+      end,
+      timeout: timeout,
+      on_timeout: fn ->
+        state = :sys.get_state(session)
+        "Timed out waiting for session to become ready (status: #{inspect(state.adapter_status)})"
       end
-    end
-
-    poll.(poll)
+    )
   end
 
   @doc """
@@ -281,25 +322,20 @@ defmodule MockCLI do
   Polls until `expected_count` lines are present or `timeout` expires.
   """
   def read_responses(response_file, expected_count, timeout \\ 5_000) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-
-    poll = fn poll_fn ->
-      content = File.read!(response_file)
-      lines = content |> String.trim() |> String.split("\n", trim: true)
-
-      if length(lines) >= expected_count do
-        Enum.map(lines, &Jason.decode!/1)
-      else
-        if System.monotonic_time(:millisecond) >= deadline do
-          raise "Timed out waiting for #{expected_count} responses, got #{length(lines)}: #{content}"
-        end
-
-        Process.sleep(50)
-        poll_fn.(poll_fn)
+    poll_until(
+      fn ->
+        content = File.read!(response_file)
+        lines = content |> String.trim() |> String.split("\n", trim: true)
+        if length(lines) >= expected_count, do: {:ok, Enum.map(lines, &Jason.decode!/1)}, else: :retry
+      end,
+      timeout: timeout,
+      interval: 50,
+      on_timeout: fn ->
+        content = File.read!(response_file)
+        lines = content |> String.trim() |> String.split("\n", trim: true)
+        "Timed out waiting for #{expected_count} responses, got #{length(lines)}: #{content}"
       end
-    end
-
-    poll.(poll)
+    )
   end
 
   @doc """
@@ -309,25 +345,96 @@ defmodule MockCLI do
   adapter GenServer directly via `:sys.get_state/1`.
   """
   def wait_until_adapter_ready(adapter, timeout \\ 5_000) do
-    deadline = System.monotonic_time(:millisecond) + timeout
-
-    poll = fn poll_fn ->
-      state = :sys.get_state(adapter)
-
-      if state.status == :ready do
-        :ok
-      else
-        if System.monotonic_time(:millisecond) >= deadline do
-          raise "Timed out waiting for adapter to be ready (status: #{inspect(state.status)})"
-        end
-
-        Process.sleep(10)
-
-        poll_fn.(poll_fn)
+    poll_until(
+      fn ->
+        state = :sys.get_state(adapter)
+        if state.status == :ready, do: {:ok, :ok}, else: :retry
+      end,
+      timeout: timeout,
+      on_timeout: fn ->
+        state = :sys.get_state(adapter)
+        "Timed out waiting for adapter to be ready (status: #{inspect(state.status)})"
       end
-    end
+    )
+  end
 
-    poll.(poll)
+  # ---------------------------------------------------------------------------
+  # Bash Fragment Helpers
+  # ---------------------------------------------------------------------------
+
+  @doc """
+  Returns a bash fragment for handling inbound control requests.
+
+  Designed for interpolation into heredoc scripts. Returns the `if` test and
+  body but **not** the closing `else`/`fi`, since what follows varies per test.
+
+  ## Variants
+
+    * `:ack_all` — responds to every control request with a success response
+    * `:init_only` — responds to the first control request only (INIT_DONE pattern)
+
+  ## Examples
+
+      \"""
+      while IFS= read -r line; do
+        \#{MockCLI.bash_control_handler(:ack_all)}
+        else
+          # handle user messages
+        fi
+      done
+      \"""
+  """
+  def bash_control_handler(:ack_all) do
+    String.trim("""
+    if echo "$line" | grep -q '"type":"control_request"'; then
+        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+    """)
+  end
+
+  def bash_control_handler(:init_only) do
+    String.trim("""
+    if echo "$line" | grep -q '"type":"control_request"'; then
+        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        break
+    """)
+  end
+
+  @doc """
+  Returns a bash echo line for a standard result message.
+
+  ## Options
+
+    * `:session_id` - Session ID (default: "test")
+    * `:result` - Result text (default: "ok")
+
+  ## Examples
+
+      \#{MockCLI.bash_result_message()}
+      # => echo '{"type":"result",...}'
+
+      \#{MockCLI.bash_result_message(session_id: "ctrl-req", result: "done")}
+  """
+  def bash_result_message(opts \\ []) do
+    session_id = Keyword.get(opts, :session_id, "test")
+    result = Keyword.get(opts, :result, "ok")
+
+    msg = %{
+      type: "result",
+      subtype: "success",
+      is_error: false,
+      duration_ms: 50,
+      duration_api_ms: 40,
+      num_turns: 1,
+      result: result,
+      session_id: session_id,
+      total_cost_usd: 0.001,
+      usage: %{}
+    }
+
+    escaped = msg |> encode_json() |> String.replace("'", "'\\''")
+    "echo '#{escaped}'"
   end
 
   # ---------------------------------------------------------------------------
@@ -335,11 +442,6 @@ defmodule MockCLI do
   # ---------------------------------------------------------------------------
 
   defp build_script(messages, sleep) do
-    # Build a streaming-aware script that:
-    # 1. Reads input from stdin (newline-delimited JSON)
-    # 2. Handles control requests (initialize handshake, etc.)
-    # 3. For each non-control input, outputs the configured messages
-    # 4. Keeps running until stdin is closed
     message_lines =
       Enum.map_join(messages, "\n", fn msg ->
         json = encode_json(msg)
@@ -356,9 +458,7 @@ defmodule MockCLI do
     #!/bin/bash
     # Streaming mode: read from stdin and handle control/user messages
     while IFS= read -r line; do
-      if echo "$line" | grep -q '"type":"control_request"'; then
-        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+      #{bash_control_handler(:ack_all)}
       else
         #{message_lines}
       fi
@@ -385,31 +485,30 @@ defmodule MockCLI do
         """
       end)
 
+    system_init = encode_json(system_message(session_id: "ctrl-req"))
+    escaped_init = String.replace(system_init, "'", "'\\''")
+
     """
     #!/bin/bash
 
     # Phase 1: Handle SDK control requests (initialize, etc.)
     while IFS= read -r line; do
-      if echo "$line" | grep -q '"type":"control_request"'; then
-        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+      #{bash_control_handler(:ack_all)}
       else
         # Got user message — emit system init, then send our control requests
-        echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"ctrl-req","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+        echo '#{escaped_init}'
 
     #{request_lines}
 
         # Emit result
-        echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"done","session_id":"ctrl-req","total_cost_usd":0.001,"usage":{}}'
+        #{bash_result_message(session_id: "ctrl-req", result: "done")}
         break
       fi
     done
 
     # Drain remaining stdin to prevent broken pipe
     while IFS= read -r line; do
-      if echo "$line" | grep -q '"type":"control_request"'; then
-        REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-        echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+      #{bash_control_handler(:ack_all)}
       fi
     done
     exit 0

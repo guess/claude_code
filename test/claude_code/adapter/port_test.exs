@@ -903,18 +903,14 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert_receive {:adapter_status, :provisioning}, 1000
 
       # Poll until the initialize control request has been sent
-      poll_until = fn poll_fn ->
-        state = :sys.get_state(adapter)
-
-        if map_size(state.pending_control_requests) > 0 do
-          state
-        else
-          Process.sleep(10)
-          poll_fn.(poll_fn)
-        end
-      end
-
-      state = poll_until.(poll_until)
+      state =
+        MockCLI.poll_until(
+          fn ->
+            state = :sys.get_state(adapter)
+            if map_size(state.pending_control_requests) > 0, do: {:ok, state}, else: :retry
+          end,
+          timeout: :infinity
+        )
 
       case Map.keys(state.pending_control_requests) do
         [req_id | _] -> send(adapter, {:control_timeout, req_id})
