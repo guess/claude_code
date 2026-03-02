@@ -73,7 +73,7 @@ end
 defimpl Jason.Encoder, for: ClaudeCode.Sandbox.Filesystem do
   def encode(fs, opts) do
     fs
-    |> ClaudeCode.Sandbox.Filesystem.to_settings_map()
+    |> ClaudeCode.JSONEncoder.to_encodable()
     |> Jason.Encoder.Map.encode(opts)
   end
 end
@@ -81,7 +81,7 @@ end
 defimpl JSON.Encoder, for: ClaudeCode.Sandbox.Filesystem do
   def encode(fs, encoder) do
     fs
-    |> ClaudeCode.Sandbox.Filesystem.to_settings_map()
+    |> ClaudeCode.JSONEncoder.to_encodable()
     |> JSON.Encoder.Map.encode(encoder)
   end
 end

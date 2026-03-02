@@ -227,9 +227,9 @@ defmodule ClaudeCode.SandboxTest do
 
       assert decoded == %{
                "enabled" => true,
-               "autoAllowBashIfSandboxed" => true,
-               "filesystem" => %{"allowWrite" => ["/tmp"]},
-               "network" => %{"allowedDomains" => ["example.com"]}
+               "auto_allow_bash_if_sandboxed" => true,
+               "filesystem" => %{"allow_write" => ["/tmp"]},
+               "network" => %{"allowed_domains" => ["example.com"]}
              }
     end
 
@@ -257,9 +257,9 @@ defmodule ClaudeCode.SandboxTest do
 
       assert decoded == %{
                "enabled" => true,
-               "allowUnsandboxedCommands" => false,
-               "filesystem" => %{"denyRead" => ["~/.aws"]},
-               "network" => %{"allowLocalBinding" => true}
+               "allow_unsandboxed_commands" => false,
+               "filesystem" => %{"deny_read" => ["~/.aws"]},
+               "network" => %{"allow_local_binding" => true}
              }
     end
   end

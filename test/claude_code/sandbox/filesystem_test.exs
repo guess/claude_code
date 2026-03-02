@@ -83,7 +83,7 @@ defmodule ClaudeCode.Sandbox.FilesystemTest do
     test "encodes to JSON" do
       fs = Filesystem.new(allow_write: ["/tmp"], deny_read: ["~/.aws"])
       decoded = fs |> Jason.encode!() |> Jason.decode!()
-      assert decoded == %{"allowWrite" => ["/tmp"], "denyRead" => ["~/.aws"]}
+      assert decoded == %{"allow_write" => ["/tmp"], "deny_read" => ["~/.aws"]}
     end
   end
 
@@ -91,7 +91,7 @@ defmodule ClaudeCode.Sandbox.FilesystemTest do
     test "encodes to JSON" do
       fs = Filesystem.new(allow_write: ["/tmp"], deny_read: ["~/.aws"])
       decoded = fs |> JSON.encode!() |> JSON.decode!()
-      assert decoded == %{"allowWrite" => ["/tmp"], "denyRead" => ["~/.aws"]}
+      assert decoded == %{"allow_write" => ["/tmp"], "deny_read" => ["~/.aws"]}
     end
   end
 end

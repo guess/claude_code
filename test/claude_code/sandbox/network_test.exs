@@ -133,8 +133,8 @@ defmodule ClaudeCode.Sandbox.NetworkTest do
       decoded = net |> Jason.encode!() |> Jason.decode!()
 
       assert decoded == %{
-               "allowedDomains" => ["example.com"],
-               "allowLocalBinding" => true
+               "allowed_domains" => ["example.com"],
+               "allow_local_binding" => true
              }
     end
   end
@@ -145,8 +145,8 @@ defmodule ClaudeCode.Sandbox.NetworkTest do
       decoded = net |> JSON.encode!() |> JSON.decode!()
 
       assert decoded == %{
-               "allowedDomains" => ["example.com"],
-               "allowLocalBinding" => true
+               "allowed_domains" => ["example.com"],
+               "allow_local_binding" => true
              }
     end
   end

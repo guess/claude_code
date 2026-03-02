@@ -84,7 +84,7 @@ end
 defimpl Jason.Encoder, for: ClaudeCode.Sandbox.Network do
   def encode(net, opts) do
     net
-    |> ClaudeCode.Sandbox.Network.to_settings_map()
+    |> ClaudeCode.JSONEncoder.to_encodable()
     |> Jason.Encoder.Map.encode(opts)
   end
 end
@@ -92,7 +92,7 @@ end
 defimpl JSON.Encoder, for: ClaudeCode.Sandbox.Network do
   def encode(net, encoder) do
     net
-    |> ClaudeCode.Sandbox.Network.to_settings_map()
+    |> ClaudeCode.JSONEncoder.to_encodable()
     |> JSON.Encoder.Map.encode(encoder)
   end
 end
