@@ -424,22 +424,23 @@ defmodule ClaudeCode.CLI.Command do
       {nil, opts} ->
         opts
 
-      {sandbox, opts} ->
-        merged = merge_sandbox_into_settings(Keyword.get(opts, :settings), sandbox)
+      {%ClaudeCode.Sandbox{} = sandbox, opts} ->
+        sandbox_map = ClaudeCode.Sandbox.to_settings_map(sandbox)
+        merged = merge_sandbox_into_settings(Keyword.get(opts, :settings), sandbox_map)
         Keyword.put(opts, :settings, merged)
     end
   end
 
-  defp merge_sandbox_into_settings(nil, sandbox), do: %{"sandbox" => sandbox}
+  defp merge_sandbox_into_settings(nil, sandbox_map), do: %{"sandbox" => sandbox_map}
 
-  defp merge_sandbox_into_settings(settings, sandbox) when is_map(settings) do
-    Map.put(settings, "sandbox", sandbox)
+  defp merge_sandbox_into_settings(settings, sandbox_map) when is_map(settings) do
+    Map.put(settings, "sandbox", sandbox_map)
   end
 
-  defp merge_sandbox_into_settings(json_string, sandbox) when is_binary(json_string) do
+  defp merge_sandbox_into_settings(json_string, sandbox_map) when is_binary(json_string) do
     case Jason.decode(json_string) do
-      {:ok, decoded} -> Map.put(decoded, "sandbox", sandbox)
-      {:error, _} -> %{"sandbox" => sandbox}
+      {:ok, decoded} -> Map.put(decoded, "sandbox", sandbox_map)
+      {:error, _} -> %{"sandbox" => sandbox_map}
     end
   end
 

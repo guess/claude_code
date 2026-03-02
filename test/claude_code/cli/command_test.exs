@@ -983,8 +983,15 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert "/tmp/claude-debug.log" in args
     end
 
-    test "sandbox merges into settings when only sandbox provided" do
-      sandbox = %{"network" => false, "filesystem" => %{"read_only" => true}}
+    test "sandbox struct merges into settings" do
+      sandbox =
+        ClaudeCode.Sandbox.new(
+          enabled: true,
+          auto_allow_bash_if_sandboxed: true,
+          filesystem: [allow_write: ["/tmp"]],
+          network: [allowed_domains: ["github.com"]]
+        )
+
       opts = [sandbox: sandbox]
 
       args = Command.to_cli_args(opts)
@@ -994,11 +1001,17 @@ defmodule ClaudeCode.CLI.CommandTest do
       json_value = Enum.at(args, settings_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["sandbox"] == sandbox
+
+      assert decoded["sandbox"] == %{
+               "enabled" => true,
+               "autoAllowBashIfSandboxed" => true,
+               "filesystem" => %{"allowWrite" => ["/tmp"]},
+               "network" => %{"allowedDomains" => ["github.com"]}
+             }
     end
 
-    test "sandbox merges into existing settings map" do
-      sandbox = %{"network" => false}
+    test "sandbox struct merges into existing settings map" do
+      sandbox = ClaudeCode.Sandbox.new(enabled: true)
       settings = %{"feature" => true, "timeout" => 5000}
       opts = [sandbox: sandbox, settings: settings]
 
@@ -1009,13 +1022,13 @@ defmodule ClaudeCode.CLI.CommandTest do
       json_value = Enum.at(args, settings_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["sandbox"] == sandbox
+      assert decoded["sandbox"] == %{"enabled" => true}
       assert decoded["feature"] == true
       assert decoded["timeout"] == 5000
     end
 
-    test "sandbox merges into existing settings JSON string" do
-      sandbox = %{"network" => false}
+    test "sandbox struct merges into existing settings JSON string" do
+      sandbox = ClaudeCode.Sandbox.new(enabled: true)
       settings = Jason.encode!(%{"feature" => true})
       opts = [sandbox: sandbox, settings: settings]
 
@@ -1026,12 +1039,12 @@ defmodule ClaudeCode.CLI.CommandTest do
       json_value = Enum.at(args, settings_index + 1)
 
       decoded = Jason.decode!(json_value)
-      assert decoded["sandbox"] == sandbox
+      assert decoded["sandbox"] == %{"enabled" => true}
       assert decoded["feature"] == true
     end
 
     test "sandbox is not passed as a separate CLI flag" do
-      opts = [sandbox: %{"network" => false}]
+      opts = [sandbox: ClaudeCode.Sandbox.new(enabled: true)]
 
       args = Command.to_cli_args(opts)
       refute "--sandbox" in args

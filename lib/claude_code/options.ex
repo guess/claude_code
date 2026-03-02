@@ -641,8 +641,26 @@ defmodule ClaudeCode.Options do
       doc: "Write debug logs to a specific file path (implicitly enables debug mode)"
     ],
     sandbox: [
-      type: {:map, :string, :any},
-      doc: "Sandbox settings for bash command isolation (merged into --settings)"
+      type: {:custom, __MODULE__, :validate_sandbox, []},
+      doc: """
+      Sandbox settings for bash command isolation (merged into CLI `--settings`).
+
+      Accepts a `ClaudeCode.Sandbox` struct, keyword list, or map.
+      Maps and keyword lists are converted to a `ClaudeCode.Sandbox` struct.
+
+      See `ClaudeCode.Sandbox` for all available fields.
+
+      ## Examples
+
+          sandbox: ClaudeCode.Sandbox.new(
+            enabled: true,
+            filesystem: [allow_write: ["/tmp/build"]],
+            network: [allowed_domains: ["github.com"]]
+          )
+
+          # Keyword shorthand (auto-converted to struct)
+          sandbox: [enabled: true, filesystem: [allow_write: ["/tmp"]]]
+      """
     ],
     enable_file_checkpointing: [
       type: :boolean,
@@ -864,6 +882,21 @@ defmodule ClaudeCode.Options do
 
   def validate_thinking(other),
     do: {:error, "expected :adaptive, :disabled, or {:enabled, budget_tokens: pos_integer}, got: #{inspect(other)}"}
+
+  @doc false
+  def validate_sandbox(%ClaudeCode.Sandbox{} = sandbox), do: {:ok, sandbox}
+
+  def validate_sandbox(opts) when is_list(opts) do
+    {:ok, ClaudeCode.Sandbox.new(opts)}
+  end
+
+  def validate_sandbox(opts) when is_map(opts) do
+    {:ok, ClaudeCode.Sandbox.new(opts)}
+  end
+
+  def validate_sandbox(other) do
+    {:error, "expected a %ClaudeCode.Sandbox{} struct, keyword list, or map, got: #{inspect(other)}"}
+  end
 
   defp warn_deprecated_max_thinking_tokens(opts) do
     if Keyword.has_key?(opts, :max_thinking_tokens) && !Keyword.has_key?(opts, :thinking) do
