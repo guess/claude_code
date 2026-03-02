@@ -321,11 +321,7 @@ defmodule MockCLI do
           raise "Timed out waiting for adapter to be ready (status: #{inspect(state.status)})"
         end
 
-        receive do
-          _ -> :ok
-        after
-          10 -> :ok
-        end
+        Process.sleep(10)
 
         poll_fn.(poll_fn)
       end

@@ -25,14 +25,6 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
     def call(_input, _tool_use_id), do: :allow
   end
 
-  defmodule CanUseToolCallback do
-    @moduledoc false
-    @behaviour ClaudeCode.Hook
-
-    @impl true
-    def call(_input, _tool_use_id), do: :allow
-  end
-
   # ============================================================================
   # Helpers
   # ============================================================================
@@ -124,7 +116,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
       {mock_script, response_file} = MockCLI.setup_with_control_requests([cut_request])
 
       {:ok, proxy} =
-        CallbackProxy.start_link(hook_registry: %{} |> HookRegistry.new(CanUseToolCallback) |> elem(0))
+        CallbackProxy.start_link(hook_registry: %{} |> HookRegistry.new(AllowHook) |> elem(0))
 
       adapter = start_adapter_with_proxy(mock_script, proxy, %HookRegistry{})
       AdapterPort.send_query(adapter, "req_1", "test", [])

@@ -28,14 +28,14 @@ defmodule ClaudeCode.Adapter.Port do
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
   @control_timeout 30_000
 
-  # Keys consumed by Adapter.Port/Node that should never reach CLI command building
+  # Keys consumed by Adapter.Port/Node that should never reach CLI command building.
+  # NOTE: :hooks_wire and :sdk_mcp_server_names are intentionally NOT stripped here
+  # because send_initialize_handshake/1 reads them from session_options.
   @adapter_internal_keys [
     :callback_proxy,
     :callback_timeout,
     :hook_registry,
-    :hooks_wire,
     :sdk_mcp_servers,
-    :sdk_mcp_server_names,
     :max_buffer_size
   ]
 

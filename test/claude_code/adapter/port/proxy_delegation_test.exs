@@ -306,7 +306,16 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
       assert ProxyMonitorHelper.get_proxy(adapter) == proxy
 
       GenServer.stop(proxy)
-      Process.sleep(50)
+
+      # Poll until the :DOWN message is processed instead of sleeping
+      Enum.reduce_while(1..100, nil, fn _, _ ->
+        if ProxyMonitorHelper.get_proxy(adapter) == nil do
+          {:halt, :ok}
+        else
+          Process.sleep(1)
+          {:cont, nil}
+        end
+      end)
 
       assert ProxyMonitorHelper.get_proxy(adapter) == nil
     end
