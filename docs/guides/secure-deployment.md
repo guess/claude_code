@@ -44,12 +44,12 @@ You can configure several of these features directly from the Elixir SDK:
   allowed_tools: ["Read", "Bash(mix:*)"]
 )
 
-# Sandbox configuration (merged into CLI --settings)
+# Sandbox configuration — see ClaudeCode.Sandbox for all options
 {:ok, session} = ClaudeCode.start_link(
-  sandbox: %{
-    "environment" => "docker",
-    "container" => "my-sandbox"
-  }
+  sandbox: ClaudeCode.Sandbox.new(
+    enabled: true,
+    auto_allow_bash_if_sandboxed: true
+  )
 )
 ```
 
@@ -427,7 +427,7 @@ Choose the least-privileged permission mode for your use case:
 - [ ] Set `max_turns` to limit conversation length
 - [ ] Store API keys in environment variables (or use the proxy pattern)
 - [ ] Use `cwd` and `add_dir` to limit file access
-- [ ] Consider `sandbox` for bash isolation
+- [ ] Consider `sandbox` for bash isolation (see `ClaudeCode.Sandbox` and [sandboxing docs](https://code.claude.com/docs/en/sandboxing))
 - [ ] Use per-user or per-request sessions for multi-user workloads (see [Hosting](hosting.md))
 - [ ] Consider container or VM isolation for high-security deployments
 - [ ] Use a proxy for credential injection in production
