@@ -73,6 +73,7 @@ These are consumed by `ClaudeCode.Adapter.Node` and **not** forwarded to the rem
 | `:node` | atom | yes | — | Remote node name (e.g., `:"claude@gpu-server"`) |
 | `:cookie` | atom | no | — | Erlang cookie for the remote node (if not already set globally) |
 | `:connect_timeout` | integer | no | 5000 | Timeout in ms for `Node.connect/1` |
+| `:callback_timeout` | integer | no | 30000 | Timeout in ms for cross-node MCP/hook calls |
 
 ### Session options
 
@@ -120,7 +121,9 @@ graph LR
 | `ClaudeCode.Adapter.Node` | Your app server | None — factory only, no long-lived process |
 | `ClaudeCode.Adapter.Port` | Sandbox server | Moderate — manages the CLI Port |
 | Claude CLI subprocess | Sandbox server | Heavy — Node.js process, the resource you're offloading |
-| Hooks | Sandbox server | Execute where the CLI runs |
+| Hooks | Configurable (`:where`) | Default local; `:remote` runs on sandbox |
+| MCP tools | Your app server | In-process tools always route back locally |
+| `CallbackProxy` | Your app server | Only started when local callbacks exist |
 
 `ClaudeCode.Adapter.Node` is a **factory**, not a long-running process. During `start_link/2`, it connects to the remote node, creates the workspace directory via RPC, and starts `ClaudeCode.Adapter.Port` on the remote node. It then returns the remote PID. From that point on, Session communicates directly with the remote `ClaudeCode.Adapter.Port` — all calls and messages flow over Erlang distribution transparently.
 
@@ -429,6 +432,72 @@ session
   IO.puts("Tool: #{name}, Input: #{inspect(input)}")
 end)
 ```
+
+## In-Process MCP Tools and Hooks
+
+### MCP Tools
+
+In-process MCP tools (defined with `ClaudeCode.MCP.Server`) work automatically
+with distributed sessions. The tools execute on your app server — the node where
+`ClaudeCode.start_link/1` was called — not on the remote sandbox server:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  cwd: "/workspaces/project",
+  mcp_servers: %{"my-tools" => MyApp.Tools},
+  allowed_tools: ["mcp__my-tools__add"],
+  adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox"]}
+)
+```
+
+When the remote CLI invokes an MCP tool, the request is routed back to your app
+server via a `CallbackProxy` GenServer that lives on the local node. The proxy
+dispatches the request to the MCP server module, collects the result, and sends
+it back to the remote adapter. This happens transparently — you don't need to
+change anything about how you define or use MCP tools.
+
+### Hook Locality
+
+Hooks support a `:where` option on matcher configs to control where they execute:
+
+- `:local` (default) — runs on your app server via the callback proxy
+- `:remote` — runs on the sandbox server where the CLI runs
+
+```elixir
+ClaudeCode.start_link(
+  cwd: "/workspaces/project",
+  hooks: %{
+    PreToolUse: [
+      # Runs on app server — checks permissions against local database
+      %{matcher: "Bash", hooks: [MyApp.BashGuard]},
+      # Runs on sandbox — validates files in the remote workspace
+      %{matcher: "Write", hooks: [MyApp.SandboxFSCheck], where: :remote}
+    ],
+    PostToolUse: [
+      # Runs on app server — logs to app audit trail
+      %{hooks: [MyApp.AuditLogger]}
+    ]
+  },
+  adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox"]}
+)
+```
+
+The `can_use_tool` callback always runs on the app server — permission decisions
+need access to your application's context (database, config, user session).
+
+### Callback Timeout
+
+Cross-node control request calls use a configurable timeout:
+
+```elixir
+adapter: {ClaudeCode.Adapter.Node, [
+  node: :"claude@sandbox",
+  callback_timeout: 60_000  # default: 30_000
+]}
+```
+
+If an MCP tool or hook execution exceeds this timeout, the tool call fails but
+the session stays alive.
 
 ## Security Considerations
 
