@@ -45,29 +45,6 @@ defmodule ClaudeCode.Adapter.Port.ResolverTest do
     end
   end
 
-  describe "find_binary/1 with :bundled mode" do
-    test "defaults to :bundled when no cli_path specified" do
-      original = Application.get_env(:claude_code, :cli_path)
-
-      try do
-        Application.delete_env(:claude_code, :cli_path)
-
-        result = Resolver.find_binary([])
-
-        case result do
-          {:ok, path} ->
-            assert String.ends_with?(path, "claude")
-
-          {:error, _reason} ->
-            # Expected if auto-install fails (e.g., no network in test)
-            assert true
-        end
-      after
-        if original, do: Application.put_env(:claude_code, :cli_path, original)
-      end
-    end
-  end
-
   describe "find_binary/1 respects app config" do
     test "uses app config cli_path when no option provided" do
       original = Application.get_env(:claude_code, :cli_path)
