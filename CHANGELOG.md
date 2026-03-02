@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Distributed callback proxy for MCP tools and hooks** — When using `ClaudeCode.Adapter.Node`, in-process MCP tools and hooks now work across nodes. MCP tool requests route from the sandbox node back to the app node transparently. Hooks support a `:where` option on matcher configs (`:local` to run on the app node, `:remote` to run on the sandbox node — defaults to `:local`). The `:can_use_tool` permission callback always executes locally. Configurable `:callback_timeout` (default: 30s) on the adapter, with graceful degradation if the proxy process dies. ([f0a51de])
+
 ## [0.27.0] - 2026-02-28 | CC 2.1.62
 
 ### Added
