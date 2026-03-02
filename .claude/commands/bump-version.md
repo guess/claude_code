@@ -18,18 +18,13 @@ Update version to the specified X.Y.Z value.
    - Dependency specs `"~> X.Y"` → new major.minor
 
 4. Update `CHANGELOG.md`:
-   - Get the bundled CLI version from `@default_cli_version` in `lib/claude_code/adapter/local/installer.ex`
+   - Get the bundled CLI version from `@default_cli_version` in `lib/claude_code/adapter/port/installer.ex`
    - Convert Unreleased to `[X.Y.Z] - YYYY-MM-DD | CC A.B.C` where A.B.C is the CLI version
    - Example: `## [0.18.0] - 2026-02-08 | CC 2.1.37`
 
 5. Verify no old versions remain (except CHANGELOG history)
 
-6. Check if CLI version needs updating:
-   - Run `claude --version` to get latest CLI version
-   - Compare with `@default_cli_version` in `lib/claude_code/installer.ex`
-   - Update if newer version available and tested
-
-7. Tag and release:
+6. Tag and release:
    - Create git tag: `git tag -a vX.Y.Z -m "vX.Y.Z"`
    - Push tag: `git push origin vX.Y.Z`
    - Extract the release section from `CHANGELOG.md` (everything between the new version header and the previous version header, excluding the headers themselves)
