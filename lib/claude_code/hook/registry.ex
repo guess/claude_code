@@ -28,23 +28,23 @@ defmodule ClaudeCode.Hook.Registry do
             hook_list = Map.get(matcher_config, :hooks, [])
             where = Map.get(matcher_config, :where, :local)
 
-            {ids, updated_cbs, updated_locs, updated_cnt} =
+            {ids_rev, updated_cbs, updated_locs, updated_cnt} =
               Enum.reduce(hook_list, {[], cbs, locs, cnt}, fn hook, {id_acc, cb, lc, c} ->
                 id = "hook_#{c}"
-                {id_acc ++ [id], Map.put(cb, id, hook), Map.put(lc, id, where), c + 1}
+                {[id | id_acc], Map.put(cb, id, hook), Map.put(lc, id, where), c + 1}
               end)
 
             entry =
               maybe_put_timeout(
-                %{"matcher" => Map.get(matcher_config, :matcher), "hookCallbackIds" => ids},
+                %{"matcher" => Map.get(matcher_config, :matcher), "hookCallbackIds" => Enum.reverse(ids_rev)},
                 Map.get(matcher_config, :timeout)
               )
 
-            {entries ++ [entry], updated_cbs, updated_locs, updated_cnt}
+            {[entry | entries], updated_cbs, updated_locs, updated_cnt}
           end)
 
         event_key = to_string(event_name)
-        {new_cb_acc, new_loc_acc, Map.put(wire_acc, event_key, matcher_entries), new_counter}
+        {new_cb_acc, new_loc_acc, Map.put(wire_acc, event_key, Enum.reverse(matcher_entries)), new_counter}
       end)
 
     wire = if wire_format == %{}, do: nil, else: wire_format

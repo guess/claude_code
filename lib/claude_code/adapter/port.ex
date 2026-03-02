@@ -46,6 +46,7 @@ defmodule ClaudeCode.Adapter.Port do
     :api_key,
     :server_info,
     :hook_registry,
+    :hooks_wire,
     :callback_proxy,
     status: :provisioning,
     control_counter: 0,
@@ -102,9 +103,9 @@ defmodule ClaudeCode.Adapter.Port do
   def init({session, opts}) do
     hooks_map = Keyword.get(opts, :hooks)
     can_use_tool = Keyword.get(opts, :can_use_tool)
-    {built_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
+    {built_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
 
-    # For distributed sessions, Adapter.Node pre-builds the hook registry
+    # Callers may provide a pre-built hook registry (e.g. a partitioned subset).
     hook_registry =
       case Keyword.get(opts, :hook_registry) do
         %HookRegistry{} = reg -> reg
@@ -114,8 +115,8 @@ defmodule ClaudeCode.Adapter.Port do
     # Strip adapter-internal keys that should never reach CLI command building
     cli_opts = Keyword.drop(opts, @adapter_internal_keys)
 
-    # Callers may provide a pre-built sdk_mcp_servers map (e.g. Adapter.Node
-    # passes stub entries when modules aren't available on the remote node).
+    # Callers may provide a pre-built sdk_mcp_servers map (e.g. stub entries
+    # when actual server modules aren't locally available).
     sdk_mcp_servers =
       case Keyword.get(opts, :sdk_mcp_servers) do
         pre when is_map(pre) and map_size(pre) > 0 -> pre
@@ -129,6 +130,7 @@ defmodule ClaudeCode.Adapter.Port do
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
       hook_registry: hook_registry,
+      hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
       callback_proxy: Keyword.get(opts, :callback_proxy),
       callback_timeout: Keyword.get(opts, :callback_timeout, 30_000)
@@ -342,10 +344,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp send_initialize_handshake(state) do
     agents = Keyword.get(state.session_options, :agents)
-
-    hooks_map = Keyword.get(state.session_options, :hooks)
-    can_use_tool = Keyword.get(state.session_options, :can_use_tool)
-    {_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
+    hooks_wire = state.hooks_wire
 
     sdk_mcp_server_names =
       case Map.keys(state.sdk_mcp_servers) do
@@ -582,7 +581,7 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  # Distributed path: delegate to callback proxy when present
+  # Delegate to callback proxy when present
   defp handle_inbound_control_request(msg, %{callback_proxy: proxy, callback_timeout: timeout} = state)
        when is_pid(proxy) do
     request_id = get_in(msg, ["request_id"])
