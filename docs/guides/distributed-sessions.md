@@ -4,7 +4,7 @@ Decouple your app's scalability from the Claude CLI's resource footprint.
 
 ## The Problem
 
-Every `ClaudeCode.Session` spawns a Claude CLI subprocess — a Node.js process that consumes real CPU and memory. On a single machine, your app's concurrency is capped by how many CLI processes the box can sustain, not by the BEAM. You could have 100k lightweight GenServers ready to go, but 50 concurrent CLI subprocesses will pin your server.
+Every `ClaudeCode.Session` spawns a Claude CLI subprocess — a Node.js process that consumes real CPU and memory. On a single machine, your app's concurrency is capped by how many CLI processes the box can sustain, not by the BEAM. You could have orders of magnitude more lightweight GenServers ready to go, but a handful of concurrent CLI subprocesses will pin your server.
 
 This means the BEAM's core strength — massive lightweight concurrency — is bottlenecked by a resource it doesn't control.
 
