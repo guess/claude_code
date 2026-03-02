@@ -29,19 +29,17 @@ defmodule ClaudeCode.Sandbox.Filesystem do
 
   """
 
-  defstruct [
-    :allow_write,
-    :deny_write,
-    :deny_read
-  ]
+  alias ClaudeCode.Sandbox.Helpers
+
+  @fields [:allow_write, :deny_write, :deny_read]
+
+  defstruct @fields
 
   @type t :: %__MODULE__{
           allow_write: [String.t()] | nil,
           deny_write: [String.t()] | nil,
           deny_read: [String.t()] | nil
         }
-
-  @fields [:allow_write, :deny_write, :deny_read]
 
   @doc """
   Creates a new Filesystem struct.
@@ -50,15 +48,11 @@ defmodule ClaudeCode.Sandbox.Filesystem do
   """
   @spec new(keyword() | map()) :: t()
   def new(opts) when is_list(opts) do
-    %__MODULE__{
-      allow_write: Keyword.get(opts, :allow_write),
-      deny_write: Keyword.get(opts, :deny_write),
-      deny_read: Keyword.get(opts, :deny_read)
-    }
+    struct(__MODULE__, opts)
   end
 
   def new(opts) when is_map(opts) do
-    opts |> normalize_map_keys() |> new()
+    opts |> Helpers.normalize_map_keys(@fields) |> new()
   end
 
   @doc """
@@ -74,21 +68,6 @@ defmodule ClaudeCode.Sandbox.Filesystem do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp normalize_map_keys(map) do
-    Enum.reduce(map, [], fn {key, value}, acc ->
-      atom_key = to_atom_key(key)
-      if atom_key in @fields, do: [{atom_key, value} | acc], else: acc
-    end)
-  end
-
-  defp to_atom_key(key) when is_atom(key), do: key
-
-  defp to_atom_key(key) when is_binary(key) do
-    key |> Macro.underscore() |> String.to_existing_atom()
-  rescue
-    ArgumentError -> nil
-  end
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Sandbox.Filesystem do

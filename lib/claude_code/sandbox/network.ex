@@ -24,25 +24,7 @@ defmodule ClaudeCode.Sandbox.Network do
 
   """
 
-  defstruct [
-    :allowed_domains,
-    :allow_managed_domains_only,
-    :allow_unix_sockets,
-    :allow_all_unix_sockets,
-    :allow_local_binding,
-    :http_proxy_port,
-    :socks_proxy_port
-  ]
-
-  @type t :: %__MODULE__{
-          allowed_domains: [String.t()] | nil,
-          allow_managed_domains_only: boolean() | nil,
-          allow_unix_sockets: [String.t()] | nil,
-          allow_all_unix_sockets: boolean() | nil,
-          allow_local_binding: boolean() | nil,
-          http_proxy_port: non_neg_integer() | nil,
-          socks_proxy_port: non_neg_integer() | nil
-        }
+  alias ClaudeCode.Sandbox.Helpers
 
   @fields [
     :allowed_domains,
@@ -54,6 +36,18 @@ defmodule ClaudeCode.Sandbox.Network do
     :socks_proxy_port
   ]
 
+  defstruct @fields
+
+  @type t :: %__MODULE__{
+          allowed_domains: [String.t()] | nil,
+          allow_managed_domains_only: boolean() | nil,
+          allow_unix_sockets: [String.t()] | nil,
+          allow_all_unix_sockets: boolean() | nil,
+          allow_local_binding: boolean() | nil,
+          http_proxy_port: non_neg_integer() | nil,
+          socks_proxy_port: non_neg_integer() | nil
+        }
+
   @doc """
   Creates a new Network struct.
 
@@ -61,19 +55,11 @@ defmodule ClaudeCode.Sandbox.Network do
   """
   @spec new(keyword() | map()) :: t()
   def new(opts) when is_list(opts) do
-    %__MODULE__{
-      allowed_domains: Keyword.get(opts, :allowed_domains),
-      allow_managed_domains_only: Keyword.get(opts, :allow_managed_domains_only),
-      allow_unix_sockets: Keyword.get(opts, :allow_unix_sockets),
-      allow_all_unix_sockets: Keyword.get(opts, :allow_all_unix_sockets),
-      allow_local_binding: Keyword.get(opts, :allow_local_binding),
-      http_proxy_port: Keyword.get(opts, :http_proxy_port),
-      socks_proxy_port: Keyword.get(opts, :socks_proxy_port)
-    }
+    struct(__MODULE__, opts)
   end
 
   def new(opts) when is_map(opts) do
-    opts |> normalize_map_keys() |> new()
+    opts |> Helpers.normalize_map_keys(@fields) |> new()
   end
 
   @doc """
@@ -93,21 +79,6 @@ defmodule ClaudeCode.Sandbox.Network do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-
-  defp normalize_map_keys(map) do
-    Enum.reduce(map, [], fn {key, value}, acc ->
-      atom_key = to_atom_key(key)
-      if atom_key in @fields, do: [{atom_key, value} | acc], else: acc
-    end)
-  end
-
-  defp to_atom_key(key) when is_atom(key), do: key
-
-  defp to_atom_key(key) when is_binary(key) do
-    key |> Macro.underscore() |> String.to_existing_atom()
-  rescue
-    ArgumentError -> nil
-  end
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Sandbox.Network do

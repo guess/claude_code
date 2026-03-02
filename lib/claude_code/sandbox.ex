@@ -50,31 +50,8 @@ defmodule ClaudeCode.Sandbox do
   """
 
   alias ClaudeCode.Sandbox.Filesystem
+  alias ClaudeCode.Sandbox.Helpers
   alias ClaudeCode.Sandbox.Network
-
-  defstruct [
-    :enabled,
-    :auto_allow_bash_if_sandboxed,
-    :allow_unsandboxed_commands,
-    :enable_weaker_nested_sandbox,
-    :excluded_commands,
-    :ignore_violations,
-    :ripgrep,
-    :filesystem,
-    :network
-  ]
-
-  @type t :: %__MODULE__{
-          enabled: boolean() | nil,
-          auto_allow_bash_if_sandboxed: boolean() | nil,
-          allow_unsandboxed_commands: boolean() | nil,
-          enable_weaker_nested_sandbox: boolean() | nil,
-          excluded_commands: [String.t()] | nil,
-          ignore_violations: %{String.t() => [String.t()]} | nil,
-          ripgrep: map() | nil,
-          filesystem: Filesystem.t() | nil,
-          network: Network.t() | nil
-        }
 
   @fields [
     :enabled,
@@ -87,6 +64,20 @@ defmodule ClaudeCode.Sandbox do
     :filesystem,
     :network
   ]
+
+  defstruct @fields
+
+  @type t :: %__MODULE__{
+          enabled: boolean() | nil,
+          auto_allow_bash_if_sandboxed: boolean() | nil,
+          allow_unsandboxed_commands: boolean() | nil,
+          enable_weaker_nested_sandbox: boolean() | nil,
+          excluded_commands: [String.t()] | nil,
+          ignore_violations: %{String.t() => [String.t()]} | nil,
+          ripgrep: map() | nil,
+          filesystem: Filesystem.t() | nil,
+          network: Network.t() | nil
+        }
 
   @doc """
   Creates a new Sandbox struct.
@@ -120,7 +111,7 @@ defmodule ClaudeCode.Sandbox do
   end
 
   def new(opts) when is_map(opts) do
-    opts |> normalize_map_keys() |> new()
+    opts |> Helpers.normalize_map_keys(@fields) |> new()
   end
 
   @doc """
@@ -161,21 +152,6 @@ defmodule ClaudeCode.Sandbox do
   defp wrap_network(nil), do: nil
   defp wrap_network(%Network{} = net), do: net
   defp wrap_network(opts) when is_list(opts) or is_map(opts), do: Network.new(opts)
-
-  defp normalize_map_keys(map) do
-    Enum.reduce(map, [], fn {key, value}, acc ->
-      atom_key = to_atom_key(key)
-      if atom_key in @fields, do: [{atom_key, value} | acc], else: acc
-    end)
-  end
-
-  defp to_atom_key(key) when is_atom(key), do: key
-
-  defp to_atom_key(key) when is_binary(key) do
-    key |> Macro.underscore() |> String.to_existing_atom()
-  rescue
-    ArgumentError -> nil
-  end
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Sandbox do
