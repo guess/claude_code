@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-03-02 | CC 2.1.62
+
 ### Added
 
 - **Typed `ClaudeCode.Sandbox` structs for sandbox configuration** — The `:sandbox` option now accepts `%ClaudeCode.Sandbox{}` structs (with nested `ClaudeCode.Sandbox.Filesystem` and `ClaudeCode.Sandbox.Network` sub-structs) in addition to raw maps and keyword lists. Structs handle camelCase key normalization automatically and implement `Jason.Encoder`/`JSON.Encoder`. ([09e6b5c])

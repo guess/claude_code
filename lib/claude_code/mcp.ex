@@ -11,7 +11,7 @@ defmodule ClaudeCode.MCP do
 
       defp deps do
         [
-          {:claude_code, "~> 0.28"},
+          {:claude_code, "~> 0.29"},
           {:hermes_mcp, "~> 0.14"}  # Required for custom tools
         ]
       end
