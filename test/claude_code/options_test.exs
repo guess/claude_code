@@ -375,10 +375,24 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:plugins] == ["./simple-plugin", %{type: :local, path: "./map-plugin"}]
     end
 
-    test "validates sandbox option as a map" do
-      opts = [sandbox: %{"network" => false, "filesystem" => %{"read_only" => true}}]
+    test "validates sandbox option as a Sandbox struct" do
+      sandbox = ClaudeCode.Sandbox.new(enabled: true, filesystem: [allow_write: ["/tmp"]])
+      opts = [sandbox: sandbox]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:sandbox] == %{"network" => false, "filesystem" => %{"read_only" => true}}
+      assert %ClaudeCode.Sandbox{enabled: true} = validated[:sandbox]
+    end
+
+    test "validates sandbox option as a map and converts to struct" do
+      opts = [sandbox: %{enabled: true, excluded_commands: ["docker"]}]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert %ClaudeCode.Sandbox{enabled: true, excluded_commands: ["docker"]} = validated[:sandbox]
+    end
+
+    test "validates sandbox option as a keyword list and converts to struct" do
+      opts = [sandbox: [enabled: true, filesystem: [allow_write: ["/tmp"]]]]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert %ClaudeCode.Sandbox{enabled: true} = validated[:sandbox]
+      assert %ClaudeCode.Sandbox.Filesystem{allow_write: ["/tmp"]} = validated[:sandbox].filesystem
     end
 
     test "sandbox is not set by default" do
