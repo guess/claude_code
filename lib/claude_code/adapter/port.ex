@@ -28,9 +28,7 @@ defmodule ClaudeCode.Adapter.Port do
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
   @control_timeout 30_000
 
-  # Keys consumed by Adapter.Port/Node that should never reach CLI command building.
-  # NOTE: :hooks_wire and :sdk_mcp_server_names are intentionally NOT stripped here
-  # because send_initialize_handshake/1 reads them from session_options.
+  # Keys consumed by Adapter.Port that should never reach CLI command building.
   @adapter_internal_keys [
     :callback_proxy,
     :callback_timeout,
@@ -116,6 +114,14 @@ defmodule ClaudeCode.Adapter.Port do
     # Strip adapter-internal keys that should never reach CLI command building
     cli_opts = Keyword.drop(opts, @adapter_internal_keys)
 
+    # Callers may provide a pre-built sdk_mcp_servers map (e.g. Adapter.Node
+    # passes stub entries when modules aren't available on the remote node).
+    sdk_mcp_servers =
+      case Keyword.get(opts, :sdk_mcp_servers) do
+        pre when is_map(pre) and map_size(pre) > 0 -> pre
+        _ -> extract_sdk_mcp_servers(opts)
+      end
+
     state = %__MODULE__{
       session: session,
       session_options: cli_opts,
@@ -123,7 +129,7 @@ defmodule ClaudeCode.Adapter.Port do
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
       hook_registry: hook_registry,
-      sdk_mcp_servers: extract_sdk_mcp_servers(opts),
+      sdk_mcp_servers: sdk_mcp_servers,
       callback_proxy: Keyword.get(opts, :callback_proxy),
       callback_timeout: Keyword.get(opts, :callback_timeout, 30_000)
     }
@@ -337,32 +343,14 @@ defmodule ClaudeCode.Adapter.Port do
   defp send_initialize_handshake(state) do
     agents = Keyword.get(state.session_options, :agents)
 
-    # Distributed sessions provide pre-built wire format that includes ALL
-    # hooks (local + remote). Local sessions build it from the hooks map.
-    hooks_wire =
-      case Keyword.get(state.session_options, :hooks_wire) do
-        nil ->
-          hooks_map = Keyword.get(state.session_options, :hooks)
-          can_use_tool = Keyword.get(state.session_options, :can_use_tool)
-          {_registry, wire} = HookRegistry.new(hooks_map, can_use_tool)
-          wire
-
-        pre_built_wire ->
-          pre_built_wire
-      end
+    hooks_map = Keyword.get(state.session_options, :hooks)
+    can_use_tool = Keyword.get(state.session_options, :can_use_tool)
+    {_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
 
     sdk_mcp_server_names =
       case Map.keys(state.sdk_mcp_servers) do
-        [] ->
-          # Distributed case: MCP servers live on proxy, names passed explicitly
-          case Keyword.get(state.session_options, :sdk_mcp_server_names) do
-            nil -> nil
-            [] -> nil
-            names -> names
-          end
-
-        names ->
-          names
+        [] -> nil
+        names -> names
       end
 
     {request_id, new_counter} = next_request_id(state.control_counter)

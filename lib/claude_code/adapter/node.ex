@@ -68,15 +68,20 @@ defmodule ClaudeCode.Adapter.Node do
       can_use_tool = Keyword.get(config, :can_use_tool)
       mcp_servers = Keyword.get(config, :mcp_servers)
 
-      # Build wire format from ALL hooks — the CLI must know every callback ID
-      {full_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
-
-      # Partition registry into local and remote by :where
+      # Build full registry so we can partition by locality
+      {full_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 
-      # Collect MCP server names for the initialize handshake
-      sdk_mcp_servers = AdapterPort.extract_sdk_mcp_servers(mcp_servers: mcp_servers)
-      sdk_mcp_server_names = if sdk_mcp_servers == %{}, do: nil, else: Map.keys(sdk_mcp_servers)
+      # Build stub sdk_mcp_servers map: names only (nil values), since the
+      # actual modules live on the local node and execute via the proxy.
+      # Port reads Map.keys/1 for the initialize handshake, and nil values
+      # produce clean "server not found" errors if the proxy is unavailable.
+      local_sdk_servers = AdapterPort.extract_sdk_mcp_servers(mcp_servers: mcp_servers)
+
+      stub_sdk_servers =
+        if local_sdk_servers == %{},
+          do: %{},
+          else: Map.new(local_sdk_servers, fn {name, _} -> {name, nil} end)
 
       # Start proxy on LOCAL node if there are local callbacks
       proxy =
@@ -90,13 +95,15 @@ defmodule ClaudeCode.Adapter.Node do
           pid
         end
 
-      # Build config for the REMOTE Adapter.Port
+      # Build config for the REMOTE Adapter.Port.
+      # :hooks stays so Port can build the wire format for the initialize handshake.
+      # :mcp_servers is dropped because modules aren't available on the remote node;
+      # :sdk_mcp_servers stub provides just the names Port needs.
       adapter_opts =
         config
-        |> Keyword.drop(@node_opts ++ [:mcp_servers, :hooks, :can_use_tool])
-        |> Keyword.put(:hooks_wire, hooks_wire)
+        |> Keyword.drop(@node_opts ++ [:mcp_servers])
         |> Keyword.put(:hook_registry, remote_registry)
-        |> Keyword.put(:sdk_mcp_server_names, sdk_mcp_server_names)
+        |> Keyword.put(:sdk_mcp_servers, stub_sdk_servers)
         |> Keyword.put(:can_use_tool, if(can_use_tool, do: :proxied))
         |> Keyword.put(:callback_proxy, proxy)
         |> Keyword.put(:callback_timeout, callback_timeout)
