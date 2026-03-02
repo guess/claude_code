@@ -28,6 +28,17 @@ defmodule ClaudeCode.Adapter.Port do
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
   @control_timeout 30_000
 
+  # Keys consumed by Adapter.Port/Node that should never reach CLI command building
+  @adapter_internal_keys [
+    :callback_proxy,
+    :callback_timeout,
+    :hook_registry,
+    :hooks_wire,
+    :sdk_mcp_servers,
+    :sdk_mcp_server_names,
+    :max_buffer_size
+  ]
+
   defstruct [
     :session,
     :session_options,
@@ -102,9 +113,12 @@ defmodule ClaudeCode.Adapter.Port do
         nil -> built_registry
       end
 
+    # Strip adapter-internal keys that should never reach CLI command building
+    cli_opts = Keyword.drop(opts, @adapter_internal_keys)
+
     state = %__MODULE__{
       session: session,
-      session_options: opts,
+      session_options: cli_opts,
       buffer: "",
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
@@ -271,8 +285,7 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  def handle_info({:DOWN, _ref, :process, proxy, reason}, %{callback_proxy: proxy} = state)
-       when is_pid(proxy) do
+  def handle_info({:DOWN, _ref, :process, proxy, reason}, %{callback_proxy: proxy} = state) when is_pid(proxy) do
     Logger.warning("Callback proxy down: #{inspect(reason)}")
     {:noreply, %{state | callback_proxy: nil}}
   end
