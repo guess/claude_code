@@ -37,11 +37,13 @@ defmodule ClaudeCode.Adapter.Port do
     :api_key,
     :server_info,
     :hook_registry,
+    :callback_proxy,
     status: :provisioning,
     control_counter: 0,
     pending_control_requests: %{},
     max_buffer_size: 1_048_576,
-    sdk_mcp_servers: %{}
+    sdk_mcp_servers: %{},
+    callback_timeout: 30_000
   ]
 
   # ============================================================================
@@ -91,7 +93,14 @@ defmodule ClaudeCode.Adapter.Port do
   def init({session, opts}) do
     hooks_map = Keyword.get(opts, :hooks)
     can_use_tool = Keyword.get(opts, :can_use_tool)
-    {hook_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
+    {built_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
+
+    # For distributed sessions, Adapter.Node pre-builds the hook registry
+    hook_registry =
+      case Keyword.get(opts, :hook_registry) do
+        %HookRegistry{} = reg -> reg
+        nil -> built_registry
+      end
 
     state = %__MODULE__{
       session: session,
@@ -100,7 +109,9 @@ defmodule ClaudeCode.Adapter.Port do
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
       hook_registry: hook_registry,
-      sdk_mcp_servers: extract_sdk_mcp_servers(opts)
+      sdk_mcp_servers: extract_sdk_mcp_servers(opts),
+      callback_proxy: Keyword.get(opts, :callback_proxy),
+      callback_timeout: Keyword.get(opts, :callback_timeout, 30_000)
     }
 
     Process.link(session)
@@ -305,15 +316,33 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp send_initialize_handshake(state) do
     agents = Keyword.get(state.session_options, :agents)
-    hooks_map = Keyword.get(state.session_options, :hooks)
-    can_use_tool = Keyword.get(state.session_options, :can_use_tool)
 
-    {_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
+    # Distributed sessions provide pre-built wire format that includes ALL
+    # hooks (local + remote). Local sessions build it from the hooks map.
+    hooks_wire =
+      case Keyword.get(state.session_options, :hooks_wire) do
+        nil ->
+          hooks_map = Keyword.get(state.session_options, :hooks)
+          can_use_tool = Keyword.get(state.session_options, :can_use_tool)
+          {_registry, wire} = HookRegistry.new(hooks_map, can_use_tool)
+          wire
+
+        pre_built_wire ->
+          pre_built_wire
+      end
 
     sdk_mcp_server_names =
       case Map.keys(state.sdk_mcp_servers) do
-        [] -> nil
-        names -> names
+        [] ->
+          # Distributed case: MCP servers live on proxy, names passed explicitly
+          case Keyword.get(state.session_options, :sdk_mcp_server_names) do
+            nil -> nil
+            [] -> nil
+            names -> names
+          end
+
+        names ->
+          names
       end
 
     {request_id, new_counter} = next_request_id(state.control_counter)
@@ -545,6 +574,48 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
+  # Distributed path: delegate to callback proxy when present
+  defp handle_inbound_control_request(msg, %{callback_proxy: proxy, callback_timeout: timeout} = state)
+       when is_pid(proxy) do
+    request_id = get_in(msg, ["request_id"])
+    request = get_in(msg, ["request"])
+    subtype = get_in(request, ["subtype"])
+
+    response_data =
+      cond do
+        # MCP always goes to proxy (in-process tools are always local)
+        subtype == "mcp_message" ->
+          proxy_call(proxy, msg, timeout)
+
+        # can_use_tool always goes to proxy (permission decisions are always local)
+        subtype == "can_use_tool" ->
+          proxy_call(proxy, msg, timeout)
+
+        # hook_callback: check local registry first (remote hooks), then proxy (local hooks)
+        subtype == "hook_callback" ->
+          callback_id = request["callback_id"]
+
+          case HookRegistry.lookup(state.hook_registry, callback_id) do
+            {:ok, _} -> ControlHandler.handle_hook_callback(request, state.hook_registry)
+            :error -> proxy_call(proxy, msg, timeout)
+          end
+
+        true ->
+          Logger.warning("Unhandled control request with proxy: #{subtype}")
+          nil
+      end
+
+    response =
+      if response_data do
+        Control.success_response(request_id, response_data)
+      else
+        Control.error_response(request_id, "Callback unavailable for: #{subtype}")
+      end
+
+    if state.port, do: Port.command(state.port, response <> "\n")
+    state
+  end
+
   defp handle_inbound_control_request(msg, state) do
     request_id = get_in(msg, ["request_id"])
     request = get_in(msg, ["request"])
@@ -577,6 +648,14 @@ defmodule ClaudeCode.Adapter.Port do
 
     if state.port, do: Port.command(state.port, response <> "\n")
     state
+  end
+
+  defp proxy_call(proxy, msg, timeout) do
+    GenServer.call(proxy, {:control_request, msg}, timeout)
+  catch
+    :exit, _ ->
+      Logger.warning("Callback proxy unavailable")
+      nil
   end
 
   @doc false
