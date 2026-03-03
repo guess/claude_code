@@ -40,6 +40,8 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   ```
   """
 
+  alias ClaudeCode.ParseWarning
+
   @enforce_keys [:type, :event, :session_id]
   defstruct [
     :type,
@@ -265,7 +267,17 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
     |> maybe_add_context_management(event_data)
   end
 
-  defp parse_event_type(type) when is_binary(type), do: Map.get(@event_type_map, type, type)
+  defp parse_event_type(type) when is_binary(type) do
+    case Map.fetch(@event_type_map, type) do
+      {:ok, atom} ->
+        atom
+
+      :error ->
+        ParseWarning.once("stream event type", type)
+        type
+    end
+  end
+
   defp parse_event_type(other), do: other
 
   defp maybe_add_index(event, %{"index" => index}), do: Map.put(event, :index, index)
@@ -343,7 +355,18 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   defp parse_role(other), do: other
 
   defp parse_stop_reason(nil), do: nil
-  defp parse_stop_reason(reason) when is_binary(reason), do: Map.get(@stop_reason_map, reason, reason)
+
+  defp parse_stop_reason(reason) when is_binary(reason) do
+    case Map.fetch(@stop_reason_map, reason) do
+      {:ok, atom} ->
+        atom
+
+      :error ->
+        ParseWarning.once("stop_reason", reason)
+        reason
+    end
+  end
+
   defp parse_stop_reason(reason), do: reason
 
   defp parse_delta(%{"type" => "text_delta", "text" => text}) do

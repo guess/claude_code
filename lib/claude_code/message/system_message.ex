@@ -17,6 +17,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   Mirrors the Python SDK's generic approach: `SystemMessage(subtype=str, data=dict)`.
   """
 
+  alias ClaudeCode.ParseWarning
   alias ClaudeCode.Types
 
   @enforce_keys [
@@ -188,7 +189,12 @@ defmodule ClaudeCode.Message.SystemMessage do
   defp parse_subtype("init"), do: :init
   defp parse_subtype("hook_started"), do: :hook_started
   defp parse_subtype("hook_response"), do: :hook_response
-  defp parse_subtype(other) when is_binary(other), do: other
+
+  defp parse_subtype(other) when is_binary(other) do
+    ParseWarning.once("system message subtype", other)
+    other
+  end
+
   defp parse_subtype(other), do: other
 
   @known_top_level_key_map %{

@@ -8,6 +8,7 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.ParseWarning
 
   defmodule AtomAuditTools do
     @moduledoc false
@@ -22,7 +23,14 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
     end
   end
 
+  # Reset warning dedup state between tests so assertions don't depend on order.
+  setup do
+    ParseWarning.reset()
+    :ok
+  end
+
   describe "unknown values do not create unbounded atoms" do
+    @tag capture_log: true
     test "assistant unknown stop_reason stays string and avoids atom growth" do
       base = assistant_payload()
 
@@ -36,6 +44,7 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
       assert atoms_added <= 60
     end
 
+    @tag capture_log: true
     test "result unknown subtype stays string and avoids atom growth" do
       base = result_payload()
 
@@ -49,6 +58,7 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
       assert atoms_added <= 60
     end
 
+    @tag capture_log: true
     test "system unknown subtype stays string and avoids atom growth" do
       atoms_added =
         atom_growth(200, fn i ->
@@ -66,6 +76,7 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
       assert atoms_added <= 60
     end
 
+    @tag capture_log: true
     test "partial assistant unknown event type stays string and avoids atom growth" do
       atoms_added =
         atom_growth(200, fn i ->
@@ -77,6 +88,28 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
 
           {:ok, message} = PartialAssistantMessage.new(payload)
           assert is_binary(message.event.type)
+        end)
+
+      assert atoms_added <= 60
+    end
+
+    test "partial assistant unknown usage keys stay strings and avoid atom growth (original repro)" do
+      atoms_added =
+        atom_growth(200, fn i ->
+          usage_key = "usage_metric_#{i}_#{unique_suffix()}"
+
+          payload = %{
+            "type" => "stream_event",
+            "session_id" => "session-1",
+            "event" => %{
+              "type" => "message_delta",
+              "usage" => %{usage_key => i, "output_tokens" => 10}
+            }
+          }
+
+          {:ok, message} = PartialAssistantMessage.new(payload)
+          assert Map.has_key?(message.event.usage, usage_key)
+          assert message.event.usage[:output_tokens] == 10
         end)
 
       assert atoms_added <= 60

@@ -42,6 +42,7 @@ defmodule ClaudeCode.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
+      mod: {ClaudeCode.Application, []},
       extra_applications: [:logger, :inets, :ssl]
     ]
   end

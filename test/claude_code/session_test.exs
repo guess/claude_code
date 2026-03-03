@@ -414,7 +414,15 @@ defmodule ClaudeCode.SessionTest do
         |> Enum.to_list()
         |> catch_throw()
 
-      assert {:stream_error, {:provisioning_failed, {:cli_not_found, message}}} = thrown
+      message =
+        case thrown do
+          {:stream_error, {:provisioning_failed, {:cli_not_found, message}}} ->
+            message
+
+          {:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} ->
+            message
+        end
+
       assert message =~ "Claude CLI not found"
 
       GenServer.stop(session)

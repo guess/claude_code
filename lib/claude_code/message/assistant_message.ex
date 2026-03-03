@@ -21,6 +21,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
   """
 
   alias ClaudeCode.CLI.Parser
+  alias ClaudeCode.ParseWarning
   alias ClaudeCode.Types
 
   @enforce_keys [
@@ -121,7 +122,12 @@ defmodule ClaudeCode.Message.AssistantMessage do
   defp parse_stop_reason("max_tokens"), do: :max_tokens
   defp parse_stop_reason("stop_sequence"), do: :stop_sequence
   defp parse_stop_reason("tool_use"), do: :tool_use
-  defp parse_stop_reason(other) when is_binary(other), do: other
+
+  defp parse_stop_reason(other) when is_binary(other) do
+    ParseWarning.once("stop_reason", other)
+    other
+  end
+
   defp parse_stop_reason(other), do: other
 
   defp parse_usage(usage_data) when is_map(usage_data) do
@@ -162,7 +168,12 @@ defmodule ClaudeCode.Message.AssistantMessage do
   defp parse_error("server_error"), do: :server_error
   defp parse_error("max_output_tokens"), do: :max_output_tokens
   defp parse_error("unknown"), do: :unknown
-  defp parse_error(other) when is_binary(other), do: other
+
+  defp parse_error(other) when is_binary(other) do
+    ParseWarning.once("error type", other)
+    other
+  end
+
   defp parse_error(other), do: other
 end
 
