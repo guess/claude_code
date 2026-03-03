@@ -105,7 +105,7 @@ defmodule ClaudeCode.Options do
   | `disallowed_tools`         | list    | Disallowed tools for this query         |
   | `output_format`            | map     | Structured output format for this query |
   | `plugins`                  | list    | Plugin configurations for this query    |
-  | `include_partial_messages` | boolean | Enable deltas for this query            |
+  | `include_partial_messages` | boolean | Accepted for compatibility; configure at session start to enable deltas |
 
   Note: `api_key` and `name` cannot be overridden at query time.
 
@@ -746,7 +746,7 @@ defmodule ClaudeCode.Options do
     ],
     include_partial_messages: [
       type: :boolean,
-      doc: "Include partial message chunks as they arrive for character-level streaming"
+      doc: "Accepted for compatibility; partial message streaming is configured at session start"
     ],
     disable_slash_commands: [
       type: :boolean,

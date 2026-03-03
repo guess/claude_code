@@ -404,22 +404,29 @@ defmodule ClaudeCode.SessionTest do
           cli_path: "/nonexistent/path/to/claude"
         )
 
-      # Stream should throw error when CLI not found during async provisioning.
-      # The CLI adapter now provisions asynchronously and reports status via
-      # {:adapter_status, {:error, reason}}, which the session translates to
-      # {:provisioning_failed, reason} for queued requests.
-      thrown =
-        session
-        |> ClaudeCode.stream("test")
-        |> Enum.to_list()
-        |> catch_throw()
+      # The provisioning failure can surface either as a throw during enumeration
+      # or as an error tuple in the returned list depending on timing.
+      result =
+        try do
+          session
+          |> ClaudeCode.stream("test")
+          |> Enum.to_list()
+        catch
+          :throw, thrown -> thrown
+        end
 
       message =
-        case thrown do
+        case result do
           {:stream_error, {:provisioning_failed, {:cli_not_found, message}}} ->
             message
 
           {:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} ->
+            message
+
+          [{:stream_error, {:provisioning_failed, {:cli_not_found, message}}} | _] ->
+            message
+
+          [{:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} | _] ->
             message
         end
 

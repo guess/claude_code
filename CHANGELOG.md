@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Atom-safety hardening for parser inputs** — Replaced dynamic atom creation on untrusted CLI data with bounded key mapping and string fallbacks for unknown enum values across message parsing paths, with regression coverage for atom growth behavior.
+- **Unknown parser warning noise reduced safely** — Added supervised warning deduplication for unrecognized CLI enum values with bounded retention to avoid repeated log spam and unbounded dedup state growth.
+
+### Changed
+
+- **Streaming docs/examples corrected for partial-message behavior** — Documentation and examples now show partial streaming configured at session start (`ClaudeCode.start_link(include_partial_messages: true)`), and removed stale references to `buffered_text/1`.
+
 ## [0.29.0] - 2026-03-02 | CC 2.1.62
 
 ### Added

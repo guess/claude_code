@@ -120,9 +120,11 @@ Pass per-session context via assigns for scoped tools in LiveView:
 Native Elixir Streams with character-level deltas, composable pipelines, and direct LiveView integration:
 
 ```elixir
+{:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
 # Character-level streaming
 session
-|> ClaudeCode.stream("Explain recursion", include_partial_messages: true)
+|> ClaudeCode.stream("Explain recursion")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 
@@ -130,19 +132,19 @@ session
 pid = self()
 Task.start(fn ->
   session
-  |> ClaudeCode.stream(message, include_partial_messages: true)
+  |> ClaudeCode.stream(message)
   |> ClaudeCode.Stream.text_deltas()
   |> Enum.each(&send(pid, {:chunk, &1}))
 end)
 
 # PubSub broadcasting
 session
-|> ClaudeCode.stream("Generate report", include_partial_messages: true)
+|> ClaudeCode.stream("Generate report")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:#{id}", {:chunk, &1}))
 ```
 
-Stream helpers: `text_deltas/1`, `thinking_deltas/1`, `text_content/1`, `tool_uses/1`, `final_text/1`, `collect/1`, `buffered_text/1`, and more.
+Stream helpers: `text_deltas/1`, `thinking_deltas/1`, `content_deltas/1`, `text_content/1`, `tool_uses/1`, `final_text/1`, `final_result/1`, `collect/1`, and more.
 
 [Streaming guide →](docs/guides/streaming-output.md)
 

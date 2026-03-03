@@ -12,7 +12,7 @@ def start(_type, _args) do
   children = [
     MyAppWeb.Endpoint,
     {ClaudeCode.Supervisor, [
-      [name: :assistant]
+      [name: :assistant, include_partial_messages: true]
     ]}
   ]
 
@@ -35,7 +35,7 @@ defmodule MyAppWeb.ChatLive do
 
     Task.start(fn ->
       :assistant
-      |> ClaudeCode.stream(message, include_partial_messages: true)
+      |> ClaudeCode.stream(message)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         send(parent, {:chunk, chunk})
@@ -136,7 +136,7 @@ defmodule MyApp.ClaudeStreamer do
   def stream_to_topic(prompt, topic) do
     Task.start(fn ->
       :assistant
-      |> ClaudeCode.stream(prompt, include_partial_messages: true)
+      |> ClaudeCode.stream(prompt)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         Phoenix.PubSub.broadcast(MyApp.PubSub, topic, {:claude_chunk, chunk})
@@ -181,10 +181,9 @@ defmodule MyApp.Claude do
 
   def stream(prompt, opts \\ []) do
     session = Keyword.get(opts, :session, :assistant)
-    include_partial = Keyword.get(opts, :partial, true)
 
     session
-    |> ClaudeCode.stream(prompt, include_partial_messages: include_partial)
+    |> ClaudeCode.stream(prompt)
     |> ClaudeCode.Stream.text_deltas()
   end
 end
