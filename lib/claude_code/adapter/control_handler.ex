@@ -8,6 +8,38 @@ defmodule ClaudeCode.Adapter.ControlHandler do
 
   require Logger
 
+  @known_hook_key_map %{
+    "agent_id" => :agent_id,
+    "agent_transcript_path" => :agent_transcript_path,
+    "agent_type" => :agent_type,
+    "blocked_path" => :blocked_path,
+    "custom_instructions" => :custom_instructions,
+    "cwd" => :cwd,
+    "error" => :error,
+    "hook_event" => :hook_event,
+    "hook_event_name" => :hook_event_name,
+    "hook_id" => :hook_id,
+    "hook_name" => :hook_name,
+    "input" => :input,
+    "is_interrupt" => :is_interrupt,
+    "message" => :message,
+    "notification_type" => :notification_type,
+    "outcome" => :outcome,
+    "output" => :output,
+    "permission_suggestions" => :permission_suggestions,
+    "prompt" => :prompt,
+    "session_id" => :session_id,
+    "stderr" => :stderr,
+    "stdout" => :stdout,
+    "stop_hook_active" => :stop_hook_active,
+    "title" => :title,
+    "tool_input" => :tool_input,
+    "tool_name" => :tool_name,
+    "tool_response" => :tool_response,
+    "transcript_path" => :transcript_path,
+    "trigger" => :trigger
+  }
+
   @spec handle_mcp_message(String.t(), map(), map()) :: map()
   def handle_mcp_message(server_name, jsonrpc, sdk_mcp_servers) do
     mcp_response =
@@ -64,7 +96,7 @@ defmodule ClaudeCode.Adapter.ControlHandler do
 
   defp atomize_keys(map) when is_map(map) do
     Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), value}
+      {key, value} when is_binary(key) -> {Map.get(@known_hook_key_map, key, key), value}
       {key, value} -> {key, value}
     end)
   end

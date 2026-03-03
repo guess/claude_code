@@ -36,6 +36,8 @@ end
 | `:tool_use`      | The model's final output was a tool call. This is uncommon in SDK results because tool calls are normally executed before the result is returned. |
 | `nil`            | No API response was received; for example, an error occurred before the first request, or the result was replayed from a cached session.          |
 
+If the upstream protocol introduces a new stop reason that is not yet recognized by the SDK, it is returned as a string value (for example, `"new_stop_reason"`).
+
 ## Stop reasons on error results
 
 Error results (such as `:error_max_turns` or `:error_during_execution`) also carry `stop_reason`. The value reflects the last assistant message received before the error occurred:

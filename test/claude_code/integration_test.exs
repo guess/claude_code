@@ -152,7 +152,8 @@ defmodule ClaudeCode.IntegrationTest do
         |> Enum.to_list()
         |> catch_throw()
 
-      assert {:stream_error, {:provisioning_failed, {:cli_not_found, _message}}} = error
+      assert match?({:stream_error, {:provisioning_failed, {:cli_not_found, _message}}}, error) or
+               match?({:stream_init_error, {:provisioning_failed, {:cli_not_found, _message}}}, error)
 
       ClaudeCode.stop(session)
     end

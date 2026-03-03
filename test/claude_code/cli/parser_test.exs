@@ -379,7 +379,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "custom_field" => "custom_value"
       }
 
-      assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Parser.parse_message(data)
+      assert {:ok, %SystemMessage{subtype: "some_future_subtype"}} = Parser.parse_message(data)
     end
 
     test "parses rate_limit_event messages" do

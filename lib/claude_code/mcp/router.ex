@@ -83,7 +83,7 @@ defmodule ClaudeCode.MCP.Router do
         jsonrpc_error(message, -32_601, "Tool '#{name}' not found")
 
       module ->
-        atom_args = atomize_keys(args)
+        atom_args = atomize_keys(args, allowed_argument_keys(module))
         frame = Frame.new(assigns)
 
         try do
@@ -107,15 +107,38 @@ defmodule ClaudeCode.MCP.Router do
     end
   end
 
-  # Converts string keys to atoms for tool parameter maps.
-  #
-  # This is safe because keys come from tool schema field declarations,
-  # which are a bounded set of atoms defined at compile time.
-  defp atomize_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {k, v} when is_binary(k) -> {String.to_atom(k), v}
-      {k, v} -> {k, v}
+  defp allowed_argument_keys(module) do
+    case module.input_schema() do
+      %{"properties" => properties} when is_map(properties) ->
+        properties
+        |> Map.keys()
+        |> Enum.map(fn
+          key when is_binary(key) -> key
+          key when is_atom(key) -> Atom.to_string(key)
+          _ -> nil
+        end)
+        |> Enum.reject(&is_nil/1)
+        |> Map.new(&{&1, true})
+
+      _ ->
+        %{}
+    end
+  end
+
+  defp atomize_keys(map, allowed_keys) when is_map(map) do
+    Map.new(map, fn {k, v} ->
+      if is_binary(k) and Map.has_key?(allowed_keys, k) do
+        {to_existing_atom_or_string(k), v}
+      else
+        {k, v}
+      end
     end)
+  end
+
+  defp to_existing_atom_or_string(key) do
+    String.to_existing_atom(key)
+  rescue
+    ArgumentError -> key
   end
 
   defp jsonrpc_result(%{"id" => id}, result) do
