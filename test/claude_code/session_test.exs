@@ -404,31 +404,16 @@ defmodule ClaudeCode.SessionTest do
           cli_path: "/nonexistent/path/to/claude"
         )
 
-      # The provisioning failure can surface either as a throw during enumeration
-      # or as an error tuple in the returned list depending on timing.
-      result =
-        try do
-          session
-          |> ClaudeCode.stream("test")
-          |> Enum.to_list()
-        catch
-          :throw, thrown -> thrown
-        end
+      # Synchronize on adapter error first so stream initialization path is deterministic.
+      assert {:error, {:cli_not_found, _}} = wait_for_adapter_status(session)
 
-      message =
-        case result do
-          {:stream_error, {:provisioning_failed, {:cli_not_found, message}}} ->
-            message
+      thrown =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+        |> catch_throw()
 
-          {:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} ->
-            message
-
-          [{:stream_error, {:provisioning_failed, {:cli_not_found, message}}} | _] ->
-            message
-
-          [{:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} | _] ->
-            message
-        end
+      assert {:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} = thrown
 
       assert message =~ "Claude CLI not found"
 
@@ -1050,6 +1035,28 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link([])
       assert is_pid(session)
       GenServer.stop(session)
+    end
+  end
+
+  defp wait_for_adapter_status(session, timeout_ms \\ 2_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_wait_for_adapter_status(session, deadline)
+  end
+
+  defp do_wait_for_adapter_status(session, deadline) do
+    state = :sys.get_state(session)
+
+    case state.adapter_status do
+      {:error, _reason} = status ->
+        status
+
+      _other ->
+        if System.monotonic_time(:millisecond) >= deadline do
+          flunk("timed out waiting for adapter error, status=#{inspect(state.adapter_status)}")
+        else
+          Process.sleep(10)
+          do_wait_for_adapter_status(session, deadline)
+        end
     end
   end
 end

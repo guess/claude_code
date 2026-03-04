@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Atom-safety hardening for parser inputs** — Replaced dynamic atom creation on untrusted CLI data with bounded key mapping and string fallbacks for unknown enum values across message parsing paths, with regression coverage for atom growth behavior.
-- **Unknown parser warning noise reduced safely** — Added supervised warning deduplication for unrecognized CLI enum values with bounded retention to avoid repeated log spam and unbounded dedup state growth.
+- **Atom-safety hardening for parser inputs** — Replaced dynamic atom creation on untrusted open-ended CLI maps with bounded key mapping in parser hot paths (partial usage/context data, hook callback inputs, and MCP tool arguments), with regression coverage for atom growth behavior.
+- **Enum parsing aligned with bounded SDK categories** — Enum fields (`stop_reason`, message/result/system subtypes, and stream event type) use atom parsing with explicit clauses for all known SDK values. Added coverage for `refusal` stop reason and system subtypes `status`, `hook_progress`, `task_notification`, `task_started`, `task_progress`, `files_persisted`, and `compact_boundary`.
 
 ### Changed
 

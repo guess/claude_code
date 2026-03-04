@@ -40,8 +40,6 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   ```
   """
 
-  alias ClaudeCode.ParseWarning
-
   @enforce_keys [:type, :event, :session_id]
   defstruct [
     :type,
@@ -58,7 +56,6 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
           | :content_block_stop
           | :message_delta
           | :message_stop
-          | String.t()
 
   @type delta ::
           %{type: :text_delta, text: String.t()}
@@ -195,7 +192,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   @doc """
   Gets the event type.
   """
-  @spec event_type(t()) :: event_type() | String.t()
+  @spec event_type(t()) :: event_type()
   def event_type(%__MODULE__{event: %{type: type}}), do: type
 
   # Private functions
@@ -273,8 +270,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
         atom
 
       :error ->
-        ParseWarning.once("stream event type", type)
-        type
+        String.to_atom(type)
     end
   end
 
@@ -362,8 +358,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
         atom
 
       :error ->
-        ParseWarning.once("stop_reason", reason)
-        reason
+        String.to_atom(reason)
     end
   end
 

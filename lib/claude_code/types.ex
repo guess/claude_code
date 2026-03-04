@@ -10,7 +10,7 @@ defmodule ClaudeCode.Types do
 
   @type model :: String.t()
 
-  @type stop_reason :: :end_turn | :max_tokens | :stop_sequence | :tool_use | :refusal | String.t() | nil
+  @type stop_reason :: :end_turn | :max_tokens | :stop_sequence | :tool_use | :refusal | nil
 
   @type role :: :user | :assistant
 
@@ -24,7 +24,6 @@ defmodule ClaudeCode.Types do
           | :error_during_execution
           | :error_max_budget_usd
           | :error_max_structured_output_retries
-          | String.t()
 
   @type usage :: %{
           input_tokens: non_neg_integer(),

@@ -17,7 +17,6 @@ defmodule ClaudeCode.Message.SystemMessage do
   Mirrors the Python SDK's generic approach: `SystemMessage(subtype=str, data=dict)`.
   """
 
-  alias ClaudeCode.ParseWarning
   alias ClaudeCode.Types
 
   @enforce_keys [
@@ -48,7 +47,7 @@ defmodule ClaudeCode.Message.SystemMessage do
 
   @type t :: %__MODULE__{
           type: :system,
-          subtype: atom() | String.t(),
+          subtype: atom(),
           uuid: String.t() | nil,
           cwd: String.t() | nil,
           session_id: Types.session_id(),
@@ -187,14 +186,18 @@ defmodule ClaudeCode.Message.SystemMessage do
   defp parse_permission_mode(_), do: :default
 
   defp parse_subtype("init"), do: :init
+  defp parse_subtype("status"), do: :status
   defp parse_subtype("hook_started"), do: :hook_started
   defp parse_subtype("hook_response"), do: :hook_response
-
-  defp parse_subtype(other) when is_binary(other) do
-    ParseWarning.once("system message subtype", other)
-    other
-  end
-
+  defp parse_subtype("hook_progress"), do: :hook_progress
+  # Parser.parse_message/1 routes this subtype to CompactBoundaryMessage first,
+  # but direct SystemMessage.new/1 calls should still parse it predictably.
+  defp parse_subtype("compact_boundary"), do: :compact_boundary
+  defp parse_subtype("task_notification"), do: :task_notification
+  defp parse_subtype("task_started"), do: :task_started
+  defp parse_subtype("task_progress"), do: :task_progress
+  defp parse_subtype("files_persisted"), do: :files_persisted
+  defp parse_subtype(other) when is_binary(other), do: String.to_atom(other)
   defp parse_subtype(other), do: other
 
   @known_top_level_key_map %{

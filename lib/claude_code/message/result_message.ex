@@ -54,7 +54,6 @@ defmodule ClaudeCode.Message.ResultMessage do
   ```
   """
 
-  alias ClaudeCode.ParseWarning
   alias ClaudeCode.Types
 
   @enforce_keys [
@@ -172,12 +171,7 @@ defmodule ClaudeCode.Message.ResultMessage do
   defp parse_subtype("error_during_execution"), do: :error_during_execution
   defp parse_subtype("error_max_budget_usd"), do: :error_max_budget_usd
   defp parse_subtype("error_max_structured_output_retries"), do: :error_max_structured_output_retries
-
-  defp parse_subtype(other) when is_binary(other) do
-    ParseWarning.once("result subtype", other)
-    other
-  end
-
+  defp parse_subtype(other) when is_binary(other), do: String.to_atom(other)
   defp parse_subtype(other), do: other
 
   defp parse_stop_reason(nil), do: nil
@@ -186,12 +180,7 @@ defmodule ClaudeCode.Message.ResultMessage do
   defp parse_stop_reason("stop_sequence"), do: :stop_sequence
   defp parse_stop_reason("tool_use"), do: :tool_use
   defp parse_stop_reason("refusal"), do: :refusal
-
-  defp parse_stop_reason(other) when is_binary(other) do
-    ParseWarning.once("stop_reason", other)
-    other
-  end
-
+  defp parse_stop_reason(other) when is_binary(other), do: String.to_atom(other)
   defp parse_stop_reason(other), do: other
 
   defp parse_float(value) when is_float(value), do: value

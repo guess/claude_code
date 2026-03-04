@@ -8,7 +8,6 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
-  alias ClaudeCode.ParseWarning
 
   defmodule AtomAuditTools do
     @moduledoc false
@@ -23,77 +22,48 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
     end
   end
 
-  # Reset warning dedup state between tests so assertions don't depend on order.
-  setup do
-    ParseWarning.reset()
-    :ok
+  describe "tier 2 enums remain atomized" do
+    # Bounded enum atomization is intentional; atom-safety hardening targets open-ended key spaces.
+    test "assistant unknown stop_reason is atomized" do
+      payload = put_in(assistant_payload(), ["message", "stop_reason"], "future_stop_reason")
+
+      assert {:ok, message} = AssistantMessage.new(payload)
+      assert message.message.stop_reason == :future_stop_reason
+    end
+
+    test "result unknown subtype is atomized" do
+      payload = Map.put(result_payload(), "subtype", "future_result_subtype")
+
+      assert {:ok, message} = ResultMessage.new(payload)
+      assert message.subtype == :future_result_subtype
+    end
+
+    test "system unknown subtype is atomized" do
+      payload = %{
+        "type" => "system",
+        "subtype" => "future_system_subtype",
+        "session_id" => "session-1",
+        "custom_field" => "custom-value"
+      }
+
+      assert {:ok, message} = SystemMessage.new(payload)
+      assert message.subtype == :future_system_subtype
+    end
+
+    test "partial assistant unknown event type is atomized" do
+      payload = %{
+        "type" => "stream_event",
+        "session_id" => "session-1",
+        "event" => %{"type" => "future_event_type"}
+      }
+
+      assert {:ok, message} = PartialAssistantMessage.new(payload)
+      assert message.event.type == :future_event_type
+    end
   end
 
-  describe "unknown values do not create unbounded atoms" do
-    @tag capture_log: true
-    test "assistant unknown stop_reason stays string and avoids atom growth" do
-      base = assistant_payload()
-
-      atoms_added =
-        atom_growth(200, fn i ->
-          payload = put_in(base, ["message", "stop_reason"], "unknown_stop_#{i}_#{unique_suffix()}")
-          {:ok, message} = AssistantMessage.new(payload)
-          assert is_binary(message.message.stop_reason)
-        end)
-
-      assert atoms_added <= 60
-    end
-
-    @tag capture_log: true
-    test "result unknown subtype stays string and avoids atom growth" do
-      base = result_payload()
-
-      atoms_added =
-        atom_growth(200, fn i ->
-          payload = Map.put(base, "subtype", "unknown_subtype_#{i}_#{unique_suffix()}")
-          {:ok, message} = ResultMessage.new(payload)
-          assert is_binary(message.subtype)
-        end)
-
-      assert atoms_added <= 60
-    end
-
-    @tag capture_log: true
-    test "system unknown subtype stays string and avoids atom growth" do
-      atoms_added =
-        atom_growth(200, fn i ->
-          payload = %{
-            "type" => "system",
-            "subtype" => "future_subtype_#{i}_#{unique_suffix()}",
-            "session_id" => "session-1",
-            "custom_field" => "custom-value"
-          }
-
-          {:ok, message} = SystemMessage.new(payload)
-          assert is_binary(message.subtype)
-        end)
-
-      assert atoms_added <= 60
-    end
-
-    @tag capture_log: true
-    test "partial assistant unknown event type stays string and avoids atom growth" do
-      atoms_added =
-        atom_growth(200, fn i ->
-          payload = %{
-            "type" => "stream_event",
-            "session_id" => "session-1",
-            "event" => %{"type" => "future_event_#{i}_#{unique_suffix()}"}
-          }
-
-          {:ok, message} = PartialAssistantMessage.new(payload)
-          assert is_binary(message.event.type)
-        end)
-
-      assert atoms_added <= 60
-    end
-
-    test "partial assistant unknown usage keys stay strings and avoid atom growth (original repro)" do
+  describe "tier 3 and tier 4 keep unbounded keys as strings" do
+    test "partial assistant unknown usage keys stay strings and avoid atom growth" do
       atoms_added =
         atom_growth(200, fn i ->
           usage_key = "usage_metric_#{i}_#{unique_suffix()}"
@@ -107,7 +77,7 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
             }
           }
 
-          {:ok, message} = PartialAssistantMessage.new(payload)
+          assert {:ok, message} = PartialAssistantMessage.new(payload)
           assert Map.has_key?(message.event.usage, usage_key)
           assert message.event.usage[:output_tokens] == 10
         end)

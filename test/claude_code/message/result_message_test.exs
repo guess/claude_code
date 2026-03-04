@@ -42,10 +42,10 @@ defmodule ClaudeCode.Message.ResultMessageTest do
       assert message.usage.server_tool_use.web_search_requests == 0
     end
 
-    test "parses unknown error subtype as string" do
+    test "parses an error result message" do
       json = %{
         "type" => "result",
-        "subtype" => "error",
+        "subtype" => "error_during_execution",
         "is_error" => true,
         "duration_ms" => 500,
         "duration_api_ms" => 0,
@@ -65,13 +65,13 @@ defmodule ClaudeCode.Message.ResultMessageTest do
       }
 
       assert {:ok, message} = ResultMessage.new(json)
-      assert message.subtype == "error"
+      assert message.subtype == :error_during_execution
       assert message.is_error == true
       assert message.result =~ "Error"
       assert message.total_cost_usd == 0.0
     end
 
-    test "parses known subtype as atom and unknown subtype as string" do
+    test "parses known and unknown subtypes as atoms" do
       base_json = fn subtype ->
         %{
           "type" => "result",
@@ -96,8 +96,8 @@ defmodule ClaudeCode.Message.ResultMessageTest do
       {:ok, msg1} = ResultMessage.new(base_json.("success"))
       assert msg1.subtype == :success
 
-      {:ok, msg2} = ResultMessage.new(base_json.("error"))
-      assert msg2.subtype == "error"
+      {:ok, msg2} = ResultMessage.new(base_json.("some_future_subtype"))
+      assert msg2.subtype == :some_future_subtype
     end
 
     test "handles missing server_tool_use in usage" do
