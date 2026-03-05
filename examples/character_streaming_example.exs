@@ -1,6 +1,9 @@
 #!/usr/bin/env elixir
 # Example of using character-level streaming for real-time output
 #
+# Run instructions:
+#   See examples/README.md
+#
 # This demonstrates the `include_partial_messages: true` option which enables
 # character-by-character streaming from Claude's responses - perfect for
 # building responsive chat interfaces and LiveView applications.

@@ -1,5 +1,8 @@
 #!/usr/bin/env elixir
 # Example of using the ClaudeCode streaming API
+#
+# Run instructions:
+#   See examples/README.md
 
 alias ClaudeCode.Message.AssistantMessage
 alias ClaudeCode.Message.ResultMessage

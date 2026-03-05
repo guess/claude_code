@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Atom-safety hardening for parser inputs** — Replaced dynamic atom creation on untrusted open-ended CLI maps with bounded key mapping in parser hot paths (partial usage/context data, hook callback inputs, and MCP tool arguments), with regression coverage for atom growth behavior.
-- **Enum parsing aligned with bounded SDK categories** — Enum fields (`stop_reason`, message/result/system subtypes, and stream event type) use atom parsing with explicit clauses for all known SDK values. Added coverage for `refusal` stop reason and system subtypes `status`, `hook_progress`, `task_notification`, `task_started`, `task_progress`, `files_persisted`, and `compact_boundary`.
+- **Atom-safe partial stream parsing now preserves known SDK shapes** — `PartialAssistantMessage` keeps open-ended parser inputs string-keyed while normalizing bounded nested `message_start.message.content`, `usage.cache_creation`, and `usage.server_tool_use` structures to match the SDK’s public message shapes. Regression coverage verifies atom growth stays bounded for partial usage, delta, and content-block payloads alongside hook callback inputs and MCP tool arguments.
+- **Bounded enum semantics now cover all partial stream type fields** — Enum fields (`stop_reason`, message/result/system subtypes, stream event type, and partial `delta.type` / `content_block.type`) use atom parsing with explicit clauses for known SDK values. Unknown partial delta and content-block variants now atomize only `type` while leaving non-type fields string-keyed. Added coverage for `refusal` stop reason and system subtypes `status`, `hook_progress`, `task_notification`, `task_started`, `task_progress`, `files_persisted`, and `compact_boundary`.
 
 ### Changed
 
-- **Streaming docs/examples corrected for partial-message behavior** — Documentation and examples now show partial streaming configured at session start (`ClaudeCode.start_link(include_partial_messages: true)`), and removed stale references to `buffered_text/1`.
+- **Streaming docs/examples corrected for partial-message behavior** — Documentation and examples now consistently show partial streaming configured at session start (`ClaudeCode.start_link(include_partial_messages: true)`) and streamed with `ClaudeCode.stream/2` or `ClaudeCode.stream/3`, with stale partial-stream module guidance removed.
 
 ## [0.29.0] - 2026-03-02 | CC 2.1.62
 

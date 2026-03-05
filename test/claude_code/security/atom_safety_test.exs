@@ -60,6 +60,36 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
       assert {:ok, message} = PartialAssistantMessage.new(payload)
       assert message.event.type == :future_event_type
     end
+
+    test "partial assistant unknown delta type is atomized" do
+      payload = %{
+        "type" => "stream_event",
+        "session_id" => "session-1",
+        "event" => %{
+          "type" => "content_block_delta",
+          "delta" => %{"type" => "future_delta_type", "raw_field" => "value"}
+        }
+      }
+
+      assert {:ok, message} = PartialAssistantMessage.new(payload)
+      assert message.event.delta.type == :future_delta_type
+      assert message.event.delta["raw_field"] == "value"
+    end
+
+    test "partial assistant unknown content block type is atomized" do
+      payload = %{
+        "type" => "stream_event",
+        "session_id" => "session-1",
+        "event" => %{
+          "type" => "content_block_start",
+          "content_block" => %{"type" => "future_block_type", "raw_field" => "value"}
+        }
+      }
+
+      assert {:ok, message} = PartialAssistantMessage.new(payload)
+      assert message.event.content_block.type == :future_block_type
+      assert message.event.content_block["raw_field"] == "value"
+    end
   end
 
   describe "tier 3 and tier 4 keep unbounded keys as strings" do
@@ -80,6 +110,58 @@ defmodule ClaudeCode.Security.AtomSafetyTest do
           assert {:ok, message} = PartialAssistantMessage.new(payload)
           assert Map.has_key?(message.event.usage, usage_key)
           assert message.event.usage[:output_tokens] == 10
+        end)
+
+      assert atoms_added <= 60
+    end
+
+    test "partial assistant unknown delta fields stay strings without atom growth" do
+      atoms_added =
+        atom_growth(200, fn i ->
+          dynamic_key = "delta_field_#{i}_#{unique_suffix()}"
+
+          payload = %{
+            "type" => "stream_event",
+            "session_id" => "session-1",
+            "event" => %{
+              "type" => "content_block_delta",
+              "delta" => %{
+                "type" => "future_delta_type",
+                dynamic_key => i
+              }
+            }
+          }
+
+          assert {:ok, message} = PartialAssistantMessage.new(payload)
+          assert message.event.delta.type == :future_delta_type
+          assert message.event.delta[dynamic_key] == i
+          assert Enum.all?(Map.keys(message.event.delta), fn key -> key == :type or is_binary(key) end)
+        end)
+
+      assert atoms_added <= 60
+    end
+
+    test "partial assistant unknown content block fields stay strings without atom growth" do
+      atoms_added =
+        atom_growth(200, fn i ->
+          dynamic_key = "content_block_field_#{i}_#{unique_suffix()}"
+
+          payload = %{
+            "type" => "stream_event",
+            "session_id" => "session-1",
+            "event" => %{
+              "type" => "content_block_start",
+              "content_block" => %{
+                "type" => "future_block_type",
+                dynamic_key => i
+              }
+            }
+          }
+
+          assert {:ok, message} = PartialAssistantMessage.new(payload)
+          assert message.event.content_block.type == :future_block_type
+          assert message.event.content_block[dynamic_key] == i
+          assert Enum.all?(Map.keys(message.event.content_block), fn key -> key == :type or is_binary(key) end)
         end)
 
       assert atoms_added <= 60

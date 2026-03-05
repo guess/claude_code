@@ -75,6 +75,31 @@ session
 # => "Your favorite language is Elixir!"
 ```
 
+## Example Scripts
+
+Two runnable scripts live in [`examples/`](examples/README.md):
+
+- [`examples/streaming_example.exs`](examples/streaming_example.exs) - complete-message streaming helpers
+- [`examples/character_streaming_example.exs`](examples/character_streaming_example.exs) - partial-message streaming with `include_partial_messages: true`
+
+With the default bundled CLI config:
+
+```bash
+mix run examples/streaming_example.exs
+mix run examples/character_streaming_example.exs
+```
+
+If you use a system-installed Claude CLI instead of the bundled binary, set `config :claude_code, cli_path: :global` in `config/dev.exs` and run the same commands.
+
+For a one-off override without editing config:
+
+```bash
+mix run -e 'Application.put_env(:claude_code, :cli_path, :global); Code.require_file("streaming_example.exs", "examples")'
+mix run -e 'Application.put_env(:claude_code, :cli_path, :global); Code.require_file("character_streaming_example.exs", "examples")'
+```
+
+Do not use `mix run -e '...' examples/foo.exs` for this case. `mix run` only evaluates the `-e` expression there, so the script file is not executed.
+
 ## Features
 
 ### In-Process Custom Tools
