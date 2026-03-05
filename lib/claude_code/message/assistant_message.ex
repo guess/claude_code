@@ -120,7 +120,9 @@ defmodule ClaudeCode.Message.AssistantMessage do
   defp parse_stop_reason("max_tokens"), do: :max_tokens
   defp parse_stop_reason("stop_sequence"), do: :stop_sequence
   defp parse_stop_reason("tool_use"), do: :tool_use
+  defp parse_stop_reason("refusal"), do: :refusal
   defp parse_stop_reason(other) when is_binary(other), do: String.to_atom(other)
+  defp parse_stop_reason(other), do: other
 
   defp parse_usage(usage_data) when is_map(usage_data) do
     %{
@@ -161,6 +163,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
   defp parse_error("max_output_tokens"), do: :max_output_tokens
   defp parse_error("unknown"), do: :unknown
   defp parse_error(other) when is_binary(other), do: String.to_atom(other)
+  defp parse_error(other), do: other
 end
 
 defimpl String.Chars, for: ClaudeCode.Message.AssistantMessage do

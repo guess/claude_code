@@ -131,12 +131,12 @@ defmodule ClaudeCode.Message.SystemMessage do
         data =
           json
           |> Map.drop(["type", "subtype", "session_id", "uuid"])
-          |> atomize_top_level_keys()
+          |> atomize_known_top_level_keys()
 
         {:ok,
          %__MODULE__{
            type: :system,
-           subtype: String.to_atom(subtype),
+           subtype: parse_subtype(subtype),
            session_id: session_id,
            uuid: json["uuid"],
            data: data
@@ -185,9 +185,54 @@ defmodule ClaudeCode.Message.SystemMessage do
   defp parse_permission_mode("plan"), do: :plan
   defp parse_permission_mode(_), do: :default
 
-  defp atomize_top_level_keys(map) when is_map(map) do
+  defp parse_subtype("init"), do: :init
+  defp parse_subtype("status"), do: :status
+  defp parse_subtype("hook_started"), do: :hook_started
+  defp parse_subtype("hook_response"), do: :hook_response
+  defp parse_subtype("hook_progress"), do: :hook_progress
+  # Parser.parse_message/1 routes this subtype to CompactBoundaryMessage first,
+  # but direct SystemMessage.new/1 calls should still parse it predictably.
+  defp parse_subtype("compact_boundary"), do: :compact_boundary
+  defp parse_subtype("task_notification"), do: :task_notification
+  defp parse_subtype("task_started"), do: :task_started
+  defp parse_subtype("task_progress"), do: :task_progress
+  defp parse_subtype("files_persisted"), do: :files_persisted
+  defp parse_subtype(other) when is_binary(other), do: String.to_atom(other)
+  defp parse_subtype(other), do: other
+
+  @known_top_level_key_map %{
+    "agent_id" => :agent_id,
+    "agent_transcript_path" => :agent_transcript_path,
+    "agent_type" => :agent_type,
+    "custom_instructions" => :custom_instructions,
+    "cwd" => :cwd,
+    "error" => :error,
+    "exit_code" => :exit_code,
+    "hook_event" => :hook_event,
+    "hook_event_name" => :hook_event_name,
+    "hook_id" => :hook_id,
+    "hook_name" => :hook_name,
+    "is_interrupt" => :is_interrupt,
+    "message" => :message,
+    "notification_type" => :notification_type,
+    "outcome" => :outcome,
+    "output" => :output,
+    "prompt" => :prompt,
+    "session_id" => :session_id,
+    "stderr" => :stderr,
+    "stdout" => :stdout,
+    "stop_hook_active" => :stop_hook_active,
+    "title" => :title,
+    "tool_input" => :tool_input,
+    "tool_name" => :tool_name,
+    "tool_response" => :tool_response,
+    "transcript_path" => :transcript_path,
+    "trigger" => :trigger
+  }
+
+  defp atomize_known_top_level_keys(map) when is_map(map) do
     Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), value}
+      {key, value} when is_binary(key) -> {Map.get(@known_top_level_key_map, key, key), value}
       {key, value} -> {key, value}
     end)
   end

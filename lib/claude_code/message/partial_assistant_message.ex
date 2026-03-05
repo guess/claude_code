@@ -2,9 +2,9 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   @moduledoc """
   Represents a partial assistant message from the Claude CLI when using partial message streaming.
 
-  Partial assistant messages are emitted when `include_partial_messages: true` is enabled.
-  They provide real-time updates as Claude generates responses, enabling
-  character-by-character streaming for LiveView applications.
+  Partial assistant messages are emitted when the session is started with
+  `include_partial_messages: true`. They provide real-time updates as Claude
+  generates responses, enabling incremental text and tool-call streaming.
 
   This type corresponds to `SDKPartialAssistantMessage` in the TypeScript SDK.
 
@@ -19,7 +19,10 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
 
   ## Example Usage
 
-      ClaudeCode.query_stream(session, "Hello", include_partial_messages: true)
+      {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
+      session
+      |> ClaudeCode.stream("Hello")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&IO.write/1)
 
@@ -39,6 +42,8 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   }
   ```
   """
+
+  alias ClaudeCode.CLI.Parser
 
   @enforce_keys [:type, :event, :session_id]
   defstruct [
@@ -197,6 +202,71 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
 
   # Private functions
 
+  @event_type_map %{
+    "message_start" => :message_start,
+    "content_block_start" => :content_block_start,
+    "content_block_delta" => :content_block_delta,
+    "content_block_stop" => :content_block_stop,
+    "message_delta" => :message_delta,
+    "message_stop" => :message_stop
+  }
+
+  @delta_type_map %{
+    "text_delta" => :text_delta,
+    "input_json_delta" => :input_json_delta,
+    "thinking_delta" => :thinking_delta
+  }
+
+  @stop_reason_map %{
+    "end_turn" => :end_turn,
+    "max_tokens" => :max_tokens,
+    "stop_sequence" => :stop_sequence,
+    "tool_use" => :tool_use,
+    "refusal" => :refusal
+  }
+
+  @known_message_keys [
+    "id",
+    "type",
+    "role",
+    "content",
+    "model",
+    "stop_reason",
+    "stop_sequence",
+    "usage",
+    "context_management"
+  ]
+
+  @known_usage_key_map %{
+    "input_tokens" => :input_tokens,
+    "output_tokens" => :output_tokens,
+    "cache_creation_input_tokens" => :cache_creation_input_tokens,
+    "cache_read_input_tokens" => :cache_read_input_tokens,
+    "cache_creation" => :cache_creation,
+    "service_tier" => :service_tier,
+    "inference_geo" => :inference_geo,
+    "server_tool_use" => :server_tool_use,
+    "iterations" => :iterations,
+    "speed" => :speed
+  }
+
+  @known_context_management_key_map %{
+    "mode" => :mode,
+    "compacted" => :compacted,
+    "truncated_message_ids" => :truncated_message_ids,
+    "was_auto_truncated" => :was_auto_truncated
+  }
+
+  @known_cache_creation_key_map %{
+    "ephemeral_5m_input_tokens" => :ephemeral_5m_input_tokens,
+    "ephemeral_1h_input_tokens" => :ephemeral_1h_input_tokens
+  }
+
+  @known_server_tool_use_key_map %{
+    "web_search_requests" => :web_search_requests,
+    "web_fetch_requests" => :web_fetch_requests
+  }
+
   defp parse_event(%{"type" => type} = event_data) do
     base = %{type: parse_event_type(type)}
 
@@ -209,13 +279,17 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
     |> maybe_add_context_management(event_data)
   end
 
-  defp parse_event_type("message_start"), do: :message_start
-  defp parse_event_type("content_block_start"), do: :content_block_start
-  defp parse_event_type("content_block_delta"), do: :content_block_delta
-  defp parse_event_type("content_block_stop"), do: :content_block_stop
-  defp parse_event_type("message_delta"), do: :message_delta
-  defp parse_event_type("message_stop"), do: :message_stop
-  defp parse_event_type(other), do: String.to_atom(other)
+  defp parse_event_type(type) when is_binary(type) do
+    case Map.fetch(@event_type_map, type) do
+      {:ok, atom} ->
+        atom
+
+      :error ->
+        String.to_atom(type)
+    end
+  end
+
+  defp parse_event_type(other), do: other
 
   defp maybe_add_index(event, %{"index" => index}), do: Map.put(event, :index, index)
   defp maybe_add_index(event, _), do: event
@@ -233,36 +307,123 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   defp maybe_add_content_block(event, _), do: event
 
   defp maybe_add_message(event, %{"message" => message}) do
-    Map.put(event, :message, atomize_keys(message))
+    Map.put(event, :message, parse_message_data(message))
   end
 
   defp maybe_add_message(event, _), do: event
 
   defp maybe_add_usage(event, %{"usage" => usage}) do
-    Map.put(event, :usage, atomize_keys(usage))
+    Map.put(event, :usage, parse_usage_data(usage))
   end
 
   defp maybe_add_usage(event, _), do: event
 
   defp maybe_add_context_management(event, %{"context_management" => cm}) when not is_nil(cm) do
-    Map.put(event, :context_management, atomize_keys(cm))
+    Map.put(event, :context_management, parse_context_management_data(cm))
   end
 
   defp maybe_add_context_management(event, _), do: event
 
-  # Recursively converts string keys to atoms in maps
-  defp atomize_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), atomize_keys(value)}
-      {key, value} -> {key, atomize_keys(value)}
+  defp parse_message_data(message) when is_map(message) do
+    message
+    |> Map.drop(@known_message_keys)
+    |> maybe_put_known_field(message, "id", :id, & &1)
+    |> maybe_put_known_field(message, "type", :type, &parse_message_type/1)
+    |> maybe_put_known_field(message, "role", :role, &parse_role/1)
+    |> maybe_put_known_field(message, "content", :content, &parse_message_content/1)
+    |> maybe_put_known_field(message, "model", :model, & &1)
+    |> maybe_put_known_field(message, "stop_reason", :stop_reason, &parse_stop_reason/1)
+    |> maybe_put_known_field(message, "stop_sequence", :stop_sequence, & &1)
+    |> maybe_put_known_field(message, "usage", :usage, &parse_usage_data/1)
+    |> maybe_put_known_field(message, "context_management", :context_management, &parse_context_management_data/1)
+  end
+
+  defp parse_message_data(other), do: other
+
+  defp parse_usage_data(usage) when is_map(usage) do
+    usage
+    |> Map.drop(Map.keys(@known_usage_key_map))
+    |> maybe_put_known_field(usage, "input_tokens", :input_tokens, & &1)
+    |> maybe_put_known_field(usage, "output_tokens", :output_tokens, & &1)
+    |> maybe_put_known_field(usage, "cache_creation_input_tokens", :cache_creation_input_tokens, & &1)
+    |> maybe_put_known_field(usage, "cache_read_input_tokens", :cache_read_input_tokens, & &1)
+    |> maybe_put_known_field(usage, "cache_creation", :cache_creation, &parse_cache_creation_data/1)
+    |> maybe_put_known_field(usage, "service_tier", :service_tier, & &1)
+    |> maybe_put_known_field(usage, "inference_geo", :inference_geo, & &1)
+    |> maybe_put_known_field(usage, "server_tool_use", :server_tool_use, &parse_server_tool_use_data/1)
+    |> maybe_put_known_field(usage, "iterations", :iterations, & &1)
+    |> maybe_put_known_field(usage, "speed", :speed, & &1)
+  end
+
+  defp parse_usage_data(other), do: other
+
+  defp parse_context_management_data(cm) when is_map(cm) do
+    Map.new(cm, fn
+      {key, value} when is_binary(key) -> {Map.get(@known_context_management_key_map, key, key), value}
+      {key, value} -> {key, value}
     end)
   end
 
-  defp atomize_keys(list) when is_list(list) do
-    Enum.map(list, &atomize_keys/1)
+  defp parse_context_management_data(other), do: other
+
+  defp parse_message_type("message"), do: :message
+  defp parse_message_type(other), do: other
+
+  defp parse_role("assistant"), do: :assistant
+  defp parse_role("user"), do: :user
+  defp parse_role(other), do: other
+
+  defp parse_stop_reason(nil), do: nil
+
+  defp parse_stop_reason(reason) when is_binary(reason) do
+    case Map.fetch(@stop_reason_map, reason) do
+      {:ok, atom} ->
+        atom
+
+      :error ->
+        String.to_atom(reason)
+    end
   end
 
-  defp atomize_keys(value), do: value
+  defp parse_stop_reason(reason), do: reason
+
+  defp parse_message_content(blocks) when is_list(blocks) do
+    Enum.map(blocks, &parse_message_content_block/1)
+  end
+
+  defp parse_message_content(other), do: other
+
+  defp parse_message_content_block(%{"type" => "text"} = block), do: parse_known_message_content_block(block)
+  defp parse_message_content_block(%{"type" => "thinking"} = block), do: parse_known_message_content_block(block)
+  defp parse_message_content_block(%{"type" => "tool_use"} = block), do: parse_known_message_content_block(block)
+  defp parse_message_content_block(%{"type" => "tool_result"} = block), do: parse_known_message_content_block(block)
+  defp parse_message_content_block(%{"type" => _type} = block), do: parse_unknown_content_block(block)
+  defp parse_message_content_block(other), do: other
+
+  defp parse_known_message_content_block(block) do
+    case Parser.parse_content(block) do
+      {:ok, content} -> content
+      {:error, _reason} -> parse_unknown_content_block(block)
+    end
+  end
+
+  defp parse_cache_creation_data(cache_creation) when is_map(cache_creation) do
+    Map.new(cache_creation, fn
+      {key, value} when is_binary(key) -> {Map.get(@known_cache_creation_key_map, key, key), value}
+      {key, value} -> {key, value}
+    end)
+  end
+
+  defp parse_cache_creation_data(other), do: other
+
+  defp parse_server_tool_use_data(server_tool_use) when is_map(server_tool_use) do
+    Map.new(server_tool_use, fn
+      {key, value} when is_binary(key) -> {Map.get(@known_server_tool_use_key_map, key, key), value}
+      {key, value} -> {key, value}
+    end)
+  end
+
+  defp parse_server_tool_use_data(other), do: other
 
   defp parse_delta(%{"type" => "text_delta", "text" => text}) do
     %{type: :text_delta, text: text}
@@ -277,16 +438,12 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   end
 
   defp parse_delta(%{"type" => type} = delta) do
-    # Handle unknown delta types gracefully
-    Map.new(delta, fn
-      {"type", _} -> {:type, String.to_atom(type)}
-      {key, val} -> {String.to_atom(key), val}
-    end)
+    delta
+    |> Map.delete("type")
+    |> Map.put(:type, parse_delta_type(type))
   end
 
-  defp parse_delta(delta) when is_map(delta) do
-    Map.new(delta, fn {k, v} -> {String.to_atom(k), v} end)
-  end
+  defp parse_delta(delta) when is_map(delta), do: delta
 
   defp parse_content_block(%{"type" => "text"} = block) do
     %{type: :text, text: block["text"] || ""}
@@ -301,11 +458,34 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
     }
   end
 
-  defp parse_content_block(%{"type" => type} = block) do
-    Map.new(block, fn
-      {"type", _} -> {:type, String.to_atom(type)}
-      {key, val} -> {String.to_atom(key), val}
-    end)
+  defp parse_content_block(%{"type" => _type} = block) do
+    parse_unknown_content_block(block)
+  end
+
+  defp parse_delta_type(type) when is_binary(type), do: Map.get(@delta_type_map, type, String.to_atom(type))
+  defp parse_delta_type(type), do: type
+
+  defp parse_unknown_content_block(%{"type" => type} = block) do
+    block
+    |> Map.delete("type")
+    |> Map.put(:type, parse_content_block_type(type))
+  end
+
+  defp parse_unknown_content_block(other), do: other
+
+  defp parse_content_block_type("text"), do: :text
+  defp parse_content_block_type("thinking"), do: :thinking
+  defp parse_content_block_type("tool_use"), do: :tool_use
+  defp parse_content_block_type("tool_result"), do: :tool_result
+  defp parse_content_block_type(type) when is_binary(type), do: String.to_atom(type)
+  defp parse_content_block_type(type), do: type
+
+  defp maybe_put_known_field(acc, source, source_key, target_key, parser) do
+    if Map.has_key?(source, source_key) do
+      Map.put(acc, target_key, parser.(source[source_key]))
+    else
+      acc
+    end
   end
 end
 

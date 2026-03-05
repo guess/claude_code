@@ -318,6 +318,49 @@ defmodule ClaudeCode.CLI.ParserTest do
       assert {:ok, %PartialAssistantMessage{}} = Parser.parse_message(data)
     end
 
+    test "parses message_start stream events with normalized nested content and usage" do
+      data = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "message_start",
+          "message" => %{
+            "id" => "msg_123",
+            "type" => "message",
+            "role" => "assistant",
+            "content" => [
+              %{"type" => "text", "text" => "Hi"},
+              %{
+                "type" => "tool_use",
+                "id" => "tool_123",
+                "name" => "Read",
+                "input" => %{"path" => "/tmp/file.txt"}
+              }
+            ],
+            "usage" => %{
+              "input_tokens" => 10,
+              "output_tokens" => 5,
+              "cache_creation" => %{
+                "ephemeral_5m_input_tokens" => 1,
+                "ephemeral_1h_input_tokens" => 2
+              },
+              "server_tool_use" => %{
+                "web_search_requests" => 3,
+                "web_fetch_requests" => 4
+              },
+              "custom_metric" => 9
+            }
+          }
+        },
+        "session_id" => "123"
+      }
+
+      assert {:ok, %PartialAssistantMessage{event: %{message: message}}} = Parser.parse_message(data)
+      assert [%TextBlock{text: "Hi"}, %ToolUseBlock{name: "Read", input: %{"path" => "/tmp/file.txt"}}] = message.content
+      assert message.usage.cache_creation == %{ephemeral_5m_input_tokens: 1, ephemeral_1h_input_tokens: 2}
+      assert message.usage.server_tool_use == %{web_search_requests: 3, web_fetch_requests: 4}
+      assert message.usage["custom_metric"] == 9
+    end
+
     test "parses hook_started system messages" do
       data = %{
         "type" => "system",

@@ -113,12 +113,14 @@ defmodule ClaudeCode.Stream do
   Extracts text deltas from a partial message stream.
 
   This enables character-by-character streaming from Claude's responses.
-  Use with `include_partial_messages: true` option.
+  Use with a session started using `include_partial_messages: true`.
 
   ## Examples
 
+      {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
       # Real-time character streaming for LiveView
-      ClaudeCode.stream(session, "Tell a story", include_partial_messages: true)
+      ClaudeCode.stream(session, "Tell a story")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:123", {:text_chunk, chunk})
@@ -126,7 +128,7 @@ defmodule ClaudeCode.Stream do
 
       # Simple console output
       session
-      |> ClaudeCode.stream("Hello", include_partial_messages: true)
+      |> ClaudeCode.stream("Hello")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&IO.write/1)
   """
@@ -141,13 +143,15 @@ defmodule ClaudeCode.Stream do
   Extracts thinking deltas from a partial message stream.
 
   This enables streaming of Claude's extended reasoning as it arrives.
-  Use with `include_partial_messages: true` option.
+  Use with a session started using `include_partial_messages: true`.
 
   ## Examples
 
+      {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
       # Stream thinking content in real-time
       session
-      |> ClaudeCode.stream("Complex problem", include_partial_messages: true)
+      |> ClaudeCode.stream("Complex problem")
       |> ClaudeCode.Stream.thinking_deltas()
       |> Enum.each(&IO.write/1)
   """
@@ -169,7 +173,9 @@ defmodule ClaudeCode.Stream do
 
   ## Examples
 
-      ClaudeCode.stream(session, "Create a file", include_partial_messages: true)
+      {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
+      ClaudeCode.stream(session, "Create a file")
       |> ClaudeCode.Stream.content_deltas()
       |> Enum.each(fn delta ->
         case delta.type do

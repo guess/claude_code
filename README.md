@@ -75,6 +75,31 @@ session
 # => "Your favorite language is Elixir!"
 ```
 
+## Example Scripts
+
+Two runnable scripts live in [`examples/`](examples/README.md):
+
+- [`examples/streaming_example.exs`](examples/streaming_example.exs) - complete-message streaming helpers
+- [`examples/character_streaming_example.exs`](examples/character_streaming_example.exs) - partial-message streaming with `include_partial_messages: true`
+
+With the default bundled CLI config:
+
+```bash
+mix run examples/streaming_example.exs
+mix run examples/character_streaming_example.exs
+```
+
+If you use a system-installed Claude CLI instead of the bundled binary, set `config :claude_code, cli_path: :global` in `config/dev.exs` and run the same commands.
+
+For a one-off override without editing config:
+
+```bash
+mix run -e 'Application.put_env(:claude_code, :cli_path, :global); Code.require_file("streaming_example.exs", "examples")'
+mix run -e 'Application.put_env(:claude_code, :cli_path, :global); Code.require_file("character_streaming_example.exs", "examples")'
+```
+
+Do not use `mix run -e '...' examples/foo.exs` for this case. `mix run` only evaluates the `-e` expression there, so the script file is not executed.
+
 ## Features
 
 ### In-Process Custom Tools
@@ -120,9 +145,11 @@ Pass per-session context via assigns for scoped tools in LiveView:
 Native Elixir Streams with character-level deltas, composable pipelines, and direct LiveView integration:
 
 ```elixir
+{:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
 # Character-level streaming
 session
-|> ClaudeCode.stream("Explain recursion", include_partial_messages: true)
+|> ClaudeCode.stream("Explain recursion")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 
@@ -130,19 +157,19 @@ session
 pid = self()
 Task.start(fn ->
   session
-  |> ClaudeCode.stream(message, include_partial_messages: true)
+  |> ClaudeCode.stream(message)
   |> ClaudeCode.Stream.text_deltas()
   |> Enum.each(&send(pid, {:chunk, &1}))
 end)
 
 # PubSub broadcasting
 session
-|> ClaudeCode.stream("Generate report", include_partial_messages: true)
+|> ClaudeCode.stream("Generate report")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:#{id}", {:chunk, &1}))
 ```
 
-Stream helpers: `text_deltas/1`, `thinking_deltas/1`, `text_content/1`, `tool_uses/1`, `final_text/1`, `collect/1`, `buffered_text/1`, and more.
+Stream helpers: `text_deltas/1`, `thinking_deltas/1`, `content_deltas/1`, `text_content/1`, `tool_uses/1`, `final_text/1`, `final_result/1`, `collect/1`, and more.
 
 [Streaming guide →](docs/guides/streaming-output.md)
 

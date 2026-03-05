@@ -2,6 +2,8 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.CLI.Parser
+  alias ClaudeCode.Content.TextBlock
+  alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.PartialAssistantMessage
 
   describe "new/1" do
@@ -42,6 +44,79 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       assert event.event.type == :message_start
       assert event.event.message.model == "claude-3"
       assert event.event.message.id == "msg_123"
+    end
+
+    test "normalizes known nested content blocks in message_start messages" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "message_start",
+          "message" => %{
+            "id" => "msg_123",
+            "type" => "message",
+            "role" => "assistant",
+            "content" => [
+              %{"type" => "text", "text" => "Hello"},
+              %{
+                "type" => "tool_use",
+                "id" => "tool_123",
+                "name" => "Read",
+                "input" => %{"path" => "/tmp/file.txt"}
+              }
+            ]
+          }
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+
+      assert [
+               %TextBlock{type: :text, text: "Hello"},
+               %ToolUseBlock{type: :tool_use, id: "tool_123", name: "Read", input: %{"path" => "/tmp/file.txt"}}
+             ] = event.event.message.content
+    end
+
+    test "normalizes known nested usage maps in message_start messages" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "message_start",
+          "message" => %{
+            "usage" => %{
+              "input_tokens" => 10,
+              "output_tokens" => 5,
+              "cache_creation" => %{
+                "ephemeral_5m_input_tokens" => 2,
+                "ephemeral_1h_input_tokens" => 4
+              },
+              "server_tool_use" => %{
+                "web_search_requests" => 1,
+                "web_fetch_requests" => 3
+              },
+              "custom_metric" => 99
+            }
+          }
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+
+      assert event.event.message.usage.input_tokens == 10
+      assert event.event.message.usage.output_tokens == 5
+
+      assert event.event.message.usage.cache_creation == %{
+               ephemeral_5m_input_tokens: 2,
+               ephemeral_1h_input_tokens: 4
+             }
+
+      assert event.event.message.usage.server_tool_use == %{
+               web_search_requests: 1,
+               web_fetch_requests: 3
+             }
+
+      assert event.event.message.usage["custom_metric"] == 99
     end
 
     test "parses a content_block_start stream event" do
@@ -91,6 +166,30 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.delta.type == :thinking_delta
       assert event.event.delta.thinking == "Let me reason through this..."
+    end
+
+    test "atomizes unknown delta types without atomizing non-type keys" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{
+            "type" => "future_delta_type",
+            "progress" => "50%",
+            "metadata" => %{"raw" => true}
+          }
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+
+      assert event.event.delta.type == :future_delta_type
+      assert event.event.delta["progress"] == "50%"
+      assert event.event.delta["metadata"] == %{"raw" => true}
+      refute Map.has_key?(event.event.delta, :progress)
+      refute Map.has_key?(event.event.delta, :metadata)
     end
 
     test "parses a content_block_stop stream event" do
@@ -154,6 +253,30 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       assert {:ok, event} = PartialAssistantMessage.new(json)
       assert event.event.content_block.type == :tool_use
       assert event.event.content_block.name == "read_file"
+    end
+
+    test "atomizes unknown content block types without atomizing non-type keys" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_start",
+          "index" => 1,
+          "content_block" => %{
+            "type" => "future_block_type",
+            "label" => "raw block",
+            "metadata" => %{"source" => "future"}
+          }
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+
+      assert event.event.content_block.type == :future_block_type
+      assert event.event.content_block["label"] == "raw block"
+      assert event.event.content_block["metadata"] == %{"source" => "future"}
+      refute Map.has_key?(event.event.content_block, :label)
+      refute Map.has_key?(event.event.content_block, :metadata)
     end
 
     test "parses context_management when present in event" do

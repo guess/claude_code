@@ -142,19 +142,41 @@ defmodule ClaudeCode.IntegrationTest do
           cli_path: "/nonexistent/path/to/claude"
         )
 
-      # Stream should throw error when CLI not found during async provisioning.
-      # The CLI adapter provisions asynchronously and reports status via
-      # {:adapter_status, {:error, reason}}, which the session translates to
-      # {:provisioning_failed, reason} for queued requests.
-      error =
+      # Synchronize on adapter error first so stream initialization path is deterministic.
+      assert {:error, {:cli_not_found, _}} = wait_for_adapter_status(session)
+
+      thrown =
         session
         |> ClaudeCode.stream("Hello")
         |> Enum.to_list()
         |> catch_throw()
 
-      assert {:stream_error, {:provisioning_failed, {:cli_not_found, _message}}} = error
+      assert {:stream_init_error, {:provisioning_failed, {:cli_not_found, message}}} = thrown
+      assert message =~ "Claude CLI not found"
 
       ClaudeCode.stop(session)
+    end
+  end
+
+  defp wait_for_adapter_status(session, timeout_ms \\ 2_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_wait_for_adapter_status(session, deadline)
+  end
+
+  defp do_wait_for_adapter_status(session, deadline) do
+    state = :sys.get_state(session)
+
+    case state.adapter_status do
+      {:error, _reason} = status ->
+        status
+
+      _other ->
+        if System.monotonic_time(:millisecond) >= deadline do
+          flunk("timed out waiting for adapter error, status=#{inspect(state.adapter_status)}")
+        else
+          Process.sleep(10)
+          do_wait_for_adapter_status(session, deadline)
+        end
     end
   end
 end

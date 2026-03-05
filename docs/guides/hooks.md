@@ -132,6 +132,8 @@ Every hook callback receives two arguments:
 
 Both modules implementing `ClaudeCode.Hook` and anonymous functions receive the same arguments via `call/2`.
 
+> **Key normalization:** Known hook fields are normalized to atom keys (for ergonomic pattern matching). Unknown or future fields are preserved as string keys to avoid unbounded runtime atom creation.
+
 ### Input data
 
 The first argument to your hook callback contains information about the event.
