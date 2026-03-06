@@ -709,7 +709,6 @@ defmodule ClaudeCode.Adapter.Port do
   defp maybe_add_opt(acc, opts, key) do
     case Keyword.get(opts, key) do
       nil -> acc
-      false -> acc
       value -> Keyword.put(acc, key, value)
     end
   end
