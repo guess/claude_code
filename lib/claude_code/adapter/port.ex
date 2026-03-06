@@ -352,8 +352,13 @@ defmodule ClaudeCode.Adapter.Port do
         names -> names
       end
 
+    extra_opts =
+      []
+      |> maybe_add_opt(state.session_options, :prompt_suggestions)
+      |> maybe_add_opt(state.session_options, :tool_config)
+
     {request_id, new_counter} = next_request_id(state.control_counter)
-    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names)
+    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names, extra_opts)
     Port.command(state.port, json <> "\n")
 
     pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
@@ -701,11 +706,20 @@ defmodule ClaudeCode.Adapter.Port do
     {Control.generate_request_id(counter), counter + 1}
   end
 
+  defp maybe_add_opt(acc, opts, key) do
+    case Keyword.get(opts, key) do
+      nil -> acc
+      false -> acc
+      value -> Keyword.put(acc, key, value)
+    end
+  end
+
   defp build_control_json(:initialize, request_id, params) do
     hooks = Map.get(params, :hooks)
     agents = Map.get(params, :agents)
     sdk_mcp_servers = Map.get(params, :sdk_mcp_servers)
-    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers)
+    extra_opts = Map.get(params, :extra_opts, [])
+    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers, extra_opts)
   end
 
   defp build_control_json(:set_model, request_id, %{model: model}) do

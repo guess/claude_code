@@ -108,7 +108,7 @@ defmodule ClaudeCode.Message.SystemMessage do
         tools: json["tools"],
         mcp_servers: parse_mcp_servers(json["mcp_servers"]),
         model: json["model"],
-        permission_mode: parse_permission_mode(json["permissionMode"]),
+        permission_mode: ClaudeCode.Message.parse_permission_mode(json["permissionMode"], :default),
         api_key_source: json["apiKeySource"],
         claude_code_version: json["claude_code_version"],
         slash_commands: json["slash_commands"] || [],
@@ -176,14 +176,6 @@ defmodule ClaudeCode.Message.SystemMessage do
   end
 
   defp parse_plugins(_), do: []
-
-  defp parse_permission_mode("default"), do: :default
-  defp parse_permission_mode("acceptEdits"), do: :accept_edits
-  defp parse_permission_mode("bypassPermissions"), do: :bypass_permissions
-  defp parse_permission_mode("delegate"), do: :delegate
-  defp parse_permission_mode("dontAsk"), do: :dont_ask
-  defp parse_permission_mode("plan"), do: :plan
-  defp parse_permission_mode(_), do: :default
 
   defp atomize_top_level_keys(map) when is_map(map) do
     Map.new(map, fn

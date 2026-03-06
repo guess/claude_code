@@ -363,9 +363,21 @@ defmodule ClaudeCode.CLI.Command do
     {"--input-format", "stream-json"}
   end
 
+  defp convert_option(:worktree, true), do: ["--worktree"]
+  defp convert_option(:worktree, false), do: nil
+
+  defp convert_option(:worktree, name) when is_binary(name) do
+    {"--worktree", name}
+  end
+
+  defp convert_option(:resume_session_at, value) do
+    {"--resume-session-at", to_string(value)}
+  end
+
   # Internal options - not passed as CLI flags
   # :sandbox is preprocessed into :settings; :thinking is preprocessed into :max_thinking_tokens
   # :enable_file_checkpointing is set via env var
+  # :prompt_suggestions and :tool_config are sent via control protocol initialize
   defp convert_option(:sandbox, _value), do: nil
   defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil
@@ -374,6 +386,8 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:env, _value), do: nil
   defp convert_option(:max_buffer_size, _value), do: nil
   defp convert_option(:extra_args, _value), do: nil
+  defp convert_option(:prompt_suggestions, _value), do: nil
+  defp convert_option(:tool_config, _value), do: nil
 
   defp convert_option(key, value) do
     # Convert unknown keys to kebab-case flags

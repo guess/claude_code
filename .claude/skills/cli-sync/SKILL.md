@@ -99,7 +99,7 @@ Read ALL files in `.claude/skills/cli-sync/captured/` and dispatch three paralle
 - Cross-reference options from both TS and Python SDKs
 - Report new flags not in our schema or deprecated flags we still support
 - **Ignore SDK-internal**: `--verbose`, `--output-format`, `--input-format`, `--print` (always enabled)
-- **Ignore CLI-only**: `--chrome`, `--no-chrome`, `--ide`
+- **Ignore CLI-only**: `--chrome`, `--no-chrome`, `--ide`, `--tmux` (interactive-only, not useful for subprocess SDK)
 - See `references/cli-flags.md` for flag mappings and patterns
 
 ### Step 4: Summarize Findings

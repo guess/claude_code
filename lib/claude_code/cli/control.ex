@@ -90,13 +90,15 @@ defmodule ClaudeCode.CLI.Control do
     * `sdk_mcp_servers` - Optional list of SDK MCP server name strings (nil to omit)
 
   """
-  @spec initialize_request(String.t(), map() | nil, map() | nil, [String.t()] | nil) :: String.t()
-  def initialize_request(request_id, hooks \\ nil, agents \\ nil, sdk_mcp_servers \\ nil) do
+  @spec initialize_request(String.t(), map() | nil, map() | nil, [String.t()] | nil, keyword()) :: String.t()
+  def initialize_request(request_id, hooks \\ nil, agents \\ nil, sdk_mcp_servers \\ nil, extra_opts \\ []) do
     request =
       %{subtype: "initialize"}
       |> maybe_put(:hooks, hooks)
       |> maybe_put(:agents, agents)
       |> maybe_put(:sdkMcpServers, sdk_mcp_servers)
+      |> maybe_put(:promptSuggestions, Keyword.get(extra_opts, :prompt_suggestions))
+      |> maybe_put(:toolConfig, Keyword.get(extra_opts, :tool_config))
 
     encode_control_request(request_id, request)
   end
