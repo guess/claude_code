@@ -83,7 +83,6 @@ defmodule ClaudeCode.Message.StatusMessage do
   @spec status_message?(any()) :: boolean()
   def status_message?(%__MODULE__{type: :system, subtype: :status}), do: true
   def status_message?(_), do: false
-
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Message.StatusMessage do

@@ -796,7 +796,7 @@ defmodule ClaudeCode.Adapter.Port do
     Control.mcp_toggle_request(request_id, name, enabled)
   end
 
-  defp build_control_json(:mcp_set_servers, request_id, %{servers: servers}) do
+  defp build_control_json(:set_mcp_servers, request_id, %{servers: servers}) do
     Control.mcp_set_servers_request(request_id, servers)
   end
 

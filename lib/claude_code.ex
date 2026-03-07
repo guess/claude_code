@@ -463,11 +463,61 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.mcp_set_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
+      {:ok, _} = ClaudeCode.set_mcp_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
   """
-  @spec mcp_set_servers(session(), map()) :: {:ok, map()} | {:error, term()}
-  def mcp_set_servers(session, servers) do
-    GenServer.call(session, {:control, :mcp_set_servers, %{servers: servers}})
+  @spec set_mcp_servers(session(), map()) :: {:ok, map()} | {:error, term()}
+  def set_mcp_servers(session, servers) do
+    GenServer.call(session, {:control, :set_mcp_servers, %{servers: servers}})
+  end
+
+  @doc """
+  Returns the list of available models from the initialization response.
+
+  ## Examples
+
+      {:ok, models} = ClaudeCode.supported_models(session)
+      Enum.each(models, &IO.puts(&1.display_name))
+  """
+  @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
+  def supported_models(session) do
+    case get_server_info(session) do
+      {:ok, %{"models" => models}} when is_list(models) -> {:ok, models}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns the list of available subagents from the initialization response.
+
+  ## Examples
+
+      {:ok, agents} = ClaudeCode.supported_agents(session)
+  """
+  @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
+  def supported_agents(session) do
+    case get_server_info(session) do
+      {:ok, %{"agents" => agents}} when is_list(agents) -> {:ok, agents}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns account information from the initialization response.
+
+  ## Examples
+
+      {:ok, account} = ClaudeCode.account_info(session)
+      IO.puts(account.email)
+  """
+  @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
+  def account_info(session) do
+    case get_server_info(session) do
+      {:ok, %{"account" => account}} -> {:ok, account}
+      {:ok, _} -> {:ok, nil}
+      error -> error
+    end
   end
 
   @doc """
