@@ -13,6 +13,7 @@ defmodule ClaudeCode.SandboxTest do
           auto_allow_bash_if_sandboxed: true,
           allow_unsandboxed_commands: false,
           enable_weaker_nested_sandbox: true,
+          enable_weaker_network_isolation: true,
           excluded_commands: ["docker", "nix"],
           ignore_violations: %{"filesystem" => ["write_denied"]},
           ripgrep: %{command: "/usr/bin/rg", args: ["--no-ignore"]}
@@ -23,6 +24,7 @@ defmodule ClaudeCode.SandboxTest do
                auto_allow_bash_if_sandboxed: true,
                allow_unsandboxed_commands: false,
                enable_weaker_nested_sandbox: true,
+               enable_weaker_network_isolation: true,
                excluded_commands: ["docker", "nix"],
                ignore_violations: %{"filesystem" => ["write_denied"]},
                ripgrep: %{command: "/usr/bin/rg", args: ["--no-ignore"]},
@@ -39,6 +41,7 @@ defmodule ClaudeCode.SandboxTest do
                auto_allow_bash_if_sandboxed: nil,
                allow_unsandboxed_commands: nil,
                enable_weaker_nested_sandbox: nil,
+               enable_weaker_network_isolation: nil,
                excluded_commands: nil,
                ignore_violations: nil,
                ripgrep: nil,
@@ -116,6 +119,7 @@ defmodule ClaudeCode.SandboxTest do
           "autoAllowBashIfSandboxed" => true,
           "allowUnsandboxedCommands" => false,
           "enableWeakerNestedSandbox" => true,
+          "enableWeakerNetworkIsolation" => true,
           "excludedCommands" => ["docker"],
           "ignoreViolations" => %{"fs" => ["deny"]},
           "ripgrep" => %{"command" => "/usr/bin/rg"},
@@ -127,6 +131,7 @@ defmodule ClaudeCode.SandboxTest do
       assert sandbox.auto_allow_bash_if_sandboxed == true
       assert sandbox.allow_unsandboxed_commands == false
       assert sandbox.enable_weaker_nested_sandbox == true
+      assert sandbox.enable_weaker_network_isolation == true
       assert sandbox.excluded_commands == ["docker"]
       assert sandbox.ignore_violations == %{"fs" => ["deny"]}
       assert sandbox.ripgrep == %{"command" => "/usr/bin/rg"}
@@ -158,6 +163,7 @@ defmodule ClaudeCode.SandboxTest do
           auto_allow_bash_if_sandboxed: true,
           allow_unsandboxed_commands: false,
           enable_weaker_nested_sandbox: true,
+          enable_weaker_network_isolation: true,
           excluded_commands: ["docker", "nix"],
           ignore_violations: %{"filesystem" => ["write_denied"]},
           ripgrep: %{command: "/usr/bin/rg"},
@@ -172,6 +178,7 @@ defmodule ClaudeCode.SandboxTest do
                "autoAllowBashIfSandboxed" => true,
                "allowUnsandboxedCommands" => false,
                "enableWeakerNestedSandbox" => true,
+               "enableWeakerNetworkIsolation" => true,
                "excludedCommands" => ["docker", "nix"],
                "ignoreViolations" => %{"filesystem" => ["write_denied"]},
                "ripgrep" => %{command: "/usr/bin/rg"},
