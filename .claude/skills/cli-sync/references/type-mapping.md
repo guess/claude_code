@@ -49,6 +49,10 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 | `ClaudeCode.ModelInfo` | `ModelInfo` | -- | From `SDKControlInitializeResponse.models` |
 | `ClaudeCode.AgentInfo` | `AgentInfo` | -- | From `SDKControlInitializeResponse.agents` |
 | `ClaudeCode.AccountInfo` | `AccountInfo` | -- | From `SDKControlInitializeResponse.account` |
+| `ClaudeCode.SlashCommand` | `SlashCommand` | -- | From `SDKControlInitializeResponse.commands` |
+| `ClaudeCode.McpServerStatus` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
+| `ClaudeCode.McpSetServersResult` | `McpSetServersResult` | -- | Returned by `setMcpServers()` |
+| `ClaudeCode.RewindFilesResult` | `RewindFilesResult` | -- | Returned by `rewindFiles()` |
 
 **Note on ModelInfo/AgentInfo/AccountInfo:** These are standalone types in the TS SDK, returned
 in the `SDKControlInitializeResponse` (the response to the `initialize` control request). They
@@ -117,7 +121,7 @@ The TS SDK exposes convenience methods on `Query` that read from the cached `SDK
 | `Query.initializationResult()` | `ClaudeCode.get_server_info/1` | Implemented (returns raw map) |
 | `Query.supportedModels()` | `ClaudeCode.supported_models/1` | Implemented |
 | `Query.supportedAgents()` | `ClaudeCode.supported_agents/1` | Implemented |
-| `Query.supportedCommands()` | -- | **Not implemented** |
+| `Query.supportedCommands()` | `ClaudeCode.supported_commands/1` | Implemented |
 | `Query.accountInfo()` | `ClaudeCode.account_info/1` | Implemented |
 
 ## Lookup by TS SDK Name

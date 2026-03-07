@@ -876,7 +876,9 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert_receive {:adapter_status, :ready}, 10_000
 
       state = :sys.get_state(adapter)
-      assert state.server_info == %{"commands" => ["query"], "capabilities" => %{"control" => true}}
+
+      assert %{"commands" => [%ClaudeCode.SlashCommand{name: "query"}], "capabilities" => %{"control" => true}} =
+               state.server_info
 
       GenServer.stop(adapter)
     end

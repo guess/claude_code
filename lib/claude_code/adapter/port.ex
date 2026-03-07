@@ -745,6 +745,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp parse_initialize_response(response) when is_map(response) do
     response
+    |> maybe_parse_list("commands", &ClaudeCode.SlashCommand.new/1)
     |> maybe_parse_list("models", &ClaudeCode.ModelInfo.new/1)
     |> maybe_parse_list("agents", &ClaudeCode.AgentInfo.new/1)
     |> maybe_parse_map("account", &ClaudeCode.AccountInfo.new/1)

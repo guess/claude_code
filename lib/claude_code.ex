@@ -471,6 +471,23 @@ defmodule ClaudeCode do
   end
 
   @doc """
+  Returns the list of available commands from the initialization response.
+
+  ## Examples
+
+      {:ok, commands} = ClaudeCode.supported_commands(session)
+      Enum.each(commands, &IO.puts(&1.name))
+  """
+  @spec supported_commands(session()) :: {:ok, [ClaudeCode.SlashCommand.t()]} | {:error, term()}
+  def supported_commands(session) do
+    case get_server_info(session) do
+      {:ok, %{"commands" => commands}} when is_list(commands) -> {:ok, commands}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
   Returns the list of available models from the initialization response.
 
   ## Examples
