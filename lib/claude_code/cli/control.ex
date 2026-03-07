@@ -57,9 +57,11 @@ defmodule ClaudeCode.CLI.Control do
       {:message, %{"type" => "assistant", "message" => %{}}}
 
   """
-  @spec classify(map()) :: {:control_request, map()} | {:control_response, map()} | {:message, map()}
+  @spec classify(map()) ::
+          {:control_request, map()} | {:control_response, map()} | {:control_cancel, map()} | {:message, map()}
   def classify(%{"type" => "control_request"} = msg), do: {:control_request, msg}
   def classify(%{"type" => "control_response"} = msg), do: {:control_response, msg}
+  def classify(%{"type" => "control_cancel_request"} = msg), do: {:control_cancel, msg}
   def classify(msg), do: {:message, msg}
 
   # --- Request ID Generation --------------------------------------------------

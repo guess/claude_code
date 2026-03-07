@@ -531,6 +531,9 @@ defmodule ClaudeCode.Adapter.Port do
           {:control_request, msg} ->
             handle_inbound_control_request(msg, state)
 
+          {:control_cancel, msg} ->
+            handle_control_cancel(msg, state)
+
           {:message, json_msg} ->
             handle_sdk_message(json_msg, state)
         end
@@ -562,7 +565,13 @@ defmodule ClaudeCode.Adapter.Port do
 
           {{:initialize, session}, remaining} ->
             Adapter.notify_status(session, :ready)
-            %{state | pending_control_requests: remaining, server_info: response, status: :ready}
+
+            %{
+              state
+              | pending_control_requests: remaining,
+                server_info: parse_initialize_response(response),
+                status: :ready
+            }
 
           {from, remaining} ->
             GenServer.reply(from, {:ok, response})
@@ -583,6 +592,23 @@ defmodule ClaudeCode.Adapter.Port do
             GenServer.reply(from, {:error, error_msg})
             %{state | pending_control_requests: remaining}
         end
+    end
+  end
+
+  defp handle_control_cancel(%{"request_id" => cancel_id}, state) do
+    Logger.debug("Received control cancel for request: #{cancel_id}")
+
+    case Map.pop(state.pending_control_requests, cancel_id) do
+      {nil, _} ->
+        state
+
+      {{:initialize, session}, remaining} ->
+        Adapter.notify_status(session, {:error, :cancelled})
+        %{state | pending_control_requests: remaining}
+
+      {from, remaining} ->
+        GenServer.reply(from, {:error, :cancelled})
+        %{state | pending_control_requests: remaining}
     end
   end
 
@@ -645,6 +671,10 @@ defmodule ClaudeCode.Adapter.Port do
           server_name = request["server_name"]
           jsonrpc = request["message"]
           ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
+
+        "elicitation" ->
+          Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
+          nil
 
         _ ->
           Logger.warning("Received unhandled control request: #{subtype}")
@@ -710,6 +740,27 @@ defmodule ClaudeCode.Adapter.Port do
     case Keyword.get(opts, key) do
       nil -> acc
       value -> Keyword.put(acc, key, value)
+    end
+  end
+
+  defp parse_initialize_response(response) when is_map(response) do
+    response
+    |> maybe_parse_list("models", &ClaudeCode.ModelInfo.new/1)
+    |> maybe_parse_list("agents", &ClaudeCode.AgentInfo.new/1)
+    |> maybe_parse_map("account", &ClaudeCode.AccountInfo.new/1)
+  end
+
+  defp maybe_parse_list(response, key, parser) do
+    case Map.get(response, key) do
+      list when is_list(list) -> Map.put(response, key, Enum.map(list, parser))
+      _ -> response
+    end
+  end
+
+  defp maybe_parse_map(response, key, parser) do
+    case Map.get(response, key) do
+      map when is_map(map) -> Map.put(response, key, parser.(map))
+      _ -> response
     end
   end
 

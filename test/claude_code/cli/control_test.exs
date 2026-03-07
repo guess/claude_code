@@ -14,6 +14,11 @@ defmodule ClaudeCode.CLI.ControlTest do
       assert {:control_request, ^msg} = Control.classify(msg)
     end
 
+    test "classifies control_cancel_request messages" do
+      msg = %{"type" => "control_cancel_request", "request_id" => "req_1"}
+      assert {:control_cancel, ^msg} = Control.classify(msg)
+    end
+
     test "classifies regular messages" do
       msg = %{"type" => "assistant", "message" => %{}}
       assert {:message, ^msg} = Control.classify(msg)
