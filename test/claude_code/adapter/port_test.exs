@@ -933,7 +933,7 @@ defmodule ClaudeCode.Adapter.PortTest do
           if echo "$line" | grep -q '"subtype":"initialize"'; then
             if echo "$line" | grep -q '"agents"'; then
               REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"agents_received\\\":true}}}"
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
             fi
           else
             echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
@@ -952,10 +952,9 @@ defmodule ClaudeCode.Adapter.PortTest do
         )
 
       assert_receive {:adapter_status, :provisioning}, 1000
+      # Mock only responds when it sees "agents" in the initialize request,
+      # so reaching :ready proves the agents option was serialized correctly.
       assert_receive {:adapter_status, :ready}, 10_000
-
-      state = :sys.get_state(adapter)
-      assert state.server_info != nil
 
       GenServer.stop(adapter)
     end
@@ -1393,7 +1392,7 @@ defmodule ClaudeCode.Adapter.PortTest do
           if echo "$line" | grep -q '"subtype":"initialize"'; then
             if echo "$line" | grep -q '"hooks"'; then
               REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"hooks_received\\\":true}}}"
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
             fi
           else
             echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
@@ -1412,10 +1411,8 @@ defmodule ClaudeCode.Adapter.PortTest do
         )
 
       assert_receive {:adapter_status, :provisioning}, 1000
+      # Mock only responds when it sees "hooks" in the initialize request.
       assert_receive {:adapter_status, :ready}, 10_000
-
-      state = :sys.get_state(adapter)
-      assert state.server_info != nil
 
       GenServer.stop(adapter)
     end
@@ -1437,16 +1434,10 @@ defmodule ClaudeCode.Adapter.PortTest do
         #!/bin/bash
         while IFS= read -r line; do
           if echo "$line" | grep -q '"subtype":"initialize"'; then
-            HOOKS_OK="false"
-            MCP_OK="false"
-            if echo "$line" | grep -q '"hookCallbackIds"'; then
-              HOOKS_OK="true"
+            if echo "$line" | grep -q '"hookCallbackIds"' && echo "$line" | grep -q '"my_mcp_server"'; then
+              REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
             fi
-            if echo "$line" | grep -q '"my_mcp_server"'; then
-              MCP_OK="true"
-            fi
-            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
-            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"hooks_ok\\\":$HOOKS_OK,\\\"mcp_ok\\\":$MCP_OK}}}"
           else
             echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
           fi
@@ -1466,10 +1457,9 @@ defmodule ClaudeCode.Adapter.PortTest do
         )
 
       assert_receive {:adapter_status, :provisioning}, 1000
+      # Mock only responds when both "hookCallbackIds" and "my_mcp_server"
+      # appear in the initialize request.
       assert_receive {:adapter_status, :ready}, 10_000
-
-      state = :sys.get_state(adapter)
-      assert state.server_info != nil
 
       GenServer.stop(adapter)
     end
