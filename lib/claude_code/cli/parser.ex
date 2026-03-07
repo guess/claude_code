@@ -19,11 +19,21 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.ElicitationCompleteMessage
+  alias ClaudeCode.Message.FilesPersistedEvent
+  alias ClaudeCode.Message.HookProgressMessage
+  alias ClaudeCode.Message.HookResponseMessage
+  alias ClaudeCode.Message.HookStartedMessage
+  alias ClaudeCode.Message.LocalCommandOutputMessage
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.StatusMessage
   alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.TaskNotificationMessage
+  alias ClaudeCode.Message.TaskProgressMessage
+  alias ClaudeCode.Message.TaskStartedMessage
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
@@ -177,6 +187,17 @@ defmodule ClaudeCode.CLI.Parser do
   defp parse_system(%{"subtype" => "compact_boundary"} = data) do
     CompactBoundaryMessage.new(data)
   end
+
+  defp parse_system(%{"subtype" => "hook_started"} = data), do: HookStartedMessage.new(data)
+  defp parse_system(%{"subtype" => "hook_progress"} = data), do: HookProgressMessage.new(data)
+  defp parse_system(%{"subtype" => "hook_response"} = data), do: HookResponseMessage.new(data)
+  defp parse_system(%{"subtype" => "status"} = data), do: StatusMessage.new(data)
+  defp parse_system(%{"subtype" => "local_command_output"} = data), do: LocalCommandOutputMessage.new(data)
+  defp parse_system(%{"subtype" => "files_persisted"} = data), do: FilesPersistedEvent.new(data)
+  defp parse_system(%{"subtype" => "elicitation_complete"} = data), do: ElicitationCompleteMessage.new(data)
+  defp parse_system(%{"subtype" => "task_started"} = data), do: TaskStartedMessage.new(data)
+  defp parse_system(%{"subtype" => "task_progress"} = data), do: TaskProgressMessage.new(data)
+  defp parse_system(%{"subtype" => "task_notification"} = data), do: TaskNotificationMessage.new(data)
 
   defp parse_system(%{"subtype" => _} = data) do
     SystemMessage.new(data)

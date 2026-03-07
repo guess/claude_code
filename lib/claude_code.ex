@@ -421,6 +421,121 @@ defmodule ClaudeCode do
   end
 
   @doc """
+  Reconnects a disconnected or failed MCP server.
+
+  ## Examples
+
+      :ok = ClaudeCode.mcp_reconnect(session, "my-server")
+  """
+  @spec mcp_reconnect(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  def mcp_reconnect(session, server_name) do
+    GenServer.call(session, {:control, :mcp_reconnect, %{server_name: server_name}})
+  end
+
+  @doc """
+  Enables or disables an MCP server.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.mcp_toggle(session, "my-server", false)
+  """
+  @spec mcp_toggle(session(), String.t(), boolean()) :: {:ok, map()} | {:error, term()}
+  def mcp_toggle(session, server_name, enabled) do
+    GenServer.call(session, {:control, :mcp_toggle, %{server_name: server_name, enabled: enabled}})
+  end
+
+  @doc """
+  Stops a running task.
+
+  A task_notification with status 'stopped' will be emitted.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.stop_task(session, "task-id-123")
+  """
+  @spec stop_task(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  def stop_task(session, task_id) do
+    GenServer.call(session, {:control, :stop_task, %{task_id: task_id}})
+  end
+
+  @doc """
+  Replaces the set of dynamically managed MCP servers.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.set_mcp_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
+  """
+  @spec set_mcp_servers(session(), map()) :: {:ok, map()} | {:error, term()}
+  def set_mcp_servers(session, servers) do
+    GenServer.call(session, {:control, :set_mcp_servers, %{servers: servers}})
+  end
+
+  @doc """
+  Returns the list of available models from the initialization response.
+
+  ## Examples
+
+      {:ok, models} = ClaudeCode.supported_models(session)
+      Enum.each(models, &IO.puts(&1.display_name))
+  """
+  @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
+  def supported_models(session) do
+    case get_server_info(session) do
+      {:ok, %{"models" => models}} when is_list(models) -> {:ok, models}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns the list of available subagents from the initialization response.
+
+  ## Examples
+
+      {:ok, agents} = ClaudeCode.supported_agents(session)
+  """
+  @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
+  def supported_agents(session) do
+    case get_server_info(session) do
+      {:ok, %{"agents" => agents}} when is_list(agents) -> {:ok, agents}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns account information from the initialization response.
+
+  ## Examples
+
+      {:ok, account} = ClaudeCode.account_info(session)
+      IO.puts(account.email)
+  """
+  @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
+  def account_info(session) do
+    case get_server_info(session) do
+      {:ok, %{"account" => account}} -> {:ok, account}
+      {:ok, _} -> {:ok, nil}
+      error -> error
+    end
+  end
+
+  @doc """
+  Sets the maximum number of thinking tokens.
+
+  Pass `nil` to clear any previously set limit.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.set_max_thinking_tokens(session, 32_000)
+      {:ok, _} = ClaudeCode.set_max_thinking_tokens(session, nil)
+  """
+  @spec set_max_thinking_tokens(session(), non_neg_integer() | nil) :: {:ok, map()} | {:error, term()}
+  def set_max_thinking_tokens(session, max_thinking_tokens) do
+    GenServer.call(session, {:control, :set_max_thinking_tokens, %{max_thinking_tokens: max_thinking_tokens}})
+  end
+
+  @doc """
   Reads conversation history from a session's JSONL file.
 
   Accepts either a session ID string or a running session reference.

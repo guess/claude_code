@@ -221,6 +221,19 @@ defmodule ClaudeCode.Message.ResultMessageTest do
     end
   end
 
+  describe "fast_mode_state" do
+    test "parses fast_mode_state from result message" do
+      json = Map.put(valid_result_json(), "fast_mode_state", "fast_mode_enabled")
+      assert {:ok, message} = ResultMessage.new(json)
+      assert message.fast_mode_state == "fast_mode_enabled"
+    end
+
+    test "fast_mode_state defaults to nil when not present" do
+      assert {:ok, message} = ResultMessage.new(valid_result_json())
+      assert message.fast_mode_state == nil
+    end
+  end
+
   defp valid_result_json do
     %{
       "type" => "result",

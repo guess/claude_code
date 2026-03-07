@@ -667,6 +667,24 @@ defmodule ClaudeCode.Options do
       default: false,
       doc: "Enable file checkpointing to track file changes during the session (set via env var, not CLI flag)"
     ],
+    worktree: [
+      type: {:or, [:boolean, :string]},
+      doc: "Create a new git worktree for this session (true for auto-named, or string for custom name)"
+    ],
+    prompt_suggestions: [
+      type: :boolean,
+      default: false,
+      doc: "Enable prompt suggestions - emits predicted next user prompts after each turn"
+    ],
+    resume_session_at: [
+      type: :string,
+      doc: "When resuming, only resume messages up to and including the message with this UUID (use with :resume)"
+    ],
+    tool_config: [
+      type: {:map, :string, :map},
+      doc:
+        ~s|Per-tool configuration for built-in tools. Map of tool name to config map (e.g. %{"askUserQuestion" => %{"previewFormat" => "html"}})|
+    ],
     extra_args: [
       type: {:list, :string},
       default: [],

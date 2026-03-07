@@ -16,6 +16,7 @@ defmodule ClaudeCode.Sandbox do
       `dangerouslyDisableSandbox` parameter. When `false`, the escape hatch is disabled.
     * `:enable_weaker_nested_sandbox` - Enable weaker sandbox for unprivileged Docker
       environments (Linux and WSL2 only). Reduces security.
+    * `:enable_weaker_network_isolation` - Enable weaker network isolation. Reduces security.
     * `:excluded_commands` - Commands that should run outside the sandbox.
     * `:ignore_violations` - Map of violation categories to ignore.
     * `:ripgrep` - Custom ripgrep binary configuration (`%{command: path, args: [flags]}`).
@@ -58,6 +59,7 @@ defmodule ClaudeCode.Sandbox do
     :auto_allow_bash_if_sandboxed,
     :allow_unsandboxed_commands,
     :enable_weaker_nested_sandbox,
+    :enable_weaker_network_isolation,
     :excluded_commands,
     :ignore_violations,
     :ripgrep,
@@ -72,6 +74,7 @@ defmodule ClaudeCode.Sandbox do
           auto_allow_bash_if_sandboxed: boolean() | nil,
           allow_unsandboxed_commands: boolean() | nil,
           enable_weaker_nested_sandbox: boolean() | nil,
+          enable_weaker_network_isolation: boolean() | nil,
           excluded_commands: [String.t()] | nil,
           ignore_violations: %{String.t() => [String.t()]} | nil,
           ripgrep: map() | nil,
@@ -102,6 +105,7 @@ defmodule ClaudeCode.Sandbox do
       auto_allow_bash_if_sandboxed: Keyword.get(opts, :auto_allow_bash_if_sandboxed),
       allow_unsandboxed_commands: Keyword.get(opts, :allow_unsandboxed_commands),
       enable_weaker_nested_sandbox: Keyword.get(opts, :enable_weaker_nested_sandbox),
+      enable_weaker_network_isolation: Keyword.get(opts, :enable_weaker_network_isolation),
       excluded_commands: Keyword.get(opts, :excluded_commands),
       ignore_violations: Keyword.get(opts, :ignore_violations),
       ripgrep: Keyword.get(opts, :ripgrep),
@@ -128,6 +132,7 @@ defmodule ClaudeCode.Sandbox do
     |> maybe_put("autoAllowBashIfSandboxed", sandbox.auto_allow_bash_if_sandboxed)
     |> maybe_put("allowUnsandboxedCommands", sandbox.allow_unsandboxed_commands)
     |> maybe_put("enableWeakerNestedSandbox", sandbox.enable_weaker_nested_sandbox)
+    |> maybe_put("enableWeakerNetworkIsolation", sandbox.enable_weaker_network_isolation)
     |> maybe_put("excludedCommands", sandbox.excluded_commands)
     |> maybe_put("ignoreViolations", sandbox.ignore_violations)
     |> maybe_put("ripgrep", sandbox.ripgrep)

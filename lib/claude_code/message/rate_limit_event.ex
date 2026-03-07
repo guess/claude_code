@@ -12,6 +12,12 @@ defmodule ClaudeCode.Message.RateLimitEvent do
     - `:status` - One of `:allowed`, `:allowed_warning`, or `:rejected`
     - `:resets_at` - Unix timestamp (ms) when the limit resets (optional)
     - `:utilization` - Current utilization as a float 0.0–1.0 (optional)
+    - `:rate_limit_type` - Type of rate limit (e.g., `"five_hour"`, `"seven_day"`, `"overage"`)
+    - `:overage_status` - Overage status: `"allowed"`, `"allowed_warning"`, or `"rejected"`
+    - `:overage_resets_at` - Unix timestamp (ms) when overage limit resets
+    - `:overage_disabled_reason` - Reason overage was disabled (string, optional)
+    - `:is_using_overage` - Whether the session is using overage (boolean)
+    - `:surpassed_threshold` - Threshold that was surpassed (number)
   - `:uuid` - Message UUID
   - `:session_id` - Session identifier
 
@@ -23,7 +29,10 @@ defmodule ClaudeCode.Message.RateLimitEvent do
     "rate_limit_info": {
       "status": "allowed_warning",
       "resetsAt": 1700000000000,
-      "utilization": 0.85
+      "utilization": 0.85,
+      "rateLimitType": "five_hour",
+      "overageStatus": "allowed",
+      "isUsingOverage": false
     },
     "uuid": "...",
     "session_id": "..."
@@ -41,13 +50,21 @@ defmodule ClaudeCode.Message.RateLimitEvent do
 
   @type status :: :allowed | :allowed_warning | :rejected
 
+  @type rate_limit_info :: %{
+          status: status(),
+          resets_at: integer() | nil,
+          utilization: number() | nil,
+          rate_limit_type: String.t() | nil,
+          overage_status: String.t() | nil,
+          overage_resets_at: integer() | nil,
+          overage_disabled_reason: String.t() | nil,
+          is_using_overage: boolean() | nil,
+          surpassed_threshold: number() | nil
+        }
+
   @type t :: %__MODULE__{
           type: :rate_limit_event,
-          rate_limit_info: %{
-            status: status(),
-            resets_at: integer() | nil,
-            utilization: number() | nil
-          },
+          rate_limit_info: rate_limit_info(),
           uuid: String.t() | nil,
           session_id: String.t()
         }
@@ -92,7 +109,13 @@ defmodule ClaudeCode.Message.RateLimitEvent do
     %{
       status: parse_status(info["status"]),
       resets_at: info["resetsAt"],
-      utilization: info["utilization"]
+      utilization: info["utilization"],
+      rate_limit_type: info["rateLimitType"],
+      overage_status: info["overageStatus"],
+      overage_resets_at: info["overageResetsAt"],
+      overage_disabled_reason: info["overageDisabledReason"],
+      is_using_overage: info["isUsingOverage"],
+      surpassed_threshold: info["surpassedThreshold"]
     }
   end
 

@@ -352,8 +352,13 @@ defmodule ClaudeCode.Adapter.Port do
         names -> names
       end
 
+    extra_opts =
+      []
+      |> maybe_add_opt(state.session_options, :prompt_suggestions)
+      |> maybe_add_opt(state.session_options, :tool_config)
+
     {request_id, new_counter} = next_request_id(state.control_counter)
-    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names)
+    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names, extra_opts)
     Port.command(state.port, json <> "\n")
 
     pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
@@ -526,6 +531,9 @@ defmodule ClaudeCode.Adapter.Port do
           {:control_request, msg} ->
             handle_inbound_control_request(msg, state)
 
+          {:control_cancel, msg} ->
+            handle_control_cancel(msg, state)
+
           {:message, json_msg} ->
             handle_sdk_message(json_msg, state)
         end
@@ -557,7 +565,13 @@ defmodule ClaudeCode.Adapter.Port do
 
           {{:initialize, session}, remaining} ->
             Adapter.notify_status(session, :ready)
-            %{state | pending_control_requests: remaining, server_info: response, status: :ready}
+
+            %{
+              state
+              | pending_control_requests: remaining,
+                server_info: parse_initialize_response(response),
+                status: :ready
+            }
 
           {from, remaining} ->
             GenServer.reply(from, {:ok, response})
@@ -578,6 +592,23 @@ defmodule ClaudeCode.Adapter.Port do
             GenServer.reply(from, {:error, error_msg})
             %{state | pending_control_requests: remaining}
         end
+    end
+  end
+
+  defp handle_control_cancel(%{"request_id" => cancel_id}, state) do
+    Logger.debug("Received control cancel for request: #{cancel_id}")
+
+    case Map.pop(state.pending_control_requests, cancel_id) do
+      {nil, _} ->
+        state
+
+      {{:initialize, session}, remaining} ->
+        Adapter.notify_status(session, {:error, :cancelled})
+        %{state | pending_control_requests: remaining}
+
+      {from, remaining} ->
+        GenServer.reply(from, {:error, :cancelled})
+        %{state | pending_control_requests: remaining}
     end
   end
 
@@ -641,6 +672,10 @@ defmodule ClaudeCode.Adapter.Port do
           jsonrpc = request["message"]
           ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
 
+        "elicitation" ->
+          Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
+          nil
+
         _ ->
           Logger.warning("Received unhandled control request: #{subtype}")
           nil
@@ -701,11 +736,40 @@ defmodule ClaudeCode.Adapter.Port do
     {Control.generate_request_id(counter), counter + 1}
   end
 
+  defp maybe_add_opt(acc, opts, key) do
+    case Keyword.get(opts, key) do
+      nil -> acc
+      value -> Keyword.put(acc, key, value)
+    end
+  end
+
+  defp parse_initialize_response(response) when is_map(response) do
+    response
+    |> maybe_parse_list("models", &ClaudeCode.ModelInfo.new/1)
+    |> maybe_parse_list("agents", &ClaudeCode.AgentInfo.new/1)
+    |> maybe_parse_map("account", &ClaudeCode.AccountInfo.new/1)
+  end
+
+  defp maybe_parse_list(response, key, parser) do
+    case Map.get(response, key) do
+      list when is_list(list) -> Map.put(response, key, Enum.map(list, parser))
+      _ -> response
+    end
+  end
+
+  defp maybe_parse_map(response, key, parser) do
+    case Map.get(response, key) do
+      map when is_map(map) -> Map.put(response, key, parser.(map))
+      _ -> response
+    end
+  end
+
   defp build_control_json(:initialize, request_id, params) do
     hooks = Map.get(params, :hooks)
     agents = Map.get(params, :agents)
     sdk_mcp_servers = Map.get(params, :sdk_mcp_servers)
-    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers)
+    extra_opts = Map.get(params, :extra_opts, [])
+    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers, extra_opts)
   end
 
   defp build_control_json(:set_model, request_id, %{model: model}) do
@@ -722,6 +786,26 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp build_control_json(:mcp_status, request_id, _params) do
     Control.mcp_status_request(request_id)
+  end
+
+  defp build_control_json(:mcp_reconnect, request_id, %{server_name: name}) do
+    Control.mcp_reconnect_request(request_id, name)
+  end
+
+  defp build_control_json(:mcp_toggle, request_id, %{server_name: name, enabled: enabled}) do
+    Control.mcp_toggle_request(request_id, name, enabled)
+  end
+
+  defp build_control_json(:set_mcp_servers, request_id, %{servers: servers}) do
+    Control.mcp_set_servers_request(request_id, servers)
+  end
+
+  defp build_control_json(:stop_task, request_id, %{task_id: task_id}) do
+    Control.stop_task_request(request_id, task_id)
+  end
+
+  defp build_control_json(:set_max_thinking_tokens, request_id, %{max_thinking_tokens: tokens}) do
+    Control.set_max_thinking_tokens_request(request_id, tokens)
   end
 
   defp build_control_json(subtype, _request_id, _params) do

@@ -9,6 +9,8 @@ defmodule ClaudeCode.CLI.ParserTest do
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.AuthStatusMessage
   alias ClaudeCode.Message.CompactBoundaryMessage
+  alias ClaudeCode.Message.HookResponseMessage
+  alias ClaudeCode.Message.HookStartedMessage
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
@@ -330,17 +332,15 @@ defmodule ClaudeCode.CLI.ParserTest do
       }
 
       assert {:ok,
-              %SystemMessage{
+              %HookStartedMessage{
                 type: :system,
                 subtype: :hook_started,
                 session_id: "session-1",
                 uuid: "event-uuid-1",
-                data: data_map
+                hook_id: "abc-123",
+                hook_name: "SessionStart:startup",
+                hook_event: "SessionStart"
               }} = Parser.parse_message(data)
-
-      assert data_map.hook_id == "abc-123"
-      assert data_map.hook_name == "SessionStart:startup"
-      assert data_map.hook_event == "SessionStart"
     end
 
     test "parses hook_response system messages" do
@@ -360,14 +360,12 @@ defmodule ClaudeCode.CLI.ParserTest do
       }
 
       assert {:ok,
-              %SystemMessage{
+              %HookResponseMessage{
                 subtype: :hook_response,
-                data: data_map
+                hook_id: "abc-123",
+                exit_code: 0,
+                outcome: :success
               }} = Parser.parse_message(data)
-
-      assert data_map.hook_id == "abc-123"
-      assert data_map.exit_code == 0
-      assert data_map.outcome == "success"
     end
 
     test "parses unknown system subtypes as SystemMessage" do
@@ -446,6 +444,121 @@ defmodule ClaudeCode.CLI.ParserTest do
 
       assert {:ok, %PromptSuggestionMessage{type: :prompt_suggestion, suggestion: "Add tests for the new module"}} =
                Parser.parse_message(data)
+    end
+
+    test "parses status system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "status",
+        "status" => "thinking",
+        "permissionMode" => "default",
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.StatusMessage{status: "thinking", permission_mode: :default}} =
+               Parser.parse_message(data)
+    end
+
+    test "parses local_command_output system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "local_command_output",
+        "content" => "Cost: $0.50",
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.LocalCommandOutputMessage{content: "Cost: $0.50"}} = Parser.parse_message(data)
+    end
+
+    test "parses files_persisted system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "files_persisted",
+        "files" => [%{"filename" => "doc.txt", "file_id" => "file_abc"}],
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.FilesPersistedEvent{files: [%{filename: "doc.txt", file_id: "file_abc"}]}} =
+               Parser.parse_message(data)
+    end
+
+    test "parses elicitation_complete system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "elicitation_complete",
+        "mcp_server_name" => "my-server",
+        "elicitation_id" => "elicit-123",
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok,
+              %ClaudeCode.Message.ElicitationCompleteMessage{mcp_server_name: "my-server", elicitation_id: "elicit-123"}} =
+               Parser.parse_message(data)
+    end
+
+    test "parses task_started system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "task_started",
+        "task_id" => "task-1",
+        "description" => "Running tests",
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.TaskStartedMessage{task_id: "task-1", description: "Running tests"}} =
+               Parser.parse_message(data)
+    end
+
+    test "parses task_progress system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "task_progress",
+        "task_id" => "task-1",
+        "description" => "Still running",
+        "usage" => %{"total_tokens" => 1000, "tool_uses" => 5, "duration_ms" => 3000},
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.TaskProgressMessage{task_id: "task-1"}} = Parser.parse_message(data)
+    end
+
+    test "parses task_notification system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "task_notification",
+        "task_id" => "task-1",
+        "status" => "completed",
+        "output_file" => "/tmp/output.json",
+        "summary" => "Done",
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.TaskNotificationMessage{task_id: "task-1", status: :completed}} =
+               Parser.parse_message(data)
+    end
+
+    test "parses hook_progress system messages" do
+      data = %{
+        "type" => "system",
+        "subtype" => "hook_progress",
+        "hook_id" => "hook-1",
+        "hook_name" => "my_hook",
+        "hook_event" => "PreToolUse",
+        "stdout" => "output",
+        "stderr" => "",
+        "output" => "output",
+        "uuid" => "uuid-1",
+        "session_id" => "session-1"
+      }
+
+      assert {:ok, %ClaudeCode.Message.HookProgressMessage{hook_id: "hook-1"}} = Parser.parse_message(data)
     end
 
     test "returns error for unknown message type" do
