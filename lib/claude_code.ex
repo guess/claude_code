@@ -387,7 +387,7 @@ defmodule ClaudeCode do
 
       {:ok, info} = ClaudeCode.get_server_info(session)
   """
-  @spec get_server_info(session()) :: {:ok, map() | nil} | {:error, term()}
+  @spec get_server_info(session()) :: {:ok, ClaudeCode.Types.initialize_response() | nil} | {:error, term()}
   def get_server_info(session) do
     GenServer.call(session, :get_server_info)
   end
@@ -481,7 +481,7 @@ defmodule ClaudeCode do
   @spec supported_commands(session()) :: {:ok, [ClaudeCode.SlashCommand.t()]} | {:error, term()}
   def supported_commands(session) do
     case get_server_info(session) do
-      {:ok, %{"commands" => commands}} when is_list(commands) -> {:ok, commands}
+      {:ok, %{commands: commands}} when is_list(commands) -> {:ok, commands}
       {:ok, _} -> {:ok, []}
       error -> error
     end
@@ -498,7 +498,7 @@ defmodule ClaudeCode do
   @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
   def supported_models(session) do
     case get_server_info(session) do
-      {:ok, %{"models" => models}} when is_list(models) -> {:ok, models}
+      {:ok, %{models: models}} when is_list(models) -> {:ok, models}
       {:ok, _} -> {:ok, []}
       error -> error
     end
@@ -514,7 +514,7 @@ defmodule ClaudeCode do
   @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
   def supported_agents(session) do
     case get_server_info(session) do
-      {:ok, %{"agents" => agents}} when is_list(agents) -> {:ok, agents}
+      {:ok, %{agents: agents}} when is_list(agents) -> {:ok, agents}
       {:ok, _} -> {:ok, []}
       error -> error
     end
@@ -531,7 +531,7 @@ defmodule ClaudeCode do
   @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
   def account_info(session) do
     case get_server_info(session) do
-      {:ok, %{"account" => account}} -> {:ok, account}
+      {:ok, %{account: account}} -> {:ok, account}
       {:ok, _} -> {:ok, nil}
       error -> error
     end

@@ -92,4 +92,17 @@ defmodule ClaudeCode.Types do
           content: message_content(),
           role: role()
         }
+
+  @typedoc """
+  Response from session initialization (matches `SDKControlInitializeResponse`).
+  """
+  @type initialize_response :: %{
+          commands: [ClaudeCode.SlashCommand.t()],
+          agents: [ClaudeCode.AgentInfo.t()],
+          models: [ClaudeCode.ModelInfo.t()],
+          account: ClaudeCode.AccountInfo.t() | nil,
+          output_style: String.t() | nil,
+          available_output_styles: [String.t()],
+          fast_mode_state: String.t() | nil
+        }
 end

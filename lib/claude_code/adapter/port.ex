@@ -757,27 +757,24 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp parse_control_result(_subtype, response), do: response
 
+  @spec parse_initialize_response(map()) :: ClaudeCode.Types.initialize_response()
   defp parse_initialize_response(response) when is_map(response) do
-    response
-    |> maybe_parse_list("commands", &ClaudeCode.SlashCommand.new/1)
-    |> maybe_parse_list("models", &ClaudeCode.ModelInfo.new/1)
-    |> maybe_parse_list("agents", &ClaudeCode.AgentInfo.new/1)
-    |> maybe_parse_map("account", &ClaudeCode.AccountInfo.new/1)
+    %{
+      commands: parse_list(response["commands"], &ClaudeCode.SlashCommand.new/1),
+      agents: parse_list(response["agents"], &ClaudeCode.AgentInfo.new/1),
+      models: parse_list(response["models"], &ClaudeCode.ModelInfo.new/1),
+      account: parse_optional(response["account"], &ClaudeCode.AccountInfo.new/1),
+      output_style: response["output_style"],
+      available_output_styles: response["available_output_styles"] || [],
+      fast_mode_state: response["fast_mode_state"]
+    }
   end
 
-  defp maybe_parse_list(response, key, parser) do
-    case Map.get(response, key) do
-      list when is_list(list) -> Map.put(response, key, Enum.map(list, parser))
-      _ -> response
-    end
-  end
+  defp parse_list(nil, _parser), do: []
+  defp parse_list(list, parser) when is_list(list), do: Enum.map(list, parser)
 
-  defp maybe_parse_map(response, key, parser) do
-    case Map.get(response, key) do
-      map when is_map(map) -> Map.put(response, key, parser.(map))
-      _ -> response
-    end
-  end
+  defp parse_optional(nil, _parser), do: nil
+  defp parse_optional(map, parser) when is_map(map), do: parser.(map)
 
   defp build_control_json(:initialize, request_id, params) do
     hooks = Map.get(params, :hooks)
