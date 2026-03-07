@@ -737,6 +737,26 @@ defmodule ClaudeCode.Adapter.Port do
     Control.mcp_status_request(request_id)
   end
 
+  defp build_control_json(:mcp_reconnect, request_id, %{server_name: name}) do
+    Control.mcp_reconnect_request(request_id, name)
+  end
+
+  defp build_control_json(:mcp_toggle, request_id, %{server_name: name, enabled: enabled}) do
+    Control.mcp_toggle_request(request_id, name, enabled)
+  end
+
+  defp build_control_json(:mcp_set_servers, request_id, %{servers: servers}) do
+    Control.mcp_set_servers_request(request_id, servers)
+  end
+
+  defp build_control_json(:stop_task, request_id, %{task_id: task_id}) do
+    Control.stop_task_request(request_id, task_id)
+  end
+
+  defp build_control_json(:set_max_thinking_tokens, request_id, %{max_thinking_tokens: tokens}) do
+    Control.set_max_thinking_tokens_request(request_id, tokens)
+  end
+
   defp build_control_json(subtype, _request_id, _params) do
     {:error, {:unknown_control_subtype, subtype}}
   end

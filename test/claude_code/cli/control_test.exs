@@ -164,6 +164,86 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
+  describe "mcp_reconnect_request/2" do
+    test "builds mcp_reconnect request JSON" do
+      json = Control.mcp_reconnect_request("req_7_stu", "my-server")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_7_stu"
+      assert decoded["request"]["subtype"] == "mcp_reconnect"
+      assert decoded["request"]["serverName"] == "my-server"
+    end
+  end
+
+  describe "mcp_toggle_request/3" do
+    test "builds mcp_toggle request JSON to disable" do
+      json = Control.mcp_toggle_request("req_8_vwx", "my-server", false)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_8_vwx"
+      assert decoded["request"]["subtype"] == "mcp_toggle"
+      assert decoded["request"]["serverName"] == "my-server"
+      assert decoded["request"]["enabled"] == false
+    end
+
+    test "builds mcp_toggle request JSON to enable" do
+      json = Control.mcp_toggle_request("req_9_yza", "my-server", true)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["enabled"] == true
+    end
+  end
+
+  describe "mcp_set_servers_request/2" do
+    test "builds mcp_set_servers request JSON" do
+      servers = %{
+        "my-tools" => %{"type" => "stdio", "command" => "npx", "args" => ["-y", "my-tools"]},
+        "db" => %{"type" => "sse", "url" => "http://localhost:3001/sse"}
+      }
+
+      json = Control.mcp_set_servers_request("req_1_abc", servers)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_1_abc"
+      assert decoded["request"]["subtype"] == "mcp_set_servers"
+      assert decoded["request"]["servers"] == servers
+    end
+  end
+
+  describe "stop_task_request/2" do
+    test "builds stop_task request JSON" do
+      json = Control.stop_task_request("req_10_bcd", "task-abc-123")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_10_bcd"
+      assert decoded["request"]["subtype"] == "stop_task"
+      assert decoded["request"]["task_id"] == "task-abc-123"
+    end
+  end
+
+  describe "set_max_thinking_tokens_request/2" do
+    test "builds set_max_thinking_tokens request JSON with value" do
+      json = Control.set_max_thinking_tokens_request("req_11_efg", 32_000)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_11_efg"
+      assert decoded["request"]["subtype"] == "set_max_thinking_tokens"
+      assert decoded["request"]["maxThinkingTokens"] == 32_000
+    end
+
+    test "builds set_max_thinking_tokens request JSON with nil to clear" do
+      json = Control.set_max_thinking_tokens_request("req_12_hij", nil)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["maxThinkingTokens"] == nil
+    end
+  end
+
   describe "success_response/2" do
     test "builds success control response JSON" do
       json = Control.success_response("req_1_abc", %{status: "ok"})

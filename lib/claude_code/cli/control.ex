@@ -23,6 +23,11 @@ defmodule ClaudeCode.CLI.Control do
     * `set_permission_mode_request/2` — Change the permission mode
     * `rewind_files_request/2` — Rewind files to a previous state
     * `mcp_status_request/1` — Query MCP server status
+    * `mcp_reconnect_request/2` — Reconnect a failed MCP server
+    * `mcp_toggle_request/3` — Enable or disable an MCP server
+    * `mcp_set_servers_request/2` — Replace dynamic MCP servers
+    * `stop_task_request/2` — Stop a running task
+    * `set_max_thinking_tokens_request/2` — Set thinking token limit
 
   ## Response Builders (SDK -> CLI)
 
@@ -171,6 +176,88 @@ defmodule ClaudeCode.CLI.Control do
   @spec interrupt_request(String.t()) :: String.t()
   def interrupt_request(request_id) do
     encode_control_request(request_id, %{subtype: "interrupt"})
+  end
+
+  @doc """
+  Builds an mcp_reconnect control request JSON string.
+
+  Reconnects a disconnected or failed MCP server.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `server_name` - The name of the MCP server to reconnect
+
+  """
+  @spec mcp_reconnect_request(String.t(), String.t()) :: String.t()
+  def mcp_reconnect_request(request_id, server_name) do
+    encode_control_request(request_id, %{subtype: "mcp_reconnect", serverName: server_name})
+  end
+
+  @doc """
+  Builds an mcp_toggle control request JSON string.
+
+  Enables or disables an MCP server.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `server_name` - The name of the MCP server to toggle
+    * `enabled` - Whether the server should be enabled
+
+  """
+  @spec mcp_toggle_request(String.t(), String.t(), boolean()) :: String.t()
+  def mcp_toggle_request(request_id, server_name, enabled) do
+    encode_control_request(request_id, %{subtype: "mcp_toggle", serverName: server_name, enabled: enabled})
+  end
+
+  @doc """
+  Builds an mcp_set_servers control request JSON string.
+
+  Replaces the set of dynamically managed MCP servers.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `servers` - Map of server name to server config (stdio, sse, http)
+
+  """
+  @spec mcp_set_servers_request(String.t(), map()) :: String.t()
+  def mcp_set_servers_request(request_id, servers) do
+    encode_control_request(request_id, %{subtype: "mcp_set_servers", servers: servers})
+  end
+
+  @doc """
+  Builds a stop_task control request JSON string.
+
+  Stops a running task. A task_notification with status 'stopped' will be emitted.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `task_id` - The task ID from task_notification events
+
+  """
+  @spec stop_task_request(String.t(), String.t()) :: String.t()
+  def stop_task_request(request_id, task_id) do
+    encode_control_request(request_id, %{subtype: "stop_task", task_id: task_id})
+  end
+
+  @doc """
+  Builds a set_max_thinking_tokens control request JSON string.
+
+  Sets the maximum number of thinking tokens the model can use.
+  Pass `nil` to clear any previously set limit.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `max_thinking_tokens` - Maximum tokens for thinking, or nil to clear
+
+  """
+  @spec set_max_thinking_tokens_request(String.t(), non_neg_integer() | nil) :: String.t()
+  def set_max_thinking_tokens_request(request_id, max_thinking_tokens) do
+    encode_control_request(request_id, %{subtype: "set_max_thinking_tokens", maxThinkingTokens: max_thinking_tokens})
   end
 
   # --- Response Builders (SDK -> CLI, answering CLI requests) -----------------
