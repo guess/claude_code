@@ -8,6 +8,8 @@ defmodule ClaudeCode.Message.FilesPersistedEvent do
   ## Fields
 
   - `:files` - List of maps with `:filename` and `:file_id` keys
+  - `:failed` - List of maps with `:filename` and `:error` keys for files that failed to persist
+  - `:processed_at` - ISO 8601 timestamp when files were processed
   - `:uuid` - Message UUID
   - `:session_id` - Session identifier
 
@@ -32,15 +34,20 @@ defmodule ClaudeCode.Message.FilesPersistedEvent do
     :subtype,
     :uuid,
     :session_id,
-    files: []
+    :processed_at,
+    files: [],
+    failed: []
   ]
 
   @type file_entry :: %{filename: String.t(), file_id: String.t()}
+  @type failed_entry :: %{filename: String.t(), error: String.t()}
 
   @type t :: %__MODULE__{
           type: :system,
           subtype: :files_persisted,
           files: [file_entry()],
+          failed: [failed_entry()],
+          processed_at: String.t() | nil,
           uuid: String.t() | nil,
           session_id: String.t()
         }
@@ -68,6 +75,8 @@ defmodule ClaudeCode.Message.FilesPersistedEvent do
        type: :system,
        subtype: :files_persisted,
        files: parse_files(json["files"]),
+       failed: parse_failed(json["failed"]),
+       processed_at: json["processedAt"],
        uuid: json["uuid"],
        session_id: session_id
      }}
@@ -94,6 +103,18 @@ defmodule ClaudeCode.Message.FilesPersistedEvent do
   end
 
   defp parse_files(_), do: []
+
+  defp parse_failed(entries) when is_list(entries) do
+    Enum.flat_map(entries, fn
+      %{"filename" => filename, "error" => error} ->
+        [%{filename: filename, error: error}]
+
+      _ ->
+        []
+    end)
+  end
+
+  defp parse_failed(_), do: []
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Message.FilesPersistedEvent do

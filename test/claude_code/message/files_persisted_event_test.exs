@@ -12,6 +12,10 @@ defmodule ClaudeCode.Message.FilesPersistedEventTest do
           %{"filename" => "example.ex", "file_id" => "file-abc123"},
           %{"filename" => "test.ex", "file_id" => "file-def456"}
         ],
+        "failed" => [
+          %{"filename" => "bad.ex", "error" => "Permission denied"}
+        ],
+        "processedAt" => "2025-01-15T10:30:00Z",
         "uuid" => "uuid-123",
         "session_id" => "session-abc"
       }
@@ -21,10 +25,15 @@ defmodule ClaudeCode.Message.FilesPersistedEventTest do
       assert message.subtype == :files_persisted
       assert message.uuid == "uuid-123"
       assert message.session_id == "session-abc"
+      assert message.processed_at == "2025-01-15T10:30:00Z"
 
       assert message.files == [
                %{filename: "example.ex", file_id: "file-abc123"},
                %{filename: "test.ex", file_id: "file-def456"}
+             ]
+
+      assert message.failed == [
+               %{filename: "bad.ex", error: "Permission denied"}
              ]
     end
 
@@ -52,7 +61,7 @@ defmodule ClaudeCode.Message.FilesPersistedEventTest do
       assert message.files == []
     end
 
-    test "handles absent files key as empty list" do
+    test "handles absent optional keys" do
       json = %{
         "type" => "system",
         "subtype" => "files_persisted",
@@ -61,6 +70,8 @@ defmodule ClaudeCode.Message.FilesPersistedEventTest do
 
       assert {:ok, message} = FilesPersistedEvent.new(json)
       assert message.files == []
+      assert message.failed == []
+      assert message.processed_at == nil
     end
 
     test "filters out malformed file entries" do
@@ -91,6 +102,22 @@ defmodule ClaudeCode.Message.FilesPersistedEventTest do
     test "returns error for invalid message type" do
       json = %{"type" => "assistant"}
       assert {:error, :invalid_message_type} = FilesPersistedEvent.new(json)
+    end
+
+    test "filters out malformed failed entries" do
+      json = %{
+        "type" => "system",
+        "subtype" => "files_persisted",
+        "files" => [],
+        "failed" => [
+          %{"filename" => "bad.ex", "error" => "Permission denied"},
+          %{"bad_key" => "value"}
+        ],
+        "session_id" => "session-abc"
+      }
+
+      assert {:ok, message} = FilesPersistedEvent.new(json)
+      assert message.failed == [%{filename: "bad.ex", error: "Permission denied"}]
     end
   end
 
