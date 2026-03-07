@@ -10,7 +10,7 @@ defmodule ClaudeCode.ModelInfo do
     * `:display_name` - Human-readable display name
     * `:description` - Description of the model's capabilities
     * `:supports_effort` - Whether this model supports effort levels
-    * `:supported_effort_levels` - Available effort levels (e.g., `["low", "medium", "high"]`)
+    * `:supported_effort_levels` - Available effort levels (e.g., `[:low, :medium, :high]`)
     * `:supports_adaptive_thinking` - Whether this model supports adaptive thinking
     * `:supports_fast_mode` - Whether this model supports fast mode
   """
@@ -30,7 +30,7 @@ defmodule ClaudeCode.ModelInfo do
           display_name: String.t(),
           description: String.t(),
           supports_effort: boolean() | nil,
-          supported_effort_levels: [String.t()] | nil,
+          supported_effort_levels: [ClaudeCode.EffortLevel.t()] | nil,
           supports_adaptive_thinking: boolean() | nil,
           supports_fast_mode: boolean() | nil
         }
@@ -51,11 +51,14 @@ defmodule ClaudeCode.ModelInfo do
       display_name: data["displayName"],
       description: data["description"],
       supports_effort: data["supportsEffort"],
-      supported_effort_levels: data["supportedEffortLevels"],
+      supported_effort_levels: parse_list(data["supportedEffortLevels"], &ClaudeCode.EffortLevel.parse/1),
       supports_adaptive_thinking: data["supportsAdaptiveThinking"],
       supports_fast_mode: data["supportsFastMode"]
     }
   end
+
+  defp parse_list(nil, _parser), do: nil
+  defp parse_list(list, parser) when is_list(list), do: Enum.map(list, parser)
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.ModelInfo do

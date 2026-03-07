@@ -20,7 +20,7 @@ defmodule ClaudeCode.ModelInfoTest do
       assert info.display_name == "Claude Sonnet 4.6"
       assert info.description == "Fast and capable model"
       assert info.supports_effort == true
-      assert info.supported_effort_levels == ["low", "medium", "high"]
+      assert info.supported_effort_levels == [:low, :medium, :high]
       assert info.supports_adaptive_thinking == true
       assert info.supports_fast_mode == true
     end
