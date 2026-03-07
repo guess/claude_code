@@ -743,8 +743,8 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  defp parse_control_result(:mcp_status, %{"servers" => servers} = response) when is_list(servers) do
-    Map.put(response, "servers", Enum.map(servers, &ClaudeCode.McpServerStatus.new/1))
+  defp parse_control_result(:mcp_status, %{"mcpServers" => servers}) when is_list(servers) do
+    Enum.map(servers, &ClaudeCode.McpServerStatus.new/1)
   end
 
   defp parse_control_result(:set_mcp_servers, response) when is_map(response) do

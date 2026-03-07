@@ -373,9 +373,10 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, %{"servers" => servers}} = ClaudeCode.get_mcp_status(session)
+      {:ok, servers} = ClaudeCode.get_mcp_status(session)
+      Enum.each(servers, &IO.puts(&1.name))
   """
-  @spec get_mcp_status(session()) :: {:ok, map()} | {:error, term()}
+  @spec get_mcp_status(session()) :: {:ok, [ClaudeCode.McpServerStatus.t()]} | {:error, term()}
   def get_mcp_status(session) do
     GenServer.call(session, {:control, :mcp_status, %{}})
   end
