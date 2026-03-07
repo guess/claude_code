@@ -203,7 +203,7 @@ defmodule ClaudeCode.Adapter.Port do
           json ->
             Port.command(port, json <> "\n")
 
-            pending = Map.put(state.pending_control_requests, request_id, from)
+            pending = Map.put(state.pending_control_requests, request_id, {subtype, from})
             schedule_control_timeout(request_id)
 
             {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
@@ -287,7 +287,7 @@ defmodule ClaudeCode.Adapter.Port do
         Adapter.notify_status(session, {:error, :initialize_timeout})
         {:noreply, %{state | pending_control_requests: remaining, status: :disconnected}}
 
-      {from, remaining} ->
+      {{_subtype, from}, remaining} ->
         GenServer.reply(from, {:error, :control_timeout})
         {:noreply, %{state | pending_control_requests: remaining}}
     end
@@ -330,7 +330,7 @@ defmodule ClaudeCode.Adapter.Port do
         {:initialize, session} ->
           Adapter.notify_status(session, {:error, error})
 
-        from ->
+        {_subtype, from} ->
           GenServer.reply(from, {:error, error})
       end
     end
@@ -573,8 +573,8 @@ defmodule ClaudeCode.Adapter.Port do
                 status: :ready
             }
 
-          {from, remaining} ->
-            GenServer.reply(from, {:ok, response})
+          {{subtype, from}, remaining} ->
+            GenServer.reply(from, {:ok, parse_control_result(subtype, response)})
             %{state | pending_control_requests: remaining}
         end
 
@@ -588,7 +588,7 @@ defmodule ClaudeCode.Adapter.Port do
             Adapter.notify_status(session, {:error, {:initialize_failed, error_msg}})
             %{state | pending_control_requests: remaining, status: :disconnected}
 
-          {from, remaining} ->
+          {{_subtype, from}, remaining} ->
             GenServer.reply(from, {:error, error_msg})
             %{state | pending_control_requests: remaining}
         end
@@ -606,7 +606,7 @@ defmodule ClaudeCode.Adapter.Port do
         Adapter.notify_status(session, {:error, :cancelled})
         %{state | pending_control_requests: remaining}
 
-      {from, remaining} ->
+      {{_subtype, from}, remaining} ->
         GenServer.reply(from, {:error, :cancelled})
         %{state | pending_control_requests: remaining}
     end
@@ -742,6 +742,20 @@ defmodule ClaudeCode.Adapter.Port do
       value -> Keyword.put(acc, key, value)
     end
   end
+
+  defp parse_control_result(:mcp_status, %{"servers" => servers} = response) when is_list(servers) do
+    Map.put(response, "servers", Enum.map(servers, &ClaudeCode.McpServerStatus.new/1))
+  end
+
+  defp parse_control_result(:set_mcp_servers, response) when is_map(response) do
+    ClaudeCode.McpSetServersResult.new(response)
+  end
+
+  defp parse_control_result(:rewind_files, response) when is_map(response) do
+    ClaudeCode.RewindFilesResult.new(response)
+  end
+
+  defp parse_control_result(_subtype, response), do: response
 
   defp parse_initialize_response(response) when is_map(response) do
     response
