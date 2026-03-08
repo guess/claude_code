@@ -803,8 +803,9 @@ defmodule ClaudeCode.Adapter.Port do
     Control.set_permission_mode_request(request_id, to_string(mode))
   end
 
-  defp build_control_json(:rewind_files, request_id, %{user_message_id: id}) do
-    Control.rewind_files_request(request_id, id)
+  defp build_control_json(:rewind_files, request_id, %{user_message_id: id} = params) do
+    opts = if params[:dry_run], do: [dry_run: true], else: []
+    Control.rewind_files_request(request_id, id, opts)
   end
 
   defp build_control_json(:mcp_status, request_id, _params) do

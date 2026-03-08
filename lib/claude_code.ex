@@ -413,13 +413,22 @@ defmodule ClaudeCode do
   @doc """
   Rewinds tracked files to the state at a specific user message checkpoint.
 
+  ## Options
+
+    * `:dry_run` - When `true`, preview changes without applying them (default: `false`)
+
   ## Examples
 
       {:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+
+      # Preview changes without applying
+      {:ok, preview} = ClaudeCode.rewind_files(session, "user-msg-uuid-123", dry_run: true)
   """
-  @spec rewind_files(session(), String.t()) :: {:ok, Types.rewind_files_result()} | {:error, term()}
-  def rewind_files(session, user_message_id) do
-    GenServer.call(session, {:control, :rewind_files, %{user_message_id: user_message_id}})
+  @spec rewind_files(session(), String.t(), keyword()) :: {:ok, Types.rewind_files_result()} | {:error, term()}
+  def rewind_files(session, user_message_id, opts \\ []) do
+    params = maybe_put_opt(%{user_message_id: user_message_id}, :dry_run, opts)
+
+    GenServer.call(session, {:control, :rewind_files, params})
   end
 
   @doc """
@@ -605,6 +614,13 @@ defmodule ClaudeCode do
   end
 
   # Private helpers
+
+  defp maybe_put_opt(map, key, opts) do
+    case Keyword.get(opts, key) do
+      nil -> map
+      value -> Map.put(map, key, value)
+    end
+  end
 
   defp collect_result(stream) do
     stream

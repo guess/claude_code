@@ -145,11 +145,15 @@ defmodule ClaudeCode.CLI.Control do
 
     * `request_id` - Unique request identifier
     * `user_message_id` - The user message ID to rewind to
+    * `opts` - Optional keyword list:
+      * `:dry_run` - When `true`, preview changes without applying them
 
   """
-  @spec rewind_files_request(String.t(), String.t()) :: String.t()
-  def rewind_files_request(request_id, user_message_id) do
-    encode_control_request(request_id, %{subtype: "rewind_files", user_message_id: user_message_id})
+  @spec rewind_files_request(String.t(), String.t(), keyword()) :: String.t()
+  def rewind_files_request(request_id, user_message_id, opts \\ []) do
+    %{subtype: "rewind_files", user_message_id: user_message_id}
+    |> maybe_put(:dryRun, Keyword.get(opts, :dry_run))
+    |> then(&encode_control_request(request_id, &1))
   end
 
   @doc """

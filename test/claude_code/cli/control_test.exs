@@ -130,7 +130,7 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
-  describe "rewind_files_request/2" do
+  describe "rewind_files_request/3" do
     test "builds rewind_files request JSON" do
       json = Control.rewind_files_request("req_4_jkl", "user-msg-uuid-123")
       decoded = Jason.decode!(json)
@@ -139,6 +139,14 @@ defmodule ClaudeCode.CLI.ControlTest do
       assert decoded["request_id"] == "req_4_jkl"
       assert decoded["request"]["subtype"] == "rewind_files"
       assert decoded["request"]["user_message_id"] == "user-msg-uuid-123"
+      refute Map.has_key?(decoded["request"], "dryRun")
+    end
+
+    test "includes dryRun when dry_run: true" do
+      json = Control.rewind_files_request("req_4_jkl", "user-msg-uuid-123", dry_run: true)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["dryRun"] == true
     end
   end
 
