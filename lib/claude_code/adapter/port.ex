@@ -22,6 +22,7 @@ defmodule ClaudeCode.Adapter.Port do
   alias ClaudeCode.CLI.Input
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.MCP.Server, as: MCPServer
+  alias ClaudeCode.MCP.ServerStatus
 
   require Logger
 
@@ -744,15 +745,25 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   defp parse_control_result(:mcp_status, %{"mcpServers" => servers}) when is_list(servers) do
-    Enum.map(servers, &ClaudeCode.McpServerStatus.new/1)
+    Enum.map(servers, &ServerStatus.new/1)
   end
 
   defp parse_control_result(:set_mcp_servers, response) when is_map(response) do
-    ClaudeCode.McpSetServersResult.new(response)
+    %{
+      added: response["added"] || [],
+      removed: response["removed"] || [],
+      errors: response["errors"] || %{}
+    }
   end
 
   defp parse_control_result(:rewind_files, response) when is_map(response) do
-    ClaudeCode.RewindFilesResult.new(response)
+    %{
+      can_rewind: response["canRewind"],
+      error: response["error"],
+      files_changed: response["filesChanged"],
+      insertions: response["insertions"],
+      deletions: response["deletions"]
+    }
   end
 
   defp parse_control_result(_subtype, response), do: response

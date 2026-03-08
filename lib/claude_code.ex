@@ -85,6 +85,7 @@ defmodule ClaudeCode do
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
 
+  alias ClaudeCode.CLI.Control.Types
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
 
@@ -376,7 +377,7 @@ defmodule ClaudeCode do
       {:ok, servers} = ClaudeCode.get_mcp_status(session)
       Enum.each(servers, &IO.puts(&1.name))
   """
-  @spec get_mcp_status(session()) :: {:ok, [ClaudeCode.McpServerStatus.t()]} | {:error, term()}
+  @spec get_mcp_status(session()) :: {:ok, [ClaudeCode.MCP.ServerStatus.t()]} | {:error, term()}
   def get_mcp_status(session) do
     GenServer.call(session, {:control, :mcp_status, %{}})
   end
@@ -416,7 +417,7 @@ defmodule ClaudeCode do
 
       {:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
   """
-  @spec rewind_files(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec rewind_files(session(), String.t()) :: {:ok, Types.rewind_files_result()} | {:error, term()}
   def rewind_files(session, user_message_id) do
     GenServer.call(session, {:control, :rewind_files, %{user_message_id: user_message_id}})
   end
@@ -466,7 +467,7 @@ defmodule ClaudeCode do
 
       {:ok, _} = ClaudeCode.set_mcp_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
   """
-  @spec set_mcp_servers(session(), map()) :: {:ok, map()} | {:error, term()}
+  @spec set_mcp_servers(session(), map()) :: {:ok, Types.set_servers_result()} | {:error, term()}
   def set_mcp_servers(session, servers) do
     GenServer.call(session, {:control, :set_mcp_servers, %{servers: servers}})
   end

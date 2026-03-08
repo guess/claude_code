@@ -1,7 +1,7 @@
-defmodule ClaudeCode.McpServerStatusTest do
+defmodule ClaudeCode.MCP.ServerStatusTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.McpServerStatus
+  alias ClaudeCode.MCP.ServerStatus
 
   describe "new/1" do
     test "parses connected server with full info" do
@@ -14,7 +14,7 @@ defmodule ClaudeCode.McpServerStatusTest do
         "tools" => [%{"name" => "read_file", "description" => "Read a file"}]
       }
 
-      status = McpServerStatus.new(data)
+      status = ServerStatus.new(data)
 
       assert status.name == "my-tools"
       assert status.status == :connected
@@ -31,7 +31,7 @@ defmodule ClaudeCode.McpServerStatusTest do
         "error" => "Connection refused"
       }
 
-      status = McpServerStatus.new(data)
+      status = ServerStatus.new(data)
 
       assert status.status == :failed
       assert status.error == "Connection refused"
@@ -46,20 +46,20 @@ defmodule ClaudeCode.McpServerStatusTest do
             {"pending", :pending},
             {"disabled", :disabled}
           ] do
-        status = McpServerStatus.new(%{"name" => "s", "status" => wire})
+        status = ServerStatus.new(%{"name" => "s", "status" => wire})
         assert status.status == expected
       end
     end
 
     test "defaults unknown status to :pending" do
-      status = McpServerStatus.new(%{"name" => "s", "status" => "unknown"})
+      status = ServerStatus.new(%{"name" => "s", "status" => "unknown"})
       assert status.status == :pending
     end
   end
 
   describe "Jason.Encoder" do
     test "encodes to JSON" do
-      status = %McpServerStatus{name: "my-server", status: :connected}
+      status = %ServerStatus{name: "my-server", status: :connected}
       json = Jason.encode!(status)
       decoded = Jason.decode!(json)
 

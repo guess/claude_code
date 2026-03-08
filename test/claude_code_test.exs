@@ -282,7 +282,7 @@ defmodule ClaudeCodeTest do
     end
 
     test "rewind_files/2 sends rewind_files control request", %{session: session} do
-      assert {:ok, %ClaudeCode.RewindFilesResult{}} =
+      assert {:ok, %{can_rewind: _}} =
                ClaudeCode.rewind_files(session, "user-msg-uuid-123")
     end
   end
