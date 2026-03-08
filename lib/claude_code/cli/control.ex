@@ -328,6 +328,10 @@ defmodule ClaudeCode.CLI.Control do
     {:ok, req_id, data}
   end
 
+  def parse_control_response(%{"response" => %{"subtype" => "success", "request_id" => req_id}}) do
+    {:ok, req_id, %{}}
+  end
+
   def parse_control_response(%{"response" => %{"subtype" => "error", "request_id" => req_id, "error" => error}}) do
     {:error, req_id, error}
   end

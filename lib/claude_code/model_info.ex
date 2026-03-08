@@ -19,20 +19,20 @@ defmodule ClaudeCode.ModelInfo do
     :value,
     :display_name,
     :description,
-    :supports_effort,
-    :supported_effort_levels,
-    :supports_adaptive_thinking,
-    :supports_fast_mode
+    supports_effort: false,
+    supported_effort_levels: [],
+    supports_adaptive_thinking: false,
+    supports_fast_mode: false
   ]
 
   @type t :: %__MODULE__{
           value: String.t(),
           display_name: String.t(),
           description: String.t(),
-          supports_effort: boolean() | nil,
-          supported_effort_levels: [ClaudeCode.EffortLevel.t()] | nil,
-          supports_adaptive_thinking: boolean() | nil,
-          supports_fast_mode: boolean() | nil
+          supports_effort: boolean(),
+          supported_effort_levels: [ClaudeCode.EffortLevel.t()],
+          supports_adaptive_thinking: boolean(),
+          supports_fast_mode: boolean()
         }
 
   @doc """
@@ -41,7 +41,7 @@ defmodule ClaudeCode.ModelInfo do
   ## Examples
 
       iex> ClaudeCode.ModelInfo.new(%{"value" => "claude-sonnet-4-6", "displayName" => "Claude Sonnet 4.6", "description" => "Fast model"})
-      %ClaudeCode.ModelInfo{value: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6", description: "Fast model"}
+      %ClaudeCode.ModelInfo{value: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6", description: "Fast model", supports_effort: false, supported_effort_levels: [], supports_adaptive_thinking: false, supports_fast_mode: false}
 
   """
   @spec new(map()) :: t()
@@ -50,15 +50,15 @@ defmodule ClaudeCode.ModelInfo do
       value: data["value"],
       display_name: data["displayName"],
       description: data["description"],
-      supports_effort: data["supportsEffort"],
-      supported_effort_levels: parse_list(data["supportedEffortLevels"], &ClaudeCode.EffortLevel.parse/1),
-      supports_adaptive_thinking: data["supportsAdaptiveThinking"],
-      supports_fast_mode: data["supportsFastMode"]
+      supports_effort: data["supportsEffort"] || false,
+      supported_effort_levels: parse_effort_levels(data["supportedEffortLevels"]),
+      supports_adaptive_thinking: data["supportsAdaptiveThinking"] || false,
+      supports_fast_mode: data["supportsFastMode"] || false
     }
   end
 
-  defp parse_list(nil, _parser), do: nil
-  defp parse_list(list, parser) when is_list(list), do: Enum.map(list, parser)
+  defp parse_effort_levels(nil), do: []
+  defp parse_effort_levels(list) when is_list(list), do: Enum.map(list, &ClaudeCode.EffortLevel.parse/1)
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.ModelInfo do

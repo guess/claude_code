@@ -300,6 +300,18 @@ defmodule ClaudeCode.CLI.ControlTest do
       assert {:ok, "req_1_abc", %{"model" => "claude-3"}} = Control.parse_control_response(msg)
     end
 
+    test "parses success control response without response data" do
+      msg = %{
+        "type" => "control_response",
+        "response" => %{
+          "subtype" => "success",
+          "request_id" => "req_1_abc"
+        }
+      }
+
+      assert {:ok, "req_1_abc", %{}} = Control.parse_control_response(msg)
+    end
+
     test "parses error control response" do
       msg = %{
         "type" => "control_response",

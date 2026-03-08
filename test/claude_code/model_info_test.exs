@@ -35,10 +35,10 @@ defmodule ClaudeCode.ModelInfoTest do
 
       assert info.value == "claude-haiku-4-5"
       assert info.display_name == "Claude Haiku 4.5"
-      assert info.supports_effort == nil
-      assert info.supported_effort_levels == nil
-      assert info.supports_adaptive_thinking == nil
-      assert info.supports_fast_mode == nil
+      assert info.supports_effort == false
+      assert info.supported_effort_levels == []
+      assert info.supports_adaptive_thinking == false
+      assert info.supports_fast_mode == false
     end
   end
 
@@ -58,7 +58,10 @@ defmodule ClaudeCode.ModelInfoTest do
                "value" => "claude-sonnet-4-6",
                "display_name" => "Claude Sonnet 4.6",
                "description" => "Fast model",
-               "supports_effort" => true
+               "supports_effort" => true,
+               "supported_effort_levels" => [],
+               "supports_adaptive_thinking" => false,
+               "supports_fast_mode" => false
              }
     end
   end

@@ -264,13 +264,11 @@ defmodule ClaudeCodeTest do
     end
 
     test "set_model/2 sends set_model control request", %{session: session} do
-      assert {:ok, %{"model" => "updated"}} =
-               ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+      assert :ok = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
     end
 
     test "set_permission_mode/2 sends control request", %{session: session} do
-      assert {:ok, %{"mode" => "updated"}} =
-               ClaudeCode.set_permission_mode(session, :bypass_permissions)
+      assert :ok = ClaudeCode.set_permission_mode(session, :bypass_permissions)
     end
 
     test "get_mcp_status/1 sends mcp_status control request", %{session: session} do

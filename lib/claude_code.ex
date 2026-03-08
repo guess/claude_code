@@ -350,11 +350,11 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+      :ok = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
   """
-  @spec set_model(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec set_model(session(), String.t()) :: :ok | {:error, term()}
   def set_model(session, model) do
-    GenServer.call(session, {:control, :set_model, %{model: model}})
+    session |> GenServer.call({:control, :set_model, %{model: model}}) |> to_ok()
   end
 
   @doc """
@@ -362,11 +362,11 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+      :ok = ClaudeCode.set_permission_mode(session, :bypass_permissions)
   """
-  @spec set_permission_mode(session(), atom()) :: {:ok, map()} | {:error, term()}
+  @spec set_permission_mode(session(), atom()) :: :ok | {:error, term()}
   def set_permission_mode(session, mode) do
-    GenServer.call(session, {:control, :set_permission_mode, %{mode: mode}})
+    session |> GenServer.call({:control, :set_permission_mode, %{mode: mode}}) |> to_ok()
   end
 
   @doc """
@@ -438,9 +438,9 @@ defmodule ClaudeCode do
 
       :ok = ClaudeCode.mcp_reconnect(session, "my-server")
   """
-  @spec mcp_reconnect(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec mcp_reconnect(session(), String.t()) :: :ok | {:error, term()}
   def mcp_reconnect(session, server_name) do
-    GenServer.call(session, {:control, :mcp_reconnect, %{server_name: server_name}})
+    session |> GenServer.call({:control, :mcp_reconnect, %{server_name: server_name}}) |> to_ok()
   end
 
   @doc """
@@ -448,11 +448,13 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.mcp_toggle(session, "my-server", false)
+      :ok = ClaudeCode.mcp_toggle(session, "my-server", false)
   """
-  @spec mcp_toggle(session(), String.t(), boolean()) :: {:ok, map()} | {:error, term()}
+  @spec mcp_toggle(session(), String.t(), boolean()) :: :ok | {:error, term()}
   def mcp_toggle(session, server_name, enabled) do
-    GenServer.call(session, {:control, :mcp_toggle, %{server_name: server_name, enabled: enabled}})
+    session
+    |> GenServer.call({:control, :mcp_toggle, %{server_name: server_name, enabled: enabled}})
+    |> to_ok()
   end
 
   @doc """
@@ -462,11 +464,11 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.stop_task(session, "task-id-123")
+      :ok = ClaudeCode.stop_task(session, "task-id-123")
   """
-  @spec stop_task(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec stop_task(session(), String.t()) :: :ok | {:error, term()}
   def stop_task(session, task_id) do
-    GenServer.call(session, {:control, :stop_task, %{task_id: task_id}})
+    session |> GenServer.call({:control, :stop_task, %{task_id: task_id}}) |> to_ok()
   end
 
   @doc """
@@ -555,12 +557,14 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.set_max_thinking_tokens(session, 32_000)
-      {:ok, _} = ClaudeCode.set_max_thinking_tokens(session, nil)
+      :ok = ClaudeCode.set_max_thinking_tokens(session, 32_000)
+      :ok = ClaudeCode.set_max_thinking_tokens(session, nil)
   """
-  @spec set_max_thinking_tokens(session(), non_neg_integer() | nil) :: {:ok, map()} | {:error, term()}
+  @spec set_max_thinking_tokens(session(), non_neg_integer() | nil) :: :ok | {:error, term()}
   def set_max_thinking_tokens(session, max_thinking_tokens) do
-    GenServer.call(session, {:control, :set_max_thinking_tokens, %{max_thinking_tokens: max_thinking_tokens}})
+    session
+    |> GenServer.call({:control, :set_max_thinking_tokens, %{max_thinking_tokens: max_thinking_tokens}})
+    |> to_ok()
   end
 
   @doc """
@@ -614,6 +618,9 @@ defmodule ClaudeCode do
   end
 
   # Private helpers
+
+  defp to_ok({:ok, _}), do: :ok
+  defp to_ok({:error, _} = error), do: error
 
   defp maybe_put_opt(map, key, opts) do
     case Keyword.get(opts, key) do
