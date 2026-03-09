@@ -131,7 +131,7 @@ defmodule ClaudeCode.Message.SystemMessage do
         data =
           json
           |> Map.drop(["type", "subtype", "session_id", "uuid"])
-          |> atomize_top_level_keys()
+          |> ClaudeCode.MapUtils.safe_atomize_keys()
 
         {:ok,
          %__MODULE__{
@@ -176,13 +176,6 @@ defmodule ClaudeCode.Message.SystemMessage do
   end
 
   defp parse_plugins(_), do: []
-
-  defp atomize_top_level_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), value}
-      {key, value} -> {key, value}
-    end)
-  end
 end
 
 defimpl Jason.Encoder, for: ClaudeCode.Message.SystemMessage do

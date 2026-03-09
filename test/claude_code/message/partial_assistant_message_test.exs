@@ -172,8 +172,8 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       }
 
       assert {:ok, event} = PartialAssistantMessage.new(json)
-      assert event.event.context_management.mode == "auto"
-      assert event.event.context_management.compacted == true
+      assert event.event.context_management["mode"] == "auto"
+      assert event.event.context_management["compacted"] == true
     end
 
     test "context_management is absent when not in event data" do

@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Race condition in `ClaudeCode.Session` queued request error handling** — When the CLI adapter failed before the stream caller registered as a subscriber, the error was silently lost and the stream would halt normally instead of raising. ([d52f77d])
+- **Atom-safe map key conversion from CLI JSON payloads** — Replaced unbounded `String.to_atom` with `ClaudeCode.MapUtils.safe_atomize_keys/1` (uses `binary_to_existing_atom`) for map keys parsed from external CLI input. Unknown keys stay as strings instead of creating new atoms, preventing atom table exhaustion. ([3c9dc90])
+- **`ClaudeCode.Message.AssistantMessage` now parses `:refusal` stop reason** — Aligns with `ClaudeCode.Message.ResultMessage` and the `ClaudeCode.Types.stop_reason` typespec. ([28c15a3])
 
 ### Changed
 
