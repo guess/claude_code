@@ -62,12 +62,6 @@ defmodule ClaudeCode.Adapter.ControlHandler do
     end
   end
 
-  defp atomize_keys(map) when is_map(map) do
-    Map.new(map, fn
-      {key, value} when is_binary(key) -> {String.to_atom(key), value}
-      {key, value} -> {key, value}
-    end)
-  end
-
+  defp atomize_keys(map) when is_map(map), do: ClaudeCode.MapUtils.safe_atomize_keys(map)
   defp atomize_keys(other), do: other
 end
