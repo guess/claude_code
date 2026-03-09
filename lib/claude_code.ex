@@ -85,6 +85,7 @@ defmodule ClaudeCode do
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
 
+  alias ClaudeCode.Adapter.Port.Installer
   alias ClaudeCode.CLI.Control.Types
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
@@ -118,7 +119,7 @@ defmodule ClaudeCode do
   """
   @spec cli_version() :: String.t()
   def cli_version do
-    ClaudeCode.Adapter.Port.Installer.configured_version()
+    Installer.configured_version()
   end
 
   @type session :: pid() | atom() | {:via, module(), any()}
