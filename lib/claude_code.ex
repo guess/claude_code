@@ -104,6 +104,23 @@ defmodule ClaudeCode do
     :claude_code |> Application.spec(:vsn) |> to_string()
   end
 
+  @doc """
+  Returns the configured CLI version.
+
+  This is the Claude Code CLI version the SDK is configured to use.
+  It can be overridden via application config (`:cli_version`), otherwise
+  defaults to the version the SDK was tested against.
+
+  ## Examples
+
+      iex> ClaudeCode.cli_version()
+      "2.1.70"
+  """
+  @spec cli_version() :: String.t()
+  def cli_version do
+    ClaudeCode.Adapter.Port.Installer.configured_version()
+  end
+
   @type session :: pid() | atom() | {:via, module(), any()}
   @type query_response ::
           {:ok, ResultMessage.t()} | {:error, ResultMessage.t() | term()}
