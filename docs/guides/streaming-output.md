@@ -8,13 +8,13 @@ Get real-time responses from the Agent SDK as text and tool calls stream in.
 
 ---
 
-By default, the SDK yields complete `AssistantMessage` structs after Claude finishes generating each response. To receive incremental updates as text and tool calls are generated, enable partial message streaming by setting `include_partial_messages: true` in your options.
+By default, the SDK yields complete `AssistantMessage` structs after Claude finishes generating each response. To receive incremental updates as text and tool calls are generated, start the session with `include_partial_messages: true`.
 
 > **Tip:** This page covers output streaming (receiving tokens in real-time). For input modes (how you send messages), see [Streaming vs Single Mode](streaming-vs-single-mode.md). You can also [stream responses using the Agent SDK via the CLI](https://code.claude.com/docs/en/headless).
 
 ## Enable streaming output
 
-To enable streaming, set `include_partial_messages: true` in your options. This causes the SDK to yield `PartialAssistantMessage` structs containing raw API events as they arrive, in addition to the usual `AssistantMessage` and `ResultMessage`.
+To enable streaming, set `include_partial_messages: true` when calling `ClaudeCode.start_link/1`. This causes the SDK to yield `PartialAssistantMessage` structs containing raw API events as they arrive, in addition to the usual `AssistantMessage` and `ResultMessage`.
 
 > **Tip:** The `ClaudeCode.Stream` module provides convenience functions like `ClaudeCode.Stream.text_deltas/1` that handle the pattern matching shown below. See the [Convenience functions](#convenience-functions) section for the full list.
 
@@ -47,7 +47,7 @@ Or use the convenience function:
 
 ```elixir
 session
-|> ClaudeCode.stream("List the files in my project", include_partial_messages: true)
+|> ClaudeCode.stream("List the files in my project")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 ```
@@ -121,7 +121,7 @@ Or use the convenience function:
 
 ```elixir
 session
-|> ClaudeCode.stream("Explain how databases work", include_partial_messages: true)
+|> ClaudeCode.stream("Explain how databases work")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 ```
@@ -206,7 +206,7 @@ defmodule MyAppWeb.ChatLive do
 
     Task.start(fn ->
       session
-      |> ClaudeCode.stream(message, include_partial_messages: true)
+      |> ClaudeCode.stream(message)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&send(socket.root_pid, {:text_chunk, &1}))
 
@@ -230,7 +230,7 @@ For multi-subscriber broadcasting, use PubSub:
 
 ```elixir
 session
-|> ClaudeCode.stream("Generate report", include_partial_messages: true)
+|> ClaudeCode.stream("Generate report")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:#{chat_id}", {:text_chunk, &1}))
 ```
@@ -239,7 +239,7 @@ session
 
 The Elixir SDK provides high-level stream utilities that handle the pattern matching shown above.
 
-**Partial message streams** (`include_partial_messages: true`):
+**Partial message streams** (when session is started with `include_partial_messages: true`):
 
 | Function | Description |
 |:---------|:------------|

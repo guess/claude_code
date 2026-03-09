@@ -196,7 +196,8 @@ defmodule MyAppWeb.ChatLive do
 
   def mount(_params, _session, socket) do
     {:ok, session} = ClaudeCode.start_link(
-      system_prompt: "You are a helpful assistant."
+      system_prompt: "You are a helpful assistant.",
+      include_partial_messages: true
     )
 
     {:ok, assign(socket, claude: session)}
@@ -205,7 +206,7 @@ defmodule MyAppWeb.ChatLive do
   def handle_event("send", %{"message" => msg}, socket) do
     Task.start(fn ->
       socket.assigns.claude
-      |> ClaudeCode.stream(msg, include_partial_messages: true)
+      |> ClaudeCode.stream(msg)
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&send(socket.root_pid, {:chunk, &1}))
 
