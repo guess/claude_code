@@ -10,7 +10,13 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
         "rate_limit_info" => %{
           "status" => "allowed_warning",
           "resetsAt" => 1_700_000_000_000,
-          "utilization" => 0.85
+          "utilization" => 0.85,
+          "rateLimitType" => "five_hour",
+          "overageStatus" => "allowed",
+          "overageResetsAt" => 1_700_001_000_000,
+          "overageDisabledReason" => nil,
+          "isUsingOverage" => false,
+          "surpassedThreshold" => 0.8
         },
         "uuid" => "uuid-123",
         "session_id" => "session-abc"
@@ -21,6 +27,12 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
       assert message.rate_limit_info.status == :allowed_warning
       assert message.rate_limit_info.resets_at == 1_700_000_000_000
       assert message.rate_limit_info.utilization == 0.85
+      assert message.rate_limit_info.rate_limit_type == "five_hour"
+      assert message.rate_limit_info.overage_status == "allowed"
+      assert message.rate_limit_info.overage_resets_at == 1_700_001_000_000
+      assert message.rate_limit_info.overage_disabled_reason == nil
+      assert message.rate_limit_info.is_using_overage == false
+      assert message.rate_limit_info.surpassed_threshold == 0.8
       assert message.uuid == "uuid-123"
       assert message.session_id == "session-abc"
     end
@@ -36,6 +48,11 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
       assert message.rate_limit_info.status == :allowed
       assert message.rate_limit_info.resets_at == nil
       assert message.rate_limit_info.utilization == nil
+      assert message.rate_limit_info.rate_limit_type == nil
+      assert message.rate_limit_info.overage_status == nil
+      assert message.rate_limit_info.overage_resets_at == nil
+      assert message.rate_limit_info.is_using_overage == nil
+      assert message.rate_limit_info.surpassed_threshold == nil
       assert message.uuid == nil
     end
 

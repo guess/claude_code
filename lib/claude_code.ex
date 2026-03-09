@@ -85,6 +85,8 @@ defmodule ClaudeCode do
   See `ClaudeCode.Supervisor` for advanced supervision patterns.
   """
 
+  alias ClaudeCode.Adapter.Port.Installer
+  alias ClaudeCode.CLI.Control.Types
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
 
@@ -101,6 +103,23 @@ defmodule ClaudeCode do
   @spec version() :: String.t()
   def version do
     :claude_code |> Application.spec(:vsn) |> to_string()
+  end
+
+  @doc """
+  Returns the configured CLI version.
+
+  This is the Claude Code CLI version the SDK is configured to use.
+  It can be overridden via application config (`:cli_version`), otherwise
+  defaults to the version the SDK was tested against.
+
+  ## Examples
+
+      iex> ClaudeCode.cli_version()
+      "2.1.70"
+  """
+  @spec cli_version() :: String.t()
+  def cli_version do
+    Installer.configured_version()
   end
 
   @type session :: pid() | atom() | {:via, module(), any()}
@@ -349,11 +368,11 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+      :ok = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
   """
-  @spec set_model(session(), String.t()) :: {:ok, map()} | {:error, term()}
+  @spec set_model(session(), String.t()) :: :ok | {:error, term()}
   def set_model(session, model) do
-    GenServer.call(session, {:control, :set_model, %{model: model}})
+    session |> GenServer.call({:control, :set_model, %{model: model}}) |> to_ok()
   end
 
   @doc """
@@ -361,11 +380,11 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+      :ok = ClaudeCode.set_permission_mode(session, :bypass_permissions)
   """
-  @spec set_permission_mode(session(), atom()) :: {:ok, map()} | {:error, term()}
+  @spec set_permission_mode(session(), atom()) :: :ok | {:error, term()}
   def set_permission_mode(session, mode) do
-    GenServer.call(session, {:control, :set_permission_mode, %{mode: mode}})
+    session |> GenServer.call({:control, :set_permission_mode, %{mode: mode}}) |> to_ok()
   end
 
   @doc """
@@ -373,9 +392,10 @@ defmodule ClaudeCode do
 
   ## Examples
 
-      {:ok, %{"servers" => servers}} = ClaudeCode.get_mcp_status(session)
+      {:ok, servers} = ClaudeCode.get_mcp_status(session)
+      Enum.each(servers, &IO.puts(&1.name))
   """
-  @spec get_mcp_status(session()) :: {:ok, map()} | {:error, term()}
+  @spec get_mcp_status(session()) :: {:ok, [ClaudeCode.MCP.ServerStatus.t()]} | {:error, term()}
   def get_mcp_status(session) do
     GenServer.call(session, {:control, :mcp_status, %{}})
   end
@@ -387,7 +407,7 @@ defmodule ClaudeCode do
 
       {:ok, info} = ClaudeCode.get_server_info(session)
   """
-  @spec get_server_info(session()) :: {:ok, map() | nil} | {:error, term()}
+  @spec get_server_info(session()) :: {:ok, ClaudeCode.Types.initialize_response() | nil} | {:error, term()}
   def get_server_info(session) do
     GenServer.call(session, :get_server_info)
   end
@@ -411,13 +431,158 @@ defmodule ClaudeCode do
   @doc """
   Rewinds tracked files to the state at a specific user message checkpoint.
 
+  ## Options
+
+    * `:dry_run` - When `true`, preview changes without applying them (default: `false`)
+
   ## Examples
 
       {:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+
+      # Preview changes without applying
+      {:ok, preview} = ClaudeCode.rewind_files(session, "user-msg-uuid-123", dry_run: true)
   """
-  @spec rewind_files(session(), String.t()) :: {:ok, map()} | {:error, term()}
-  def rewind_files(session, user_message_id) do
-    GenServer.call(session, {:control, :rewind_files, %{user_message_id: user_message_id}})
+  @spec rewind_files(session(), String.t(), keyword()) :: {:ok, Types.rewind_files_result()} | {:error, term()}
+  def rewind_files(session, user_message_id, opts \\ []) do
+    params = maybe_put_opt(%{user_message_id: user_message_id}, :dry_run, opts)
+
+    GenServer.call(session, {:control, :rewind_files, params})
+  end
+
+  @doc """
+  Reconnects a disconnected or failed MCP server.
+
+  ## Examples
+
+      :ok = ClaudeCode.mcp_reconnect(session, "my-server")
+  """
+  @spec mcp_reconnect(session(), String.t()) :: :ok | {:error, term()}
+  def mcp_reconnect(session, server_name) do
+    session |> GenServer.call({:control, :mcp_reconnect, %{server_name: server_name}}) |> to_ok()
+  end
+
+  @doc """
+  Enables or disables an MCP server.
+
+  ## Examples
+
+      :ok = ClaudeCode.mcp_toggle(session, "my-server", false)
+  """
+  @spec mcp_toggle(session(), String.t(), boolean()) :: :ok | {:error, term()}
+  def mcp_toggle(session, server_name, enabled) do
+    session
+    |> GenServer.call({:control, :mcp_toggle, %{server_name: server_name, enabled: enabled}})
+    |> to_ok()
+  end
+
+  @doc """
+  Stops a running task.
+
+  A task_notification with status 'stopped' will be emitted.
+
+  ## Examples
+
+      :ok = ClaudeCode.stop_task(session, "task-id-123")
+  """
+  @spec stop_task(session(), String.t()) :: :ok | {:error, term()}
+  def stop_task(session, task_id) do
+    session |> GenServer.call({:control, :stop_task, %{task_id: task_id}}) |> to_ok()
+  end
+
+  @doc """
+  Replaces the set of dynamically managed MCP servers.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.set_mcp_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
+  """
+  @spec set_mcp_servers(session(), map()) :: {:ok, Types.set_servers_result()} | {:error, term()}
+  def set_mcp_servers(session, servers) do
+    GenServer.call(session, {:control, :set_mcp_servers, %{servers: servers}})
+  end
+
+  @doc """
+  Returns the list of available commands from the initialization response.
+
+  ## Examples
+
+      {:ok, commands} = ClaudeCode.supported_commands(session)
+      Enum.each(commands, &IO.puts(&1.name))
+  """
+  @spec supported_commands(session()) :: {:ok, [ClaudeCode.SlashCommand.t()]} | {:error, term()}
+  def supported_commands(session) do
+    case get_server_info(session) do
+      {:ok, %{commands: commands}} when is_list(commands) -> {:ok, commands}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns the list of available models from the initialization response.
+
+  ## Examples
+
+      {:ok, models} = ClaudeCode.supported_models(session)
+      Enum.each(models, &IO.puts(&1.display_name))
+  """
+  @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
+  def supported_models(session) do
+    case get_server_info(session) do
+      {:ok, %{models: models}} when is_list(models) -> {:ok, models}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns the list of available subagents from the initialization response.
+
+  ## Examples
+
+      {:ok, agents} = ClaudeCode.supported_agents(session)
+  """
+  @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
+  def supported_agents(session) do
+    case get_server_info(session) do
+      {:ok, %{agents: agents}} when is_list(agents) -> {:ok, agents}
+      {:ok, _} -> {:ok, []}
+      error -> error
+    end
+  end
+
+  @doc """
+  Returns account information from the initialization response.
+
+  ## Examples
+
+      {:ok, account} = ClaudeCode.account_info(session)
+      IO.puts(account.email)
+  """
+  @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
+  def account_info(session) do
+    case get_server_info(session) do
+      {:ok, %{account: account}} -> {:ok, account}
+      {:ok, _} -> {:ok, nil}
+      error -> error
+    end
+  end
+
+  @doc """
+  Sets the maximum number of thinking tokens.
+
+  Pass `nil` to clear any previously set limit.
+
+  ## Examples
+
+      :ok = ClaudeCode.set_max_thinking_tokens(session, 32_000)
+      :ok = ClaudeCode.set_max_thinking_tokens(session, nil)
+  """
+  @spec set_max_thinking_tokens(session(), non_neg_integer() | nil) :: :ok | {:error, term()}
+  def set_max_thinking_tokens(session, max_thinking_tokens) do
+    session
+    |> GenServer.call({:control, :set_max_thinking_tokens, %{max_thinking_tokens: max_thinking_tokens}})
+    |> to_ok()
   end
 
   @doc """
@@ -471,6 +636,16 @@ defmodule ClaudeCode do
   end
 
   # Private helpers
+
+  defp to_ok({:ok, _}), do: :ok
+  defp to_ok({:error, _} = error), do: error
+
+  defp maybe_put_opt(map, key, opts) do
+    case Keyword.get(opts, key) do
+      nil -> map
+      value -> Map.put(map, key, value)
+    end
+  end
 
   defp collect_result(stream) do
     stream

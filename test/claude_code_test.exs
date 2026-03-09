@@ -227,7 +227,7 @@ defmodule ClaudeCodeTest do
             SUBTYPE=$(echo "$line" | grep -o '"subtype":"[^"]*"' | head -1 | cut -d'"' -f4)
             case "$SUBTYPE" in
               mcp_status)
-                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"servers\\\":[]}}}"
+                echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"mcpServers\\\":[]}}}"
                 ;;
               set_model)
                 echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{\\\"model\\\":\\\"updated\\\"}}}"
@@ -264,17 +264,15 @@ defmodule ClaudeCodeTest do
     end
 
     test "set_model/2 sends set_model control request", %{session: session} do
-      assert {:ok, %{"model" => "updated"}} =
-               ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+      assert :ok = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
     end
 
     test "set_permission_mode/2 sends control request", %{session: session} do
-      assert {:ok, %{"mode" => "updated"}} =
-               ClaudeCode.set_permission_mode(session, :bypass_permissions)
+      assert :ok = ClaudeCode.set_permission_mode(session, :bypass_permissions)
     end
 
     test "get_mcp_status/1 sends mcp_status control request", %{session: session} do
-      assert {:ok, %{"servers" => []}} = ClaudeCode.get_mcp_status(session)
+      assert {:ok, []} = ClaudeCode.get_mcp_status(session)
     end
 
     test "get_server_info/1 returns cached server info", %{session: session} do
@@ -282,7 +280,8 @@ defmodule ClaudeCodeTest do
     end
 
     test "rewind_files/2 sends rewind_files control request", %{session: session} do
-      assert {:ok, %{"rewound" => true}} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+      assert {:ok, %{can_rewind: _}} =
+               ClaudeCode.rewind_files(session, "user-msg-uuid-123")
     end
   end
 

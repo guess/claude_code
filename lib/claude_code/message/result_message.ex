@@ -83,7 +83,8 @@ defmodule ClaudeCode.Message.ResultMessage do
     :model_usage,
     :permission_denials,
     :structured_output,
-    :errors
+    :errors,
+    :fast_mode_state
   ]
 
   @type t :: %__MODULE__{
@@ -102,7 +103,8 @@ defmodule ClaudeCode.Message.ResultMessage do
           model_usage: %{String.t() => Types.model_usage()},
           permission_denials: [Types.permission_denial()],
           structured_output: any() | nil,
-          errors: [String.t()] | nil
+          errors: [String.t()] | nil,
+          fast_mode_state: String.t() | nil
         }
 
   @doc """
@@ -148,7 +150,8 @@ defmodule ClaudeCode.Message.ResultMessage do
         model_usage: parse_model_usage(json["modelUsage"]),
         permission_denials: parse_permission_denials(json["permission_denials"]),
         structured_output: json["structured_output"],
-        errors: json["errors"]
+        errors: json["errors"],
+        fast_mode_state: json["fast_mode_state"]
       }
 
       {:ok, message}

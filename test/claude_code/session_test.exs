@@ -975,7 +975,7 @@ defmodule ClaudeCode.SessionTest do
 
       MockCLI.wait_until_ready(session)
 
-      assert {:ok, %{"version" => "1.0"}} = GenServer.call(session, :get_server_info)
+      assert {:ok, %{commands: [], agents: [], models: []}} = GenServer.call(session, :get_server_info)
 
       ClaudeCode.stop(session)
     end

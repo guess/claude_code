@@ -1147,5 +1147,44 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert "--setting-sources" in args
       assert "user,project" in args
     end
+
+    test "converts worktree true to --worktree boolean flag" do
+      opts = [worktree: true]
+      args = Command.to_cli_args(opts)
+      assert "--worktree" in args
+      refute "true" in args
+    end
+
+    test "converts worktree string to --worktree with name" do
+      opts = [worktree: "feature-branch"]
+      args = Command.to_cli_args(opts)
+      assert "--worktree" in args
+      assert "feature-branch" in args
+    end
+
+    test "does not add flag when worktree is false" do
+      opts = [worktree: false]
+      args = Command.to_cli_args(opts)
+      refute "--worktree" in args
+    end
+
+    test "converts resume_session_at to --resume-session-at" do
+      opts = [resume_session_at: "550e8400-e29b-41d4-a716-446655440000"]
+      args = Command.to_cli_args(opts)
+      assert "--resume-session-at" in args
+      assert "550e8400-e29b-41d4-a716-446655440000" in args
+    end
+
+    test "prompt_suggestions is not passed as a CLI flag" do
+      opts = [prompt_suggestions: true]
+      args = Command.to_cli_args(opts)
+      refute "--prompt-suggestions" in args
+    end
+
+    test "tool_config is not passed as a CLI flag" do
+      opts = [tool_config: %{"askUserQuestion" => %{"previewFormat" => "html"}}]
+      args = Command.to_cli_args(opts)
+      refute "--tool-config" in args
+    end
   end
 end

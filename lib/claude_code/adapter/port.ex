@@ -22,6 +22,7 @@ defmodule ClaudeCode.Adapter.Port do
   alias ClaudeCode.CLI.Input
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.MCP.Server, as: MCPServer
+  alias ClaudeCode.MCP.ServerStatus
 
   require Logger
 
@@ -203,7 +204,7 @@ defmodule ClaudeCode.Adapter.Port do
           json ->
             Port.command(port, json <> "\n")
 
-            pending = Map.put(state.pending_control_requests, request_id, from)
+            pending = Map.put(state.pending_control_requests, request_id, {subtype, from})
             schedule_control_timeout(request_id)
 
             {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
@@ -287,7 +288,7 @@ defmodule ClaudeCode.Adapter.Port do
         Adapter.notify_status(session, {:error, :initialize_timeout})
         {:noreply, %{state | pending_control_requests: remaining, status: :disconnected}}
 
-      {from, remaining} ->
+      {{_subtype, from}, remaining} ->
         GenServer.reply(from, {:error, :control_timeout})
         {:noreply, %{state | pending_control_requests: remaining}}
     end
@@ -330,7 +331,7 @@ defmodule ClaudeCode.Adapter.Port do
         {:initialize, session} ->
           Adapter.notify_status(session, {:error, error})
 
-        from ->
+        {_subtype, from} ->
           GenServer.reply(from, {:error, error})
       end
     end
@@ -352,8 +353,13 @@ defmodule ClaudeCode.Adapter.Port do
         names -> names
       end
 
+    extra_opts =
+      []
+      |> maybe_add_opt(state.session_options, :prompt_suggestions)
+      |> maybe_add_opt(state.session_options, :tool_config)
+
     {request_id, new_counter} = next_request_id(state.control_counter)
-    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names)
+    json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names, extra_opts)
     Port.command(state.port, json <> "\n")
 
     pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
@@ -526,6 +532,9 @@ defmodule ClaudeCode.Adapter.Port do
           {:control_request, msg} ->
             handle_inbound_control_request(msg, state)
 
+          {:control_cancel, msg} ->
+            handle_control_cancel(msg, state)
+
           {:message, json_msg} ->
             handle_sdk_message(json_msg, state)
         end
@@ -557,10 +566,16 @@ defmodule ClaudeCode.Adapter.Port do
 
           {{:initialize, session}, remaining} ->
             Adapter.notify_status(session, :ready)
-            %{state | pending_control_requests: remaining, server_info: response, status: :ready}
 
-          {from, remaining} ->
-            GenServer.reply(from, {:ok, response})
+            %{
+              state
+              | pending_control_requests: remaining,
+                server_info: parse_initialize_response(response),
+                status: :ready
+            }
+
+          {{subtype, from}, remaining} ->
+            GenServer.reply(from, {:ok, parse_control_result(subtype, response)})
             %{state | pending_control_requests: remaining}
         end
 
@@ -574,10 +589,27 @@ defmodule ClaudeCode.Adapter.Port do
             Adapter.notify_status(session, {:error, {:initialize_failed, error_msg}})
             %{state | pending_control_requests: remaining, status: :disconnected}
 
-          {from, remaining} ->
+          {{_subtype, from}, remaining} ->
             GenServer.reply(from, {:error, error_msg})
             %{state | pending_control_requests: remaining}
         end
+    end
+  end
+
+  defp handle_control_cancel(%{"request_id" => cancel_id}, state) do
+    Logger.debug("Received control cancel for request: #{cancel_id}")
+
+    case Map.pop(state.pending_control_requests, cancel_id) do
+      {nil, _} ->
+        state
+
+      {{:initialize, session}, remaining} ->
+        Adapter.notify_status(session, {:error, :cancelled})
+        %{state | pending_control_requests: remaining}
+
+      {{_subtype, from}, remaining} ->
+        GenServer.reply(from, {:error, :cancelled})
+        %{state | pending_control_requests: remaining}
     end
   end
 
@@ -641,6 +673,10 @@ defmodule ClaudeCode.Adapter.Port do
           jsonrpc = request["message"]
           ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
 
+        "elicitation" ->
+          Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
+          nil
+
         _ ->
           Logger.warning("Received unhandled control request: #{subtype}")
           nil
@@ -701,11 +737,62 @@ defmodule ClaudeCode.Adapter.Port do
     {Control.generate_request_id(counter), counter + 1}
   end
 
+  defp maybe_add_opt(acc, opts, key) do
+    case Keyword.get(opts, key) do
+      nil -> acc
+      value -> Keyword.put(acc, key, value)
+    end
+  end
+
+  defp parse_control_result(:mcp_status, %{"mcpServers" => servers}) when is_list(servers) do
+    Enum.map(servers, &ServerStatus.new/1)
+  end
+
+  defp parse_control_result(:set_mcp_servers, response) when is_map(response) do
+    %{
+      added: response["added"] || [],
+      removed: response["removed"] || [],
+      errors: response["errors"] || %{}
+    }
+  end
+
+  defp parse_control_result(:rewind_files, response) when is_map(response) do
+    %{
+      can_rewind: response["canRewind"],
+      error: response["error"],
+      files_changed: response["filesChanged"],
+      insertions: response["insertions"],
+      deletions: response["deletions"]
+    }
+  end
+
+  defp parse_control_result(_subtype, response), do: response
+
+  @spec parse_initialize_response(map()) :: ClaudeCode.Types.initialize_response()
+  defp parse_initialize_response(response) when is_map(response) do
+    %{
+      commands: parse_list(response["commands"], &ClaudeCode.SlashCommand.new/1),
+      agents: parse_list(response["agents"], &ClaudeCode.AgentInfo.new/1),
+      models: parse_list(response["models"], &ClaudeCode.ModelInfo.new/1),
+      account: parse_optional(response["account"], &ClaudeCode.AccountInfo.new/1),
+      output_style: response["output_style"],
+      available_output_styles: response["available_output_styles"] || [],
+      fast_mode_state: response["fast_mode_state"]
+    }
+  end
+
+  defp parse_list(nil, _parser), do: []
+  defp parse_list(list, parser) when is_list(list), do: Enum.map(list, parser)
+
+  defp parse_optional(nil, _parser), do: nil
+  defp parse_optional(map, parser) when is_map(map), do: parser.(map)
+
   defp build_control_json(:initialize, request_id, params) do
     hooks = Map.get(params, :hooks)
     agents = Map.get(params, :agents)
     sdk_mcp_servers = Map.get(params, :sdk_mcp_servers)
-    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers)
+    extra_opts = Map.get(params, :extra_opts, [])
+    Control.initialize_request(request_id, hooks, agents, sdk_mcp_servers, extra_opts)
   end
 
   defp build_control_json(:set_model, request_id, %{model: model}) do
@@ -716,12 +803,33 @@ defmodule ClaudeCode.Adapter.Port do
     Control.set_permission_mode_request(request_id, to_string(mode))
   end
 
-  defp build_control_json(:rewind_files, request_id, %{user_message_id: id}) do
-    Control.rewind_files_request(request_id, id)
+  defp build_control_json(:rewind_files, request_id, %{user_message_id: id} = params) do
+    opts = if params[:dry_run], do: [dry_run: true], else: []
+    Control.rewind_files_request(request_id, id, opts)
   end
 
   defp build_control_json(:mcp_status, request_id, _params) do
     Control.mcp_status_request(request_id)
+  end
+
+  defp build_control_json(:mcp_reconnect, request_id, %{server_name: name}) do
+    Control.mcp_reconnect_request(request_id, name)
+  end
+
+  defp build_control_json(:mcp_toggle, request_id, %{server_name: name, enabled: enabled}) do
+    Control.mcp_toggle_request(request_id, name, enabled)
+  end
+
+  defp build_control_json(:set_mcp_servers, request_id, %{servers: servers}) do
+    Control.mcp_set_servers_request(request_id, servers)
+  end
+
+  defp build_control_json(:stop_task, request_id, %{task_id: task_id}) do
+    Control.stop_task_request(request_id, task_id)
+  end
+
+  defp build_control_json(:set_max_thinking_tokens, request_id, %{max_thinking_tokens: tokens}) do
+    Control.set_max_thinking_tokens_request(request_id, tokens)
   end
 
   defp build_control_json(subtype, _request_id, _params) do
