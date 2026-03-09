@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **New control API functions** — `ClaudeCode.set_mcp_servers/2`, `ClaudeCode.mcp_reconnect/2`, `ClaudeCode.mcp_toggle/3`, `ClaudeCode.stop_task/2`, and `ClaudeCode.set_max_thinking_tokens/2` for runtime session control. ([10c4c3e], [3ff858e])
 - **Initialize response accessors** — `ClaudeCode.supported_commands/1`, `ClaudeCode.supported_models/1`, `ClaudeCode.supported_agents/1`, and `ClaudeCode.account_info/1` return typed structs from the initialization handshake. ([3ff858e])
-- **Typed response structs** — New `ClaudeCode.SlashCommand`, `ClaudeCode.ModelInfo`, `ClaudeCode.AgentInfo`, `ClaudeCode.AccountInfo`, `ClaudeCode.McpServerStatus`, `ClaudeCode.McpSetServersResult`, and `ClaudeCode.RewindFilesResult` structs for structured access to CLI responses. ([e3725a4], [90cb40e])
+- **Typed response structs** — New `ClaudeCode.SlashCommand`, `ClaudeCode.ModelInfo`, `ClaudeCode.AgentInfo`, `ClaudeCode.AccountInfo`, and `ClaudeCode.MCP.ServerStatus` structs for structured access to CLI responses. ([e3725a4], [90cb40e], [baaf9a7])
+- **`:dry_run` option for `ClaudeCode.rewind_files/2`** — Preview which files would be rewound without actually reverting them. ([9d9e8ac])
+- **`ClaudeCode.cli_version/0`** — Returns the configured CLI version the SDK is using. ([dd2a771])
 - **`ClaudeCode.EffortLevel` module** — Shared type (`t()`) and `parse/1` function for effort levels (`:low`, `:medium`, `:high`, `:max`). `ClaudeCode.ModelInfo.supported_effort_levels` now returns atoms instead of strings. ([718b0b5])
 - **Inbound control request handling** — `Adapter.Port` now handles CLI-initiated `elicitation` requests (logged, returns error) and `cancel` requests (cancels pending control requests). ([d565e20])
 - **`ClaudeCode.Message.FilesPersistedEvent`** — Added `failed` and `processed_at` fields. ([f215376])
@@ -21,9 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`ClaudeCode.get_server_info/1` returns atom-keyed map** — The initialization response now uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. Pattern matches on `%{"commands" => ...}` must be updated to `%{commands: ...}`. ([8bc23e3])
-- **`ClaudeCode.get_mcp_status/1` returns `[McpServerStatus.t()]`** — Now returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
-- **`ClaudeCode.rewind_files/2` returns `%RewindFilesResult{}`** — Now returns a typed struct instead of a raw map. ([7acdfd5])
+- **`ClaudeCode.get_mcp_status/1` returns `[MCP.ServerStatus.t()]`** — Now returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
+- **`ClaudeCode.rewind_files/2` returns a typed map** — Now returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
+- **`ClaudeCode.McpServerStatus` moved to `ClaudeCode.MCP.ServerStatus`** — Relocated to the MCP namespace. ([baaf9a7])
+- **`ClaudeCode.ModelInfo` boolean fields default to `false`** — Fields like `supports_thinking`, `supports_computer_use`, etc. now default to `false` instead of `nil`. ([f6b38e5])
 - **Upgraded bundled CLI to 2.1.70** ([ac24906])
+
+### Removed
+
+- **`ClaudeCode.McpSetServersResult` and `ClaudeCode.RewindFilesResult` structs** — Replaced with typed maps returned directly from the control protocol. ([baaf9a7])
 
 ## [0.29.0] - 2026-03-02 | CC 2.1.62
 
