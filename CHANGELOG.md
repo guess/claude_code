@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ClaudeCode.Message.RateLimitEvent`** — Added `overage_status`, `overage_resets_at`, `overage_disabled_reason`, `is_using_overage`, `surpassed_threshold`, and `rate_limit_type` fields. ([412c802])
 - **`ClaudeCode.Sandbox`** — Added `enable_weaker_network_isolation` field. ([a84106d])
 
+### Fixed
+
+- **Race condition in `ClaudeCode.Session` queued request error handling** — When the CLI adapter failed before the stream caller registered as a subscriber, the error was silently lost and the stream would halt normally instead of raising. ([d52f77d])
+
 ### Changed
 
 - **`ClaudeCode.get_server_info/1` returns atom-keyed map** — The initialization response now uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. Pattern matches on `%{"commands" => ...}` must be updated to `%{commands: ...}`. ([8bc23e3])
