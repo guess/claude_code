@@ -83,7 +83,8 @@ defmodule ClaudeCode.Adapter.Port do
 
   @impl ClaudeCode.Adapter
   def send_control_request(adapter, subtype, params) do
-    GenServer.call(adapter, {:control_request, subtype, params}, @control_timeout + 5_000)
+    timeout = Application.get_env(:claude_code, :control_timeout, @control_timeout)
+    GenServer.call(adapter, {:control_request, subtype, params}, timeout + 5_000)
   end
 
   @impl ClaudeCode.Adapter
@@ -837,6 +838,7 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   defp schedule_control_timeout(request_id) do
-    Process.send_after(self(), {:control_timeout, request_id}, @control_timeout)
+    timeout = Application.get_env(:claude_code, :control_timeout, @control_timeout)
+    Process.send_after(self(), {:control_timeout, request_id}, timeout)
   end
 end
