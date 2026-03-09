@@ -44,7 +44,8 @@ defmodule ClaudeCode.Session do
       :subscribers,
       :messages,
       :status,
-      :created_at
+      :created_at,
+      :error
     ]
   end
 
@@ -139,9 +140,13 @@ defmodule ClaudeCode.Session do
         new_requests = Map.put(state.requests, req_ref, updated_request)
         {:reply, {:message, msg}, %{state | requests: new_requests}}
 
-      %{status: :completed, messages: []} ->
+      %{status: :completed, messages: [], error: nil} ->
         new_requests = Map.delete(state.requests, req_ref)
         {:reply, :done, %{state | requests: new_requests}}
+
+      %{status: :completed, messages: [], error: reason} ->
+        new_requests = Map.delete(state.requests, req_ref)
+        {:reply, {:error, reason}, %{state | requests: new_requests}}
 
       %{status: status, messages: []} = request when status in [:active, :queued] ->
         updated_request = %{request | subscribers: [from | request.subscribers]}
@@ -391,7 +396,7 @@ defmodule ClaudeCode.Session do
 
           tracked_request ->
             notify_error(tracked_request, reason)
-            Map.put(requests, request.id, %{tracked_request | status: :completed})
+            Map.put(requests, request.id, %{tracked_request | status: :completed, error: reason})
         end
       end)
 
