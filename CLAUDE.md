@@ -98,6 +98,7 @@ Core capabilities:
 - Response content comes from the "result" message, not "assistant" messages
 - Uses `/bin/sh -c` with proper shell escaping for special characters
 - Multi-turn conversations are supported via persistent connection (no subprocess restart between queries)
+- Atom safety: use `ClaudeCode.MapUtils.safe_atomize_keys` for map keys from JSON payloads to prevent atom table exhaustion. `String.to_atom` is fine for enum values with finite sets (type, subtype, stop_reason, etc.) since the CLI is a trusted source with a bounded protocol.
 
 ## File Structure
 
