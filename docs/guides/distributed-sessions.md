@@ -171,6 +171,7 @@ defmodule MyAppWeb.ChatLive do
       cwd: "/workspaces/#{user_id}",
       model: "claude-sonnet-4-20250514",
       permission_mode: :dont_ask,
+      include_partial_messages: true,
       adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox"]}
     )
 
@@ -186,7 +187,7 @@ defmodule MyAppWeb.ChatLive do
       Task.Supervisor.start_child(MyApp.TaskSupervisor, fn ->
         try do
           socket.assigns.claude
-          |> ClaudeCode.stream(msg, include_partial_messages: true)
+          |> ClaudeCode.stream(msg)
           |> ClaudeCode.Stream.text_deltas()
           |> Enum.each(&send(lv, {:chunk, &1}))
 
@@ -409,6 +410,7 @@ All `ClaudeCode.Stream` utilities work identically over distributed sessions. Me
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
   cwd: "/workspaces/project",
+  include_partial_messages: true,
   adapter: {ClaudeCode.Adapter.Node, [node: :"claude@sandbox"]}
 )
 
@@ -420,7 +422,7 @@ session
 
 # Character-level deltas
 session
-|> ClaudeCode.stream("Write a haiku", include_partial_messages: true)
+|> ClaudeCode.stream("Write a haiku")
 |> ClaudeCode.Stream.text_deltas()
 |> Enum.each(&IO.write/1)
 
