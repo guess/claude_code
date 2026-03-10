@@ -27,7 +27,6 @@ defmodule ClaudeCode.Adapter.Port do
   require Logger
 
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
-  @control_timeout 30_000
   # should be slightly higher than the max control_timeout (120s)
   @client_control_exit_timeout 125_000
 
@@ -137,7 +136,7 @@ defmodule ClaudeCode.Adapter.Port do
       buffer: "",
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
-      control_timeout: Keyword.get(opts, :control_timeout, @control_timeout),
+      control_timeout: Keyword.get(opts, :control_timeout, 30_000),
       hook_registry: hook_registry,
       hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
