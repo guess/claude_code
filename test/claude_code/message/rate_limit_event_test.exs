@@ -9,14 +9,14 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
         "type" => "rate_limit_event",
         "rate_limit_info" => %{
           "status" => "allowed_warning",
-          "resetsAt" => 1_700_000_000_000,
+          "resets_at" => 1_700_000_000_000,
           "utilization" => 0.85,
-          "rateLimitType" => "five_hour",
-          "overageStatus" => "allowed",
-          "overageResetsAt" => 1_700_001_000_000,
-          "overageDisabledReason" => nil,
-          "isUsingOverage" => false,
-          "surpassedThreshold" => 0.8
+          "rate_limit_type" => "five_hour",
+          "overage_status" => "allowed",
+          "overage_resets_at" => 1_700_001_000_000,
+          "overage_disabled_reason" => nil,
+          "is_using_overage" => false,
+          "surpassed_threshold" => 0.8
         },
         "uuid" => "uuid-123",
         "session_id" => "session-abc"
@@ -61,7 +61,7 @@ defmodule ClaudeCode.Message.RateLimitEventTest do
         "type" => "rate_limit_event",
         "rate_limit_info" => %{
           "status" => "rejected",
-          "resetsAt" => 1_700_000_060_000
+          "resets_at" => 1_700_000_060_000
         },
         "uuid" => "uuid-456",
         "session_id" => "session-def"

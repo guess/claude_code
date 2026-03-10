@@ -38,19 +38,6 @@ defmodule ClaudeCode.Content.TextBlockTest do
     end
   end
 
-  describe "type guards" do
-    test "text_content?/1 returns true for text content" do
-      {:ok, content} = TextBlock.new(%{"type" => "text", "text" => "Hi"})
-      assert TextBlock.text_content?(content)
-    end
-
-    test "text_content?/1 returns false for non-text content" do
-      refute TextBlock.text_content?(%{type: :tool_use})
-      refute TextBlock.text_content?(nil)
-      refute TextBlock.text_content?("not content")
-    end
-  end
-
   describe "from real messages" do
     test "parses text content from assistant message fixture" do
       # Load a fixture with text content

@@ -4,7 +4,7 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
   import Mox
 
   alias ClaudeCode.Adapter.Port.Installer
-  alias ClaudeCode.SystemCmd.Mock
+  alias ClaudeCode.System.Mock
 
   setup :verify_on_exit!
 
@@ -99,12 +99,12 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
         System.cmd(command, args, opts)
       end)
 
-      Application.put_env(:claude_code, :system_cmd_module, Mock)
+      Application.put_env(:claude_code, ClaudeCode.System, Mock)
 
       try do
         assert {:ok, "2.1.37"} = Installer.version_of(mock_binary)
       after
-        Application.delete_env(:claude_code, :system_cmd_module)
+        Application.delete_env(:claude_code, ClaudeCode.System)
         File.rm_rf!(mock_dir)
       end
     end
@@ -114,12 +114,12 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
         System.cmd(command, args, opts)
       end)
 
-      Application.put_env(:claude_code, :system_cmd_module, Mock)
+      Application.put_env(:claude_code, ClaudeCode.System, Mock)
 
       try do
         assert {:error, {:execution_failed, _}} = Installer.version_of("/nonexistent/binary")
       after
-        Application.delete_env(:claude_code, :system_cmd_module)
+        Application.delete_env(:claude_code, ClaudeCode.System)
       end
     end
 
@@ -141,12 +141,12 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
         System.cmd(command, args, opts)
       end)
 
-      Application.put_env(:claude_code, :system_cmd_module, Mock)
+      Application.put_env(:claude_code, ClaudeCode.System, Mock)
 
       try do
         assert {:error, {:cli_error, _}} = Installer.version_of(mock_binary)
       after
-        Application.delete_env(:claude_code, :system_cmd_module)
+        Application.delete_env(:claude_code, ClaudeCode.System)
         File.rm_rf!(mock_dir)
       end
     end
@@ -169,7 +169,7 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
 
       original_cli_dir = Application.get_env(:claude_code, :cli_dir)
       Application.put_env(:claude_code, :cli_dir, tmp_dir)
-      Application.put_env(:claude_code, :system_cmd_module, Mock)
+      Application.put_env(:claude_code, ClaudeCode.System, Mock)
 
       on_exit(fn ->
         if original_cli_dir do
@@ -178,7 +178,7 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
           Application.delete_env(:claude_code, :cli_dir)
         end
 
-        Application.delete_env(:claude_code, :system_cmd_module)
+        Application.delete_env(:claude_code, ClaudeCode.System)
         File.rm_rf(tmp_dir)
       end)
 

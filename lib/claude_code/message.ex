@@ -10,29 +10,42 @@ defmodule ClaudeCode.Message do
 
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.AuthStatusMessage
-  alias ClaudeCode.Message.CompactBoundaryMessage
-  alias ClaudeCode.Message.ElicitationCompleteMessage
-  alias ClaudeCode.Message.FilesPersistedEvent
-  alias ClaudeCode.Message.HookProgressMessage
-  alias ClaudeCode.Message.HookResponseMessage
-  alias ClaudeCode.Message.HookStartedMessage
-  alias ClaudeCode.Message.LocalCommandOutputMessage
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.StatusMessage
   alias ClaudeCode.Message.SystemMessage
-  alias ClaudeCode.Message.TaskNotificationMessage
-  alias ClaudeCode.Message.TaskProgressMessage
-  alias ClaudeCode.Message.TaskStartedMessage
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
 
+  @type role :: :user | :assistant
+
+  @doc """
+  Parses a role string from CLI JSON into an atom.
+
+  ## Examples
+
+      iex> ClaudeCode.Message.parse_role("assistant")
+      :assistant
+
+      iex> ClaudeCode.Message.parse_role("user")
+      :user
+
+      iex> ClaudeCode.Message.parse_role("future_role")
+      "future_role"
+
+      iex> ClaudeCode.Message.parse_role(nil)
+      nil
+  """
+  @spec parse_role(String.t() | nil) :: role() | String.t() | nil
+  def parse_role("assistant"), do: :assistant
+  def parse_role("user"), do: :user
+  def parse_role(value) when is_binary(value), do: value
+  def parse_role(_), do: nil
+
   @type t ::
           SystemMessage.t()
-          | CompactBoundaryMessage.t()
           | AssistantMessage.t()
           | UserMessage.t()
           | ResultMessage.t()
@@ -42,23 +55,11 @@ defmodule ClaudeCode.Message do
           | ToolUseSummaryMessage.t()
           | AuthStatusMessage.t()
           | PromptSuggestionMessage.t()
-          | HookStartedMessage.t()
-          | HookProgressMessage.t()
-          | HookResponseMessage.t()
-          | StatusMessage.t()
-          | LocalCommandOutputMessage.t()
-          | FilesPersistedEvent.t()
-          | ElicitationCompleteMessage.t()
-          | TaskStartedMessage.t()
-          | TaskProgressMessage.t()
-          | TaskNotificationMessage.t()
 
   @doc """
   Checks if a value is any type of message.
   """
   @spec message?(any()) :: boolean()
-  def message?(%SystemMessage{}), do: true
-  def message?(%CompactBoundaryMessage{}), do: true
   def message?(%AssistantMessage{}), do: true
   def message?(%UserMessage{}), do: true
   def message?(%ResultMessage{}), do: true
@@ -68,20 +69,56 @@ defmodule ClaudeCode.Message do
   def message?(%ToolUseSummaryMessage{}), do: true
   def message?(%AuthStatusMessage{}), do: true
   def message?(%PromptSuggestionMessage{}), do: true
-  def message?(%HookStartedMessage{}), do: true
-  def message?(%HookProgressMessage{}), do: true
-  def message?(%HookResponseMessage{}), do: true
-  def message?(%StatusMessage{}), do: true
-  def message?(%LocalCommandOutputMessage{}), do: true
-  def message?(%FilesPersistedEvent{}), do: true
-  def message?(%ElicitationCompleteMessage{}), do: true
-  def message?(%TaskStartedMessage{}), do: true
-  def message?(%TaskProgressMessage{}), do: true
-  def message?(%TaskNotificationMessage{}), do: true
-  def message?(_), do: false
+  def message?(msg), do: SystemMessage.type?(msg)
+
+  @type delta :: %{
+          stop_reason: ClaudeCode.StopReason.t() | nil,
+          stop_sequence: String.t() | nil
+        }
 
   @doc """
-  Returns the type of a message.
+  Parses a message-level delta from a `message_delta` stream event.
+
+  Extracts `stop_reason` via `ClaudeCode.StopReason.parse/1` for consistency
+  with `AssistantMessage` and `ResultMessage`.
+
+  ## Examples
+
+      iex> ClaudeCode.Message.parse_delta(%{"stop_reason" => "end_turn", "stop_sequence" => nil})
+      %{stop_reason: :end_turn, stop_sequence: nil}
+
+      iex> ClaudeCode.Message.parse_delta(nil)
+      nil
+
+  """
+  @spec parse_delta(map() | nil) :: delta() | nil
+  def parse_delta(nil), do: nil
+
+  def parse_delta(delta) when is_map(delta) do
+    %{
+      stop_reason: ClaudeCode.StopReason.parse(delta["stop_reason"]),
+      stop_sequence: delta["stop_sequence"]
+    }
+  end
+
+  @message_types [
+    :system,
+    :assistant,
+    :user,
+    :result,
+    :stream_event,
+    :rate_limit_event,
+    :tool_progress,
+    :tool_use_summary,
+    :auth_status,
+    :prompt_suggestion
+  ]
+
+  @doc """
+  Returns the type atom of a message.
+
+  All `ClaudeCode.Message.SystemMessage.*` subtypes (Init, CompactBoundary, HookStarted, etc.)
+  return `:system` since they all carry `type: :system`. `SystemMessage.t()` is part of `t()`.
   """
   @spec message_type(t()) ::
           :system
@@ -94,40 +131,5 @@ defmodule ClaudeCode.Message do
           | :tool_use_summary
           | :auth_status
           | :prompt_suggestion
-  def message_type(%SystemMessage{type: type}), do: type
-  def message_type(%CompactBoundaryMessage{type: type}), do: type
-  def message_type(%AssistantMessage{type: type}), do: type
-  def message_type(%UserMessage{type: type}), do: type
-  def message_type(%ResultMessage{type: type}), do: type
-  def message_type(%PartialAssistantMessage{type: type}), do: type
-  def message_type(%RateLimitEvent{type: type}), do: type
-  def message_type(%ToolProgressMessage{type: type}), do: type
-  def message_type(%ToolUseSummaryMessage{type: type}), do: type
-  def message_type(%AuthStatusMessage{type: type}), do: type
-  def message_type(%PromptSuggestionMessage{type: type}), do: type
-  def message_type(%HookStartedMessage{type: type}), do: type
-  def message_type(%HookProgressMessage{type: type}), do: type
-  def message_type(%HookResponseMessage{type: type}), do: type
-  def message_type(%StatusMessage{type: type}), do: type
-  def message_type(%LocalCommandOutputMessage{type: type}), do: type
-  def message_type(%FilesPersistedEvent{type: type}), do: type
-  def message_type(%ElicitationCompleteMessage{type: type}), do: type
-  def message_type(%TaskStartedMessage{type: type}), do: type
-  def message_type(%TaskProgressMessage{type: type}), do: type
-  def message_type(%TaskNotificationMessage{type: type}), do: type
-
-  @doc """
-  Parses a camelCase permission mode string into an atom.
-
-  Returns `fallback` (default `nil`) for unrecognized values.
-  """
-  @spec parse_permission_mode(String.t() | nil, atom()) :: atom()
-  def parse_permission_mode(value, fallback \\ nil)
-  def parse_permission_mode("default", _fallback), do: :default
-  def parse_permission_mode("acceptEdits", _fallback), do: :accept_edits
-  def parse_permission_mode("bypassPermissions", _fallback), do: :bypass_permissions
-  def parse_permission_mode("delegate", _fallback), do: :delegate
-  def parse_permission_mode("dontAsk", _fallback), do: :dont_ask
-  def parse_permission_mode("plan", _fallback), do: :plan
-  def parse_permission_mode(_, fallback), do: fallback
+  def message_type(%{type: type}) when type in @message_types, do: type
 end

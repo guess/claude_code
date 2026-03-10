@@ -5,7 +5,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
   import Mox
 
   alias ClaudeCode.Adapter.Port.Installer
-  alias ClaudeCode.SystemCmd.Mock
+  alias ClaudeCode.System.Mock
   alias Mix.Tasks.ClaudeCode.Install
 
   setup :verify_on_exit!
@@ -66,7 +66,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
           System.cmd(command, args, opts)
         end)
 
-        Application.put_env(:claude_code, :system_cmd_module, Mock)
+        Application.put_env(:claude_code, ClaudeCode.System, Mock)
 
         output =
           capture_io(fn ->
@@ -82,7 +82,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
           Application.delete_env(:claude_code, :cli_dir)
         end
 
-        Application.delete_env(:claude_code, :system_cmd_module)
+        Application.delete_env(:claude_code, ClaudeCode.System)
         File.rm_rf(tmp_dir)
       end
     end
@@ -105,7 +105,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
         File.chmod!(bundled_path, 0o755)
 
         Application.put_env(:claude_code, :cli_dir, tmp_dir)
-        Application.put_env(:claude_code, :system_cmd_module, Mock)
+        Application.put_env(:claude_code, ClaudeCode.System, Mock)
 
         # First call: version_of checks the existing binary (returns old version)
         expect(Mock, :cmd, fn ^bundled_path, ["--version"], _opts ->
@@ -144,7 +144,7 @@ defmodule Mix.Tasks.ClaudeCode.InstallTest do
           Application.delete_env(:claude_code, :cli_dir)
         end
 
-        Application.delete_env(:claude_code, :system_cmd_module)
+        Application.delete_env(:claude_code, ClaudeCode.System)
         File.rm_rf(tmp_dir)
       end
     end

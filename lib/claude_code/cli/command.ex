@@ -188,28 +188,8 @@ defmodule ClaudeCode.CLI.Command do
     {"--fallback-model", to_string(value)}
   end
 
-  defp convert_option(:permission_mode, :default) do
-    {"--permission-mode", "default"}
-  end
-
-  defp convert_option(:permission_mode, :accept_edits) do
-    {"--permission-mode", "acceptEdits"}
-  end
-
-  defp convert_option(:permission_mode, :bypass_permissions) do
-    {"--permission-mode", "bypassPermissions"}
-  end
-
-  defp convert_option(:permission_mode, :delegate) do
-    {"--permission-mode", "delegate"}
-  end
-
-  defp convert_option(:permission_mode, :dont_ask) do
-    {"--permission-mode", "dontAsk"}
-  end
-
-  defp convert_option(:permission_mode, :plan) do
-    {"--permission-mode", "plan"}
+  defp convert_option(:permission_mode, mode) do
+    {"--permission-mode", ClaudeCode.PermissionMode.encode(mode)}
   end
 
   defp convert_option(:add_dir, value) when is_list(value) do

@@ -200,7 +200,6 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Stream
         ],
         "Types & Parsing": [
-          ClaudeCode.Types,
           ClaudeCode.Message,
           ClaudeCode.Content
         ],

@@ -11,6 +11,8 @@ defmodule ClaudeCode.SlashCommand do
     * `:argument_hint` - Hint for skill arguments (e.g., `"<file>"`)
   """
 
+  use ClaudeCode.JSONEncoder
+
   defstruct [
     :name,
     :description,
@@ -37,27 +39,11 @@ defmodule ClaudeCode.SlashCommand do
     %__MODULE__{
       name: data["name"],
       description: data["description"],
-      argument_hint: data["argumentHint"]
+      argument_hint: data["argument_hint"]
     }
   end
 
   def new(name) when is_binary(name) do
     %__MODULE__{name: name, description: nil, argument_hint: nil}
-  end
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.SlashCommand do
-  def encode(cmd, opts) do
-    cmd
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.SlashCommand do
-  def encode(cmd, encoder) do
-    cmd
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
   end
 end

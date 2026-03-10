@@ -93,6 +93,79 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       assert event.event.delta.thinking == "Let me reason through this..."
     end
 
+    test "parses a signature_delta stream event" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{"type" => "signature_delta", "signature" => "sig_abc123"}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.delta.type == :signature_delta
+      assert event.event.delta.signature == "sig_abc123"
+    end
+
+    test "parses a citations_delta stream event" do
+      citation = %{
+        "type" => "char_location",
+        "cited_text" => "some text",
+        "document_index" => 0,
+        "document_title" => "doc.pdf",
+        "start_char_index" => 0,
+        "end_char_index" => 9
+      }
+
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{"type" => "citations_delta", "citation" => citation}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.delta.type == :citations_delta
+      assert event.event.delta.citation["cited_text"] == "some text"
+    end
+
+    test "parses a compaction_delta stream event" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{"type" => "compaction_delta", "content" => "summary of compacted context"}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.delta.type == :compaction_delta
+      assert event.event.delta.content == "summary of compacted context"
+    end
+
+    test "parses a compaction_delta with null content" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{"type" => "compaction_delta", "content" => nil}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.delta.type == :compaction_delta
+      assert event.event.delta.content == nil
+    end
+
     test "parses a content_block_stop stream event" do
       json = %{
         "type" => "stream_event",
@@ -156,6 +229,37 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       assert event.event.content_block.name == "read_file"
     end
 
+    test "parses thinking content block start" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_start",
+          "index" => 0,
+          "content_block" => %{"type" => "thinking", "thinking" => "", "signature" => ""}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.content_block.type == :thinking
+    end
+
+    test "parses redacted_thinking content block start" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_start",
+          "index" => 0,
+          "content_block" => %{"type" => "redacted_thinking", "data" => "encrypted_data"}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:ok, event} = PartialAssistantMessage.new(json)
+      assert event.event.content_block.type == :redacted_thinking
+      assert event.event.content_block.data == "encrypted_data"
+    end
+
     test "parses context_management when present in event" do
       json = %{
         "type" => "stream_event",
@@ -189,6 +293,44 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
 
       assert {:ok, event} = PartialAssistantMessage.new(json)
       refute Map.has_key?(event.event, :context_management)
+    end
+
+    test "returns error for unknown delta type" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_delta",
+          "index" => 0,
+          "delta" => %{"type" => "future_delta", "data" => "something"}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:error, :unknown_event_type} = PartialAssistantMessage.new(json)
+    end
+
+    test "returns error for unknown content block type" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{
+          "type" => "content_block_start",
+          "index" => 0,
+          "content_block" => %{"type" => "future_block", "data" => "something"}
+        },
+        "session_id" => "test-123"
+      }
+
+      assert {:error, :unknown_event_type} = PartialAssistantMessage.new(json)
+    end
+
+    test "returns error for unknown event type" do
+      json = %{
+        "type" => "stream_event",
+        "event" => %{"type" => "future_event_type"},
+        "session_id" => "test-123"
+      }
+
+      assert {:error, :unknown_event_type} = PartialAssistantMessage.new(json)
     end
 
     test "returns error for missing event" do
@@ -246,60 +388,24 @@ defmodule ClaudeCode.Message.PartialAssistantMessageTest do
       refute PartialAssistantMessage.text_delta?(event)
     end
 
-    test "get_text/1 extracts text from text delta" do
+    test "extract_text/1 extracts text from text delta" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello World"})
-      assert PartialAssistantMessage.get_text(event) == "Hello World"
+      assert PartialAssistantMessage.extract_text(event) == {:ok, "Hello World"}
     end
 
-    test "get_text/1 returns nil for non-text delta" do
+    test "extract_text/1 returns :error for non-text delta" do
       event = build_event(:message_start, nil)
-      assert PartialAssistantMessage.get_text(event) == nil
+      assert PartialAssistantMessage.extract_text(event) == :error
     end
 
-    test "thinking_delta?/1 returns true for thinking deltas" do
-      event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "reasoning"})
-      assert PartialAssistantMessage.thinking_delta?(event)
-    end
-
-    test "thinking_delta?/1 returns false for non-thinking deltas" do
-      event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
-      refute PartialAssistantMessage.thinking_delta?(event)
-    end
-
-    test "get_thinking/1 extracts thinking from thinking delta" do
+    test "extract_thinking/1 extracts thinking from thinking delta" do
       event = build_event(:content_block_delta, %{type: :thinking_delta, thinking: "Let me think..."})
-      assert PartialAssistantMessage.get_thinking(event) == "Let me think..."
+      assert PartialAssistantMessage.extract_thinking(event) == {:ok, "Let me think..."}
     end
 
-    test "get_thinking/1 returns nil for non-thinking delta" do
+    test "extract_thinking/1 returns :error for non-thinking delta" do
       event = build_event(:content_block_delta, %{type: :text_delta, text: "Hello"})
-      assert PartialAssistantMessage.get_thinking(event) == nil
-    end
-
-    test "input_json_delta?/1 detects input_json_delta events" do
-      event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{}"})
-      assert PartialAssistantMessage.input_json_delta?(event)
-    end
-
-    test "get_partial_json/1 extracts partial JSON" do
-      event = build_event(:content_block_delta, %{type: :input_json_delta, partial_json: "{\"path\":"})
-      assert PartialAssistantMessage.get_partial_json(event) == "{\"path\":"
-    end
-
-    test "get_index/1 returns content block index" do
-      event = build_event(:content_block_delta, %{type: :text_delta, text: "Hi"}, 2)
-      assert PartialAssistantMessage.get_index(event) == 2
-    end
-
-    test "event_type/1 returns the event type" do
-      event = build_event(:message_start, nil)
-      assert PartialAssistantMessage.event_type(event) == :message_start
-    end
-
-    test "partial_assistant_message?/1 type guard" do
-      event = build_event(:message_start, nil)
-      assert PartialAssistantMessage.partial_assistant_message?(event)
-      refute PartialAssistantMessage.partial_assistant_message?(%{type: "other"})
+      assert PartialAssistantMessage.extract_thinking(event) == :error
     end
   end
 

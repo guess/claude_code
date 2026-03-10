@@ -13,6 +13,8 @@ defmodule ClaudeCode.AccountInfo do
     * `:api_key_source` - Source of the API key (e.g., "user", "project", "org")
   """
 
+  use ClaudeCode.JSONEncoder
+
   defstruct [
     :email,
     :organization,
@@ -43,25 +45,9 @@ defmodule ClaudeCode.AccountInfo do
     %__MODULE__{
       email: data["email"],
       organization: data["organization"],
-      subscription_type: data["subscriptionType"],
-      token_source: data["tokenSource"],
-      api_key_source: data["apiKeySource"]
+      subscription_type: data["subscription_type"],
+      token_source: data["token_source"],
+      api_key_source: data["api_key_source"]
     }
-  end
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.AccountInfo do
-  def encode(info, opts) do
-    info
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.AccountInfo do
-  def encode(info, encoder) do
-    info
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
   end
 end

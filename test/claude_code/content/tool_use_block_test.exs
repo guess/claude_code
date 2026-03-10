@@ -79,26 +79,6 @@ defmodule ClaudeCode.Content.ToolUseBlockTest do
     end
   end
 
-  describe "type guards" do
-    test "tool_use_content?/1 returns true for tool use content" do
-      {:ok, content} =
-        ToolUseBlock.new(%{
-          "type" => "tool_use",
-          "id" => "test",
-          "name" => "Test",
-          "input" => %{}
-        })
-
-      assert ToolUseBlock.tool_use_content?(content)
-    end
-
-    test "tool_use_content?/1 returns false for non-tool-use content" do
-      refute ToolUseBlock.tool_use_content?(%{type: :text})
-      refute ToolUseBlock.tool_use_content?(nil)
-      refute ToolUseBlock.tool_use_content?("not content")
-    end
-  end
-
   describe "from real messages" do
     test "parses tool use from create_file fixture" do
       fixture_path = "test/fixtures/cli_messages/create_file.jsonl"

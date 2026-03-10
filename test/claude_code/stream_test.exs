@@ -1,3 +1,8 @@
+defmodule ClaudeCode.StreamTest.CustomEvent do
+  @moduledoc false
+  defstruct [:type, :data]
+end
+
 defmodule ClaudeCode.StreamTest do
   use ExUnit.Case, async: true
 
@@ -6,6 +11,7 @@ defmodule ClaudeCode.StreamTest do
   alias ClaudeCode.Message
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Stream
+  alias ClaudeCode.StreamTest.CustomEvent
 
   describe "text_content/1" do
     test "extracts text from assistant messages" do
@@ -395,6 +401,18 @@ defmodule ClaudeCode.StreamTest do
       assert match?(%Message.AuthStatusMessage{}, hd(filtered))
     end
 
+    test "filters by :type field on user-defined structs" do
+      messages = [
+        assistant_message(),
+        %CustomEvent{type: :my_event, data: "hello"},
+        result_message()
+      ]
+
+      filtered = messages |> Stream.filter_type(:my_event) |> Enum.to_list()
+      assert length(filtered) == 1
+      assert match?(%CustomEvent{type: :my_event}, hd(filtered))
+    end
+
     test "filters prompt_suggestion type" do
       messages = [
         system_message(),
@@ -423,7 +441,7 @@ defmodule ClaudeCode.StreamTest do
 
       # Should have system, assistant, and result (not the second assistant)
       assert length(truncated) == 3
-      assert match?(%Message.SystemMessage{}, Enum.at(truncated, 0))
+      assert match?(%Message.SystemMessage.Init{}, Enum.at(truncated, 0))
       assert match?(%Message.AssistantMessage{}, Enum.at(truncated, 1))
       assert match?(%Message.ResultMessage{}, Enum.at(truncated, 2))
     end

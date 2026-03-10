@@ -459,9 +459,13 @@ defmodule ClaudeCode.Session do
     %{state | session_id: new_session_id}
   end
 
-  defp extract_session_id(%SystemMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(%AssistantMessage{session_id: sid}) when not is_nil(sid), do: sid
   defp extract_session_id(%ResultMessage{session_id: sid}) when not is_nil(sid), do: sid
+
+  defp extract_session_id(%{session_id: sid} = msg) when not is_nil(sid) do
+    if SystemMessage.type?(msg), do: sid
+  end
+
   defp extract_session_id(_), do: nil
 
   defp maybe_parse(%{__struct__: _} = struct), do: {:ok, struct}

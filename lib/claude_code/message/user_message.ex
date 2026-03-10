@@ -14,14 +14,17 @@ defmodule ClaudeCode.Message.UserMessage do
     session_id: string,
     parent_tool_use_id?: string | null,
     tool_use_result?: object | null,  # Rich metadata about the tool result
-    isSynthetic?: boolean,            # Whether this is a synthetic message
-    isReplay?: boolean                # Whether this is a replayed message
+    isSynthetic: boolean,             # Whether this is a synthetic message
+    isReplay: boolean                 # Whether this is a replayed message
   }
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
   alias ClaudeCode.CLI.Parser
-  alias ClaudeCode.Types
+  alias ClaudeCode.Content
+  alias ClaudeCode.Message
 
   @enforce_keys [:type, :message, :session_id]
   defstruct [
@@ -31,19 +34,26 @@ defmodule ClaudeCode.Message.UserMessage do
     :uuid,
     :parent_tool_use_id,
     :tool_use_result,
-    :is_synthetic,
-    :is_replay
+    is_synthetic: false,
+    is_replay: false
   ]
+
+  @type message_content :: String.t() | [Content.t()]
+
+  @type message_param :: %{
+          content: message_content(),
+          role: Message.role()
+        }
 
   @type t :: %__MODULE__{
           type: :user,
-          message: Types.message_param(),
-          session_id: Types.session_id(),
+          message: message_param(),
+          session_id: String.t(),
           uuid: String.t() | nil,
           parent_tool_use_id: String.t() | nil,
           tool_use_result: map() | String.t() | nil,
-          is_synthetic: boolean() | nil,
-          is_replay: boolean() | nil
+          is_synthetic: boolean(),
+          is_replay: boolean()
         }
 
   @doc """
@@ -70,13 +80,6 @@ defmodule ClaudeCode.Message.UserMessage do
 
   def new(_), do: {:error, :invalid_message_type}
 
-  @doc """
-  Type guard to check if a value is a UserMessage.
-  """
-  @spec user_message?(any()) :: boolean()
-  def user_message?(%__MODULE__{type: :user}), do: true
-  def user_message?(_), do: false
-
   defp parse_message(message_data, parent_json) do
     case parse_content(message_data["content"]) do
       {:ok, content} ->
@@ -90,8 +93,8 @@ defmodule ClaudeCode.Message.UserMessage do
           uuid: parent_json["uuid"],
           parent_tool_use_id: parent_json["parent_tool_use_id"],
           tool_use_result: parent_json["tool_use_result"],
-          is_synthetic: parent_json["isSynthetic"],
-          is_replay: parent_json["isReplay"]
+          is_synthetic: parent_json["is_synthetic"] || false,
+          is_replay: parent_json["is_replay"] || false
         }
 
         {:ok, message_struct}
@@ -102,22 +105,6 @@ defmodule ClaudeCode.Message.UserMessage do
   end
 
   defp parse_content(content) when is_binary(content), do: {:ok, content}
-  defp parse_content(content) when is_list(content), do: Parser.parse_all_contents(content)
+  defp parse_content(content) when is_list(content), do: Parser.parse_contents(content)
   defp parse_content(_), do: {:ok, []}
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.UserMessage do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.UserMessage do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

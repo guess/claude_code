@@ -38,7 +38,7 @@ defmodule ClaudeCode.Adapter.Port.Installer do
   3. **Use system CLI** - Set `cli_path: :global` and ensure `claude` is in PATH
   """
 
-  alias ClaudeCode.SystemCmd
+  alias ClaudeCode.System, as: SystemCmd
 
   require Logger
 

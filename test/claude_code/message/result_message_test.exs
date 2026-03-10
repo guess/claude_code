@@ -65,7 +65,7 @@ defmodule ClaudeCode.Message.ResultMessageTest do
       }
 
       assert {:ok, message} = ResultMessage.new(json)
-      assert message.subtype == :error
+      assert message.subtype == "error"
       assert message.is_error == true
       assert message.result =~ "Error"
       assert message.total_cost_usd == 0.0
@@ -97,7 +97,7 @@ defmodule ClaudeCode.Message.ResultMessageTest do
       assert msg1.subtype == :success
 
       {:ok, msg2} = ResultMessage.new(base_json.("error"))
-      assert msg2.subtype == :error
+      assert msg2.subtype == "error"
     end
 
     test "handles missing server_tool_use in usage" do
@@ -120,7 +120,7 @@ defmodule ClaudeCode.Message.ResultMessageTest do
       }
 
       assert {:ok, message} = ResultMessage.new(json)
-      assert message.usage.server_tool_use.web_search_requests == 0
+      assert message.usage.server_tool_use == nil
     end
 
     test "returns error for invalid type" do
@@ -131,19 +131,6 @@ defmodule ClaudeCode.Message.ResultMessageTest do
     test "returns error for missing required fields" do
       json = %{"type" => "result", "subtype" => "success"}
       assert {:error, {:missing_fields, _}} = ResultMessage.new(json)
-    end
-  end
-
-  describe "type guards" do
-    test "result_message?/1 returns true for result messages" do
-      {:ok, message} = ResultMessage.new(valid_result_json())
-      assert ResultMessage.result_message?(message)
-    end
-
-    test "result_message?/1 returns false for non-result messages" do
-      refute ResultMessage.result_message?(%{type: :assistant})
-      refute ResultMessage.result_message?(nil)
-      refute ResultMessage.result_message?("not a message")
     end
   end
 

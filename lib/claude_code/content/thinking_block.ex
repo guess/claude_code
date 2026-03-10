@@ -6,6 +6,8 @@ defmodule ClaudeCode.Content.ThinkingBlock do
   extended thinking is enabled on supported models.
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :thinking, :signature]
   defstruct [:type, :thinking, :signature]
 
@@ -45,31 +47,8 @@ defmodule ClaudeCode.Content.ThinkingBlock do
   end
 
   def new(_), do: {:error, :invalid_content_type}
-
-  @doc """
-  Type guard to check if a value is a Thinking content block.
-  """
-  @spec thinking_content?(any()) :: boolean()
-  def thinking_content?(%__MODULE__{type: :thinking}), do: true
-  def thinking_content?(_), do: false
 end
 
 defimpl String.Chars, for: ClaudeCode.Content.ThinkingBlock do
   def to_string(%{thinking: thinking}), do: thinking
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Content.ThinkingBlock do
-  def encode(block, opts) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Content.ThinkingBlock do
-  def encode(block, encoder) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

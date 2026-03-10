@@ -25,6 +25,8 @@ defmodule ClaudeCode.Message.ToolUseSummaryMessage do
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :summary, :session_id]
   defstruct [
     :type,
@@ -71,27 +73,4 @@ defmodule ClaudeCode.Message.ToolUseSummaryMessage do
 
   def new(%{"type" => "tool_use_summary"}), do: {:error, :missing_required_fields}
   def new(_), do: {:error, :invalid_message_type}
-
-  @doc """
-  Type guard to check if a value is a ToolUseSummaryMessage.
-  """
-  @spec tool_use_summary_message?(any()) :: boolean()
-  def tool_use_summary_message?(%__MODULE__{type: :tool_use_summary}), do: true
-  def tool_use_summary_message?(_), do: false
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.ToolUseSummaryMessage do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.ToolUseSummaryMessage do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

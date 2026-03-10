@@ -93,25 +93,6 @@ defmodule ClaudeCode.Content.ToolResultBlockTest do
     end
   end
 
-  describe "type guards" do
-    test "tool_result_content?/1 returns true for tool result content" do
-      {:ok, result} =
-        ToolResultBlock.new(%{
-          "type" => "tool_result",
-          "tool_use_id" => "test",
-          "content" => "OK"
-        })
-
-      assert ToolResultBlock.tool_result_content?(result)
-    end
-
-    test "tool_result_content?/1 returns false for non-tool-result content" do
-      refute ToolResultBlock.tool_result_content?(%{type: :text})
-      refute ToolResultBlock.tool_result_content?(nil)
-      refute ToolResultBlock.tool_result_content?("not content")
-    end
-  end
-
   describe "from real messages" do
     test "parses successful tool result from create_file fixture" do
       fixture_path = "test/fixtures/cli_messages/create_file.jsonl"

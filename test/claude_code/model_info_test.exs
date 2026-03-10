@@ -8,12 +8,12 @@ defmodule ClaudeCode.ModelInfoTest do
       info =
         ModelInfo.new(%{
           "value" => "claude-sonnet-4-6",
-          "displayName" => "Claude Sonnet 4.6",
+          "display_name" => "Claude Sonnet 4.6",
           "description" => "Fast and capable model",
-          "supportsEffort" => true,
-          "supportedEffortLevels" => ["low", "medium", "high"],
-          "supportsAdaptiveThinking" => true,
-          "supportsFastMode" => true
+          "supports_effort" => true,
+          "supported_effort_levels" => ["low", "medium", "high"],
+          "supports_adaptive_thinking" => true,
+          "supports_fast_mode" => true
         })
 
       assert info.value == "claude-sonnet-4-6"
@@ -29,7 +29,7 @@ defmodule ClaudeCode.ModelInfoTest do
       info =
         ModelInfo.new(%{
           "value" => "claude-haiku-4-5",
-          "displayName" => "Claude Haiku 4.5",
+          "display_name" => "Claude Haiku 4.5",
           "description" => "Fastest model"
         })
 
@@ -47,9 +47,9 @@ defmodule ClaudeCode.ModelInfoTest do
       info =
         ModelInfo.new(%{
           "value" => "claude-sonnet-4-6",
-          "displayName" => "Claude Sonnet 4.6",
+          "display_name" => "Claude Sonnet 4.6",
           "description" => "Fast model",
-          "supportsEffort" => true
+          "supports_effort" => true
         })
 
       decoded = info |> Jason.encode!() |> Jason.decode!()

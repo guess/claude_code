@@ -29,7 +29,7 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   @spec handle_hook_callback(map(), HookRegistry.t()) :: map()
   def handle_hook_callback(request, hook_registry) do
     callback_id = request["callback_id"]
-    input = atomize_keys(request["input"])
+    input = ClaudeCode.MapUtils.safe_atomize_keys(request["input"])
     tool_use_id = request["tool_use_id"]
 
     case HookRegistry.lookup(hook_registry, callback_id) do
@@ -61,7 +61,4 @@ defmodule ClaudeCode.Adapter.ControlHandler do
         HookResponse.to_can_use_tool_wire(result)
     end
   end
-
-  defp atomize_keys(map) when is_map(map), do: ClaudeCode.MapUtils.safe_atomize_keys(map)
-  defp atomize_keys(other), do: other
 end

@@ -97,7 +97,7 @@ AssistantMessage - complete message with all content
 ResultMessage - final result
 ```
 
-Without partial messages enabled, you receive all message types except `PartialAssistantMessage`. Common types include `SystemMessage` (session initialization), `AssistantMessage` (complete responses), `ResultMessage` (final result), and `CompactBoundaryMessage` (indicates when conversation history was compacted).
+Without partial messages enabled, you receive all message types except `PartialAssistantMessage`. Common types include `ClaudeCode.Message.SystemMessage.Init` (session initialization), `AssistantMessage` (complete responses), `ResultMessage` (final result), and `ClaudeCode.Message.SystemMessage.CompactBoundary` (indicates when conversation history was compacted).
 
 ## Stream text responses
 

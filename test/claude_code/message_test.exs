@@ -3,17 +3,18 @@ defmodule ClaudeCode.MessageTest do
 
   alias ClaudeCode.Message
   alias ClaudeCode.Message.AuthStatusMessage
-  alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
-  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.SystemMessage.CompactBoundary
+  alias ClaudeCode.Message.SystemMessage.HookStarted
+  alias ClaudeCode.Message.SystemMessage.Init
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
 
   describe "type detection" do
     test "message?/1 returns true for any message type" do
       {:ok, system} =
-        SystemMessage.new(%{
+        Init.new(%{
           "type" => "system",
           "subtype" => "init",
           "uuid" => "550e8400-e29b-41d4-a716-446655440000",
@@ -22,10 +23,10 @@ defmodule ClaudeCode.MessageTest do
           "tools" => [],
           "mcp_servers" => [],
           "model" => "claude",
-          "permissionMode" => "default",
-          "apiKeySource" => "env",
-          "slashCommands" => [],
-          "outputStyle" => "default"
+          "permission_mode" => "default",
+          "api_key_source" => "env",
+          "slash_commands" => [],
+          "output_style" => "default"
         })
 
       assert Message.message?(system)
@@ -33,7 +34,7 @@ defmodule ClaudeCode.MessageTest do
 
     test "message?/1 returns true for compact boundary messages" do
       {:ok, compact} =
-        CompactBoundaryMessage.new(%{
+        CompactBoundary.new(%{
           "type" => "system",
           "subtype" => "compact_boundary",
           "uuid" => "550e8400-e29b-41d4-a716-446655440000",
@@ -46,12 +47,14 @@ defmodule ClaudeCode.MessageTest do
 
     test "message?/1 returns true for non-init system messages" do
       {:ok, event} =
-        SystemMessage.new(%{
+        HookStarted.new(%{
           "type" => "system",
           "subtype" => "hook_started",
           "uuid" => "event-uuid",
           "session_id" => "1",
-          "hook_id" => "hook-1"
+          "hook_id" => "hook-1",
+          "hook_name" => "test",
+          "hook_event" => "SessionStart"
         })
 
       assert Message.message?(event)
@@ -95,7 +98,7 @@ defmodule ClaudeCode.MessageTest do
       {:ok, msg} =
         AuthStatusMessage.new(%{
           "type" => "auth_status",
-          "isAuthenticating" => true,
+          "is_authenticating" => true,
           "session_id" => "1"
         })
 
@@ -123,7 +126,7 @@ defmodule ClaudeCode.MessageTest do
   describe "message type helpers" do
     test "message_type/1 returns the type of system message" do
       {:ok, system} =
-        SystemMessage.new(%{
+        Init.new(%{
           "type" => "system",
           "subtype" => "init",
           "uuid" => "550e8400-e29b-41d4-a716-446655440000",
@@ -132,10 +135,10 @@ defmodule ClaudeCode.MessageTest do
           "tools" => [],
           "mcp_servers" => [],
           "model" => "claude",
-          "permissionMode" => "default",
-          "apiKeySource" => "env",
-          "slashCommands" => [],
-          "outputStyle" => "default"
+          "permission_mode" => "default",
+          "api_key_source" => "env",
+          "slash_commands" => [],
+          "output_style" => "default"
         })
 
       assert Message.message_type(system) == :system
@@ -143,7 +146,7 @@ defmodule ClaudeCode.MessageTest do
 
     test "message_type/1 returns the type of compact boundary message" do
       {:ok, compact} =
-        CompactBoundaryMessage.new(%{
+        CompactBoundary.new(%{
           "type" => "system",
           "subtype" => "compact_boundary",
           "uuid" => "550e8400-e29b-41d4-a716-446655440000",
@@ -186,7 +189,7 @@ defmodule ClaudeCode.MessageTest do
       {:ok, auth} =
         AuthStatusMessage.new(%{
           "type" => "auth_status",
-          "isAuthenticating" => false,
+          "is_authenticating" => false,
           "session_id" => "1"
         })
 

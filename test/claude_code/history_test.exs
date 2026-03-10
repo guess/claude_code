@@ -80,11 +80,10 @@ defmodule ClaudeCode.HistoryTest do
       {:ok, tmp_dir: tmp_dir}
     end
 
-    test "reads and parses a JSONL file", %{tmp_dir: tmp_dir} do
+    test "reads and parses a JSONL file into raw maps", %{tmp_dir: tmp_dir} do
       session_file = Path.join(tmp_dir, "test-session.jsonl")
 
       content = """
-      {"type":"summary","summary":"Test conversation"}
       {"type":"user","message":{"role":"user","content":"Hello"},"sessionId":"test-123","uuid":"u1"}
       {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Hi there!"}],"model":"claude-3","id":"msg_1"},"sessionId":"test-123","uuid":"a1"}
       """
@@ -92,38 +91,29 @@ defmodule ClaudeCode.HistoryTest do
       File.write!(session_file, content)
 
       assert {:ok, entries} = History.read_file(session_file)
-      assert length(entries) == 3
+      assert length(entries) == 2
 
-      # Check summary
-      assert %{"type" => "summary", "summary" => "Test conversation"} = Enum.at(entries, 0)
-
-      # Check user message (keys should be normalized)
-      user_entry = Enum.at(entries, 1)
-      assert user_entry["type"] == "user"
-      assert user_entry["session_id"] == "test-123"
-
-      # Check assistant message
-      assistant_entry = Enum.at(entries, 2)
-      assert assistant_entry["type"] == "assistant"
-      assert assistant_entry["session_id"] == "test-123"
+      assert %{"type" => "user", "session_id" => "test-123"} = Enum.at(entries, 0)
+      assert %{"type" => "assistant", "session_id" => "test-123"} = Enum.at(entries, 1)
     end
 
-    test "normalizes camelCase keys to snake_case", %{tmp_dir: tmp_dir} do
-      session_file = Path.join(tmp_dir, "camel-case.jsonl")
+    test "preserves all entry types including non-message types", %{tmp_dir: tmp_dir} do
+      session_file = Path.join(tmp_dir, "all-types.jsonl")
 
       content = """
-      {"type":"user","sessionId":"s1","parentUuid":"p1","gitBranch":"main","message":{"role":"user","content":"test"}}
+      {"type":"summary","summary":"Test conversation"}
+      {"type":"queue-operation","operation":"enqueue"}
+      {"type":"user","message":{"role":"user","content":"Hello"},"sessionId":"test-123","uuid":"u1"}
       """
 
       File.write!(session_file, content)
 
-      assert {:ok, [entry]} = History.read_file(session_file)
-      assert entry["session_id"] == "s1"
-      assert entry["parent_uuid"] == "p1"
-      assert entry["git_branch"] == "main"
-      # Original camelCase keys should not exist
-      refute Map.has_key?(entry, "sessionId")
-      refute Map.has_key?(entry, "parentUuid")
+      assert {:ok, entries} = History.read_file(session_file)
+      assert length(entries) == 3
+
+      assert %{"type" => "summary"} = Enum.at(entries, 0)
+      assert %{"type" => "queue-operation"} = Enum.at(entries, 1)
+      assert %{"type" => "user"} = Enum.at(entries, 2)
     end
 
     test "returns error for non-existent file" do
@@ -353,11 +343,12 @@ defmodule ClaudeCode.HistoryTest do
 
       File.write!(session_file, content)
 
-      # Test read_session
+      # Test read_session (returns all raw entries including queue-operation)
       assert {:ok, entries} = History.read_session("real-session", claude_dir: claude_dir)
       assert length(entries) == 3
+      assert %{"type" => "queue-operation"} = Enum.at(entries, 0)
 
-      # Test conversation
+      # Test conversation (parses and filters to user/assistant only)
       assert {:ok, messages} = History.conversation("real-session", claude_dir: claude_dir)
       assert length(messages) == 2
 

@@ -147,6 +147,46 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
       assert msg3.message.stop_reason == nil
     end
 
+    test "parses all BetaStopReason values" do
+      base_json = fn stop_reason ->
+        %{
+          "type" => "assistant",
+          "message" => %{
+            "id" => "msg_stop",
+            "type" => "message",
+            "role" => "assistant",
+            "model" => "claude",
+            "content" => [%{"type" => "text", "text" => "Done"}],
+            "stop_reason" => stop_reason,
+            "stop_sequence" => nil,
+            "usage" => %{
+              "input_tokens" => 0,
+              "cache_creation_input_tokens" => 0,
+              "cache_read_input_tokens" => 0,
+              "output_tokens" => 0,
+              "service_tier" => "standard"
+            }
+          },
+          "parent_tool_use_id" => nil,
+          "session_id" => "test"
+        }
+      end
+
+      for {str, atom} <- [
+            {"end_turn", :end_turn},
+            {"max_tokens", :max_tokens},
+            {"stop_sequence", :stop_sequence},
+            {"tool_use", :tool_use},
+            {"pause_turn", :pause_turn},
+            {"compaction", :compaction},
+            {"refusal", :refusal},
+            {"model_context_window_exceeded", :model_context_window_exceeded}
+          ] do
+        {:ok, msg} = AssistantMessage.new(base_json.(str))
+        assert msg.message.stop_reason == atom, "Expected #{inspect(atom)} for stop_reason #{inspect(str)}"
+      end
+    end
+
     test "returns error for invalid type" do
       json = %{"type" => "user"}
       assert {:error, :invalid_message_type} = AssistantMessage.new(json)
@@ -157,16 +197,18 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
       assert {:error, :missing_message} = AssistantMessage.new(json)
     end
 
-    test "returns error if content parsing fails" do
+    test "skips unknown content types in message" do
       json = %{
         "type" => "assistant",
         "message" => %{
-          "id" => "msg_bad",
+          "id" => "msg_ok",
           "type" => "message",
           "role" => "assistant",
           "model" => "claude",
           "content" => [
-            %{"type" => "invalid_type"}
+            %{"type" => "text", "text" => "Hello"},
+            %{"type" => "future_type", "data" => "something"},
+            %{"type" => "text", "text" => "World"}
           ],
           "stop_reason" => nil,
           "stop_sequence" => nil,
@@ -179,23 +221,13 @@ defmodule ClaudeCode.Message.AssistantMessageTest do
           }
         },
         "parent_tool_use_id" => nil,
-        "session_id" => "bad"
+        "session_id" => "ok"
       }
 
-      assert {:error, {:content_parse_error, _}} = AssistantMessage.new(json)
-    end
-  end
+      assert {:ok, msg} = AssistantMessage.new(json)
 
-  describe "type guards" do
-    test "assistant_message?/1 returns true for assistant messages" do
-      {:ok, message} = AssistantMessage.new(valid_assistant_json())
-      assert AssistantMessage.assistant_message?(message)
-    end
-
-    test "assistant_message?/1 returns false for non-assistant messages" do
-      refute AssistantMessage.assistant_message?(%{type: :user})
-      refute AssistantMessage.assistant_message?(nil)
-      refute AssistantMessage.assistant_message?("not a message")
+      assert [%ClaudeCode.Content.TextBlock{text: "Hello"}, %ClaudeCode.Content.TextBlock{text: "World"}] =
+               msg.message.content
     end
   end
 

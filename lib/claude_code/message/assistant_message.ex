@@ -20,8 +20,11 @@ defmodule ClaudeCode.Message.AssistantMessage do
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
   alias ClaudeCode.CLI.Parser
-  alias ClaudeCode.Types
+  alias ClaudeCode.Content
+  alias ClaudeCode.Message
 
   @enforce_keys [
     :type,
@@ -45,10 +48,23 @@ defmodule ClaudeCode.Message.AssistantMessage do
           | :server_error
           | :max_output_tokens
           | :unknown
+          | String.t()
+
+  @type message :: %{
+          id: String.t(),
+          type: :message | String.t() | nil,
+          role: Message.role(),
+          content: [Content.t()],
+          model: String.t(),
+          stop_reason: ClaudeCode.StopReason.t() | nil,
+          stop_sequence: String.t() | nil,
+          usage: ClaudeCode.Usage.t(),
+          context_management: map() | nil
+        }
 
   @type t :: %__MODULE__{
           type: :assistant,
-          message: Types.message(),
+          message: message(),
           session_id: String.t(),
           uuid: String.t() | nil,
           parent_tool_use_id: String.t() | nil,
@@ -80,88 +96,64 @@ defmodule ClaudeCode.Message.AssistantMessage do
   def new(_), do: {:error, :invalid_message_type}
 
   @doc """
-  Type guard to check if a value is an AssistantMessage.
+  Parses the inner API message (BetaMessage) from a JSON map.
+
+  Used by both `AssistantMessage.new/1` (full messages) and
+  `PartialAssistantMessage` (message_start events) since both
+  contain the same Anthropic API Message structure.
   """
-  @spec assistant_message?(any()) :: boolean()
-  def assistant_message?(%__MODULE__{type: :assistant}), do: true
-  def assistant_message?(_), do: false
-
-  defp parse_message(message_data, parent_json) do
-    case Parser.parse_all_contents(message_data["content"] || []) do
+  @spec parse_api_message(map()) :: {:ok, message()} | {:error, term()}
+  def parse_api_message(data) when is_map(data) do
+    case Parser.parse_contents(data["content"] || []) do
       {:ok, content} ->
-        message_struct = %__MODULE__{
-          type: :assistant,
-          message: %{
-            id: message_data["id"],
-            type: :message,
-            role: :assistant,
-            content: content,
-            model: message_data["model"],
-            stop_reason: parse_stop_reason(message_data["stop_reason"]),
-            stop_sequence: message_data["stop_sequence"],
-            usage: parse_usage(message_data["usage"]),
-            context_management: message_data["context_management"]
-          },
-          session_id: parent_json["session_id"],
-          uuid: parent_json["uuid"],
-          parent_tool_use_id: parent_json["parent_tool_use_id"],
-          error: parse_error(parent_json["error"])
-        }
-
-        {:ok, message_struct}
+        {:ok,
+         %{
+           id: data["id"],
+           type: parse_message_type(data["type"]),
+           role: Message.parse_role(data["role"]),
+           content: content,
+           model: data["model"],
+           stop_reason: ClaudeCode.StopReason.parse(data["stop_reason"]),
+           stop_sequence: data["stop_sequence"],
+           usage: ClaudeCode.Usage.parse(data["usage"]),
+           context_management: data["context_management"]
+         }}
 
       {:error, error} ->
         {:error, {:content_parse_error, error}}
     end
   end
 
-  defp parse_stop_reason(nil), do: nil
-  defp parse_stop_reason("end_turn"), do: :end_turn
-  defp parse_stop_reason("max_tokens"), do: :max_tokens
-  defp parse_stop_reason("stop_sequence"), do: :stop_sequence
-  defp parse_stop_reason("tool_use"), do: :tool_use
-  defp parse_stop_reason("refusal"), do: :refusal
-  defp parse_stop_reason(other) when is_binary(other), do: String.to_atom(other)
-
-  defp parse_usage(usage_data) when is_map(usage_data) do
-    %{
-      input_tokens: usage_data["input_tokens"] || 0,
-      output_tokens: usage_data["output_tokens"] || 0,
-      cache_creation_input_tokens: usage_data["cache_creation_input_tokens"],
-      cache_read_input_tokens: usage_data["cache_read_input_tokens"],
-      cache_creation: parse_cache_creation(usage_data["cache_creation"]),
-      service_tier: usage_data["service_tier"],
-      inference_geo: usage_data["inference_geo"]
-    }
+  defp parse_message(message_data, parent_json) do
+    with {:ok, message} <- parse_api_message(message_data) do
+      {:ok,
+       %__MODULE__{
+         type: :assistant,
+         message: message,
+         session_id: parent_json["session_id"],
+         uuid: parent_json["uuid"],
+         parent_tool_use_id: parent_json["parent_tool_use_id"],
+         error: parse_error(parent_json["error"])
+       }}
+    end
   end
 
-  defp parse_usage(_) do
-    %{
-      input_tokens: 0,
-      output_tokens: 0,
-      cache_creation_input_tokens: nil,
-      cache_read_input_tokens: nil,
-      cache_creation: nil,
-      service_tier: nil,
-      inference_geo: nil
-    }
-  end
+  defp parse_message_type("message"), do: :message
+  defp parse_message_type(value) when is_binary(value), do: value
+  defp parse_message_type(_), do: nil
 
-  defp parse_cache_creation(%{"ephemeral_5m_input_tokens" => t5m, "ephemeral_1h_input_tokens" => t1h}) do
-    %{ephemeral_5m_input_tokens: t5m, ephemeral_1h_input_tokens: t1h}
-  end
+  @error_mapping %{
+    "authentication_failed" => :authentication_failed,
+    "billing_error" => :billing_error,
+    "rate_limit" => :rate_limit,
+    "invalid_request" => :invalid_request,
+    "server_error" => :server_error,
+    "max_output_tokens" => :max_output_tokens,
+    "unknown" => :unknown
+  }
 
-  defp parse_cache_creation(_), do: nil
-
-  defp parse_error(nil), do: nil
-  defp parse_error("authentication_failed"), do: :authentication_failed
-  defp parse_error("billing_error"), do: :billing_error
-  defp parse_error("rate_limit"), do: :rate_limit
-  defp parse_error("invalid_request"), do: :invalid_request
-  defp parse_error("server_error"), do: :server_error
-  defp parse_error("max_output_tokens"), do: :max_output_tokens
-  defp parse_error("unknown"), do: :unknown
-  defp parse_error(other) when is_binary(other), do: String.to_atom(other)
+  defp parse_error(value) when is_binary(value), do: Map.get(@error_mapping, value, value)
+  defp parse_error(_), do: nil
 end
 
 defimpl String.Chars, for: ClaudeCode.Message.AssistantMessage do
@@ -174,20 +166,4 @@ defimpl String.Chars, for: ClaudeCode.Message.AssistantMessage do
   end
 
   def to_string(_), do: ""
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.AssistantMessage do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.AssistantMessage do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

@@ -50,6 +50,8 @@ defmodule ClaudeCode.Sandbox do
 
   """
 
+  use ClaudeCode.JSONEncoder
+
   alias ClaudeCode.Sandbox.Filesystem
   alias ClaudeCode.Sandbox.Helpers
   alias ClaudeCode.Sandbox.Network
@@ -157,20 +159,4 @@ defmodule ClaudeCode.Sandbox do
   defp wrap_network(nil), do: nil
   defp wrap_network(%Network{} = net), do: net
   defp wrap_network(opts) when is_list(opts) or is_map(opts), do: Network.new(opts)
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Sandbox do
-  def encode(sandbox, opts) do
-    sandbox
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Sandbox do
-  def encode(sandbox, encoder) do
-    sandbox
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

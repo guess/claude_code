@@ -453,7 +453,7 @@ defmodule ClaudeCode.Test do
       ClaudeCode.Test.system()
       ClaudeCode.Test.system(model: "claude-opus-4-20250514", tools: ["Read", "Edit"])
   """
-  @spec system(keyword()) :: SystemMessage.t()
+  @spec system(keyword()) :: SystemMessage.Init.t()
   def system(opts \\ []) do
     Factory.system_message(opts)
   end
@@ -474,7 +474,7 @@ defmodule ClaudeCode.Test do
 
   defp ensure_system_message(messages, session_id) do
     case messages do
-      [%SystemMessage{} | _] -> messages
+      [%SystemMessage.Init{} | _] -> messages
       _ -> [system(session_id: session_id) | messages]
     end
   end

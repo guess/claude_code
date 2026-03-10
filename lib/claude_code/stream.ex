@@ -132,9 +132,12 @@ defmodule ClaudeCode.Stream do
   """
   @spec text_deltas(Enumerable.t()) :: Enumerable.t()
   def text_deltas(stream) do
-    stream
-    |> Stream.filter(&PartialAssistantMessage.text_delta?/1)
-    |> Stream.map(&PartialAssistantMessage.get_text/1)
+    Stream.flat_map(stream, fn msg ->
+      case PartialAssistantMessage.extract_text(msg) do
+        {:ok, text} -> [text]
+        :error -> []
+      end
+    end)
   end
 
   @doc """
@@ -153,9 +156,12 @@ defmodule ClaudeCode.Stream do
   """
   @spec thinking_deltas(Enumerable.t()) :: Enumerable.t()
   def thinking_deltas(stream) do
-    stream
-    |> Stream.filter(&PartialAssistantMessage.thinking_delta?/1)
-    |> Stream.map(&PartialAssistantMessage.get_thinking/1)
+    Stream.flat_map(stream, fn msg ->
+      case PartialAssistantMessage.extract_thinking(msg) do
+        {:ok, thinking} -> [thinking]
+        :error -> []
+      end
+    end)
   end
 
   @doc """
@@ -600,26 +606,15 @@ defmodule ClaudeCode.Stream do
     message_type_matches?(message, filter)
   end
 
-  defp message_type_matches?(%Message.AssistantMessage{}, :assistant), do: true
-  defp message_type_matches?(%Message.ResultMessage{}, :result), do: true
-  defp message_type_matches?(%Message.SystemMessage{}, :system), do: true
-  defp message_type_matches?(%Message.UserMessage{}, :user), do: true
-  defp message_type_matches?(%PartialAssistantMessage{}, :stream_event), do: true
-  defp message_type_matches?(%Message.RateLimitEvent{}, :rate_limit_event), do: true
-  defp message_type_matches?(%Message.ToolProgressMessage{}, :tool_progress), do: true
-  defp message_type_matches?(%Message.ToolUseSummaryMessage{}, :tool_use_summary), do: true
-  defp message_type_matches?(%Message.AuthStatusMessage{}, :auth_status), do: true
-  defp message_type_matches?(%Message.PromptSuggestionMessage{}, :prompt_suggestion), do: true
-
   defp message_type_matches?(%Message.AssistantMessage{message: message}, :tool_use) do
     Enum.any?(message.content, &match?(%Content.ToolUseBlock{}, &1))
   end
 
-  # Match text delta partial messages when filtering for :text_delta
   defp message_type_matches?(%PartialAssistantMessage{} = event, :text_delta) do
     PartialAssistantMessage.text_delta?(event)
   end
 
+  defp message_type_matches?(%{type: type}, filter), do: type == filter
   defp message_type_matches?(_, _), do: false
 
   defp finalize_summary(acc) do

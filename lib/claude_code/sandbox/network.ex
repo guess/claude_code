@@ -24,6 +24,8 @@ defmodule ClaudeCode.Sandbox.Network do
 
   """
 
+  use ClaudeCode.JSONEncoder
+
   alias ClaudeCode.Sandbox.Helpers
 
   @fields [
@@ -79,20 +81,4 @@ defmodule ClaudeCode.Sandbox.Network do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Sandbox.Network do
-  def encode(net, opts) do
-    net
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Sandbox.Network do
-  def encode(net, encoder) do
-    net
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

@@ -39,4 +39,19 @@ defmodule ClaudeCode.CLI.Control.Types do
           insertions: non_neg_integer() | nil,
           deletions: non_neg_integer() | nil
         }
+
+  @typedoc """
+  Response from session initialization (matches `SDKControlInitializeResponse`).
+
+  Returned by `ClaudeCode.get_server_info/1`.
+  """
+  @type initialize_response :: %{
+          commands: [ClaudeCode.SlashCommand.t()],
+          agents: [ClaudeCode.AgentInfo.t()],
+          models: [ClaudeCode.ModelInfo.t()],
+          account: ClaudeCode.AccountInfo.t() | nil,
+          output_style: String.t() | nil,
+          available_output_styles: [String.t()],
+          fast_mode_state: String.t() | nil
+        }
 end

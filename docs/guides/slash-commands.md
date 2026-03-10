@@ -53,16 +53,16 @@ end
 
 ### `/compact` - Compact conversation history
 
-The `/compact` command reduces the size of your conversation history by summarizing older messages while preserving important context. When the CLI compacts the conversation, it emits a `ClaudeCode.Message.CompactBoundaryMessage` with metadata about the compaction:
+The `/compact` command reduces the size of your conversation history by summarizing older messages while preserving important context. When the CLI compacts the conversation, it emits a `ClaudeCode.Message.SystemMessage.CompactBoundary` with metadata about the compaction:
 
 ```elixir
-alias ClaudeCode.Message.CompactBoundaryMessage
+alias ClaudeCode.Message.SystemMessage.CompactBoundary
 alias ClaudeCode.Message.ResultMessage
 
 session
 |> ClaudeCode.stream("/compact")
 |> Enum.each(fn
-  %CompactBoundaryMessage{compact_metadata: metadata} ->
+  %CompactBoundary{compact_metadata: metadata} ->
     IO.puts("Compaction completed")
     IO.puts("Trigger: #{metadata.trigger}")
     IO.puts("Pre-compaction tokens: #{metadata.pre_tokens}")
@@ -75,7 +75,7 @@ session
 end)
 ```
 
-The `ClaudeCode.Message.CompactBoundaryMessage` struct contains:
+The `ClaudeCode.Message.SystemMessage.CompactBoundary` struct contains:
 
 | Field              | Type                | Description                                                                                    |
 | :----------------- | :------------------ | :--------------------------------------------------------------------------------------------- |
@@ -85,19 +85,19 @@ The `ClaudeCode.Message.CompactBoundaryMessage` struct contains:
 | `uuid`             | `String.t()`        | Unique identifier for this message                                                             |
 | `compact_metadata` | `map()`             | Contains `:trigger` (`"manual"` or `"auto"`) and `:pre_tokens` (token count before compaction) |
 
-Compaction can also happen automatically when the conversation approaches the context window limit. Automatic compaction emits the same `ClaudeCode.Message.CompactBoundaryMessage` with `trigger: "auto"`.
+Compaction can also happen automatically when the conversation approaches the context window limit. Automatic compaction emits the same `ClaudeCode.Message.SystemMessage.CompactBoundary` with `trigger: "auto"`.
 
 ### `/clear` - Clear conversation
 
-The `/clear` command starts a fresh conversation by clearing all previous history. After clearing, a new `ClaudeCode.Message.SystemMessage` with `subtype: :init` is emitted with a new session ID:
+The `/clear` command starts a fresh conversation by clearing all previous history. After clearing, a new `ClaudeCode.Message.SystemMessage.Init` is emitted with a new session ID:
 
 ```elixir
-alias ClaudeCode.Message.SystemMessage
+alias ClaudeCode.Message.SystemMessage.Init
 
 session
 |> ClaudeCode.stream("/clear")
 |> Enum.each(fn
-  %SystemMessage{subtype: :init, session_id: session_id} ->
+  %Init{session_id: session_id} ->
     IO.puts("Conversation cleared, new session started")
     IO.puts("Session ID: #{session_id}")
 

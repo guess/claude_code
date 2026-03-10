@@ -3,8 +3,39 @@ defmodule ClaudeCode.JSONEncoder do
   Shared JSON encoding logic for ClaudeCode structs.
 
   Converts structs to maps with nil values removed for clean JSON output.
-  Used by both Jason.Encoder and JSON.Encoder protocol implementations.
+
+  ## Usage
+
+  Add `use ClaudeCode.JSONEncoder` inside any struct module to automatically
+  derive both `Jason.Encoder` and `JSON.Encoder` protocol implementations:
+
+      defmodule MyStruct do
+        use ClaudeCode.JSONEncoder
+        defstruct [:field]
+      end
+
   """
+
+  @doc false
+  defmacro __using__(_opts) do
+    quote do
+      defimpl Jason.Encoder, for: __MODULE__ do
+        def encode(struct, opts) do
+          struct
+          |> ClaudeCode.JSONEncoder.to_encodable()
+          |> Jason.Encoder.Map.encode(opts)
+        end
+      end
+
+      defimpl JSON.Encoder, for: __MODULE__ do
+        def encode(struct, encoder) do
+          struct
+          |> ClaudeCode.JSONEncoder.to_encodable()
+          |> JSON.Encoder.Map.encode(encoder)
+        end
+      end
+    end
+  end
 
   @doc """
   Converts a struct to an encodable map, excluding nil values.

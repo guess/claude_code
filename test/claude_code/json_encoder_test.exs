@@ -1,18 +1,20 @@
 defmodule ClaudeCode.JSONEncoderTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.Content.ContainerUploadBlock
+  alias ClaudeCode.Content.ServerToolResultBlock
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ThinkingBlock
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.AuthStatusMessage
-  alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.SystemMessage.CompactBoundary
+  alias ClaudeCode.Message.SystemMessage.Init
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
@@ -109,6 +111,44 @@ defmodule ClaudeCode.JSONEncoderTest do
       assert json =~ "\"is_error\":false"
     end
 
+    test "encodes ServerToolResultBlock" do
+      block = %ServerToolResultBlock{
+        type: :web_search_tool_result,
+        tool_use_id: "toolu_search",
+        content: [%{"type" => "web_search_result", "url" => "https://example.com"}],
+        caller: %{"type" => "direct_caller"}
+      }
+
+      json = Jason.encode!(block)
+
+      assert json =~ ~s("type":"web_search_tool_result")
+      assert json =~ ~s("tool_use_id":"toolu_search")
+      assert json =~ ~s("caller")
+    end
+
+    test "encodes ServerToolResultBlock excluding nil caller" do
+      block = %ServerToolResultBlock{
+        type: :code_execution_tool_result,
+        tool_use_id: "toolu_exec",
+        content: %{"type" => "code_execution_result", "stdout" => "hello"}
+      }
+
+      json = Jason.encode!(block)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "code_execution_tool_result"
+      assert decoded["tool_use_id"] == "toolu_exec"
+      refute Map.has_key?(decoded, "caller")
+    end
+
+    test "encodes ContainerUploadBlock" do
+      block = %ContainerUploadBlock{type: :container_upload, file_id: "file_abc123"}
+      json = Jason.encode!(block)
+
+      assert json =~ ~s("type":"container_upload")
+      assert json =~ ~s("file_id":"file_abc123")
+    end
+
     test "encodes ToolResultBlock with nested content blocks" do
       block = %ToolResultBlock{
         type: :tool_result,
@@ -128,8 +168,8 @@ defmodule ClaudeCode.JSONEncoderTest do
   end
 
   describe "Jason.Encoder for message types" do
-    test "encodes SystemMessage" do
-      message = %SystemMessage{
+    test "encodes Init" do
+      message = %Init{
         type: :system,
         subtype: :init,
         uuid: "uuid_123",
@@ -256,8 +296,8 @@ defmodule ClaudeCode.JSONEncoderTest do
       refute Map.has_key?(decoded, "parent_tool_use_id")
     end
 
-    test "encodes CompactBoundaryMessage" do
-      message = %CompactBoundaryMessage{
+    test "encodes CompactBoundary" do
+      message = %CompactBoundary{
         type: :system,
         subtype: :compact_boundary,
         uuid: "uuid_123",
@@ -474,6 +514,27 @@ defmodule ClaudeCode.JSONEncoderTest do
 
       assert json =~ "\"tool_use_id\":"
       assert json =~ "\"is_error\":"
+    end
+
+    test "encodes ServerToolResultBlock" do
+      block = %ServerToolResultBlock{
+        type: :web_fetch_tool_result,
+        tool_use_id: "toolu_fetch",
+        content: %{"type" => "web_fetch", "url" => "https://example.com"}
+      }
+
+      json = JSON.encode!(block)
+
+      assert json =~ "\"type\":"
+      assert json =~ "\"tool_use_id\":"
+    end
+
+    test "encodes ContainerUploadBlock" do
+      block = %ContainerUploadBlock{type: :container_upload, file_id: "file_123"}
+      json = JSON.encode!(block)
+
+      assert json =~ "\"type\":"
+      assert json =~ "\"file_id\":"
     end
 
     test "encodes AssistantMessage" do
