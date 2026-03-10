@@ -30,6 +30,8 @@ defmodule ClaudeCode.Message.ToolProgressMessage do
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :tool_use_id, :tool_name, :session_id]
   defstruct [
     :type,
@@ -89,27 +91,4 @@ defmodule ClaudeCode.Message.ToolProgressMessage do
 
   def new(%{"type" => "tool_progress"}), do: {:error, :missing_required_fields}
   def new(_), do: {:error, :invalid_message_type}
-
-  @doc """
-  Type guard to check if a value is a ToolProgressMessage.
-  """
-  @spec tool_progress_message?(any()) :: boolean()
-  def tool_progress_message?(%__MODULE__{type: :tool_progress}), do: true
-  def tool_progress_message?(_), do: false
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.ToolProgressMessage do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.ToolProgressMessage do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

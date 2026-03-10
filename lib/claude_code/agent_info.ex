@@ -12,6 +12,8 @@ defmodule ClaudeCode.AgentInfo do
     * `:model` - Model alias this agent uses (nil if it inherits the parent's model)
   """
 
+  use ClaudeCode.JSONEncoder
+
   defstruct [
     :name,
     :description,
@@ -40,21 +42,5 @@ defmodule ClaudeCode.AgentInfo do
       description: data["description"],
       model: data["model"]
     }
-  end
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.AgentInfo do
-  def encode(info, opts) do
-    info
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.AgentInfo do
-  def encode(info, encoder) do
-    info
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
   end
 end

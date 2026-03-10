@@ -407,7 +407,7 @@ defmodule ClaudeCode do
 
       {:ok, info} = ClaudeCode.get_server_info(session)
   """
-  @spec get_server_info(session()) :: {:ok, ClaudeCode.Types.initialize_response() | nil} | {:error, term()}
+  @spec get_server_info(session()) :: {:ok, ClaudeCode.CLI.Control.Types.initialize_response() | nil} | {:error, term()}
   def get_server_info(session) do
     GenServer.call(session, :get_server_info)
   end

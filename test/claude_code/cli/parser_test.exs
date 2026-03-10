@@ -2,20 +2,35 @@ defmodule ClaudeCode.CLI.ParserTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.CLI.Parser
+  alias ClaudeCode.Content.CompactionBlock
+  alias ClaudeCode.Content.ContainerUploadBlock
+  alias ClaudeCode.Content.MCPToolResultBlock
+  alias ClaudeCode.Content.MCPToolUseBlock
+  alias ClaudeCode.Content.RedactedThinkingBlock
+  alias ClaudeCode.Content.ServerToolResultBlock
+  alias ClaudeCode.Content.ServerToolUseBlock
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ThinkingBlock
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.AuthStatusMessage
-  alias ClaudeCode.Message.CompactBoundaryMessage
-  alias ClaudeCode.Message.HookResponseMessage
-  alias ClaudeCode.Message.HookStartedMessage
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.SystemMessage.CompactBoundary
+  alias ClaudeCode.Message.SystemMessage.ElicitationComplete
+  alias ClaudeCode.Message.SystemMessage.FilesPersisted
+  alias ClaudeCode.Message.SystemMessage.HookProgress
+  alias ClaudeCode.Message.SystemMessage.HookResponse
+  alias ClaudeCode.Message.SystemMessage.HookStarted
+  alias ClaudeCode.Message.SystemMessage.Init
+  alias ClaudeCode.Message.SystemMessage.LocalCommandOutput
+  alias ClaudeCode.Message.SystemMessage.Status
+  alias ClaudeCode.Message.SystemMessage.TaskNotification
+  alias ClaudeCode.Message.SystemMessage.TaskProgress
+  alias ClaudeCode.Message.SystemMessage.TaskStarted
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
@@ -35,13 +50,13 @@ defmodule ClaudeCode.CLI.ParserTest do
         "tools" => [],
         "mcp_servers" => [],
         "model" => "claude",
-        "permissionMode" => "default",
-        "apiKeySource" => "env",
-        "slashCommands" => [],
-        "outputStyle" => "default"
+        "permission_mode" => "default",
+        "api_key_source" => "env",
+        "slash_commands" => [],
+        "output_style" => "default"
       }
 
-      assert {:ok, %SystemMessage{type: :system, subtype: :init}} = Parser.parse_message(data)
+      assert {:ok, %Init{type: :system, subtype: :init}} = Parser.parse_message(data)
     end
 
     test "parses system compact_boundary messages" do
@@ -56,7 +71,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         }
       }
 
-      assert {:ok, %CompactBoundaryMessage{subtype: :compact_boundary}} = Parser.parse_message(data)
+      assert {:ok, %CompactBoundary{subtype: :compact_boundary}} = Parser.parse_message(data)
     end
 
     test "parses assistant messages with uuid" do
@@ -153,18 +168,18 @@ defmodule ClaudeCode.CLI.ParserTest do
         "tool_use_result" => %{
           "type" => "text",
           "file" => %{
-            "filePath" => "/path/to/file.ex",
+            "file_path" => "/path/to/file.ex",
             "content" => "defmodule Foo do\nend\n",
-            "numLines" => 2,
-            "startLine" => 1,
-            "totalLines" => 2
+            "num_lines" => 2,
+            "start_line" => 1,
+            "total_lines" => 2
           }
         }
       }
 
       assert {:ok, %UserMessage{tool_use_result: tool_use_result}} = Parser.parse_message(data)
       assert tool_use_result["type"] == "text"
-      assert tool_use_result["file"]["filePath"] == "/path/to/file.ex"
+      assert tool_use_result["file"]["file_path"] == "/path/to/file.ex"
     end
 
     test "parses user messages without tool_use_result" do
@@ -249,7 +264,7 @@ defmodule ClaudeCode.CLI.ParserTest do
           "output_tokens" => 5,
           "server_tool_use" => %{"web_search_requests" => 0}
         },
-        "modelUsage" => %{
+        "model_usage" => %{
           "claude-3-sonnet" => %{
             "input_tokens" => 10,
             "output_tokens" => 5,
@@ -332,7 +347,7 @@ defmodule ClaudeCode.CLI.ParserTest do
       }
 
       assert {:ok,
-              %HookStartedMessage{
+              %HookStarted{
                 type: :system,
                 subtype: :hook_started,
                 session_id: "session-1",
@@ -360,7 +375,7 @@ defmodule ClaudeCode.CLI.ParserTest do
       }
 
       assert {:ok,
-              %HookResponseMessage{
+              %HookResponse{
                 subtype: :hook_response,
                 hook_id: "abc-123",
                 exit_code: 0,
@@ -368,7 +383,7 @@ defmodule ClaudeCode.CLI.ParserTest do
               }} = Parser.parse_message(data)
     end
 
-    test "parses unknown system subtypes as SystemMessage" do
+    test "returns error for unknown system subtypes" do
       data = %{
         "type" => "system",
         "subtype" => "some_future_subtype",
@@ -377,7 +392,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "custom_field" => "custom_value"
       }
 
-      assert {:ok, %SystemMessage{subtype: :some_future_subtype}} = Parser.parse_message(data)
+      assert {:error, {:unknown_system_subtype, "some_future_subtype"}} = Parser.parse_message(data)
     end
 
     test "parses rate_limit_event messages" do
@@ -385,7 +400,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "type" => "rate_limit_event",
         "rate_limit_info" => %{
           "status" => "allowed_warning",
-          "resetsAt" => 1_700_000_000_000,
+          "resets_at" => 1_700_000_000_000,
           "utilization" => 0.85
         },
         "uuid" => "uuid-rl",
@@ -425,7 +440,7 @@ defmodule ClaudeCode.CLI.ParserTest do
     test "parses auth_status messages" do
       data = %{
         "type" => "auth_status",
-        "isAuthenticating" => true,
+        "is_authenticating" => true,
         "output" => ["Authenticating..."],
         "uuid" => "uuid-auth",
         "session_id" => "session-1"
@@ -451,12 +466,12 @@ defmodule ClaudeCode.CLI.ParserTest do
         "type" => "system",
         "subtype" => "status",
         "status" => "thinking",
-        "permissionMode" => "default",
+        "permission_mode" => "default",
         "uuid" => "uuid-1",
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.StatusMessage{status: "thinking", permission_mode: :default}} =
+      assert {:ok, %Status{status: "thinking", permission_mode: :default}} =
                Parser.parse_message(data)
     end
 
@@ -469,7 +484,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.LocalCommandOutputMessage{content: "Cost: $0.50"}} = Parser.parse_message(data)
+      assert {:ok, %LocalCommandOutput{content: "Cost: $0.50"}} = Parser.parse_message(data)
     end
 
     test "parses files_persisted system messages" do
@@ -481,7 +496,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.FilesPersistedEvent{files: [%{filename: "doc.txt", file_id: "file_abc"}]}} =
+      assert {:ok, %FilesPersisted{files: [%{filename: "doc.txt", file_id: "file_abc"}]}} =
                Parser.parse_message(data)
     end
 
@@ -495,8 +510,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok,
-              %ClaudeCode.Message.ElicitationCompleteMessage{mcp_server_name: "my-server", elicitation_id: "elicit-123"}} =
+      assert {:ok, %ElicitationComplete{mcp_server_name: "my-server", elicitation_id: "elicit-123"}} =
                Parser.parse_message(data)
     end
 
@@ -510,7 +524,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.TaskStartedMessage{task_id: "task-1", description: "Running tests"}} =
+      assert {:ok, %TaskStarted{task_id: "task-1", description: "Running tests"}} =
                Parser.parse_message(data)
     end
 
@@ -525,7 +539,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.TaskProgressMessage{task_id: "task-1"}} = Parser.parse_message(data)
+      assert {:ok, %TaskProgress{task_id: "task-1"}} = Parser.parse_message(data)
     end
 
     test "parses task_notification system messages" do
@@ -540,7 +554,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.TaskNotificationMessage{task_id: "task-1", status: :completed}} =
+      assert {:ok, %TaskNotification{task_id: "task-1", status: :completed}} =
                Parser.parse_message(data)
     end
 
@@ -558,7 +572,7 @@ defmodule ClaudeCode.CLI.ParserTest do
         "session_id" => "session-1"
       }
 
-      assert {:ok, %ClaudeCode.Message.HookProgressMessage{hook_id: "hook-1"}} = Parser.parse_message(data)
+      assert {:ok, %HookProgress{hook_id: "hook-1"}} = Parser.parse_message(data)
     end
 
     test "returns error for unknown message type" do
@@ -575,10 +589,10 @@ defmodule ClaudeCode.CLI.ParserTest do
   end
 
   # ============================================================================
-  # parse_all_messages/1
+  # parse_messages/1
   # ============================================================================
 
-  describe "parse_all_messages/1" do
+  describe "parse_messages/1" do
     test "parses a list of messages including compact boundary" do
       data = [
         %{
@@ -590,10 +604,10 @@ defmodule ClaudeCode.CLI.ParserTest do
           "tools" => [],
           "mcp_servers" => [],
           "model" => "claude",
-          "permissionMode" => "default",
-          "apiKeySource" => "env",
-          "slashCommands" => [],
-          "outputStyle" => "default"
+          "permission_mode" => "default",
+          "api_key_source" => "env",
+          "slash_commands" => [],
+          "output_style" => "default"
         },
         %{
           "type" => "assistant",
@@ -645,21 +659,53 @@ defmodule ClaudeCode.CLI.ParserTest do
         }
       ]
 
-      assert {:ok, [%SystemMessage{}, %AssistantMessage{}, %CompactBoundaryMessage{}, %ResultMessage{}]} =
-               Parser.parse_all_messages(data)
+      assert {:ok, [%Init{}, %AssistantMessage{}, %CompactBoundary{}, %ResultMessage{}]} =
+               Parser.parse_messages(data)
     end
 
-    test "returns error with index on first failure" do
+    test "skips unknown message types" do
       data = [
-        %{"type" => "system", "subtype" => "init"},
-        %{"type" => "unknown"}
+        %{
+          "type" => "system",
+          "subtype" => "init",
+          "uuid" => "550e8400-e29b-41d4-a716-446655440000",
+          "cwd" => "/test",
+          "session_id" => "123",
+          "tools" => [],
+          "mcp_servers" => [],
+          "model" => "claude",
+          "permission_mode" => "default",
+          "api_key_source" => "env",
+          "slash_commands" => [],
+          "output_style" => "default"
+        },
+        %{"type" => "future_type", "data" => "something"},
+        %{
+          "type" => "result",
+          "subtype" => "success",
+          "uuid" => "result-uuid",
+          "is_error" => false,
+          "duration_ms" => 100,
+          "duration_api_ms" => 90,
+          "num_turns" => 1,
+          "result" => "Done",
+          "session_id" => "123",
+          "total_cost_usd" => 0.001,
+          "usage" => %{
+            "input_tokens" => 1,
+            "cache_creation_input_tokens" => 0,
+            "cache_read_input_tokens" => 0,
+            "output_tokens" => 1,
+            "server_tool_use" => %{"web_search_requests" => 0}
+          }
+        }
       ]
 
-      assert {:error, {:parse_error, 0, _}} = Parser.parse_all_messages(data)
+      assert {:ok, [%Init{}, %ResultMessage{}]} = Parser.parse_messages(data)
     end
 
     test "handles empty list" do
-      assert {:ok, []} = Parser.parse_all_messages([])
+      assert {:ok, []} = Parser.parse_messages([])
     end
   end
 
@@ -678,7 +724,7 @@ defmodule ClaudeCode.CLI.ParserTest do
 
       assert {:ok, messages} = Parser.parse_stream(stream)
       assert length(messages) == 4
-      assert [%SystemMessage{}, %AssistantMessage{}, %CompactBoundaryMessage{}, %ResultMessage{}] = messages
+      assert [%Init{}, %AssistantMessage{}, %CompactBoundary{}, %ResultMessage{}] = messages
     end
 
     test "handles empty lines in stream" do
@@ -701,12 +747,15 @@ defmodule ClaudeCode.CLI.ParserTest do
       assert {:error, {:json_decode_error, 1, _}} = Parser.parse_stream(stream)
     end
 
-    test "returns error for invalid message in stream" do
+    test "skips unknown message types in stream" do
       stream = """
-      {"type":"unknown"}
+      {"type":"system","subtype":"init","uuid":"550e8400-e29b-41d4-a716-446655440000","cwd":"/test","session_id":"123","tools":[],"mcp_servers":[],"model":"claude","permissionMode":"default","apiKeySource":"env","slashCommands":[],"outputStyle":"default"}
+      {"type":"future_type","data":"something"}
+      {"type":"result","subtype":"success","uuid":"result-uuid","is_error":false,"duration_ms":100,"duration_api_ms":90,"num_turns":1,"result":"Done","session_id":"123","total_cost_usd":0.001,"usage":{"input_tokens":1,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1,"server_tool_use":{"web_search_requests":0}}}
       """
 
-      assert {:error, {:parse_error, 0, {:unknown_message_type, "unknown"}}} = Parser.parse_stream(stream)
+      assert {:ok, messages} = Parser.parse_stream(stream)
+      assert [%Init{}, %ResultMessage{}] = messages
     end
   end
 
@@ -722,7 +771,7 @@ defmodule ClaudeCode.CLI.ParserTest do
       assert {:ok, messages} = Parser.parse_stream(content)
       assert length(messages) == 3
 
-      assert [%SystemMessage{}, %AssistantMessage{}, %ResultMessage{}] = messages
+      assert [%Init{}, %AssistantMessage{}, %ResultMessage{}] = messages
 
       # Verify session IDs match
       [system, assistant, result] = messages
@@ -786,6 +835,79 @@ defmodule ClaudeCode.CLI.ParserTest do
       assert {:ok, %ToolResultBlock{tool_use_id: "toolu_123"}} = Parser.parse_content(data)
     end
 
+    test "parses redacted_thinking content blocks" do
+      data = %{"type" => "redacted_thinking", "data" => "encrypted_data_abc"}
+
+      assert {:ok, %RedactedThinkingBlock{data: "encrypted_data_abc"}} = Parser.parse_content(data)
+    end
+
+    test "parses server_tool_use content blocks" do
+      data = %{
+        "type" => "server_tool_use",
+        "id" => "srvtoolu_123",
+        "name" => "web_search",
+        "input" => %{"query" => "elixir"}
+      }
+
+      assert {:ok, %ServerToolUseBlock{id: "srvtoolu_123", name: :web_search}} = Parser.parse_content(data)
+    end
+
+    test "parses mcp_tool_use content blocks" do
+      data = %{
+        "type" => "mcp_tool_use",
+        "id" => "mcptoolu_123",
+        "name" => "read_file",
+        "server_name" => "filesystem",
+        "input" => %{"path" => "/tmp/test"}
+      }
+
+      assert {:ok, %MCPToolUseBlock{name: "read_file", server_name: "filesystem"}} = Parser.parse_content(data)
+    end
+
+    test "parses mcp_tool_result content blocks" do
+      data = %{
+        "type" => "mcp_tool_result",
+        "tool_use_id" => "mcptoolu_123",
+        "content" => "file contents",
+        "is_error" => false
+      }
+
+      assert {:ok, %MCPToolResultBlock{tool_use_id: "mcptoolu_123", is_error: false}} = Parser.parse_content(data)
+    end
+
+    test "parses compaction content blocks" do
+      data = %{"type" => "compaction", "content" => "Summary of prior context."}
+
+      assert {:ok, %CompactionBlock{content: "Summary of prior context."}} = Parser.parse_content(data)
+    end
+
+    test "parses compaction content blocks with nil content" do
+      data = %{"type" => "compaction", "content" => nil}
+
+      assert {:ok, %CompactionBlock{content: nil}} = Parser.parse_content(data)
+    end
+
+    test "parses server tool result blocks via unified ServerToolResultBlock" do
+      for type <- ~w(web_search_tool_result web_fetch_tool_result code_execution_tool_result
+                     bash_code_execution_tool_result text_editor_code_execution_tool_result
+                     tool_search_tool_result) do
+        data = %{
+          "type" => type,
+          "tool_use_id" => "toolu_#{type}",
+          "content" => [%{"type" => "result"}]
+        }
+
+        assert {:ok, %ServerToolResultBlock{tool_use_id: "toolu_" <> ^type}} =
+                 Parser.parse_content(data)
+      end
+    end
+
+    test "parses container_upload content blocks" do
+      data = %{"type" => "container_upload", "file_id" => "file_abc123"}
+
+      assert {:ok, %ContainerUploadBlock{file_id: "file_abc123"}} = Parser.parse_content(data)
+    end
+
     test "returns error for unknown content type" do
       assert {:error, {:unknown_content_type, "unknown"}} = Parser.parse_content(%{"type" => "unknown"})
     end
@@ -796,10 +918,10 @@ defmodule ClaudeCode.CLI.ParserTest do
   end
 
   # ============================================================================
-  # parse_all_contents/1
+  # parse_contents/1
   # ============================================================================
 
-  describe "parse_all_contents/1" do
+  describe "parse_contents/1" do
     test "parses a list of content blocks" do
       data = [
         %{"type" => "text", "text" => "I'll help you."},
@@ -807,21 +929,72 @@ defmodule ClaudeCode.CLI.ParserTest do
         %{"type" => "text", "text" => "Done!"}
       ]
 
-      assert {:ok, [%TextBlock{}, %ToolUseBlock{}, %TextBlock{}]} = Parser.parse_all_contents(data)
+      assert {:ok, [%TextBlock{}, %ToolUseBlock{}, %TextBlock{}]} = Parser.parse_contents(data)
     end
 
-    test "returns error with index on first failure" do
+    test "skips unknown content types" do
       data = [
         %{"type" => "text", "text" => "OK"},
-        %{"type" => "invalid"},
+        %{"type" => "future_block", "data" => "something"},
         %{"type" => "text", "text" => "More"}
       ]
 
-      assert {:error, {:parse_error, 1, {:unknown_content_type, "invalid"}}} = Parser.parse_all_contents(data)
+      assert {:ok, [%TextBlock{text: "OK"}, %TextBlock{text: "More"}]} = Parser.parse_contents(data)
     end
 
     test "handles empty list" do
-      assert {:ok, []} = Parser.parse_all_contents([])
+      assert {:ok, []} = Parser.parse_contents([])
+    end
+  end
+
+  # ============================================================================
+  # normalize_keys/1
+  # ============================================================================
+
+  describe "normalize_keys/1" do
+    test "converts camelCase keys to snake_case" do
+      assert %{"session_id" => "123", "type" => "user"} =
+               Parser.normalize_keys(%{"sessionId" => "123", "type" => "user"})
+    end
+
+    test "normalizes nested maps recursively" do
+      input = %{"outerKey" => %{"innerKey" => "value"}}
+      assert %{"outer_key" => %{"inner_key" => "value"}} = Parser.normalize_keys(input)
+    end
+
+    test "normalizes maps inside lists" do
+      input = [%{"inputTokens" => 5}, %{"outputTokens" => 10}]
+      assert [%{"input_tokens" => 5}, %{"output_tokens" => 10}] = Parser.normalize_keys(input)
+    end
+
+    test "preserves tool input parameter names (opaque keys)" do
+      input = %{
+        "name" => "Bash",
+        "input" => %{"commandLine" => "echo hello", "userFlag" => true}
+      }
+
+      result = Parser.normalize_keys(input)
+
+      assert result["name"] == "Bash"
+      # input map contents must NOT be normalized
+      assert result["input"] == %{"commandLine" => "echo hello", "userFlag" => true}
+    end
+
+    test "preserves tool_input parameter names (opaque keys)" do
+      input = %{
+        "toolInput" => %{"myParam" => "value"}
+      }
+
+      result = Parser.normalize_keys(input)
+
+      # key itself is normalized, but contents are not
+      assert result["tool_input"] == %{"myParam" => "value"}
+    end
+
+    test "passes through non-map non-list values unchanged" do
+      assert Parser.normalize_keys("hello") == "hello"
+      assert Parser.normalize_keys(42) == 42
+      assert Parser.normalize_keys(nil) == nil
     end
   end
 end

@@ -5,4 +5,4 @@ ExUnit.start(exclude: [:distributed])
 Supervisor.start_link([ClaudeCode.Test], strategy: :one_for_one)
 
 # Define Mox mocks
-Mox.defmock(ClaudeCode.SystemCmd.Mock, for: ClaudeCode.SystemCmd)
+Mox.defmock(ClaudeCode.System.Mock, for: ClaudeCode.System)

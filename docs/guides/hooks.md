@@ -132,7 +132,7 @@ Every hook callback receives two arguments:
 
 Both modules implementing `ClaudeCode.Hook` and anonymous functions receive the same arguments via `call/2`.
 
-> **Key normalization:** Known hook fields are normalized to atom keys (for ergonomic pattern matching). Unknown or future fields are preserved as string keys to avoid unbounded runtime atom creation.
+> **Key normalization:** Hook input fields are converted to atom keys using `String.to_existing_atom/1`. Only atoms that already exist at runtime are converted — unknown or future fields are preserved as string keys, avoiding unbounded atom creation.
 
 ### Input data
 

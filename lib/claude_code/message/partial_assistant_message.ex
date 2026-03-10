@@ -12,7 +12,7 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
 
   - `message_start` - Signals the beginning of a new message
   - `content_block_start` - Signals the beginning of a new content block (text or tool_use)
-  - `content_block_delta` - Contains incremental content updates (text chunks, tool input JSON)
+  - `content_block_delta` - Contains incremental content updates (text chunks, tool input JSON, signatures, citations)
   - `content_block_stop` - Signals the end of a content block
   - `message_delta` - Contains message-level updates (stop_reason, usage)
   - `message_stop` - Signals the end of the message
@@ -40,6 +40,14 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
+  alias ClaudeCode.CLI.Parser
+  alias ClaudeCode.Content
+  alias ClaudeCode.Message
+  alias ClaudeCode.Message.AssistantMessage
+  alias ClaudeCode.Usage
+
   @enforce_keys [:type, :event, :session_id]
   defstruct [
     :type,
@@ -57,19 +65,13 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
           | :message_delta
           | :message_stop
 
-  @type delta ::
-          %{type: :text_delta, text: String.t()}
-          | %{type: :input_json_delta, partial_json: String.t()}
-          | %{type: :thinking_delta, thinking: String.t()}
-          | map()
-
   @type event ::
           %{type: event_type()}
-          | %{type: :content_block_start, index: non_neg_integer(), content_block: map()}
-          | %{type: :content_block_delta, index: non_neg_integer(), delta: delta()}
+          | %{type: :content_block_start, index: non_neg_integer(), content_block: Content.t()}
+          | %{type: :content_block_delta, index: non_neg_integer(), delta: Content.delta()}
           | %{type: :content_block_stop, index: non_neg_integer()}
-          | %{type: :message_start, message: map()}
-          | %{type: :message_delta, delta: map(), usage: map()}
+          | %{type: :message_start, message: AssistantMessage.message()}
+          | %{type: :message_delta, delta: Message.delta() | nil, usage: Usage.t()}
           | %{type: :message_stop}
 
   @type t :: %__MODULE__{
@@ -96,14 +98,20 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   def new(%{"type" => "stream_event"} = json) do
     case json do
       %{"event" => event_data, "session_id" => session_id} ->
-        {:ok,
-         %__MODULE__{
-           type: :stream_event,
-           event: parse_event(event_data),
-           session_id: session_id,
-           parent_tool_use_id: json["parent_tool_use_id"],
-           uuid: json["uuid"]
-         }}
+        case parse_event(event_data) do
+          nil ->
+            {:error, :unknown_event_type}
+
+          event ->
+            {:ok,
+             %__MODULE__{
+               type: :stream_event,
+               event: event,
+               session_id: session_id,
+               parent_tool_use_id: json["parent_tool_use_id"],
+               uuid: json["uuid"]
+             }}
+        end
 
       %{"event" => _event_data} ->
         {:error, :missing_session_id}
@@ -116,182 +124,92 @@ defmodule ClaudeCode.Message.PartialAssistantMessage do
   def new(_), do: {:error, :invalid_message_type}
 
   @doc """
-  Type guard to check if a value is a PartialAssistantMessage.
-  """
-  @spec partial_assistant_message?(any()) :: boolean()
-  def partial_assistant_message?(%__MODULE__{type: :stream_event}), do: true
-  def partial_assistant_message?(_), do: false
-
-  @doc """
   Checks if this partial message is a text delta.
   """
   @spec text_delta?(t()) :: boolean()
   def text_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :text_delta}}}), do: true
-
   def text_delta?(_), do: false
 
   @doc """
-  Extracts text from a text_delta event.
+  Extracts text from a text_delta in a single match.
 
-  Returns nil if not a text delta event.
+  Returns `{:ok, text}` for text deltas, `:error` otherwise.
   """
-  @spec get_text(t()) :: String.t() | nil
-  def get_text(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}}), do: text
+  @spec extract_text(t()) :: {:ok, String.t()} | :error
+  def extract_text(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}}),
+    do: {:ok, text}
 
-  def get_text(_), do: nil
+  def extract_text(_), do: :error
 
   @doc """
-  Checks if this partial message is a thinking delta.
+  Extracts thinking from a thinking_delta in a single match.
+
+  Returns `{:ok, thinking}` for thinking deltas, `:error` otherwise.
   """
-  @spec thinking_delta?(t()) :: boolean()
-  def thinking_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :thinking_delta}}}), do: true
-
-  def thinking_delta?(_), do: false
-
-  @doc """
-  Extracts thinking from a thinking_delta event.
-
-  Returns nil if not a thinking delta event.
-  """
-  @spec get_thinking(t()) :: String.t() | nil
-  def get_thinking(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :thinking_delta, thinking: thinking}}}),
-    do: thinking
-
-  def get_thinking(_), do: nil
-
-  @doc """
-  Checks if this partial message is an input JSON delta (for tool use).
-  """
-  @spec input_json_delta?(t()) :: boolean()
-  def input_json_delta?(%__MODULE__{event: %{type: :content_block_delta, delta: %{type: :input_json_delta}}}), do: true
-
-  def input_json_delta?(_), do: false
-
-  @doc """
-  Extracts partial JSON from an input_json_delta event.
-
-  Returns nil if not an input_json_delta event.
-  """
-  @spec get_partial_json(t()) :: String.t() | nil
-  def get_partial_json(%__MODULE__{
-        event: %{type: :content_block_delta, delta: %{type: :input_json_delta, partial_json: json}}
+  @spec extract_thinking(t()) :: {:ok, String.t()} | :error
+  def extract_thinking(%__MODULE__{
+        event: %{type: :content_block_delta, delta: %{type: :thinking_delta, thinking: thinking}}
       }),
-      do: json
+      do: {:ok, thinking}
 
-  def get_partial_json(_), do: nil
-
-  @doc """
-  Gets the content block index for delta events.
-
-  Returns nil for non-content block events.
-  """
-  @spec get_index(t()) :: non_neg_integer() | nil
-  def get_index(%__MODULE__{event: %{index: index}}), do: index
-  def get_index(_), do: nil
-
-  @doc """
-  Gets the event type.
-  """
-  @spec event_type(t()) :: event_type()
-  def event_type(%__MODULE__{event: %{type: type}}), do: type
+  def extract_thinking(_), do: :error
 
   # Private functions
 
-  defp parse_event(%{"type" => type} = event_data) do
-    base = %{type: parse_event_type(type)}
+  # Event-type dispatch: each event type only extracts the fields it needs,
+  # avoiding the overhead of running 6 maybe_add_* no-ops per event.
 
-    base
-    |> maybe_add_index(event_data)
-    |> maybe_add_delta(event_data)
-    |> maybe_add_content_block(event_data)
-    |> maybe_add_message(event_data)
-    |> maybe_add_usage(event_data)
-    |> maybe_add_context_management(event_data)
+  defp parse_event(%{"type" => "content_block_delta", "index" => index, "delta" => delta}) do
+    case Content.parse_delta(delta) do
+      {:ok, parsed} -> %{type: :content_block_delta, index: index, delta: parsed}
+      {:error, _} -> nil
+    end
   end
 
-  defp parse_event_type("message_start"), do: :message_start
-  defp parse_event_type("content_block_start"), do: :content_block_start
-  defp parse_event_type("content_block_delta"), do: :content_block_delta
-  defp parse_event_type("content_block_stop"), do: :content_block_stop
-  defp parse_event_type("message_delta"), do: :message_delta
-  defp parse_event_type("message_stop"), do: :message_stop
-  defp parse_event_type(other), do: String.to_atom(other)
-
-  defp maybe_add_index(event, %{"index" => index}), do: Map.put(event, :index, index)
-  defp maybe_add_index(event, _), do: event
-
-  defp maybe_add_delta(event, %{"delta" => delta_data}) do
-    Map.put(event, :delta, parse_delta(delta_data))
+  defp parse_event(%{"type" => "content_block_start", "index" => index, "content_block" => block}) do
+    case parse_content_block(block) do
+      nil -> nil
+      parsed -> %{type: :content_block_start, index: index, content_block: parsed}
+    end
   end
 
-  defp maybe_add_delta(event, _), do: event
-
-  defp maybe_add_content_block(event, %{"content_block" => block}) do
-    Map.put(event, :content_block, parse_content_block(block))
+  defp parse_event(%{"type" => "content_block_stop", "index" => index}) do
+    %{type: :content_block_stop, index: index}
   end
 
-  defp maybe_add_content_block(event, _), do: event
-
-  defp maybe_add_message(event, %{"message" => message}) do
-    Map.put(event, :message, ClaudeCode.MapUtils.safe_atomize_keys_recursive(message))
+  defp parse_event(%{"type" => "message_start", "message" => message}) do
+    case AssistantMessage.parse_api_message(message) do
+      {:ok, parsed} -> %{type: :message_start, message: parsed}
+      {:error, _} -> nil
+    end
   end
 
-  defp maybe_add_message(event, _), do: event
-
-  defp maybe_add_usage(event, %{"usage" => usage}) do
-    Map.put(event, :usage, ClaudeCode.MapUtils.safe_atomize_keys_recursive(usage))
-  end
-
-  defp maybe_add_usage(event, _), do: event
-
-  defp maybe_add_context_management(event, %{"context_management" => cm}) when not is_nil(cm) do
-    Map.put(event, :context_management, cm)
-  end
-
-  defp maybe_add_context_management(event, _), do: event
-
-  defp parse_delta(%{"type" => "text_delta", "text" => text}) do
-    %{type: :text_delta, text: text}
-  end
-
-  defp parse_delta(%{"type" => "input_json_delta", "partial_json" => json}) do
-    %{type: :input_json_delta, partial_json: json}
-  end
-
-  defp parse_delta(%{"type" => "thinking_delta", "thinking" => thinking}) do
-    %{type: :thinking_delta, thinking: thinking}
-  end
-
-  defp parse_delta(%{"type" => type} = delta) do
-    # Handle unknown delta types gracefully
-    Map.new(delta, fn
-      {"type", _} -> {:type, String.to_atom(type)}
-      {key, val} -> {ClaudeCode.MapUtils.safe_atomize_key(key), val}
-    end)
-  end
-
-  defp parse_delta(delta) when is_map(delta) do
-    ClaudeCode.MapUtils.safe_atomize_keys(delta)
-  end
-
-  defp parse_content_block(%{"type" => "text"} = block) do
-    %{type: :text, text: block["text"] || ""}
-  end
-
-  defp parse_content_block(%{"type" => "tool_use"} = block) do
-    %{
-      type: :tool_use,
-      id: block["id"],
-      name: block["name"],
-      input: block["input"] || %{}
+  defp parse_event(%{"type" => "message_delta"} = data) do
+    event = %{
+      type: :message_delta,
+      delta: ClaudeCode.Message.parse_delta(data["delta"]),
+      usage: ClaudeCode.Usage.parse(data["usage"])
     }
+
+    maybe_add_field(event, :context_management, data["context_management"])
   end
 
-  defp parse_content_block(%{"type" => type} = block) do
-    Map.new(block, fn
-      {"type", _} -> {:type, String.to_atom(type)}
-      {key, val} -> {ClaudeCode.MapUtils.safe_atomize_key(key), val}
-    end)
+  defp parse_event(%{"type" => "message_stop"}) do
+    %{type: :message_stop}
+  end
+
+  defp parse_event(_), do: nil
+
+  defp maybe_add_field(event, _key, nil), do: event
+  defp maybe_add_field(event, key, value), do: Map.put(event, key, value)
+
+  # Delegates to CLI.Parser.parse_content/1 for types that have content modules
+  # (text, tool_use, thinking, etc.). Returns nil for unknown types.
+  defp parse_content_block(block) when is_map(block) do
+    case Parser.parse_content(block) do
+      {:ok, struct} -> struct
+      {:error, _} -> nil
+    end
   end
 end
 
@@ -299,20 +217,4 @@ defimpl String.Chars, for: ClaudeCode.Message.PartialAssistantMessage do
   def to_string(%{event: %{type: :content_block_delta, delta: %{type: :text_delta, text: text}}}), do: text
 
   def to_string(_), do: ""
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.PartialAssistantMessage do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.PartialAssistantMessage do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

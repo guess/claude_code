@@ -9,9 +9,9 @@ defmodule ClaudeCode.AccountInfoTest do
         AccountInfo.new(%{
           "email" => "user@example.com",
           "organization" => "Acme Corp",
-          "subscriptionType" => "pro",
-          "tokenSource" => "oauth",
-          "apiKeySource" => "user"
+          "subscription_type" => "pro",
+          "token_source" => "oauth",
+          "api_key_source" => "user"
         })
 
       assert info.email == "user@example.com"
@@ -44,7 +44,7 @@ defmodule ClaudeCode.AccountInfoTest do
       info =
         AccountInfo.new(%{
           "email" => "user@example.com",
-          "subscriptionType" => "pro"
+          "subscription_type" => "pro"
         })
 
       decoded = info |> Jason.encode!() |> Jason.decode!()

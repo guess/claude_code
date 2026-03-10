@@ -6,6 +6,8 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   either successful results or error messages.
   """
 
+  use ClaudeCode.JSONEncoder
+
   alias ClaudeCode.CLI.Parser
 
   @enforce_keys [:type, :tool_use_id, :content, :is_error]
@@ -55,33 +57,9 @@ defmodule ClaudeCode.Content.ToolResultBlock do
   end
 
   def new(_), do: {:error, :invalid_content_type}
-
-  @doc """
-  Type guard to check if a value is a ToolResult content block.
-  """
-  @spec tool_result_content?(any()) :: boolean()
-  def tool_result_content?(%__MODULE__{type: :tool_result}), do: true
-  def tool_result_content?(_), do: false
-
   # Private helpers
 
   defp parse_content(content) when is_binary(content), do: {:ok, content}
-  defp parse_content(content) when is_list(content), do: Parser.parse_all_contents(content)
+  defp parse_content(content) when is_list(content), do: Parser.parse_contents(content)
   defp parse_content(_), do: {:error, :invalid_content}
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Content.ToolResultBlock do
-  def encode(block, opts) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Content.ToolResultBlock do
-  def encode(block, encoder) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

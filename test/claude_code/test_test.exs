@@ -4,7 +4,7 @@ defmodule ClaudeCode.TestTest do
   alias ClaudeCode.Content
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.SystemMessage.Init
   alias ClaudeCode.Message.UserMessage
 
   # ============================================================================
@@ -129,7 +129,7 @@ defmodule ClaudeCode.TestTest do
     test "creates system initialization message" do
       msg = ClaudeCode.Test.system()
 
-      assert %SystemMessage{} = msg
+      assert %Init{} = msg
       assert msg.type == :system
       assert msg.subtype == :init
     end
@@ -157,7 +157,7 @@ defmodule ClaudeCode.TestTest do
 
       # Should have system, text, result (smart defaults)
       assert length(messages) == 3
-      assert %SystemMessage{} = Enum.at(messages, 0)
+      assert %Init{} = Enum.at(messages, 0)
       assert %AssistantMessage{} = Enum.at(messages, 1)
       assert %ResultMessage{} = Enum.at(messages, 2)
     end
@@ -193,7 +193,7 @@ defmodule ClaudeCode.TestTest do
 
       messages = AutoSystemStub |> ClaudeCode.Test.stream("q", []) |> Enum.to_list()
 
-      assert %SystemMessage{} = hd(messages)
+      assert %Init{} = hd(messages)
     end
 
     test "does not duplicate system message if present" do
@@ -204,7 +204,7 @@ defmodule ClaudeCode.TestTest do
 
       messages = ExplicitSystemStub |> ClaudeCode.Test.stream("q", []) |> Enum.to_list()
 
-      system_count = Enum.count(messages, &match?(%SystemMessage{}, &1))
+      system_count = Enum.count(messages, &match?(%Init{}, &1))
       assert system_count == 1
     end
 

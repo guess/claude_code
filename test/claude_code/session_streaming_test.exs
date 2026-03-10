@@ -3,7 +3,7 @@ defmodule ClaudeCode.SessionStreamingTest do
 
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.SystemMessage.Init
 
   @adapter {ClaudeCode.Test, ClaudeCode}
 
@@ -127,7 +127,7 @@ defmodule ClaudeCode.SessionStreamingTest do
         |> Enum.to_list()
 
       # First message should be system
-      assert %SystemMessage{} = hd(messages)
+      assert %Init{} = hd(messages)
 
       ClaudeCode.stop(session)
     end

@@ -72,13 +72,16 @@ defmodule ClaudeCode.MapUtilsTest do
   describe "atom table safety" do
     test "does not create new atoms from unknown keys" do
       unique = "zzz_atom_safety_test_#{System.unique_integer([:positive])}"
-      count_before = :erlang.system_info(:atom_count)
 
       MapUtils.safe_atomize_keys(%{unique => "value"})
       MapUtils.safe_atomize_keys_recursive(%{unique => %{unique => "nested"}})
 
-      count_after = :erlang.system_info(:atom_count)
-      assert count_after == count_before
+      # The key should never have been added to the atom table
+      assert String.to_existing_atom(unique) == :does_not_exist
+    catch
+      :error, :badarg ->
+        # Expected: String.to_existing_atom raises ArgumentError when the atom doesn't exist
+        :ok
     end
   end
 end

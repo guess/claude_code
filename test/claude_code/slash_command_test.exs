@@ -8,7 +8,7 @@ defmodule ClaudeCode.SlashCommandTest do
       data = %{
         "name" => "commit",
         "description" => "Create a git commit",
-        "argumentHint" => "<message>"
+        "argument_hint" => "<message>"
       }
 
       cmd = SlashCommand.new(data)

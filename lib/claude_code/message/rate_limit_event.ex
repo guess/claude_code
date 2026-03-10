@@ -40,6 +40,8 @@ defmodule ClaudeCode.Message.RateLimitEvent do
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :rate_limit_info, :session_id]
   defstruct [
     :type,
@@ -108,14 +110,14 @@ defmodule ClaudeCode.Message.RateLimitEvent do
   defp parse_rate_limit_info(info) when is_map(info) do
     %{
       status: parse_status(info["status"]),
-      resets_at: info["resetsAt"],
+      resets_at: info["resets_at"],
       utilization: info["utilization"],
-      rate_limit_type: info["rateLimitType"],
-      overage_status: info["overageStatus"],
-      overage_resets_at: info["overageResetsAt"],
-      overage_disabled_reason: info["overageDisabledReason"],
-      is_using_overage: info["isUsingOverage"],
-      surpassed_threshold: info["surpassedThreshold"]
+      rate_limit_type: info["rate_limit_type"],
+      overage_status: info["overage_status"],
+      overage_resets_at: info["overage_resets_at"],
+      overage_disabled_reason: info["overage_disabled_reason"],
+      is_using_overage: info["is_using_overage"],
+      surpassed_threshold: info["surpassed_threshold"]
     }
   end
 
@@ -123,20 +125,4 @@ defmodule ClaudeCode.Message.RateLimitEvent do
   defp parse_status("allowed_warning"), do: :allowed_warning
   defp parse_status("rejected"), do: :rejected
   defp parse_status(other), do: other
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.RateLimitEvent do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.RateLimitEvent do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

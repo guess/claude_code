@@ -20,6 +20,7 @@ defmodule ClaudeCode.Adapter.Port do
   alias ClaudeCode.CLI.Command
   alias ClaudeCode.CLI.Control
   alias ClaudeCode.CLI.Input
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.MCP.Server, as: MCPServer
   alias ClaudeCode.MCP.ServerStatus
@@ -559,6 +560,8 @@ defmodule ClaudeCode.Adapter.Port do
   defp handle_control_response(msg, state) do
     case Control.parse_control_response(msg) do
       {:ok, request_id, response} ->
+        response = Parser.normalize_keys(response)
+
         case Map.pop(state.pending_control_requests, request_id) do
           {nil, _} ->
             Logger.warning("Received control response for unknown request: #{request_id}")
@@ -744,7 +747,7 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  defp parse_control_result(:mcp_status, %{"mcpServers" => servers}) when is_list(servers) do
+  defp parse_control_result(:mcp_status, %{"mcp_servers" => servers}) when is_list(servers) do
     Enum.map(servers, &ServerStatus.new/1)
   end
 
@@ -758,9 +761,9 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp parse_control_result(:rewind_files, response) when is_map(response) do
     %{
-      can_rewind: response["canRewind"],
+      can_rewind: response["can_rewind"],
       error: response["error"],
-      files_changed: response["filesChanged"],
+      files_changed: response["files_changed"],
       insertions: response["insertions"],
       deletions: response["deletions"]
     }
@@ -768,7 +771,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp parse_control_result(_subtype, response), do: response
 
-  @spec parse_initialize_response(map()) :: ClaudeCode.Types.initialize_response()
+  @spec parse_initialize_response(map()) :: ClaudeCode.CLI.Control.Types.initialize_response()
   defp parse_initialize_response(response) when is_map(response) do
     %{
       commands: parse_list(response["commands"], &ClaudeCode.SlashCommand.new/1),

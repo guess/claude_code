@@ -8,7 +8,7 @@ defmodule ClaudeCode.MCP.ServerStatusTest do
       data = %{
         "name" => "my-tools",
         "status" => "connected",
-        "serverInfo" => %{"name" => "my-tools-server", "version" => "1.0.0"},
+        "server_info" => %{"name" => "my-tools-server", "version" => "1.0.0"},
         "config" => %{"type" => "stdio", "command" => "npx"},
         "scope" => "project",
         "tools" => [%{"name" => "read_file", "description" => "Read a file"}]

@@ -15,6 +15,8 @@ defmodule ClaudeCode.ModelInfo do
     * `:supports_fast_mode` - Whether this model supports fast mode
   """
 
+  use ClaudeCode.JSONEncoder
+
   defstruct [
     :value,
     :display_name,
@@ -48,31 +50,15 @@ defmodule ClaudeCode.ModelInfo do
   def new(data) when is_map(data) do
     %__MODULE__{
       value: data["value"],
-      display_name: data["displayName"],
+      display_name: data["display_name"],
       description: data["description"],
-      supports_effort: data["supportsEffort"] || false,
-      supported_effort_levels: parse_effort_levels(data["supportedEffortLevels"]),
-      supports_adaptive_thinking: data["supportsAdaptiveThinking"] || false,
-      supports_fast_mode: data["supportsFastMode"] || false
+      supports_effort: data["supports_effort"] || false,
+      supported_effort_levels: parse_effort_levels(data["supported_effort_levels"]),
+      supports_adaptive_thinking: data["supports_adaptive_thinking"] || false,
+      supports_fast_mode: data["supports_fast_mode"] || false
     }
   end
 
   defp parse_effort_levels(nil), do: []
   defp parse_effort_levels(list) when is_list(list), do: Enum.map(list, &ClaudeCode.EffortLevel.parse/1)
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.ModelInfo do
-  def encode(info, opts) do
-    info
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.ModelInfo do
-  def encode(info, encoder) do
-    info
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

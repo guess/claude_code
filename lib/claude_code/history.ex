@@ -36,25 +36,22 @@ defmodule ClaudeCode.History do
 
   """
 
+  alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.UserMessage
 
-  require Logger
-
   @type session_id :: String.t()
-  @type history_entry :: map()
-  @type parsed_message :: AssistantMessage.t() | UserMessage.t() | map()
+  @type parsed_message :: AssistantMessage.t() | UserMessage.t()
 
   @claude_dir Path.expand("~/.claude")
 
-  # Message types we parse into SDK structs
-  @conversation_types ["user", "assistant"]
-
   @doc """
-  Reads and parses a session file by session ID.
+  Reads a session JSONL file by session ID and returns all entries as normalized maps.
 
   Searches through all project directories to find the session file.
-  Returns all entries from the session file, including metadata entries.
+  Returns every line as a snake_case string-keyed map, including metadata entries
+  (summaries, queue operations, etc.) that have no SDK struct representation.
+  Use `conversation/2` to get only user/assistant messages parsed into SDK structs.
 
   ## Options
 
@@ -63,38 +60,37 @@ defmodule ClaudeCode.History do
 
   ## Examples
 
-      {:ok, messages} = ClaudeCode.History.read_session("abc123-def456")
+      {:ok, entries} = ClaudeCode.History.read_session("abc123-def456")
 
       # Search in a specific project
-      {:ok, messages} = ClaudeCode.History.read_session("abc123", project_path: "/my/project")
+      {:ok, entries} = ClaudeCode.History.read_session("abc123", project_path: "/my/project")
 
   """
-  @spec read_session(session_id(), keyword()) :: {:ok, [history_entry()]} | {:error, term()}
+  @spec read_session(session_id(), keyword()) :: {:ok, [map()]} | {:error, term()}
   def read_session(session_id, opts \\ []) do
-    case find_session_path(session_id, opts) do
-      {:ok, path} -> read_file(path)
-      {:error, _} = error -> error
+    with {:ok, path} <- find_session_path(session_id, opts) do
+      read_file(path)
     end
   end
 
   @doc """
-  Reads and parses a session JSONL file from a specific path.
+  Reads a session JSONL file from a specific path and returns all entries as normalized maps.
 
-  Returns all entries from the file as maps with normalized keys.
+  Returns every line as a snake_case string-keyed map, preserving all entry types
+  (user, assistant, system, summary, queue operations, etc.). Keys are normalized
+  from camelCase to snake_case for consistency with live CLI output.
+  Use `conversation_from_file/1` to get only user/assistant messages as SDK structs.
 
   ## Examples
 
       {:ok, entries} = ClaudeCode.History.read_file("/path/to/session.jsonl")
 
   """
-  @spec read_file(Path.t()) :: {:ok, [history_entry()]} | {:error, term()}
+  @spec read_file(Path.t()) :: {:ok, [map()]} | {:error, term()}
   def read_file(path) do
     case File.read(path) do
-      {:ok, content} ->
-        parse_jsonl(content)
-
-      {:error, reason} ->
-        {:error, {:file_read_error, reason, path}}
+      {:ok, content} -> decode_jsonl(content)
+      {:error, reason} -> {:error, {:file_read_error, reason, path}}
     end
   end
 
@@ -123,12 +119,8 @@ defmodule ClaudeCode.History do
   """
   @spec conversation(session_id(), keyword()) :: {:ok, [parsed_message()]} | {:error, term()}
   def conversation(session_id, opts \\ []) do
-    case read_session(session_id, opts) do
-      {:ok, entries} ->
-        {:ok, extract_conversation_messages(entries)}
-
-      {:error, _} = error ->
-        error
+    with {:ok, path} <- find_session_path(session_id, opts) do
+      conversation_from_file(path)
     end
   end
 
@@ -144,12 +136,12 @@ defmodule ClaudeCode.History do
   """
   @spec conversation_from_file(Path.t()) :: {:ok, [parsed_message()]} | {:error, term()}
   def conversation_from_file(path) do
-    case read_file(path) do
-      {:ok, entries} ->
-        {:ok, extract_conversation_messages(entries)}
-
-      {:error, _} = error ->
-        error
+    with {:ok, content} <- File.read(path),
+         {:ok, messages} <- Parser.parse_stream(content) do
+      {:ok, Enum.filter(messages, &conversation_message?/1)}
+    else
+      {:error, reason} when is_atom(reason) -> {:error, {:file_read_error, reason, path}}
+      error -> error
     end
   end
 
@@ -166,20 +158,14 @@ defmodule ClaudeCode.History do
   """
   @spec summary(session_id(), keyword()) :: {:ok, String.t() | nil} | {:error, term()}
   def summary(session_id, opts \\ []) do
-    case read_session(session_id, opts) do
-      {:ok, entries} ->
-        summary =
-          entries
-          |> Enum.find(&match?(%{"type" => "summary"}, &1))
-          |> case do
-            %{"summary" => text} -> text
-            _ -> nil
-          end
+    with {:ok, entries} <- read_session(session_id, opts) do
+      summary =
+        Enum.find_value(entries, fn
+          %{"type" => "summary", "summary" => text} -> text
+          _ -> nil
+        end)
 
-        {:ok, summary}
-
-      {:error, _} = error ->
-        error
+      {:ok, summary}
     end
   end
 
@@ -378,78 +364,23 @@ defmodule ClaudeCode.History do
     end
   end
 
-  defp parse_jsonl(content) do
-    entries =
-      content
-      |> String.split("\n", trim: true)
-      |> Enum.with_index()
-      |> Enum.reduce_while({:ok, []}, fn {line, index}, {:ok, acc} ->
-        case Jason.decode(line) do
-          {:ok, json} ->
-            normalized = normalize_keys(json)
-            {:cont, {:ok, [normalized | acc]}}
-
-          {:error, error} ->
-            {:halt, {:error, {:json_decode_error, index, error}}}
-        end
-      end)
-
-    case entries do
-      {:ok, list} -> {:ok, Enum.reverse(list)}
-      error -> error
-    end
-  end
-
-  defp normalize_keys(map) when is_map(map) do
-    Map.new(map, fn {key, value} ->
-      normalized_key = normalize_key(key)
-      normalized_value = normalize_keys(value)
-      {normalized_key, normalized_value}
-    end)
-  end
-
-  defp normalize_keys(list) when is_list(list) do
-    Enum.map(list, &normalize_keys/1)
-  end
-
-  defp normalize_keys(value), do: value
-
-  # Convert camelCase keys to snake_case for consistency with SDK
-  defp normalize_key("sessionId"), do: "session_id"
-  defp normalize_key("parentUuid"), do: "parent_uuid"
-  defp normalize_key("isSidechain"), do: "is_sidechain"
-  defp normalize_key("userType"), do: "user_type"
-  defp normalize_key("gitBranch"), do: "git_branch"
-  defp normalize_key("toolUseResult"), do: "tool_use_result"
-  defp normalize_key("requestId"), do: "request_id"
-  defp normalize_key("stopReason"), do: "stop_reason"
-  defp normalize_key("stopSequence"), do: "stop_sequence"
-  defp normalize_key("inputTokens"), do: "input_tokens"
-  defp normalize_key("outputTokens"), do: "output_tokens"
-  defp normalize_key(key), do: key
-
-  defp conversation_message?(%{"type" => type}) when type in @conversation_types, do: true
+  defp conversation_message?(%UserMessage{}), do: true
+  defp conversation_message?(%AssistantMessage{}), do: true
   defp conversation_message?(_), do: false
 
-  defp extract_conversation_messages(entries) do
-    entries
-    |> Enum.filter(&conversation_message?/1)
-    |> Enum.map(&parse_conversation_message/1)
-    |> Enum.flat_map(fn
-      {:ok, msg} ->
-        [msg]
-
-      {:error, reason} ->
-        Logger.warning("Failed to parse conversation message: #{inspect(reason)}")
-        []
+  defp decode_jsonl(content) do
+    content
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce_while({:ok, []}, fn {line, index}, {:ok, acc} ->
+      case Jason.decode(line) do
+        {:ok, map} -> {:cont, {:ok, [Parser.normalize_keys(map) | acc]}}
+        {:error, error} -> {:halt, {:error, {:json_decode_error, index, error}}}
+      end
     end)
-  end
-
-  defp parse_conversation_message(%{"type" => "user"} = entry) do
-    UserMessage.new(entry)
-  end
-
-  defp parse_conversation_message(%{"type" => "assistant"} = entry) do
-    AssistantMessage.new(entry)
+    |> case do
+      {:ok, maps} -> {:ok, Enum.reverse(maps)}
+      error -> error
+    end
   end
 end

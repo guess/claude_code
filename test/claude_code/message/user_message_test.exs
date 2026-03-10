@@ -123,19 +123,6 @@ defmodule ClaudeCode.Message.UserMessageTest do
     end
   end
 
-  describe "type guards" do
-    test "user_message?/1 returns true for user messages" do
-      {:ok, message} = UserMessage.new(valid_user_json())
-      assert UserMessage.user_message?(message)
-    end
-
-    test "user_message?/1 returns false for non-user messages" do
-      refute UserMessage.user_message?(%{type: :assistant})
-      refute UserMessage.user_message?(nil)
-      refute UserMessage.user_message?("not a message")
-    end
-  end
-
   describe "from fixture" do
     test "parses real CLI user message with tool result" do
       fixture_path = "test/fixtures/cli_messages/create_file.jsonl"
@@ -182,30 +169,30 @@ defmodule ClaudeCode.Message.UserMessageTest do
 
   describe "is_replay and is_synthetic fields" do
     test "parses is_replay from JSON" do
-      json = Map.put(valid_user_json(), "isReplay", true)
+      json = Map.put(valid_user_json(), "is_replay", true)
 
       assert {:ok, message} = UserMessage.new(json)
       assert message.is_replay == true
     end
 
     test "parses is_synthetic from JSON" do
-      json = Map.put(valid_user_json(), "isSynthetic", true)
+      json = Map.put(valid_user_json(), "is_synthetic", true)
 
       assert {:ok, message} = UserMessage.new(json)
       assert message.is_synthetic == true
     end
 
-    test "is_replay and is_synthetic default to nil" do
+    test "is_replay and is_synthetic default to false" do
       assert {:ok, message} = UserMessage.new(valid_user_json())
-      assert message.is_replay == nil
-      assert message.is_synthetic == nil
+      assert message.is_replay == false
+      assert message.is_synthetic == false
     end
 
     test "parses replayed user message with both flags" do
       json =
         valid_user_json()
-        |> Map.put("isReplay", true)
-        |> Map.put("isSynthetic", false)
+        |> Map.put("is_replay", true)
+        |> Map.put("is_synthetic", false)
 
       assert {:ok, message} = UserMessage.new(json)
       assert message.is_replay == true

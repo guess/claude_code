@@ -6,12 +6,15 @@ defmodule ClaudeCode.Content.TextBlock do
   or user input.
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :text]
-  defstruct [:type, :text]
+  defstruct [:type, :text, :citations]
 
   @type t :: %__MODULE__{
           type: :text,
-          text: String.t()
+          text: String.t(),
+          citations: [map()] | nil
         }
 
   @doc """
@@ -29,7 +32,8 @@ defmodule ClaudeCode.Content.TextBlock do
   def new(%{"type" => "text"} = data) do
     case data do
       %{"text" => text} when is_binary(text) ->
-        {:ok, %__MODULE__{type: :text, text: text}}
+        citations = parse_citations(data["citations"])
+        {:ok, %__MODULE__{type: :text, text: text, citations: citations}}
 
       %{"text" => _} ->
         {:error, :invalid_text}
@@ -41,30 +45,11 @@ defmodule ClaudeCode.Content.TextBlock do
 
   def new(_), do: {:error, :invalid_content_type}
 
-  @doc """
-  Type guard to check if a value is a Text content block.
-  """
-  @spec text_content?(any()) :: boolean()
-  def text_content?(%__MODULE__{type: :text}), do: true
-  def text_content?(_), do: false
+  defp parse_citations(nil), do: nil
+  defp parse_citations(citations) when is_list(citations), do: citations
+  defp parse_citations(_), do: nil
 end
 
 defimpl String.Chars, for: ClaudeCode.Content.TextBlock do
   def to_string(%{text: text}), do: text
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Content.TextBlock do
-  def encode(block, opts) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Content.TextBlock do
-  def encode(block, encoder) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

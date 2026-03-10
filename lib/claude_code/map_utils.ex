@@ -8,8 +8,7 @@ defmodule ClaudeCode.MapUtils do
   external input. If the atom does not already exist in the atom table, the
   original string is returned.
   """
-  @spec safe_atomize_key(atom()) :: atom()
-  @spec safe_atomize_key(String.t()) :: atom() | String.t()
+  @spec safe_atomize_key(atom() | String.t()) :: atom() | String.t()
   def safe_atomize_key(key) when is_atom(key), do: key
 
   def safe_atomize_key(key) when is_binary(key) do

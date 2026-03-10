@@ -29,12 +29,12 @@ defmodule ClaudeCode.Test.Factory do
   alias ClaudeCode.Content.ToolUseBlock
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.AuthStatusMessage
-  alias ClaudeCode.Message.CompactBoundaryMessage
   alias ClaudeCode.Message.PartialAssistantMessage
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.SystemMessage
+  alias ClaudeCode.Message.SystemMessage.CompactBoundary
+  alias ClaudeCode.Message.SystemMessage.Init
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
@@ -178,7 +178,7 @@ defmodule ClaudeCode.Test.Factory do
   """
   def system_message(attrs \\ []) do
     merge(
-      %SystemMessage{
+      %Init{
         type: :system,
         subtype: :init,
         uuid: uuid(),
@@ -197,14 +197,14 @@ defmodule ClaudeCode.Test.Factory do
   end
 
   @doc """
-  Creates a CompactBoundaryMessage with default values.
+  Creates a CompactBoundary system message with default values.
 
       compact_boundary_message()
       compact_boundary_message(compact_metadata: %{trigger: "auto", pre_tokens: 5000})
   """
   def compact_boundary_message(attrs \\ []) do
     merge(
-      %CompactBoundaryMessage{
+      %CompactBoundary{
         type: :system,
         subtype: :compact_boundary,
         uuid: uuid(),

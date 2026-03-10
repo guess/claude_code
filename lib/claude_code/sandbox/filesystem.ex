@@ -29,6 +29,8 @@ defmodule ClaudeCode.Sandbox.Filesystem do
 
   """
 
+  use ClaudeCode.JSONEncoder
+
   alias ClaudeCode.Sandbox.Helpers
 
   @fields [:allow_write, :deny_write, :deny_read]
@@ -68,20 +70,4 @@ defmodule ClaudeCode.Sandbox.Filesystem do
 
   defp maybe_put(map, _key, nil), do: map
   defp maybe_put(map, key, value), do: Map.put(map, key, value)
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Sandbox.Filesystem do
-  def encode(fs, opts) do
-    fs
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Sandbox.Filesystem do
-  def encode(fs, encoder) do
-    fs
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

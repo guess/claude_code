@@ -6,6 +6,8 @@ defmodule ClaudeCode.Content.ToolUseBlock do
   with the given parameters.
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :id, :name, :input]
   defstruct [:type, :id, :name, :input, :caller]
 
@@ -49,27 +51,4 @@ defmodule ClaudeCode.Content.ToolUseBlock do
   end
 
   def new(_), do: {:error, :invalid_content_type}
-
-  @doc """
-  Type guard to check if a value is a ToolUse content block.
-  """
-  @spec tool_use_content?(any()) :: boolean()
-  def tool_use_content?(%__MODULE__{type: :tool_use}), do: true
-  def tool_use_content?(_), do: false
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Content.ToolUseBlock do
-  def encode(block, opts) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Content.ToolUseBlock do
-  def encode(block, encoder) do
-    block
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

@@ -87,27 +87,6 @@ defmodule ClaudeCode.Content.ThinkingBlockTest do
     end
   end
 
-  describe "type guards" do
-    test "thinking_content?/1 returns true for thinking content" do
-      {:ok, content} =
-        ThinkingBlock.new(%{
-          "type" => "thinking",
-          "thinking" => "Let me think...",
-          "signature" => "sig_123"
-        })
-
-      assert ThinkingBlock.thinking_content?(content)
-    end
-
-    test "thinking_content?/1 returns false for non-thinking content" do
-      refute ThinkingBlock.thinking_content?(%{type: :text})
-      refute ThinkingBlock.thinking_content?(%{type: :tool_use})
-      refute ThinkingBlock.thinking_content?(nil)
-      refute ThinkingBlock.thinking_content?("not content")
-      refute ThinkingBlock.thinking_content?(%{})
-    end
-  end
-
   describe "struct properties" do
     test "has required fields" do
       data = %{

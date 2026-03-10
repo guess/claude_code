@@ -7,7 +7,7 @@ defmodule ClaudeCode.Message.AuthStatusMessageTest do
     test "parses a valid auth status message with all fields" do
       json = %{
         "type" => "auth_status",
-        "isAuthenticating" => true,
+        "is_authenticating" => true,
         "output" => ["Authenticating...", "Redirecting to browser"],
         "error" => nil,
         "uuid" => "uuid-123",
@@ -26,7 +26,7 @@ defmodule ClaudeCode.Message.AuthStatusMessageTest do
     test "parses auth status with error" do
       json = %{
         "type" => "auth_status",
-        "isAuthenticating" => false,
+        "is_authenticating" => false,
         "output" => [],
         "error" => "Authentication failed: invalid token",
         "uuid" => "uuid-456",
@@ -41,7 +41,7 @@ defmodule ClaudeCode.Message.AuthStatusMessageTest do
     test "defaults output to empty list when missing" do
       json = %{
         "type" => "auth_status",
-        "isAuthenticating" => true,
+        "is_authenticating" => true,
         "session_id" => "session-abc"
       }
 

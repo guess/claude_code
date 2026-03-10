@@ -24,6 +24,8 @@ defmodule ClaudeCode.Message.PromptSuggestionMessage do
   ```
   """
 
+  use ClaudeCode.JSONEncoder
+
   @enforce_keys [:type, :suggestion, :session_id]
   defstruct [
     :type,
@@ -67,27 +69,4 @@ defmodule ClaudeCode.Message.PromptSuggestionMessage do
 
   def new(%{"type" => "prompt_suggestion"}), do: {:error, :missing_required_fields}
   def new(_), do: {:error, :invalid_message_type}
-
-  @doc """
-  Type guard to check if a value is a PromptSuggestionMessage.
-  """
-  @spec prompt_suggestion_message?(any()) :: boolean()
-  def prompt_suggestion_message?(%__MODULE__{type: :prompt_suggestion}), do: true
-  def prompt_suggestion_message?(_), do: false
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.Message.PromptSuggestionMessage do
-  def encode(message, opts) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.Message.PromptSuggestionMessage do
-  def encode(message, encoder) do
-    message
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end

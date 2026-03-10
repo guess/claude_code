@@ -107,9 +107,9 @@ defmodule ClaudeCode.MCP.Router do
     end
   end
 
-  # Converts string keys to existing atoms for tool parameter maps.
-  # Keys come from tool schema field declarations (bounded, compile-time defined).
-  # Uses safe atomization to prevent unbounded atom creation.
+  # Tool schema `field` declarations create atoms at compile time, so
+  # safe_atomize_keys will convert the top-level parameter keys to atoms.
+  # Nested map values stay as string-keyed (only top-level is converted).
   defp atomize_keys(map) when is_map(map), do: ClaudeCode.MapUtils.safe_atomize_keys(map)
 
   defp jsonrpc_result(%{"id" => id}, result) do

@@ -106,11 +106,17 @@ Core capabilities:
   - `session.ex` - GenServer for session management with options validation
   - `options.ex` - Options validation (NimbleOptions); `to_cli_args` delegates to CLI.Command
   - `stream.ex` - Stream utilities for real-time processing
-  - `types.ex` - Type definitions matching SDK schema
   - `message.ex` - Message type union + helpers; `parse` delegates to CLI.Parser
   - `content.ex` - Content type union + helpers; `parse` delegates to CLI.Parser
-  - `message/` - Message type modules (system, assistant, user, result, partial, compact_boundary)
-  - `content/` - Content block modules (text, tool_use, tool_result, thinking)
+  - `message/` - Message type modules (system, assistant, user, result, partial, tool_progress, etc.)
+  - `message/system_message/` - System message subtypes (init, status, hook_*, task_*, compact_boundary, etc.)
+  - `content/` - Content block modules (text, tool_use, tool_result, thinking, server_tool_use, mcp_tool_use, etc.)
+  - `permission_mode.ex` - Permission mode enum parsing
+  - `permission_denial.ex` - Permission denial struct
+  - `stop_reason.ex` - Stop reason enum parsing
+  - `model_usage.ex` - Model usage struct and parsing
+  - `usage.ex` - Shared usage parsing utilities
+  - `system.ex` - System command abstraction (formerly system_cmd.ex)
   - `adapter.ex` - Adapter behaviour definition + notification helpers
   - `adapter/`
     - `port.ex` - Port-based CLI adapter GenServer (Port, shell, env, reconnect)

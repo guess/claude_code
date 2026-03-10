@@ -15,6 +15,8 @@ defmodule ClaudeCode.MCP.ServerStatus do
     * `:tools` - List of tool maps with `name`, `description`, and `annotations` (available when connected)
   """
 
+  use ClaudeCode.JSONEncoder
+
   defstruct [
     :name,
     :status,
@@ -51,7 +53,7 @@ defmodule ClaudeCode.MCP.ServerStatus do
     %__MODULE__{
       name: data["name"],
       status: parse_status(data["status"]),
-      server_info: parse_server_info(data["serverInfo"]),
+      server_info: parse_server_info(data["server_info"]),
       error: data["error"],
       config: data["config"],
       scope: data["scope"],
@@ -71,20 +73,4 @@ defmodule ClaudeCode.MCP.ServerStatus do
   end
 
   defp parse_server_info(_), do: nil
-end
-
-defimpl Jason.Encoder, for: ClaudeCode.MCP.ServerStatus do
-  def encode(status, opts) do
-    status
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> Jason.Encoder.Map.encode(opts)
-  end
-end
-
-defimpl JSON.Encoder, for: ClaudeCode.MCP.ServerStatus do
-  def encode(status, encoder) do
-    status
-    |> ClaudeCode.JSONEncoder.to_encodable()
-    |> JSON.Encoder.Map.encode(encoder)
-  end
 end
