@@ -57,6 +57,18 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:include_partial_messages] == false
     end
 
+    test "validates control_timeout option" do
+      assert {:ok, validated} = Options.validate_session_options(control_timeout: 60_000)
+      assert validated[:control_timeout] == 60_000
+
+      assert {:ok, validated} = Options.validate_session_options(control_timeout: 120_000)
+      assert validated[:control_timeout] == 120_000
+    end
+
+    test "rejects control_timeout above 120_000" do
+      assert {:error, _} = Options.validate_session_options(control_timeout: 120_001)
+    end
+
     test "validates cli_path with :bundled atom" do
       assert {:ok, validated} = Options.validate_session_options(cli_path: :bundled)
       assert validated[:cli_path] == :bundled
