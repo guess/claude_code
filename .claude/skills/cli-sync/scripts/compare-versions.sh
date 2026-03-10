@@ -18,7 +18,7 @@ else
 fi
 
 # Get bundled version from installer.ex
-INSTALLER_FILE="lib/claude_code/installer.ex"
+INSTALLER_FILE="lib/claude_code/adapter/port/installer.ex"
 if [ -f "$INSTALLER_FILE" ]; then
     BUNDLED=$(grep '@default_cli_version' "$INSTALLER_FILE" | head -1 | grep -o '"[^"]*"' | tr -d '"')
     echo "Bundled SDK version:   $BUNDLED"
@@ -36,7 +36,7 @@ if [ -n "$INSTALLED" ] && [ -n "$BUNDLED" ]; then
     else
         echo "Status: OUT OF SYNC"
         echo ""
-        echo "To update, edit lib/claude_code/installer.ex:"
+        echo "To update, edit lib/claude_code/adapter/port/installer.ex:"
         echo "  @default_cli_version \"$INSTALLED\""
     fi
 else

@@ -15,6 +15,7 @@
 #   - Test scenarios A-F (JSON schema samples)
 #   - Python SDK types.py and subprocess_cli.py (via gh)
 #   - TypeScript SDK sdk.d.ts type definitions (via npm/unpkg)
+#   - Anthropic API types (BetaRawMessageStreamEvent etc. from @anthropic-ai/sdk)
 #   - SDK version tracking files
 #
 # After running, tell Claude:
@@ -33,7 +34,7 @@ echo "Output directory: $OUTPUT_DIR"
 echo ""
 
 # --- Version Info ---
-echo "[1/12] Capturing CLI version..."
+echo "[1/13] Capturing CLI version..."
 if command -v claude &> /dev/null; then
     claude --version 2>/dev/null > "$OUTPUT_DIR/cli-version.txt" || echo "FAILED" > "$OUTPUT_DIR/cli-version.txt"
     echo "  Done: cli-version.txt"
@@ -43,7 +44,7 @@ else
 fi
 
 # --- Help Output ---
-echo "[2/12] Capturing CLI --help..."
+echo "[2/13] Capturing CLI --help..."
 if command -v claude &> /dev/null; then
     claude --help 2>&1 > "$OUTPUT_DIR/cli-help.txt" || echo "FAILED" > "$OUTPUT_DIR/cli-help.txt"
     echo "  Done: cli-help.txt"
@@ -52,8 +53,8 @@ else
 fi
 
 # --- Bundled Version ---
-echo "[3/12] Capturing bundled version..."
-INSTALLER_FILE="$PROJECT_ROOT/lib/claude_code/installer.ex"
+echo "[3/13] Capturing bundled version..."
+INSTALLER_FILE="$PROJECT_ROOT/lib/claude_code/adapter/port/installer.ex"
 if [ -f "$INSTALLER_FILE" ]; then
     BUNDLED=$(grep '@default_cli_version' "$INSTALLER_FILE" | head -1 | grep -o '"[^"]*"' | tr -d '"')
     echo "bundled_version=$BUNDLED" > "$OUTPUT_DIR/bundled-version.txt"
@@ -64,7 +65,7 @@ else
 fi
 
 # --- Scenario A: Basic query ---
-echo "[4/12] Scenario A: Basic query (system, assistant, result, text_block)..."
+echo "[4/13] Scenario A: Basic query (system, assistant, result, text_block)..."
 if command -v claude &> /dev/null; then
     echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-a-basic.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-a-basic.jsonl"
@@ -74,7 +75,7 @@ else
 fi
 
 # --- Scenario B: Partial streaming ---
-echo "[5/12] Scenario B: Partial streaming (partial_assistant_message)..."
+echo "[5/13] Scenario B: Partial streaming (partial_assistant_message)..."
 if command -v claude &> /dev/null; then
     echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-b-partial.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-b-partial.jsonl"
@@ -84,7 +85,7 @@ else
 fi
 
 # --- Scenario C: Tool use ---
-echo "[6/12] Scenario C: Tool use (tool_use_block, tool_result_block, user_message)..."
+echo "[6/13] Scenario C: Tool use (tool_use_block, tool_result_block, user_message)..."
 if command -v claude &> /dev/null; then
     echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-c-tool.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-c-tool.jsonl"
@@ -94,7 +95,7 @@ else
 fi
 
 # --- Scenario D: Error max turns ---
-echo "[7/12] Scenario D: Error max turns (result with error_max_turns)..."
+echo "[7/13] Scenario D: Error max turns (result with error_max_turns)..."
 if command -v claude &> /dev/null; then
     echo "Create a file called /tmp/test_sync.txt with hello world, then read it back" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-d-error.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-d-error.jsonl"
@@ -104,7 +105,7 @@ else
 fi
 
 # --- Scenario F: Extended thinking ---
-echo "[8/12] Scenario F: Extended thinking (thinking_block)..."
+echo "[8/13] Scenario F: Extended thinking (thinking_block)..."
 if command -v claude &> /dev/null; then
     echo "Think step by step about why 17 is prime" | claude --output-format stream-json --verbose --max-turns 1 --model claude-opus-4-6 -p 2>/dev/null \
         > "$OUTPUT_DIR/scenario-f-thinking.jsonl" || echo '{"error":"scenario_failed_or_thinking_not_available"}' > "$OUTPUT_DIR/scenario-f-thinking.jsonl"
@@ -114,7 +115,7 @@ else
 fi
 
 # --- Python SDK via gh ---
-echo "[9/12] Fetching Python SDK sources via gh..."
+echo "[9/13] Fetching Python SDK sources via gh..."
 if command -v gh &> /dev/null; then
     # types.py - canonical message/content type definitions
     gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' 2>/dev/null | base64 -d \
@@ -132,7 +133,7 @@ else
 fi
 
 # --- TypeScript SDK types via npm/unpkg ---
-echo "[10/12] Fetching TypeScript SDK type definitions..."
+echo "[10/13] Fetching TypeScript SDK type definitions..."
 # Get latest version from npm registry
 TS_SDK_VERSION=$(curl -s "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/latest" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
 if [ -n "$TS_SDK_VERSION" ]; then
@@ -149,8 +150,25 @@ else
     echo "  WARNING: Could not reach npm registry for TS SDK version"
 fi
 
+# --- Anthropic API types (streaming events, deltas, content blocks) ---
+echo "[11/13] Fetching Anthropic API type definitions..."
+ANTHROPIC_SDK_VERSION=$(curl -s "https://registry.npmjs.org/@anthropic-ai/sdk/latest" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
+if [ -n "$ANTHROPIC_SDK_VERSION" ]; then
+    echo "$ANTHROPIC_SDK_VERSION" > "$OUTPUT_DIR/anthropic-sdk-version.txt"
+    echo "  Anthropic SDK version: $ANTHROPIC_SDK_VERSION"
+
+    # BetaRawMessageStreamEvent and related types (content block deltas, start/stop events)
+    curl -sL "https://unpkg.com/@anthropic-ai/sdk@$ANTHROPIC_SDK_VERSION/resources/beta/messages/messages.d.ts" \
+        > "$OUTPUT_DIR/anthropic-api-messages.d.ts" 2>/dev/null || echo "// FAILED to fetch messages.d.ts" > "$OUTPUT_DIR/anthropic-api-messages.d.ts"
+    echo "  Done: anthropic-api-messages.d.ts"
+else
+    echo "FAILED" > "$OUTPUT_DIR/anthropic-sdk-version.txt"
+    echo "// FAILED to fetch - npm registry unreachable" > "$OUTPUT_DIR/anthropic-api-messages.d.ts"
+    echo "  WARNING: Could not reach npm registry for Anthropic SDK version"
+fi
+
 # --- Python SDK version ---
-echo "[11/12] Recording Python SDK version..."
+echo "[12/13] Recording Python SDK version..."
 if command -v gh &> /dev/null; then
     PY_SDK_VERSION=$(gh api repos/anthropics/claude-agent-sdk-python/releases/latest --jq '.tag_name' 2>/dev/null)
     if [ -n "$PY_SDK_VERSION" ]; then
@@ -166,7 +184,7 @@ else
 fi
 
 # --- Summary ---
-echo "[12/12] Capture summary"
+echo "[13/13] Capture summary"
 echo ""
 echo "=== Capture Complete ==="
 echo ""
