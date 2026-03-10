@@ -7,27 +7,27 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 
 | Elixir Module | TS SDK Type | Python SDK Type | Notes |
 |---|---|---|---|
-| `Message.SystemMessage` | `SDKSystemMessage` | `SystemMessage` | |
+| `Message.SystemMessage.Init` | `SDKSystemMessage` | `SystemMessage` | Init subtype; `SystemMessage` is the namespace module |
 | `Message.AssistantMessage` | `SDKAssistantMessage` | `AssistantMessage` | |
 | `Message.UserMessage` | `SDKUserMessage` | `UserMessage` | |
 | `Message.ResultMessage` | `SDKResultMessage` (`SDKResultSuccess \| SDKResultError`) | `ResultMessage` | |
 | `Message.PartialAssistantMessage` | `SDKPartialAssistantMessage` | `StreamEvent` | Python uses different name |
-| `Message.CompactBoundaryMessage` | `SDKCompactBoundaryMessage` | -- | TS only |
-| `Message.StatusMessage` | `SDKStatusMessage` | -- | TS only |
+| `Message.SystemMessage.CompactBoundary` | `SDKCompactBoundaryMessage` | -- | TS only |
+| `Message.SystemMessage.Status` | `SDKStatusMessage` | -- | TS only |
 | `Message.AuthStatusMessage` | `SDKAuthStatusMessage` | -- | TS only |
 | `Message.RateLimitEvent` | `SDKRateLimitEvent` | -- | TS only |
-| `Message.FilesPersistedEvent` | `SDKFilesPersistedEvent` | -- | TS only |
+| `Message.SystemMessage.FilesPersisted` | `SDKFilesPersistedEvent` | -- | TS only |
 | `Message.ToolProgressMessage` | `SDKToolProgressMessage` | -- | TS only |
 | `Message.ToolUseSummaryMessage` | `SDKToolUseSummaryMessage` | -- | TS only |
 | `Message.PromptSuggestionMessage` | `SDKPromptSuggestionMessage` | -- | TS only |
-| `Message.LocalCommandOutputMessage` | `SDKLocalCommandOutputMessage` | -- | TS only |
-| `Message.ElicitationCompleteMessage` | `SDKElicitationCompleteMessage` | -- | TS only |
-| `Message.HookStartedMessage` | `SDKHookStartedMessage` | -- | TS only |
-| `Message.HookProgressMessage` | `SDKHookProgressMessage` | -- | TS only |
-| `Message.HookResponseMessage` | `SDKHookResponseMessage` | -- | TS only |
-| `Message.TaskStartedMessage` | `SDKTaskStartedMessage` | `TaskStartedMessage` | |
-| `Message.TaskProgressMessage` | `SDKTaskProgressMessage` | `TaskProgressMessage` | |
-| `Message.TaskNotificationMessage` | `SDKTaskNotificationMessage` | `TaskNotificationMessage` | |
+| `Message.SystemMessage.LocalCommandOutput` | `SDKLocalCommandOutputMessage` | -- | TS only |
+| `Message.SystemMessage.ElicitationComplete` | `SDKElicitationCompleteMessage` | -- | TS only |
+| `Message.SystemMessage.HookStarted` | `SDKHookStartedMessage` | -- | TS only |
+| `Message.SystemMessage.HookProgress` | `SDKHookProgressMessage` | -- | TS only |
+| `Message.SystemMessage.HookResponse` | `SDKHookResponseMessage` | -- | TS only |
+| `Message.SystemMessage.TaskStarted` | `SDKTaskStartedMessage` | `TaskStartedMessage` | |
+| `Message.SystemMessage.TaskProgress` | `SDKTaskProgressMessage` | `TaskProgressMessage` | |
+| `Message.SystemMessage.TaskNotification` | `SDKTaskNotificationMessage` | `TaskNotificationMessage` | |
 
 ## Content Block Types
 
@@ -63,8 +63,8 @@ wired into the initialize response parsing — `parse_control_response/1` curren
 
 | Elixir Type | TS SDK Type | Python SDK Type |
 |---|---|---|
-| `ClaudeCode.Types.message/0` | `SDKMessage` | `Message` |
-| `ClaudeCode.Types.content_block/0` | *(Anthropic API `ContentBlock`)* | `ContentBlock` |
+| `ClaudeCode.Message.t/0` | `SDKMessage` | `Message` |
+| `ClaudeCode.Content.t/0` | *(Anthropic API `ContentBlock`)* | `ContentBlock` |
 
 ## Control Protocol Coverage
 
@@ -138,23 +138,23 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SandboxSettings` | `ClaudeCode.Sandbox` |
 | `SDKAssistantMessage` | `Message.AssistantMessage` |
 | `SDKAuthStatusMessage` | `Message.AuthStatusMessage` |
-| `SDKCompactBoundaryMessage` | `Message.CompactBoundaryMessage` |
+| `SDKCompactBoundaryMessage` | `Message.SystemMessage.CompactBoundary` |
 | `SDKControlInitializeResponse` | *(parsed as raw map by `Control.parse_control_response/1`)* |
-| `SDKElicitationCompleteMessage` | `Message.ElicitationCompleteMessage` |
-| `SDKFilesPersistedEvent` | `Message.FilesPersistedEvent` |
-| `SDKHookProgressMessage` | `Message.HookProgressMessage` |
-| `SDKHookResponseMessage` | `Message.HookResponseMessage` |
-| `SDKHookStartedMessage` | `Message.HookStartedMessage` |
-| `SDKLocalCommandOutputMessage` | `Message.LocalCommandOutputMessage` |
+| `SDKElicitationCompleteMessage` | `Message.SystemMessage.ElicitationComplete` |
+| `SDKFilesPersistedEvent` | `Message.SystemMessage.FilesPersisted` |
+| `SDKHookProgressMessage` | `Message.SystemMessage.HookProgress` |
+| `SDKHookResponseMessage` | `Message.SystemMessage.HookResponse` |
+| `SDKHookStartedMessage` | `Message.SystemMessage.HookStarted` |
+| `SDKLocalCommandOutputMessage` | `Message.SystemMessage.LocalCommandOutput` |
 | `SDKPartialAssistantMessage` | `Message.PartialAssistantMessage` |
 | `SDKPromptSuggestionMessage` | `Message.PromptSuggestionMessage` |
 | `SDKRateLimitEvent` | `Message.RateLimitEvent` |
 | `SDKResultMessage` | `Message.ResultMessage` |
-| `SDKStatusMessage` | `Message.StatusMessage` |
-| `SDKSystemMessage` | `Message.SystemMessage` |
-| `SDKTaskNotificationMessage` | `Message.TaskNotificationMessage` |
-| `SDKTaskProgressMessage` | `Message.TaskProgressMessage` |
-| `SDKTaskStartedMessage` | `Message.TaskStartedMessage` |
+| `SDKStatusMessage` | `Message.SystemMessage.Status` |
+| `SDKSystemMessage` | `Message.SystemMessage.Init` |
+| `SDKTaskNotificationMessage` | `Message.SystemMessage.TaskNotification` |
+| `SDKTaskProgressMessage` | `Message.SystemMessage.TaskProgress` |
+| `SDKTaskStartedMessage` | `Message.SystemMessage.TaskStarted` |
 | `SDKToolProgressMessage` | `Message.ToolProgressMessage` |
 | `SDKToolUseSummaryMessage` | `Message.ToolUseSummaryMessage` |
 | `SDKUserMessage` | `Message.UserMessage` |

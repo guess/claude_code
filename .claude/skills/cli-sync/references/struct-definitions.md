@@ -16,12 +16,12 @@ The TS SDK `SDKMessage` union is the canonical source for type discovery. It lis
 
 | Type | SDK Source | Scenario A (Basic) | Scenario B (Partial) | Scenario C (Tool) | Exceptional |
 |------|:---------:|:------------------:|:--------------------:|:-----------------:|:-----------:|
-| system_message | TS + Py | ✓ | ✓ | ✓ | |
+| system_message (init) | TS + Py | ✓ | ✓ | ✓ | |
 | assistant_message | TS + Py | ✓ | ✓ | ✓ | |
 | user_message | TS + Py | | | ✓ | |
 | result_message | TS + Py | ✓ | ✓ | ✓ | |
 | partial_assistant_message | TS | | ✓ | | |
-| compact_boundary_message | TS | | | | ✓ |
+| compact_boundary | TS | | | | ✓ |
 | text_block | TS + Py | ✓ | ✓ | ✓ | |
 | tool_use_block | TS + Py | | | ✓ | |
 | tool_result_block | TS + Py | | | ✓ | |
@@ -31,12 +31,10 @@ The TS SDK `SDKMessage` union is the canonical source for type discovery. It lis
 
 ## Message Types
 
-### SystemMessage (`lib/claude_code/message/system_message.ex`)
+### SystemMessage.Init (`lib/claude_code/message/system_message/init.ex`)
 
-Handles all system subtypes: `init`, `hook_started`, `hook_response`, and any future subtypes.
-Mirrors the Python SDK's generic `SystemMessage(subtype=str, data=dict)` approach.
-
-For `init` subtype, dedicated fields are populated. For other subtypes, extra fields are stored in the `data` map.
+Handles the `init` system subtype for session initialization.
+The `SystemMessage` namespace module (`lib/claude_code/message/system_message.ex`) contains shared helpers and the `t()` type union for all system subtypes.
 
 | JSON Key | Struct Field | Type | Notes |
 |----------|--------------|------|-------|
@@ -56,7 +54,6 @@ For `init` subtype, dedicated fields are populated. For other subtypes, extra fi
 | `effectiveGitRoot` | `:effective_git_root` | string or nil | Git repository root |
 | `environmentPlan` | `:environment_plan` | map | Plan configuration |
 | `userType` | `:user_type` | atom | User tier |
-| *(remaining)* | `:data` | map | Extra fields for non-init subtypes (atom-keyed) |
 
 ### AssistantMessage (`lib/claude_code/message/assistant_message.ex`)
 
@@ -115,34 +112,40 @@ Streaming partial content (when `include_partial_messages: true`).
 | `index` | `:index` | integer | Block index being updated |
 | `delta` | `:delta` | map | The delta/change content |
 
-### CompactBoundaryMessage (`lib/claude_code/message/compact_boundary_message.ex`)
+### SystemMessage.CompactBoundary (`lib/claude_code/message/system_message/compact_boundary.ex`)
 
 Context compaction markers.
 
 | JSON Key | Struct Field | Type | Notes |
 |----------|--------------|------|-------|
-| `type` | `:type` | `:compact_boundary` atom | Always "compact_boundary" |
-| `direction` | `:direction` | atom | :start or :end |
+| `type` | `:type` | `:system` atom | Always "system" |
+| `subtype` | `:subtype` | `:compact_boundary` atom | Always "compact_boundary" |
+| `compact_metadata` | `:compact_metadata` | map | Contains `:trigger` and `:pre_tokens` |
+| `session_id` | `:session_id` | string | Session identifier |
+| `uuid` | `:uuid` | string | Unique identifier |
 
-### System Subtypes (handled by SystemMessage catch-all)
+### System Subtypes (under `lib/claude_code/message/system_message/`)
 
-The `SystemMessage` struct handles all system subtypes via its `data` map. The `init` subtype has dedicated fields; all other subtypes store their data in the `:data` map with atom keys.
+Each system subtype has its own module under `ClaudeCode.Message.SystemMessage.*`. Unknown subtypes are skipped during parsing (forward compatibility).
 
 These subtypes are known from the TS SDK and observed CLI output:
 
-| Subtype | Data Keys | Description |
-|---------|-----------|-------------|
-| `init` | *(dedicated struct fields)* | Session initialization — see SystemMessage above |
-| `status` | `status` (compacting\|null), `permission_mode` | Session status updates |
-| `hook_started` | `hook_id`, `hook_name`, `hook_event` | Hook execution began |
-| `hook_progress` | `hook_id`, `hook_name`, `hook_event`, `stdout`, `stderr`, `output` | Hook producing output |
-| `hook_response` | `hook_id`, `hook_name`, `hook_event`, `output`, `stdout`, `stderr`, `exit_code`, `outcome` | Hook completed |
-| `task_notification` | `task_id`, `tool_use_id`, `status`, `output_file`, `summary`, `usage` | Subagent task status update |
-| `task_started` | `task_id`, `tool_use_id`, `description`, `task_type` | Subagent task began |
-| `task_progress` | `task_id`, `tool_use_id`, `description`, `usage`, `last_tool_name` | Subagent task progress |
-| `files_persisted` | `files` (list), `failed` (list), `processed_at` | File checkpoint notification |
+| Subtype | Module | Description |
+|---------|--------|-------------|
+| `init` | `SystemMessage.Init` | Session initialization |
+| `status` | `SystemMessage.Status` | Session status updates (status, permission_mode) |
+| `compact_boundary` | `SystemMessage.CompactBoundary` | Context compaction boundary |
+| `hook_started` | `SystemMessage.HookStarted` | Hook execution began |
+| `hook_progress` | `SystemMessage.HookProgress` | Hook producing output |
+| `hook_response` | `SystemMessage.HookResponse` | Hook completed |
+| `task_notification` | `SystemMessage.TaskNotification` | Subagent task status update |
+| `task_started` | `SystemMessage.TaskStarted` | Subagent task began |
+| `task_progress` | `SystemMessage.TaskProgress` | Subagent task progress |
+| `files_persisted` | `SystemMessage.FilesPersisted` | File checkpoint notification |
+| `local_command_output` | `SystemMessage.LocalCommandOutput` | Local command output |
+| `elicitation_complete` | `SystemMessage.ElicitationComplete` | Elicitation completed |
 
-**Note**: New system subtypes may appear in future CLI versions. The catch-all design means they are automatically captured in the `data` map without requiring code changes. The skill's diff-based type discovery will surface when new subtypes appear in the TS SDK.
+**Note**: New system subtypes may appear in future CLI versions. Unknown subtypes are silently skipped during parsing for forward compatibility.
 
 ## Content Block Types
 
@@ -192,7 +195,7 @@ Common type definitions used across modules:
 
 ## Parsing Functions
 
-Each struct module has a `from_json/1` function that handles:
+Each struct module has a `new/1` function that handles:
 - camelCase to snake_case conversion
 - Type coercion (strings to atoms where needed)
 - Optional field handling (defaults to nil)
@@ -201,12 +204,13 @@ Each struct module has a `from_json/1` function that handles:
 Example pattern:
 
 ```elixir
-def from_json(json) when is_map(json) do
-  %__MODULE__{
-    type: :the_type,
-    field_name: json["camelCaseName"],
-    optional_field: json["optionalField"]
-  }
+def new(%{"type" => "system", "subtype" => "init"} = json) do
+  {:ok, %__MODULE__{
+    type: :system,
+    subtype: :init,
+    session_id: json["sessionId"],
+    # ...
+  }}
 end
 ```
 
@@ -227,7 +231,7 @@ When adding a new field:
    }
    ```
 
-3. Add parsing in `from_json/1`:
+3. Add parsing in `new/1`:
    ```elixir
    new_field: json["newField"]
    ```
@@ -257,7 +261,7 @@ When CLI JSON contains keys not in our structs:
 # Action: Add :output_tokens field
 defstruct [..., :output_tokens]
 
-# Add parsing in from_json:
+# Add parsing in new/1:
 output_tokens: json["outputTokens"]
 ```
 
