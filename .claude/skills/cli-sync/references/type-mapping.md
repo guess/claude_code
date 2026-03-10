@@ -9,7 +9,7 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 |---|---|---|---|
 | `Message.SystemMessage.Init` | `SDKSystemMessage` | `SystemMessage` | Init subtype; `SystemMessage` is the namespace module |
 | `Message.AssistantMessage` | `SDKAssistantMessage` | `AssistantMessage` | |
-| `Message.UserMessage` | `SDKUserMessage` | `UserMessage` | |
+| `Message.UserMessage` | `SDKUserMessage` / `SDKUserMessageReplay` | `UserMessage` | `SDKUserMessageReplay` handled via `is_replay` field |
 | `Message.ResultMessage` | `SDKResultMessage` (`SDKResultSuccess \| SDKResultError`) | `ResultMessage` | |
 | `Message.PartialAssistantMessage` | `SDKPartialAssistantMessage` | `StreamEvent` | Python uses different name |
 | `Message.SystemMessage.CompactBoundary` | `SDKCompactBoundaryMessage` | -- | TS only |
@@ -31,12 +31,25 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 
 ## Content Block Types
 
-| Elixir Module | TS SDK Type | Python SDK Type | Notes |
+Content blocks come from the Anthropic API types (`BetaContentBlock` in TS SDK). The CLI passes
+these through in assistant/user message `content` arrays. The Anthropic API type definitions are
+in `captured/anthropic-api-messages.d.ts`.
+
+| Elixir Module | Anthropic API Type (TS) | Python SDK Type | Notes |
 |---|---|---|---|
-| `Content.TextBlock` | *(Anthropic API types)* | `TextBlock` | TS uses API types directly |
-| `Content.ThinkingBlock` | *(Anthropic API types)* | `ThinkingBlock` | TS uses API types directly |
-| `Content.ToolUseBlock` | *(Anthropic API types)* | `ToolUseBlock` | TS uses API types directly |
-| `Content.ToolResultBlock` | *(Anthropic API types)* | `ToolResultBlock` | TS uses API types directly |
+| `Content.TextBlock` | `BetaTextBlock` | `TextBlock` | |
+| `Content.ThinkingBlock` | `BetaThinkingBlock` | `ThinkingBlock` | |
+| `Content.RedactedThinkingBlock` | `BetaRedactedThinkingBlock` | -- | |
+| `Content.ToolUseBlock` | `BetaToolUseBlock` | `ToolUseBlock` | |
+| `Content.ToolResultBlock` | `BetaToolResultBlockParam` | `ToolResultBlock` | Round-tripped in user messages |
+| `Content.ServerToolUseBlock` | `BetaServerToolUseBlock` | -- | Web search, code execution, etc. |
+| `Content.ServerToolResultBlock` | *(various: `BetaWebSearchToolResultBlock`, `BetaCodeExecutionToolResultBlock`, etc.)* | -- | Elixir uses single generic struct |
+| `Content.MCPToolUseBlock` | `BetaMCPToolUseBlock` | -- | |
+| `Content.MCPToolResultBlock` | `BetaMCPToolResultBlock` | -- | |
+| `Content.ImageBlock` | `BetaImageBlockParam` | -- | Input-only (user messages) |
+| `Content.DocumentBlock` | `BetaDocumentBlock` / `BetaRequestDocumentBlock` | -- | PDF/text documents |
+| `Content.ContainerUploadBlock` | `BetaContainerUploadBlock` | -- | Code execution container files |
+| `Content.CompactionBlock` | `BetaCompactionBlock` | -- | Context compaction summaries |
 
 ## Other Structs
 
@@ -44,27 +57,26 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 |---|---|---|---|
 | `ClaudeCode.Sandbox` | `SandboxSettings` | `SandboxSettings` | |
 | `ClaudeCode.Sandbox.Network` | `SandboxNetworkConfig` | `SandboxNetworkConfig` | |
-| `ClaudeCode.Sandbox.Filesystem` | `SandboxIgnoreViolations` | `SandboxIgnoreViolations` | Partial overlap; FS violations |
+| `ClaudeCode.Sandbox.Filesystem` | `SandboxFilesystemConfig` | -- | FS write/read allow/deny lists |
 | `ClaudeCode.Agent` | `AgentDefinition` | `AgentDefinition` | Input config for custom agents |
 | `ClaudeCode.ModelInfo` | `ModelInfo` | -- | From `SDKControlInitializeResponse.models` |
 | `ClaudeCode.AgentInfo` | `AgentInfo` | -- | From `SDKControlInitializeResponse.agents` |
 | `ClaudeCode.AccountInfo` | `AccountInfo` | -- | From `SDKControlInitializeResponse.account` |
 | `ClaudeCode.SlashCommand` | `SlashCommand` | -- | From `SDKControlInitializeResponse.commands` |
-| `ClaudeCode.McpServerStatus` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
-| `ClaudeCode.McpSetServersResult` | `McpSetServersResult` | -- | Returned by `setMcpServers()` |
-| `ClaudeCode.RewindFilesResult` | `RewindFilesResult` | -- | Returned by `rewindFiles()` |
-
-**Note on ModelInfo/AgentInfo/AccountInfo:** These are standalone types in the TS SDK, returned
-in the `SDKControlInitializeResponse` (the response to the `initialize` control request). They
-are NOT part of `SDKSystemMessage`. Our structs match the TS SDK definitions 1:1 but are not yet
-wired into the initialize response parsing — `parse_control_response/1` currently returns raw maps.
+| `ClaudeCode.PermissionDenial` | `SDKPermissionDenial` | -- | In `SDKResultSuccess.permission_denials` |
+| `ClaudeCode.ModelUsage` | `ModelUsage` | -- | Per-model token/cost breakdown |
+| `ClaudeCode.MCP.ServerStatus` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
+| `ClaudeCode.CLI.Control.Types.set_servers_result` | `McpSetServersResult` | -- | Type spec only (raw map); returned by `setMcpServers()` |
+| `ClaudeCode.CLI.Control.Types.rewind_files_result` | `RewindFilesResult` | -- | Type spec only (raw map); returned by `rewindFiles()` |
+| `ClaudeCode.CLI.Control.Types.initialize_response` | `SDKControlInitializeResponse` | -- | Type spec only (raw map); parsed in `Adapter.Port` |
 
 ## Union Types
 
 | Elixir Type | TS SDK Type | Python SDK Type |
 |---|---|---|
 | `ClaudeCode.Message.t/0` | `SDKMessage` | `Message` |
-| `ClaudeCode.Content.t/0` | *(Anthropic API `ContentBlock`)* | `ContentBlock` |
+| `ClaudeCode.Content.t/0` | `BetaContentBlock` | `ContentBlock` |
+| `ClaudeCode.Content.delta/0` | `BetaRawContentBlockDelta` | -- |
 
 ## Control Protocol Coverage
 
@@ -133,13 +145,30 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `AccountInfo` | `ClaudeCode.AccountInfo` |
 | `AgentDefinition` | `ClaudeCode.Agent` |
 | `AgentInfo` | `ClaudeCode.AgentInfo` |
+| `BetaCompactionBlock` | `Content.CompactionBlock` |
+| `BetaContainerUploadBlock` | `Content.ContainerUploadBlock` |
+| `BetaDocumentBlock` | `Content.DocumentBlock` |
+| `BetaImageBlockParam` | `Content.ImageBlock` |
+| `BetaMCPToolResultBlock` | `Content.MCPToolResultBlock` |
+| `BetaMCPToolUseBlock` | `Content.MCPToolUseBlock` |
+| `BetaRedactedThinkingBlock` | `Content.RedactedThinkingBlock` |
+| `BetaServerToolUseBlock` | `Content.ServerToolUseBlock` |
+| `BetaTextBlock` | `Content.TextBlock` |
+| `BetaThinkingBlock` | `Content.ThinkingBlock` |
+| `BetaToolResultBlockParam` | `Content.ToolResultBlock` |
+| `BetaToolUseBlock` | `Content.ToolUseBlock` |
+| `McpServerStatus` | `ClaudeCode.MCP.ServerStatus` |
+| `McpSetServersResult` | `ClaudeCode.CLI.Control.Types.set_servers_result` (type spec) |
 | `ModelInfo` | `ClaudeCode.ModelInfo` |
+| `ModelUsage` | `ClaudeCode.ModelUsage` |
+| `RewindFilesResult` | `ClaudeCode.CLI.Control.Types.rewind_files_result` (type spec) |
+| `SandboxFilesystemConfig` | `ClaudeCode.Sandbox.Filesystem` |
 | `SandboxNetworkConfig` | `ClaudeCode.Sandbox.Network` |
 | `SandboxSettings` | `ClaudeCode.Sandbox` |
 | `SDKAssistantMessage` | `Message.AssistantMessage` |
 | `SDKAuthStatusMessage` | `Message.AuthStatusMessage` |
 | `SDKCompactBoundaryMessage` | `Message.SystemMessage.CompactBoundary` |
-| `SDKControlInitializeResponse` | *(parsed as raw map by `Control.parse_control_response/1`)* |
+| `SDKControlInitializeResponse` | `ClaudeCode.CLI.Control.Types.initialize_response` (type spec) |
 | `SDKElicitationCompleteMessage` | `Message.SystemMessage.ElicitationComplete` |
 | `SDKFilesPersistedEvent` | `Message.SystemMessage.FilesPersisted` |
 | `SDKHookProgressMessage` | `Message.SystemMessage.HookProgress` |
@@ -147,6 +176,7 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKHookStartedMessage` | `Message.SystemMessage.HookStarted` |
 | `SDKLocalCommandOutputMessage` | `Message.SystemMessage.LocalCommandOutput` |
 | `SDKPartialAssistantMessage` | `Message.PartialAssistantMessage` |
+| `SDKPermissionDenial` | `ClaudeCode.PermissionDenial` |
 | `SDKPromptSuggestionMessage` | `Message.PromptSuggestionMessage` |
 | `SDKRateLimitEvent` | `Message.RateLimitEvent` |
 | `SDKResultMessage` | `Message.ResultMessage` |
@@ -158,3 +188,5 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKToolProgressMessage` | `Message.ToolProgressMessage` |
 | `SDKToolUseSummaryMessage` | `Message.ToolUseSummaryMessage` |
 | `SDKUserMessage` | `Message.UserMessage` |
+| `SDKUserMessageReplay` | `Message.UserMessage` (via `is_replay` field) |
+| `SlashCommand` | `ClaudeCode.SlashCommand` |
