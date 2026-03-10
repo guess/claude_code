@@ -12,7 +12,6 @@
 # What it captures:
 #   - CLI version
 #   - CLI --help output
-#   - Test scenarios A-F (JSON schema samples)
 #   - Python SDK types.py and subprocess_cli.py (via gh)
 #   - TypeScript SDK sdk.d.ts type definitions (via npm/unpkg)
 #   - Anthropic API types (BetaRawMessageStreamEvent etc. from @anthropic-ai/sdk)
@@ -24,7 +23,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 OUTPUT_DIR="${1:-$SCRIPT_DIR/../captured}"
 
 mkdir -p "$OUTPUT_DIR"
@@ -34,7 +33,7 @@ echo "Output directory: $OUTPUT_DIR"
 echo ""
 
 # --- Version Info ---
-echo "[1/13] Capturing CLI version..."
+echo "[1/8] Capturing CLI version..."
 if command -v claude &> /dev/null; then
     claude --version 2>/dev/null > "$OUTPUT_DIR/cli-version.txt" || echo "FAILED" > "$OUTPUT_DIR/cli-version.txt"
     echo "  Done: cli-version.txt"
@@ -44,7 +43,7 @@ else
 fi
 
 # --- Help Output ---
-echo "[2/13] Capturing CLI --help..."
+echo "[2/8] Capturing CLI --help..."
 if command -v claude &> /dev/null; then
     claude --help 2>&1 > "$OUTPUT_DIR/cli-help.txt" || echo "FAILED" > "$OUTPUT_DIR/cli-help.txt"
     echo "  Done: cli-help.txt"
@@ -53,7 +52,7 @@ else
 fi
 
 # --- Bundled Version ---
-echo "[3/13] Capturing bundled version..."
+echo "[3/8] Capturing bundled version..."
 INSTALLER_FILE="$PROJECT_ROOT/lib/claude_code/adapter/port/installer.ex"
 if [ -f "$INSTALLER_FILE" ]; then
     BUNDLED=$(grep '@default_cli_version' "$INSTALLER_FILE" | head -1 | grep -o '"[^"]*"' | tr -d '"')
@@ -64,58 +63,8 @@ else
     echo "  WARNING: installer.ex not found"
 fi
 
-# --- Scenario A: Basic query ---
-echo "[4/13] Scenario A: Basic query (system, assistant, result, text_block)..."
-if command -v claude &> /dev/null; then
-    echo "What is 2+2?" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
-        > "$OUTPUT_DIR/scenario-a-basic.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-a-basic.jsonl"
-    echo "  Done: scenario-a-basic.jsonl"
-else
-    echo '{"error":"claude_not_found"}' > "$OUTPUT_DIR/scenario-a-basic.jsonl"
-fi
-
-# --- Scenario B: Partial streaming ---
-echo "[5/13] Scenario B: Partial streaming (partial_assistant_message)..."
-if command -v claude &> /dev/null; then
-    echo "Count from 1 to 5" | claude --output-format stream-json --verbose --include-partial-messages --max-turns 1 -p 2>/dev/null \
-        > "$OUTPUT_DIR/scenario-b-partial.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-b-partial.jsonl"
-    echo "  Done: scenario-b-partial.jsonl"
-else
-    echo '{"error":"claude_not_found"}' > "$OUTPUT_DIR/scenario-b-partial.jsonl"
-fi
-
-# --- Scenario C: Tool use ---
-echo "[6/13] Scenario C: Tool use (tool_use_block, tool_result_block, user_message)..."
-if command -v claude &> /dev/null; then
-    echo "Read the first 3 lines of mix.exs" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
-        > "$OUTPUT_DIR/scenario-c-tool.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-c-tool.jsonl"
-    echo "  Done: scenario-c-tool.jsonl"
-else
-    echo '{"error":"claude_not_found"}' > "$OUTPUT_DIR/scenario-c-tool.jsonl"
-fi
-
-# --- Scenario D: Error max turns ---
-echo "[7/13] Scenario D: Error max turns (result with error_max_turns)..."
-if command -v claude &> /dev/null; then
-    echo "Create a file called /tmp/test_sync.txt with hello world, then read it back" | claude --output-format stream-json --verbose --max-turns 1 -p 2>/dev/null \
-        > "$OUTPUT_DIR/scenario-d-error.jsonl" || echo '{"error":"scenario_failed"}' > "$OUTPUT_DIR/scenario-d-error.jsonl"
-    echo "  Done: scenario-d-error.jsonl"
-else
-    echo '{"error":"claude_not_found"}' > "$OUTPUT_DIR/scenario-d-error.jsonl"
-fi
-
-# --- Scenario F: Extended thinking ---
-echo "[8/13] Scenario F: Extended thinking (thinking_block)..."
-if command -v claude &> /dev/null; then
-    echo "Think step by step about why 17 is prime" | claude --output-format stream-json --verbose --max-turns 1 --model claude-opus-4-6 -p 2>/dev/null \
-        > "$OUTPUT_DIR/scenario-f-thinking.jsonl" || echo '{"error":"scenario_failed_or_thinking_not_available"}' > "$OUTPUT_DIR/scenario-f-thinking.jsonl"
-    echo "  Done: scenario-f-thinking.jsonl"
-else
-    echo '{"error":"claude_not_found"}' > "$OUTPUT_DIR/scenario-f-thinking.jsonl"
-fi
-
 # --- Python SDK via gh ---
-echo "[9/13] Fetching Python SDK sources via gh..."
+echo "[4/8] Fetching Python SDK sources via gh..."
 if command -v gh &> /dev/null; then
     # types.py - canonical message/content type definitions
     gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' 2>/dev/null | base64 -d \
@@ -133,7 +82,7 @@ else
 fi
 
 # --- TypeScript SDK types via npm/unpkg ---
-echo "[10/13] Fetching TypeScript SDK type definitions..."
+echo "[5/8] Fetching TypeScript SDK type definitions..."
 # Get latest version from npm registry
 TS_SDK_VERSION=$(curl -s "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/latest" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
 if [ -n "$TS_SDK_VERSION" ]; then
@@ -151,7 +100,7 @@ else
 fi
 
 # --- Anthropic API types (streaming events, deltas, content blocks) ---
-echo "[11/13] Fetching Anthropic API type definitions..."
+echo "[6/8] Fetching Anthropic API type definitions..."
 ANTHROPIC_SDK_VERSION=$(curl -s "https://registry.npmjs.org/@anthropic-ai/sdk/latest" 2>/dev/null | grep -o '"version":"[^"]*"' | head -1 | cut -d'"' -f4)
 if [ -n "$ANTHROPIC_SDK_VERSION" ]; then
     echo "$ANTHROPIC_SDK_VERSION" > "$OUTPUT_DIR/anthropic-sdk-version.txt"
@@ -168,7 +117,7 @@ else
 fi
 
 # --- Python SDK version ---
-echo "[12/13] Recording Python SDK version..."
+echo "[7/8] Recording Python SDK version..."
 if command -v gh &> /dev/null; then
     PY_SDK_VERSION=$(gh api repos/anthropics/claude-agent-sdk-python/releases/latest --jq '.tag_name' 2>/dev/null)
     if [ -n "$PY_SDK_VERSION" ]; then
@@ -184,7 +133,7 @@ else
 fi
 
 # --- Summary ---
-echo "[13/13] Capture summary"
+echo "[8/8] Capture summary"
 echo ""
 echo "=== Capture Complete ==="
 echo ""
