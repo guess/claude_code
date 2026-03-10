@@ -86,10 +86,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   @impl ClaudeCode.Adapter
   def send_control_request(adapter, subtype, params) do
-    exit_timeout =
-      Application.get_env(:claude_code, :client_control_exit_timeout, @client_control_exit_timeout)
-
-    GenServer.call(adapter, {:control_request, subtype, params}, exit_timeout)
+    GenServer.call(adapter, {:control_request, subtype, params}, @client_control_exit_timeout)
   end
 
   @impl ClaudeCode.Adapter
