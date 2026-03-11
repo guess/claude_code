@@ -44,6 +44,53 @@ defmodule ClaudeCode.Message do
   def parse_role(value) when is_binary(value), do: value
   def parse_role(_), do: nil
 
+  @type stop_reason ::
+          :end_turn
+          | :max_tokens
+          | :stop_sequence
+          | :tool_use
+          | :pause_turn
+          | :compaction
+          | :refusal
+          | :model_context_window_exceeded
+          | String.t()
+
+  @stop_reason_mapping %{
+    "end_turn" => :end_turn,
+    "max_tokens" => :max_tokens,
+    "stop_sequence" => :stop_sequence,
+    "tool_use" => :tool_use,
+    "pause_turn" => :pause_turn,
+    "compaction" => :compaction,
+    "refusal" => :refusal,
+    "model_context_window_exceeded" => :model_context_window_exceeded
+  }
+
+  @doc """
+  Parses a stop reason string from the CLI into an atom.
+
+  Returns `nil` for nil input. Unrecognized values are kept as strings
+  for forward compatibility without risking atom table exhaustion.
+
+  ## Examples
+
+      iex> ClaudeCode.Message.parse_stop_reason("end_turn")
+      :end_turn
+
+      iex> ClaudeCode.Message.parse_stop_reason("tool_use")
+      :tool_use
+
+      iex> ClaudeCode.Message.parse_stop_reason("future_reason")
+      "future_reason"
+
+      iex> ClaudeCode.Message.parse_stop_reason(nil)
+      nil
+
+  """
+  @spec parse_stop_reason(String.t() | nil) :: stop_reason() | nil
+  def parse_stop_reason(value) when is_binary(value), do: Map.get(@stop_reason_mapping, value, value)
+  def parse_stop_reason(_value), do: nil
+
   @type t ::
           SystemMessage.t()
           | AssistantMessage.t()
@@ -72,14 +119,14 @@ defmodule ClaudeCode.Message do
   def message?(msg), do: SystemMessage.type?(msg)
 
   @type delta :: %{
-          stop_reason: ClaudeCode.StopReason.t() | nil,
+          stop_reason: stop_reason() | nil,
           stop_sequence: String.t() | nil
         }
 
   @doc """
   Parses a message-level delta from a `message_delta` stream event.
 
-  Extracts `stop_reason` via `ClaudeCode.StopReason.parse/1` for consistency
+  Extracts `stop_reason` via `parse_stop_reason/1` for consistency
   with `AssistantMessage` and `ResultMessage`.
 
   ## Examples
@@ -96,7 +143,7 @@ defmodule ClaudeCode.Message do
 
   def parse_delta(delta) when is_map(delta) do
     %{
-      stop_reason: ClaudeCode.StopReason.parse(delta["stop_reason"]),
+      stop_reason: parse_stop_reason(delta["stop_reason"]),
       stop_sequence: delta["stop_sequence"]
     }
   end

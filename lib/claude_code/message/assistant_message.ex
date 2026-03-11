@@ -56,7 +56,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
           role: Message.role(),
           content: [Content.t()],
           model: String.t(),
-          stop_reason: ClaudeCode.StopReason.t() | nil,
+          stop_reason: Message.stop_reason() | nil,
           stop_sequence: String.t() | nil,
           usage: ClaudeCode.Usage.t(),
           context_management: map() | nil
@@ -113,7 +113,7 @@ defmodule ClaudeCode.Message.AssistantMessage do
            role: Message.parse_role(data["role"]),
            content: content,
            model: data["model"],
-           stop_reason: ClaudeCode.StopReason.parse(data["stop_reason"]),
+           stop_reason: Message.parse_stop_reason(data["stop_reason"]),
            stop_sequence: data["stop_sequence"],
            usage: ClaudeCode.Usage.parse(data["usage"]),
            context_management: data["context_management"]
