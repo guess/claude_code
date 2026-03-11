@@ -6,11 +6,18 @@ defmodule ClaudeCode.Hook do
   with the same `call/2` signature. Used by both `:can_use_tool` and
   `:hooks` options.
 
-  ## Return types by event
+  ## Hook events and return types
 
-  The return type depends on which event the hook is registered for:
+  The return type depends on which event the hook is registered for.
+  All hook inputs include common fields (`:hook_event_name`, `:session_id`,
+  `:transcript_path`, `:cwd`, `:permission_mode`, and optional `:agent_id`/`:agent_type`).
+
+  See the [Hooks guide](hooks.html#hook-event-reference) for the full input
+  field reference per event.
 
   ### can_use_tool / PreToolUse (permission decisions)
+
+  Input: `:tool_name`, `:tool_input`, `:tool_use_id`
 
       :allow
       {:allow, updated_input}
@@ -18,28 +25,66 @@ defmodule ClaudeCode.Hook do
       {:deny, reason}
       {:deny, reason, interrupt: true}
 
-  ### PostToolUse / PostToolUseFailure (observation only)
+  ### PostToolUse (observation)
+
+  Input: `:tool_name`, `:tool_input`, `:tool_response`, `:tool_use_id`
+
+      :ok
+
+  ### PostToolUseFailure (observation)
+
+  Input: `:tool_name`, `:tool_input`, `:tool_use_id`, `:error`, `:is_interrupt`
 
       :ok
 
   ### UserPromptSubmit
 
+  Input: `:prompt`
+
       :ok
       {:reject, reason}
 
-  ### Stop / SubagentStop
+  ### Stop
+
+  Input: `:stop_hook_active`, `:last_assistant_message`
+
+      :ok
+      {:continue, reason}
+
+  ### SubagentStart (observation)
+
+  Input: `:agent_id`, `:agent_type`
+
+      :ok
+
+  ### SubagentStop
+
+  Input: `:stop_hook_active`, `:agent_id`, `:agent_type`,
+  `:agent_transcript_path`, `:last_assistant_message`
 
       :ok
       {:continue, reason}
 
   ### PreCompact
 
+  Input: `:trigger`, `:custom_instructions`
+
       :ok
       {:instructions, custom_instructions}
 
-  ### Notification / SubagentStart (observation only)
+  ### Notification (observation)
+
+  Input: `:message`, `:notification_type`, `:title`
 
       :ok
+
+  ### Not yet implemented
+
+  The following events are defined in the TypeScript SDK but not yet
+  supported by the Elixir SDK: `PermissionRequest`, `SessionStart`,
+  `SessionEnd`, `Setup`, `ConfigChange`, `InstructionsLoaded`,
+  `Elicitation`, `ElicitationResult`, `TaskCompleted`, `TeammateIdle`,
+  `WorktreeCreate`, `WorktreeRemove`.
   """
 
   @callback call(input :: map(), tool_use_id :: String.t() | nil) :: term()

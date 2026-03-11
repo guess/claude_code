@@ -63,8 +63,20 @@ The SDK provides hooks for different stages of agent execution:
 | `SubagentStop` | Yes | Subagent completion | Aggregate results from parallel tasks |
 | `PreCompact` | Yes | Conversation compaction request | Archive full transcript before summarizing |
 | `Notification` | Yes | Agent status messages | Send agent status updates externally |
+| `PermissionRequest` | No | Permission prompt before tool execution | Custom permission UI |
+| `SessionStart` | No | Session initialization | Initialize external state |
+| `SessionEnd` | No | Session termination | Cleanup resources |
+| `Setup` | No | Agent setup/maintenance | Run initialization tasks |
+| `ConfigChange` | No | Settings file changed | Reload configuration |
+| `InstructionsLoaded` | No | CLAUDE.md or memory file loaded | Track loaded instructions |
+| `Elicitation` | No | MCP server requests user input | Custom elicitation UI |
+| `ElicitationResult` | No | User responds to elicitation | Log elicitation responses |
+| `TaskCompleted` | No | Teammate task completion | Track team progress |
+| `TeammateIdle` | No | Teammate becomes idle | Assign new work |
+| `WorktreeCreate` | No | Git worktree created | Track worktree lifecycle |
+| `WorktreeRemove` | No | Git worktree removed | Cleanup worktree resources |
 
-> **Note:** The official TypeScript SDK also supports `PermissionRequest`, `SessionStart`, and `SessionEnd` hooks. These are not yet implemented in the Elixir SDK. The Python SDK supports a subset of these hooks -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full compatibility matrix.
+> **Note:** Events marked "No" in the Supported column are defined in the TypeScript SDK but not yet implemented in the Elixir SDK. Their input fields are documented here for reference and forward compatibility. The Python SDK supports a subset of these hooks -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full compatibility matrix.
 
 ## Common use cases
 
@@ -91,7 +103,7 @@ The `:hooks` option is a map where:
 - **Keys** are [hook event names](#available-hooks) (e.g., `PreToolUse`, `PostToolUse`, `Stop`)
 - **Values** are lists of [matchers](#matchers), each containing an optional filter pattern and your [callback functions](#callback-function-inputs)
 
-Your hook callbacks receive [input data](#input-data) about the event and return a [response](#callback-outputs) so the agent knows to allow, block, or modify the operation.
+Your hook callbacks receive [input data](#hook-event-reference) about the event and return a [response](#callback-outputs) so the agent knows to allow, block, or modify the operation.
 
 ### Matchers
 
@@ -127,18 +139,16 @@ This example uses a matcher to run a hook only for file-modifying tools:
 
 Every hook callback receives two arguments:
 
-1. **Input data** (`map`): Event details. See [input data](#input-data) for fields
+1. **Input data** (`map`): Event details. See [hook event reference](#hook-event-reference) for fields per event
 2. **Tool use ID** (`String.t() | nil`): Correlate `PreToolUse` and `PostToolUse` events
 
 Both modules implementing `ClaudeCode.Hook` and anonymous functions receive the same arguments via `call/2`.
 
-> **Key normalization:** Hook input fields are converted to atom keys using `String.to_existing_atom/1`. Only atoms that already exist at runtime are converted — unknown or future fields are preserved as string keys, avoiding unbounded atom creation.
+> **Key normalization:** Hook input fields are converted to atom keys. All documented fields (see tables below) are guaranteed to be atoms. Unknown or future fields fall back to `String.to_existing_atom/1` — if the atom doesn't already exist at runtime, the key is preserved as a string, avoiding unbounded atom creation.
 
-### Input data
+### Common input fields
 
-The first argument to your hook callback contains information about the event.
-
-**Common fields** present in all hook types:
+All hook events include these base fields:
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -146,83 +156,13 @@ The first argument to your hook callback contains information about the event.
 | `:session_id` | `String.t()` | Current session identifier |
 | `:transcript_path` | `String.t()` | Path to the conversation transcript |
 | `:cwd` | `String.t()` | Current working directory |
-
-**Hook-specific fields** vary by hook type:
-
-| Field | Type | Description | Hooks |
-|-------|------|-------------|-------|
-| `:tool_name` | `String.t()` | Name of the tool being called | PreToolUse, PostToolUse, PostToolUseFailure |
-| `:tool_input` | `map` | Arguments passed to the tool | PreToolUse, PostToolUse, PostToolUseFailure |
-| `:tool_response` | `any` | Result returned from tool execution | PostToolUse |
-| `:error` | `String.t()` | Error message from tool execution failure | PostToolUseFailure |
-| `:is_interrupt` | `boolean` | Whether the failure was caused by an interrupt | PostToolUseFailure |
-| `:prompt` | `String.t()` | The user's prompt text | UserPromptSubmit |
-| `:stop_hook_active` | `boolean` | Whether a stop hook is currently processing | Stop, SubagentStop |
-| `:agent_id` | `String.t()` | Unique identifier for the subagent | SubagentStart, SubagentStop |
-| `:agent_type` | `String.t()` | Type/role of the subagent | SubagentStart |
-| `:agent_transcript_path` | `String.t()` | Path to the subagent's conversation transcript | SubagentStop |
-| `:trigger` | `String.t()` | What triggered compaction: `"manual"` or `"auto"` | PreCompact |
-| `:custom_instructions` | `String.t()` | Custom instructions provided for compaction | PreCompact |
-| `:message` | `String.t()` | Status message from the agent | Notification |
-| `:notification_type` | `String.t()` | Type of notification: `"permission_prompt"`, `"idle_prompt"`, `"auth_success"`, or `"elicitation_dialog"` | Notification |
-| `:title` | `String.t()` | Optional title set by the agent | Notification |
-
-The code below defines a hook callback that uses `:tool_name` and `:tool_input` to log details about each tool call:
-
-```elixir
-defmodule MyApp.ToolLogger do
-  @behaviour ClaudeCode.Hook
-
-  @impl true
-  def call(%{hook_event_name: "PreToolUse", tool_name: name, tool_input: input}, _tool_use_id) do
-    Logger.info("Tool: #{name}, Input: #{inspect(input)}")
-    :allow
-  end
-
-  def call(_input, _tool_use_id), do: :ok
-end
-```
+| `:permission_mode` | `String.t()` | Permission mode (e.g., `"default"`, `"acceptEdits"`, `"bypassPermissions"`) |
+| `:agent_id` | `String.t()` | Subagent identifier. Present only when the hook fires from within a subagent; absent on the main thread. Use this to distinguish subagent calls from main-thread calls. |
+| `:agent_type` | `String.t()` | Agent type name (e.g., `"general-purpose"`, `"code-reviewer"`). Present within subagents (alongside `:agent_id`), or on the main thread when started with `--agent`. |
 
 ### Callback outputs
 
-Your callback function returns a value that tells the SDK how to proceed. The return type depends on the hook event.
-
-#### PreToolUse return values
-
-| Return | Effect |
-|--------|--------|
-| `:allow` | Permit the tool call |
-| `{:allow, updated_input}` | Permit with modified input |
-| `{:deny, reason}` | Block the tool call with an explanation |
-
-> **Note:** The CLI wire format also supports an `"ask"` permission decision, which prompts the user for confirmation. The Elixir SDK currently maps `:allow` and `{:deny, reason}` to the corresponding wire decisions. If you need `"ask"` behavior, you can implement it by omitting any hook for the tool and letting the default permission flow handle it.
-
-#### PostToolUse / PostToolUseFailure / Notification / SubagentStart
-
-| Return | Effect |
-|--------|--------|
-| `:ok` | Acknowledge the event (observation only) |
-
-#### UserPromptSubmit
-
-| Return | Effect |
-|--------|--------|
-| `:ok` | Allow the prompt |
-| `{:reject, reason}` | Block the prompt submission |
-
-#### Stop / SubagentStop
-
-| Return | Effect |
-|--------|--------|
-| `:ok` | Allow the session to stop |
-| `{:continue, reason}` | Keep the session running |
-
-#### PreCompact
-
-| Return | Effect |
-|--------|--------|
-| `:ok` | Allow compaction normally |
-| `{:instructions, text}` | Provide custom instructions for compaction |
+Your callback function returns a value that tells the SDK how to proceed. The return type depends on the hook event -- see the [hook event reference](#hook-event-reference) for details per event.
 
 > The hook response module handles translating these idiomatic Elixir returns to the CLI wire format (including `hookSpecificOutput`, `permissionDecision`, and other fields). You do not need to construct wire-format maps directly. The wire format also supports top-level fields like `continue`, `stopReason`, `suppressOutput`, and `systemMessage` for injecting context into the conversation -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full wire protocol.
 
@@ -237,9 +177,33 @@ When multiple hooks or permission rules apply, the SDK evaluates them in this or
 
 If any hook returns `{:deny, reason}`, the operation is blocked -- other hooks returning `:allow` will not override it.
 
-#### Block a tool
+## Hook event reference
 
-Return a deny decision to prevent tool execution:
+Each hook event has specific input fields and expected return values. The sections below document every event defined in the CLI protocol.
+
+### PreToolUse
+
+Fires before a tool executes. Can block, allow, or modify the tool call.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:tool_name` | `String.t()` | Name of the tool being called |
+| `:tool_input` | `map` | Arguments passed to the tool (keys are strings) |
+| `:tool_use_id` | `String.t()` | Unique identifier for this tool call |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:allow` | Permit the tool call |
+| `{:allow, updated_input}` | Permit with modified input |
+| `{:deny, reason}` | Block the tool call with an explanation |
+
+> **Note:** The CLI wire format also supports an `"ask"` permission decision, which prompts the user for confirmation. The Elixir SDK currently maps `:allow` and `{:deny, reason}` to the corresponding wire decisions.
+
+**Example:**
 
 ```elixir
 defmodule MyApp.BlockDangerous do
@@ -258,45 +222,376 @@ defmodule MyApp.BlockDangerous do
 end
 ```
 
-#### Modify tool input
+### PostToolUse
 
-Return updated input to change what the tool receives:
+Fires after a tool executes successfully. Observation only.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:tool_name` | `String.t()` | Name of the tool that was called |
+| `:tool_input` | `map` | Arguments that were passed to the tool |
+| `:tool_response` | `any` | Result returned from tool execution |
+| `:tool_use_id` | `String.t()` | Unique identifier for this tool call |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Acknowledge the event |
+
+**Example:**
 
 ```elixir
-defmodule MyApp.RedirectToSandbox do
+defmodule MyApp.AuditLogger do
   @behaviour ClaudeCode.Hook
 
   @impl true
-  def call(%{hook_event_name: "PreToolUse", tool_name: "Write", tool_input: input}, _tool_use_id) do
-    original_path = Map.get(input, "file_path", "")
-    {:allow, Map.put(input, "file_path", "/sandbox#{original_path}")}
+  def call(%{hook_event_name: "PostToolUse"} = event, _tool_use_id) do
+    MyApp.AuditLog.insert(%{
+      tool: event.tool_name,
+      input: event.tool_input,
+      result: event.tool_response
+    })
+    :ok
   end
 
   def call(_input, _tool_use_id), do: :ok
 end
 ```
 
-> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
+### PostToolUseFailure
 
-#### Auto-approve specific tools
+Fires after a tool execution fails.
 
-Bypass permission prompts for trusted tools. This is useful when you want certain operations to run without user confirmation:
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:tool_name` | `String.t()` | Name of the tool that failed |
+| `:tool_input` | `map` | Arguments that were passed to the tool |
+| `:tool_use_id` | `String.t()` | Unique identifier for this tool call |
+| `:error` | `String.t()` | Error message from the failure |
+| `:is_interrupt` | `boolean` | Whether the failure was caused by an interrupt |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Acknowledge the event |
+
+### UserPromptSubmit
+
+Fires when a user submits a prompt. Can block the submission.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:prompt` | `String.t()` | The user's prompt text |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Allow the prompt |
+| `{:reject, reason}` | Block the prompt submission |
+
+### Stop
+
+Fires when the agent is about to stop. Can keep the session running.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:stop_hook_active` | `boolean` | Whether a stop hook is currently processing |
+| `:last_assistant_message` | `String.t()` | Text content of the last assistant message before stopping. Avoids the need to read and parse the transcript file. |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Allow the session to stop |
+| `{:continue, reason}` | Keep the session running |
+
+**Example:**
 
 ```elixir
-defmodule MyApp.AutoApproveReadOnly do
+defmodule MyApp.BudgetGuard do
   @behaviour ClaudeCode.Hook
 
-  @read_only_tools ~w(Read Glob Grep LS)
-
   @impl true
-  def call(%{hook_event_name: "PreToolUse", tool_name: name}, _tool_use_id)
-      when name in @read_only_tools do
-    :allow
+  def call(%{hook_event_name: "Stop"}, _tool_use_id) do
+    if MyApp.Budget.remaining() > 0 do
+      {:continue, "Budget remaining, keep working"}
+    else
+      :ok
+    end
   end
 
   def call(_input, _tool_use_id), do: :ok
 end
 ```
+
+### SubagentStart
+
+Fires when a subagent is initialized. Observation only.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:agent_id` | `String.t()` | Unique identifier for the subagent |
+| `:agent_type` | `String.t()` | Type/role of the subagent |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Acknowledge the event |
+
+### SubagentStop
+
+Fires when a subagent completes. Can keep the subagent running.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:stop_hook_active` | `boolean` | Whether a stop hook is currently processing |
+| `:agent_id` | `String.t()` | Unique identifier for the subagent |
+| `:agent_transcript_path` | `String.t()` | Path to the subagent's conversation transcript |
+| `:agent_type` | `String.t()` | Type/role of the subagent |
+| `:last_assistant_message` | `String.t()` | Text content of the last assistant message before stopping |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Allow the subagent to stop |
+| `{:continue, reason}` | Keep the subagent running |
+
+**Example:**
+
+```elixir
+defmodule MyApp.SubagentTracker do
+  @behaviour ClaudeCode.Hook
+
+  @impl true
+  def call(%{hook_event_name: "SubagentStop", agent_id: id, agent_type: type}, tool_use_id) do
+    Logger.info("[SUBAGENT] #{type} (#{id}) completed, tool_use_id: #{tool_use_id}")
+    :ok
+  end
+
+  def call(_input, _tool_use_id), do: :ok
+end
+```
+
+### PreCompact
+
+Fires before conversation compaction. Can provide custom instructions for the compaction.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:trigger` | `String.t()` | What triggered compaction: `"manual"` or `"auto"` |
+| `:custom_instructions` | `String.t() \| nil` | Custom instructions already provided for compaction |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Allow compaction normally |
+| `{:instructions, text}` | Provide custom instructions for compaction |
+
+### Notification
+
+Fires when the agent sends status messages. Observation only.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:message` | `String.t()` | Status message from the agent |
+| `:notification_type` | `String.t()` | Type of notification: `"permission_prompt"`, `"idle_prompt"`, `"auth_success"`, or `"elicitation_dialog"` |
+| `:title` | `String.t()` | Optional title set by the agent |
+
+**Return values:**
+
+| Return | Effect |
+|--------|--------|
+| `:ok` | Acknowledge the event |
+
+### PermissionRequest
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a tool requires permission. Similar to `PreToolUse` but occurs at the permission prompt stage.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:tool_name` | `String.t()` | Name of the tool requesting permission |
+| `:tool_input` | `map` | Arguments passed to the tool |
+| `:permission_suggestions` | `list` | Suggested permission updates to avoid future prompts |
+
+### SessionStart
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a session is initialized.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:source` | `String.t()` | What triggered the session: `"startup"`, `"resume"`, `"clear"`, or `"compact"` |
+| `:agent_type` | `String.t()` | Agent type name, if started with `--agent` |
+| `:model` | `String.t()` | Model being used for the session |
+
+### SessionEnd
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a session terminates.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:reason` | `String.t()` | Why the session ended (exit reason) |
+
+### Setup
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires during agent setup or maintenance.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:trigger` | `String.t()` | What triggered setup: `"init"` or `"maintenance"` |
+
+### ConfigChange
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a settings file changes.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:source` | `String.t()` | Settings source: `"user_settings"`, `"project_settings"`, `"local_settings"`, `"policy_settings"`, or `"skills"` |
+| `:file_path` | `String.t()` | Path to the changed settings file |
+
+### InstructionsLoaded
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a CLAUDE.md or memory file is loaded.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:file_path` | `String.t()` | Path to the loaded file |
+| `:memory_type` | `String.t()` | Type of memory: `"User"`, `"Project"`, `"Local"`, or `"Managed"` |
+| `:load_reason` | `String.t()` | Why it was loaded: `"session_start"`, `"nested_traversal"`, `"path_glob_match"`, or `"include"` |
+| `:globs` | `list(String.t())` | Glob patterns that triggered the load |
+| `:trigger_file_path` | `String.t()` | Path to the file that triggered loading |
+| `:parent_file_path` | `String.t()` | Path to the parent file (for includes) |
+
+### Elicitation
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when an MCP server requests user input.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:mcp_server_name` | `String.t()` | Name of the MCP server requesting input |
+| `:message` | `String.t()` | Message to display to the user |
+| `:mode` | `String.t()` | Elicitation mode: `"form"` for structured input, `"url"` for browser-based auth |
+| `:url` | `String.t()` | URL to open (only for `"url"` mode) |
+| `:elicitation_id` | `String.t()` | Correlation ID for URL elicitations |
+| `:requested_schema` | `map` | JSON Schema for requested input (only for `"form"` mode) |
+
+### ElicitationResult
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a user responds to an elicitation request.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:mcp_server_name` | `String.t()` | Name of the MCP server that requested input |
+| `:elicitation_id` | `String.t()` | Correlation ID from the original request |
+| `:mode` | `String.t()` | Elicitation mode: `"form"` or `"url"` |
+| `:action` | `String.t()` | User's action: `"accept"`, `"decline"`, or `"cancel"` |
+| `:content` | `map` | User's response content |
+
+### TaskCompleted
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a teammate completes a task.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:task_id` | `String.t()` | Unique identifier for the completed task |
+| `:task_subject` | `String.t()` | Subject/title of the task |
+| `:task_description` | `String.t()` | Optional description of the task |
+| `:teammate_name` | `String.t()` | Name of the teammate that completed it |
+| `:team_name` | `String.t()` | Name of the team |
+
+### TeammateIdle
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a teammate becomes idle.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:teammate_name` | `String.t()` | Name of the idle teammate |
+| `:team_name` | `String.t()` | Name of the team |
+
+### WorktreeCreate
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a git worktree is created.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:name` | `String.t()` | Name of the worktree |
+
+### WorktreeRemove
+
+> **Not yet implemented** in the Elixir SDK. Documented for reference.
+
+Fires when a git worktree is removed.
+
+**Input fields** (in addition to [common fields](#common-input-fields)):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `:worktree_path` | `String.t()` | Path to the removed worktree |
 
 ## can_use_tool
 
@@ -382,7 +677,7 @@ defmodule MyApp.MyHook do
 end
 ```
 
-The `input` map contains fields that vary by event. Common fields include `:tool_name`, `:tool_input`, `:hook_event_name`, and `:tool_response` (for post-execution events).
+The `input` map contains fields that vary by event. See the [hook event reference](#hook-event-reference) for all fields per event type.
 
 If a callback raises an exception, `ClaudeCode.Hook.invoke/3` catches it and returns `{:error, reason}`, which is translated to a safe default response on the wire.
 
@@ -428,69 +723,44 @@ Use regex patterns to match multiple tools:
 
 > Matchers only match **tool names**, not file paths or other arguments. To filter by file path, check `tool_input` inside your hook callback.
 
-### Audit logging
+### Modify tool input
+
+Return updated input to change what the tool receives:
 
 ```elixir
-defmodule MyApp.AuditLogger do
+defmodule MyApp.RedirectToSandbox do
   @behaviour ClaudeCode.Hook
 
   @impl true
-  def call(%{hook_event_name: "PostToolUse"} = event, _tool_use_id) do
-    MyApp.AuditLog.insert(%{
-      tool: event.tool_name,
-      input: event.tool_input,
-      result: event.tool_response
-    })
-    :ok
+  def call(%{hook_event_name: "PreToolUse", tool_name: "Write", tool_input: input}, _tool_use_id) do
+    original_path = Map.get(input, "file_path", "")
+    {:allow, Map.put(input, "file_path", "/sandbox#{original_path}")}
   end
 
   def call(_input, _tool_use_id), do: :ok
 end
 ```
 
-### Budget guard
+> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
 
-Use a `Stop` hook to keep a session running when budget remains:
+### Auto-approve specific tools
+
+Bypass permission prompts for trusted tools. This is useful when you want certain operations to run without user confirmation:
 
 ```elixir
-defmodule MyApp.BudgetGuard do
+defmodule MyApp.AutoApproveReadOnly do
   @behaviour ClaudeCode.Hook
 
+  @read_only_tools ~w(Read Glob Grep LS)
+
   @impl true
-  def call(%{hook_event_name: "Stop"}, _tool_use_id) do
-    if MyApp.Budget.remaining() > 0 do
-      {:continue, "Budget remaining, keep working"}
-    else
-      :ok
-    end
+  def call(%{hook_event_name: "PreToolUse", tool_name: name}, _tool_use_id)
+      when name in @read_only_tools do
+    :allow
   end
 
   def call(_input, _tool_use_id), do: :ok
 end
-```
-
-### Tracking subagent activity
-
-Use `SubagentStop` hooks to monitor subagent completion. The `tool_use_id` helps correlate parent agent calls with their subagents:
-
-```elixir
-defmodule MyApp.SubagentTracker do
-  @behaviour ClaudeCode.Hook
-
-  @impl true
-  def call(%{hook_event_name: "SubagentStop", stop_hook_active: active}, tool_use_id) do
-    Logger.info("[SUBAGENT] Completed, tool_use_id: #{tool_use_id}, stop_hook_active: #{active}")
-    :ok
-  end
-
-  def call(_input, _tool_use_id), do: :ok
-end
-
-{:ok, session} = ClaudeCode.start_link(
-  hooks: %{
-    SubagentStop: [%{hooks: [MyApp.SubagentTracker]}]
-  }
-)
 ```
 
 ### Async operations in hooks

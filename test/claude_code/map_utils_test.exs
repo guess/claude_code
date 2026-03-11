@@ -14,6 +14,39 @@ defmodule ClaudeCode.MapUtilsTest do
       assert MapUtils.safe_atomize_key("content") == :content
     end
 
+    test "converts explicitly mapped CLI hook keys to atoms" do
+      # BaseHookInput
+      assert MapUtils.safe_atomize_key("hook_event_name") == :hook_event_name
+      assert MapUtils.safe_atomize_key("transcript_path") == :transcript_path
+      assert MapUtils.safe_atomize_key("session_id") == :session_id
+      assert MapUtils.safe_atomize_key("cwd") == :cwd
+      assert MapUtils.safe_atomize_key("permission_mode") == :permission_mode
+
+      # Tool-lifecycle hooks
+      assert MapUtils.safe_atomize_key("tool_name") == :tool_name
+      assert MapUtils.safe_atomize_key("tool_input") == :tool_input
+      assert MapUtils.safe_atomize_key("tool_use_id") == :tool_use_id
+      assert MapUtils.safe_atomize_key("tool_response") == :tool_response
+      assert MapUtils.safe_atomize_key("is_interrupt") == :is_interrupt
+
+      # SubagentContextMixin
+      assert MapUtils.safe_atomize_key("agent_id") == :agent_id
+      assert MapUtils.safe_atomize_key("agent_type") == :agent_type
+
+      # Stop / SubagentStop
+      assert MapUtils.safe_atomize_key("stop_hook_active") == :stop_hook_active
+      assert MapUtils.safe_atomize_key("agent_transcript_path") == :agent_transcript_path
+
+      # PreCompact
+      assert MapUtils.safe_atomize_key("custom_instructions") == :custom_instructions
+
+      # Notification
+      assert MapUtils.safe_atomize_key("notification_type") == :notification_type
+
+      # PermissionRequest
+      assert MapUtils.safe_atomize_key("permission_suggestions") == :permission_suggestions
+    end
+
     test "keeps unknown string keys as strings" do
       assert MapUtils.safe_atomize_key("zzz_nonexistent_atom_key_42") == "zzz_nonexistent_atom_key_42"
     end
