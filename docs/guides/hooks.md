@@ -63,20 +63,9 @@ The SDK provides hooks for different stages of agent execution:
 | `SubagentStop` | Yes | Subagent completion | Aggregate results from parallel tasks |
 | `PreCompact` | Yes | Conversation compaction request | Archive full transcript before summarizing |
 | `Notification` | Yes | Agent status messages | Send agent status updates externally |
-| `PermissionRequest` | No | Permission prompt before tool execution | Custom permission UI |
-| `SessionStart` | No | Session initialization | Initialize external state |
-| `SessionEnd` | No | Session termination | Cleanup resources |
-| `Setup` | No | Agent setup/maintenance | Run initialization tasks |
-| `ConfigChange` | No | Settings file changed | Reload configuration |
-| `InstructionsLoaded` | No | CLAUDE.md or memory file loaded | Track loaded instructions |
-| `Elicitation` | No | MCP server requests user input | Custom elicitation UI |
-| `ElicitationResult` | No | User responds to elicitation | Log elicitation responses |
-| `TaskCompleted` | No | Teammate task completion | Track team progress |
-| `TeammateIdle` | No | Teammate becomes idle | Assign new work |
-| `WorktreeCreate` | No | Git worktree created | Track worktree lifecycle |
-| `WorktreeRemove` | No | Git worktree removed | Cleanup worktree resources |
+| `PermissionRequest` | Yes | Permission prompt before tool execution | Custom permission UI |
 
-> **Note:** Events marked "No" in the Supported column are defined in the TypeScript SDK but not yet implemented in the Elixir SDK. Their input fields are documented here for reference and forward compatibility. The Python SDK supports a subset of these hooks -- see the [official docs](https://platform.claude.com/docs/en/agent-sdk/hooks) for the full compatibility matrix.
+> **Note:** The TypeScript SDK defines additional hook events (`SessionStart`, `SessionEnd`, `Setup`, `ConfigChange`, `InstructionsLoaded`, `Elicitation`, `ElicitationResult`, `TaskCompleted`, `TeammateIdle`, `WorktreeCreate`, `WorktreeRemove`) that are not emitted by the CLI to SDK consumers. These are handled internally by the TypeScript SDK and are not available in the Elixir or Python SDKs.
 
 ## Common use cases
 
@@ -117,7 +106,7 @@ Use matchers to filter which tools trigger your callbacks:
 
 Use the `:matcher` pattern to target specific tools whenever possible. A matcher with `"Bash"` only runs for Bash commands, while omitting the pattern runs your callbacks for every tool call. Note that matchers only filter by **tool name**, not by file paths or other arguments -- to filter by file path, check `tool_input` inside your callback.
 
-Matchers only apply to tool-based hooks (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`). For lifecycle hooks like `Stop`, `SubagentStop`, `SessionStart`, `SessionEnd`, and `Notification`, matchers are ignored and the hook fires for all events of that type.
+Matchers only apply to tool-based hooks (`PreToolUse`, `PostToolUse`, `PostToolUseFailure`). For lifecycle hooks like `Stop`, `SubagentStop`, and `Notification`, matchers are ignored and the hook fires for all events of that type.
 
 > **Discovering tool names:** Check the `tools` array in the initial system message when your session starts, or add a hook without a matcher to log all tool calls.
 >
@@ -427,9 +416,7 @@ Fires when the agent sends status messages. Observation only.
 
 ### PermissionRequest
 
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a tool requires permission. Similar to `PreToolUse` but occurs at the permission prompt stage.
+Fires when a tool requires permission. Similar to `PreToolUse` but occurs at the permission prompt stage rather than the hook stage.
 
 **Input fields** (in addition to [common fields](#common-input-fields)):
 
@@ -439,159 +426,13 @@ Fires when a tool requires permission. Similar to `PreToolUse` but occurs at the
 | `:tool_input` | `map` | Arguments passed to the tool |
 | `:permission_suggestions` | `list` | Suggested permission updates to avoid future prompts |
 
-### SessionStart
+**Return values:**
 
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a session is initialized.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:source` | `String.t()` | What triggered the session: `"startup"`, `"resume"`, `"clear"`, or `"compact"` |
-| `:agent_type` | `String.t()` | Agent type name, if started with `--agent` |
-| `:model` | `String.t()` | Model being used for the session |
-
-### SessionEnd
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a session terminates.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:reason` | `String.t()` | Why the session ended (exit reason) |
-
-### Setup
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires during agent setup or maintenance.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:trigger` | `String.t()` | What triggered setup: `"init"` or `"maintenance"` |
-
-### ConfigChange
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a settings file changes.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:source` | `String.t()` | Settings source: `"user_settings"`, `"project_settings"`, `"local_settings"`, `"policy_settings"`, or `"skills"` |
-| `:file_path` | `String.t()` | Path to the changed settings file |
-
-### InstructionsLoaded
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a CLAUDE.md or memory file is loaded.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:file_path` | `String.t()` | Path to the loaded file |
-| `:memory_type` | `String.t()` | Type of memory: `"User"`, `"Project"`, `"Local"`, or `"Managed"` |
-| `:load_reason` | `String.t()` | Why it was loaded: `"session_start"`, `"nested_traversal"`, `"path_glob_match"`, or `"include"` |
-| `:globs` | `list(String.t())` | Glob patterns that triggered the load |
-| `:trigger_file_path` | `String.t()` | Path to the file that triggered loading |
-| `:parent_file_path` | `String.t()` | Path to the parent file (for includes) |
-
-### Elicitation
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when an MCP server requests user input.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:mcp_server_name` | `String.t()` | Name of the MCP server requesting input |
-| `:message` | `String.t()` | Message to display to the user |
-| `:mode` | `String.t()` | Elicitation mode: `"form"` for structured input, `"url"` for browser-based auth |
-| `:url` | `String.t()` | URL to open (only for `"url"` mode) |
-| `:elicitation_id` | `String.t()` | Correlation ID for URL elicitations |
-| `:requested_schema` | `map` | JSON Schema for requested input (only for `"form"` mode) |
-
-### ElicitationResult
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a user responds to an elicitation request.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:mcp_server_name` | `String.t()` | Name of the MCP server that requested input |
-| `:elicitation_id` | `String.t()` | Correlation ID from the original request |
-| `:mode` | `String.t()` | Elicitation mode: `"form"` or `"url"` |
-| `:action` | `String.t()` | User's action: `"accept"`, `"decline"`, or `"cancel"` |
-| `:content` | `map` | User's response content |
-
-### TaskCompleted
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a teammate completes a task.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:task_id` | `String.t()` | Unique identifier for the completed task |
-| `:task_subject` | `String.t()` | Subject/title of the task |
-| `:task_description` | `String.t()` | Optional description of the task |
-| `:teammate_name` | `String.t()` | Name of the teammate that completed it |
-| `:team_name` | `String.t()` | Name of the team |
-
-### TeammateIdle
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a teammate becomes idle.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:teammate_name` | `String.t()` | Name of the idle teammate |
-| `:team_name` | `String.t()` | Name of the team |
-
-### WorktreeCreate
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a git worktree is created.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:name` | `String.t()` | Name of the worktree |
-
-### WorktreeRemove
-
-> **Not yet implemented** in the Elixir SDK. Documented for reference.
-
-Fires when a git worktree is removed.
-
-**Input fields** (in addition to [common fields](#common-input-fields)):
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `:worktree_path` | `String.t()` | Path to the removed worktree |
+| Return | Effect |
+|--------|--------|
+| `:allow` | Permit the tool call |
+| `{:allow, updated_input}` | Permit with modified input |
+| `{:deny, reason}` | Block the tool call |
 
 ## can_use_tool
 
@@ -816,7 +657,7 @@ This section covers common issues and how to resolve them.
 - Verify the hook event name is correct and case-sensitive (`PreToolUse`, not `preToolUse` or `:pre_tool_use`)
 - Check that your matcher pattern matches the tool name exactly
 - Ensure the hook is under the correct event type in the `:hooks` map
-- For `SubagentStop`, `Stop`, `SessionStart`, `SessionEnd`, and `Notification` hooks, matchers are ignored. These hooks fire for all events of that type.
+- For `SubagentStop`, `Stop`, and `Notification` hooks, matchers are ignored. These hooks fire for all events of that type.
 - Hooks may not fire when the agent hits the `:max_turns` limit because the session ends before hooks can execute
 
 ### Matcher not filtering as expected

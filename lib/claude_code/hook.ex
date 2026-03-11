@@ -78,13 +78,13 @@ defmodule ClaudeCode.Hook do
 
       :ok
 
-  ### Not yet implemented
+  ### PermissionRequest (permission decisions)
 
-  The following events are defined in the TypeScript SDK but not yet
-  supported by the Elixir SDK: `PermissionRequest`, `SessionStart`,
-  `SessionEnd`, `Setup`, `ConfigChange`, `InstructionsLoaded`,
-  `Elicitation`, `ElicitationResult`, `TaskCompleted`, `TeammateIdle`,
-  `WorktreeCreate`, `WorktreeRemove`.
+  Input: `:tool_name`, `:tool_input`, `:permission_suggestions`
+
+      :allow
+      {:allow, updated_input}
+      {:deny, reason}
   """
 
   @callback call(input :: map(), tool_use_id :: String.t() | nil) :: term()
