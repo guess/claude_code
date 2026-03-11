@@ -1,7 +1,7 @@
-defmodule ClaudeCode.AgentInfoTest do
+defmodule ClaudeCode.Session.AgentInfoTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.AgentInfo
+  alias ClaudeCode.Session.AgentInfo
 
   describe "new/1" do
     test "parses all fields from JSON" do

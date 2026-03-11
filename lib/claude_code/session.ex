@@ -296,7 +296,7 @@ defmodule ClaudeCode.Session do
 
       {:ok, agents} = ClaudeCode.Session.supported_agents(session)
   """
-  @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
+  @spec supported_agents(session()) :: {:ok, [ClaudeCode.Session.AgentInfo.t()]} | {:error, term()}
   def supported_agents(session), do: extract_server_info_list(session, :agents)
 
   @doc """

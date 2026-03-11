@@ -1,4 +1,4 @@
-defmodule ClaudeCode.AgentInfo do
+defmodule ClaudeCode.Session.AgentInfo do
   @moduledoc """
   Information about an available subagent.
 
@@ -31,8 +31,8 @@ defmodule ClaudeCode.AgentInfo do
 
   ## Examples
 
-      iex> ClaudeCode.AgentInfo.new(%{"name" => "Explore", "description" => "Fast codebase exploration"})
-      %ClaudeCode.AgentInfo{name: "Explore", description: "Fast codebase exploration", model: nil}
+      iex> ClaudeCode.Session.AgentInfo.new(%{"name" => "Explore", "description" => "Fast codebase exploration"})
+      %ClaudeCode.Session.AgentInfo{name: "Explore", description: "Fast codebase exploration", model: nil}
 
   """
   @spec new(map()) :: t()
