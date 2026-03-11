@@ -208,7 +208,7 @@ defmodule ClaudeCode.Session do
       {:ok, servers} = ClaudeCode.Session.mcp_status(session)
       Enum.each(servers, &IO.puts(&1.name))
   """
-  @spec mcp_status(session()) :: {:ok, [ClaudeCode.MCP.ServerStatus.t()]} | {:error, term()}
+  @spec mcp_status(session()) :: {:ok, [ClaudeCode.MCP.Status.t()]} | {:error, term()}
   def mcp_status(session) do
     GenServer.call(session, {:control, :mcp_status, %{}})
   end

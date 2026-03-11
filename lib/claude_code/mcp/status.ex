@@ -1,4 +1,4 @@
-defmodule ClaudeCode.MCP.ServerStatus do
+defmodule ClaudeCode.MCP.Status do
   @moduledoc """
   Status information for an MCP server connection.
 
@@ -40,12 +40,12 @@ defmodule ClaudeCode.MCP.ServerStatus do
         }
 
   @doc """
-  Creates a ServerStatus from a JSON map.
+  Creates a Status from a JSON map.
 
   ## Examples
 
-      iex> ClaudeCode.MCP.ServerStatus.new(%{"name" => "my-server", "status" => "connected"})
-      %ClaudeCode.MCP.ServerStatus{name: "my-server", status: :connected}
+      iex> ClaudeCode.MCP.Status.new(%{"name" => "my-server", "status" => "connected"})
+      %ClaudeCode.MCP.Status{name: "my-server", status: :connected}
 
   """
   @spec new(map()) :: t()

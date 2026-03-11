@@ -1,7 +1,7 @@
-defmodule ClaudeCode.MCP.ServerStatusTest do
+defmodule ClaudeCode.MCP.StatusTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.MCP.ServerStatus
+  alias ClaudeCode.MCP.Status, as: ServerStatus
 
   describe "new/1" do
     test "parses connected server with full info" do

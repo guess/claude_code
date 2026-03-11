@@ -8,7 +8,8 @@ defmodule ClaudeCode.Message.SystemMessage.Init do
 
   use ClaudeCode.JSONEncoder
 
-  alias ClaudeCode.MCP.ServerStatus
+  alias ClaudeCode.MCP.Status, as: MCPStatus
+  alias ClaudeCode.Session.PermissionMode
 
   @enforce_keys [
     :type,
@@ -42,9 +43,9 @@ defmodule ClaudeCode.Message.SystemMessage.Init do
           cwd: String.t() | nil,
           session_id: String.t(),
           tools: [String.t()] | nil,
-          mcp_servers: [ServerStatus.t()] | nil,
+          mcp_servers: [MCPStatus.t()] | nil,
           model: String.t() | nil,
-          permission_mode: ClaudeCode.Session.PermissionMode.t() | nil,
+          permission_mode: PermissionMode.t() | nil,
           api_key_source: String.t() | nil,
           claude_code_version: String.t() | nil,
           slash_commands: [String.t()],
@@ -80,7 +81,7 @@ defmodule ClaudeCode.Message.SystemMessage.Init do
         tools: json["tools"],
         mcp_servers: parse_mcp_servers(json["mcp_servers"]),
         model: json["model"],
-        permission_mode: ClaudeCode.Session.PermissionMode.parse(json["permission_mode"], :default),
+        permission_mode: PermissionMode.parse(json["permission_mode"], :default),
         api_key_source: json["api_key_source"],
         claude_code_version: json["claude_code_version"],
         slash_commands: json["slash_commands"] || [],
@@ -107,7 +108,7 @@ defmodule ClaudeCode.Message.SystemMessage.Init do
   def init?(_), do: false
 
   defp parse_mcp_servers(servers) when is_list(servers) do
-    Enum.map(servers, &ServerStatus.new/1)
+    Enum.map(servers, &MCPStatus.new/1)
   end
 
   defp parse_mcp_servers(_), do: nil

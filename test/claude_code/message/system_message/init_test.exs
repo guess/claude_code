@@ -35,7 +35,7 @@ defmodule ClaudeCode.Message.SystemMessage.InitTest do
       assert message.session_id == "abc-123"
       assert message.tools == ["Read", "Write", "LS"]
       assert length(message.mcp_servers) == 2
-      assert %ClaudeCode.MCP.ServerStatus{name: "memory", status: :connected} = hd(message.mcp_servers)
+      assert %ClaudeCode.MCP.Status{name: "memory", status: :connected} = hd(message.mcp_servers)
       assert message.model == "claude-opus-4"
       assert message.permission_mode == :default
       assert message.api_key_source == "ANTHROPIC_API_KEY"

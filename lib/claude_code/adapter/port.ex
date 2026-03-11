@@ -23,7 +23,7 @@ defmodule ClaudeCode.Adapter.Port do
   alias ClaudeCode.CLI.Parser
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.MCP.Server, as: MCPServer
-  alias ClaudeCode.MCP.ServerStatus
+  alias ClaudeCode.MCP.Status, as: MCPStatus
   alias ClaudeCode.Model
 
   require Logger
@@ -749,7 +749,7 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   defp parse_control_result(:mcp_status, %{"mcp_servers" => servers}) when is_list(servers) do
-    Enum.map(servers, &ServerStatus.new/1)
+    Enum.map(servers, &MCPStatus.new/1)
   end
 
   defp parse_control_result(:set_mcp_servers, response) when is_map(response) do
