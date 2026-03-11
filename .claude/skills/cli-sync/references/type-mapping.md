@@ -60,12 +60,12 @@ in `captured/anthropic-api-messages.d.ts`.
 | `ClaudeCode.Sandbox.Filesystem` | `SandboxFilesystemConfig` | -- | FS write/read allow/deny lists |
 | `ClaudeCode.Agent` | `AgentDefinition` | `AgentDefinition` | Input config for custom agents |
 | `ClaudeCode.Model.Info` | `ModelInfo` | -- | From `SDKControlInitializeResponse.models` |
-| `ClaudeCode.AgentInfo` | `AgentInfo` | -- | From `SDKControlInitializeResponse.agents` |
-| `ClaudeCode.AccountInfo` | `AccountInfo` | -- | From `SDKControlInitializeResponse.account` |
+| `ClaudeCode.Session.AgentInfo` | `AgentInfo` | -- | From `SDKControlInitializeResponse.agents` |
+| `ClaudeCode.Session.AccountInfo` | `AccountInfo` | -- | From `SDKControlInitializeResponse.account` |
 | `ClaudeCode.Session.SlashCommand` | `SlashCommand` | -- | From `SDKControlInitializeResponse.commands` |
-| `ClaudeCode.PermissionDenial` | `SDKPermissionDenial` | -- | In `SDKResultSuccess.permission_denials` |
+| `ClaudeCode.Session.PermissionDenial` | `SDKPermissionDenial` | -- | In `SDKResultSuccess.permission_denials` |
 | `ClaudeCode.Model.Usage` | `ModelUsage` | -- | Per-model token/cost breakdown |
-| `ClaudeCode.MCP.ServerStatus` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
+| `ClaudeCode.MCP.Status` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
 | `ClaudeCode.CLI.Control.Types.set_servers_result` | `McpSetServersResult` | -- | Type spec only (raw map); returned by `setMcpServers()` |
 | `ClaudeCode.CLI.Control.Types.rewind_files_result` | `RewindFilesResult` | -- | Type spec only (raw map); returned by `rewindFiles()` |
 | `ClaudeCode.CLI.Control.Types.initialize_response` | `SDKControlInitializeResponse` | -- | Type spec only (raw map); parsed in `Adapter.Port` |
@@ -142,9 +142,9 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 
 | SDK Type Name | Elixir Module |
 |---|---|
-| `AccountInfo` | `ClaudeCode.AccountInfo` |
+| `AccountInfo` | `ClaudeCode.Session.AccountInfo` |
 | `AgentDefinition` | `ClaudeCode.Agent` |
-| `AgentInfo` | `ClaudeCode.AgentInfo` |
+| `AgentInfo` | `ClaudeCode.Session.AgentInfo` |
 | `BetaCompactionBlock` | `Content.CompactionBlock` |
 | `BetaContainerUploadBlock` | `Content.ContainerUploadBlock` |
 | `BetaDocumentBlock` | `Content.DocumentBlock` |
@@ -157,7 +157,7 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `BetaThinkingBlock` | `Content.ThinkingBlock` |
 | `BetaToolResultBlockParam` | `Content.ToolResultBlock` |
 | `BetaToolUseBlock` | `Content.ToolUseBlock` |
-| `McpServerStatus` | `ClaudeCode.MCP.ServerStatus` |
+| `McpServerStatus` | `ClaudeCode.MCP.Status` |
 | `McpSetServersResult` | `ClaudeCode.CLI.Control.Types.set_servers_result` (type spec) |
 | `ModelInfo` | `ClaudeCode.Model.Info` |
 | `ModelUsage` | `ClaudeCode.Model.Usage` |
@@ -176,7 +176,7 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKHookStartedMessage` | `Message.SystemMessage.HookStarted` |
 | `SDKLocalCommandOutputMessage` | `Message.SystemMessage.LocalCommandOutput` |
 | `SDKPartialAssistantMessage` | `Message.PartialAssistantMessage` |
-| `SDKPermissionDenial` | `ClaudeCode.PermissionDenial` |
+| `SDKPermissionDenial` | `ClaudeCode.Session.PermissionDenial` |
 | `SDKPromptSuggestionMessage` | `Message.PromptSuggestionMessage` |
 | `SDKRateLimitEvent` | `Message.RateLimitEvent` |
 | `SDKResultMessage` | `Message.ResultMessage` |

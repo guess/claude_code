@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **9 new content block types** — `ClaudeCode.Content.ServerToolUseBlock`, `ClaudeCode.Content.ServerToolResultBlock`, `ClaudeCode.Content.MCPToolUseBlock`, `ClaudeCode.Content.MCPToolResultBlock`, `ClaudeCode.Content.ImageBlock`, `ClaudeCode.Content.DocumentBlock`, `ClaudeCode.Content.RedactedThinkingBlock`, `ClaudeCode.Content.CompactionBlock`, and `ClaudeCode.Content.ContainerUploadBlock` for parsing all CLI content types. ([80e2d0c])
 - **Forward-compatible message parsing** — Unknown content block types and message types are now preserved as maps instead of being silently dropped, preventing data loss when the CLI adds new types. ([80e2d0c])
-- **Dedicated type modules** — `ClaudeCode.StopReason`, `ClaudeCode.PermissionMode`, `ClaudeCode.PermissionDenial`, `ClaudeCode.Model.Usage`, and `ClaudeCode.Usage` extracted from `ClaudeCode.Types` for better discoverability and documentation. ([80e2d0c])
+- **Dedicated type modules** — `ClaudeCode.Session.PermissionMode`, `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.Model.Usage`, and `ClaudeCode.Usage` extracted from `ClaudeCode.Types` for better discoverability and documentation. Stop reason parsing inlined into `ClaudeCode.Message`. ([80e2d0c])
 - **Extensible parser registries** — Application config options `:content_parsers`, `:message_parsers`, and `:system_parsers` allow registering custom parser functions for new CLI types without forking the SDK. ([80e2d0c])
 - **New control API functions** — `ClaudeCode.Session.set_mcp_servers/2`, `ClaudeCode.Session.mcp_reconnect/2`, `ClaudeCode.Session.mcp_toggle/3`, and `ClaudeCode.Session.stop_task/2` for runtime session control. ([10c4c3e], [3ff858e])
 - **Initialize response accessors** — `ClaudeCode.Session.supported_commands/1`, `ClaudeCode.Session.supported_models/1`, `ClaudeCode.Session.supported_agents/1`, and `ClaudeCode.Session.account_info/1` return typed structs from the initialization handshake. ([3ff858e])
@@ -44,11 +44,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ClaudeCode.McpServerStatus` moved to `ClaudeCode.MCP.Status`** — Relocated to the MCP namespace. ([baaf9a7])
 - **`ClaudeCode.Model.Info` boolean fields default to `false`** — Fields like `supports_thinking`, `supports_computer_use`, etc. now default to `false` instead of `nil`. ([f6b38e5])
 - **Upgraded bundled CLI to 2.1.72** ([89126bb])
+- **Module reorganization for discoverability** — `ClaudeCode.PermissionMode` moved to `ClaudeCode.Session.PermissionMode`, `ClaudeCode.PermissionDenial` moved to `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.AccountInfo` moved to `ClaudeCode.Session.AccountInfo`, `ClaudeCode.AgentInfo` moved to `ClaudeCode.Session.AgentInfo`, `ClaudeCode.SlashCommand` moved to `ClaudeCode.Session.SlashCommand`, `ClaudeCode.MCP.ServerStatus` moved to `ClaudeCode.MCP.Status`. `ClaudeCode.StopReason` inlined into `ClaudeCode.Message` as `stop_reason()` type and `parse_stop_reason/1`.
 - **Streaming docs/examples corrected for partial-message behavior** — Documentation and examples now consistently show partial streaming configured at session start (`ClaudeCode.start_link(include_partial_messages: true)`) and streamed with `ClaudeCode.stream/2` or `ClaudeCode.stream/3`, with stale partial-stream module guidance removed.
 
 ### Removed
 
-- **`ClaudeCode.Types` module** — All types extracted to dedicated modules: `ClaudeCode.StopReason`, `ClaudeCode.PermissionMode`, `ClaudeCode.PermissionDenial`, `ClaudeCode.Model.Usage`, `ClaudeCode.Usage`. Update any direct references to `ClaudeCode.Types`. ([80e2d0c])
+- **`ClaudeCode.Types` module** — All types extracted to dedicated modules: `ClaudeCode.Session.PermissionMode`, `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.Model.Usage`, `ClaudeCode.Usage`. Stop reason parsing inlined into `ClaudeCode.Message`. Update any direct references to `ClaudeCode.Types`. ([80e2d0c])
 - **`ClaudeCode.McpSetServersResult` and `ClaudeCode.RewindFilesResult` structs** — Replaced with typed maps returned directly from the control protocol. ([baaf9a7])
 - **`set_max_thinking_tokens` control-plane function** — Removed the deprecated mid-session `set_max_thinking_tokens` control command (matches TS SDK deprecation). Use the `:thinking` session option instead. ([b5a37b1])
 
