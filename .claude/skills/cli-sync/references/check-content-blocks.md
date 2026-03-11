@@ -101,6 +101,15 @@ Examine `git diff HEAD -- .claude/skills/cli-sync/captured/anthropic-api-message
 
 Some block types appear only in request params (e.g., `BetaImageBlockParam`, `BetaToolResultBlockParam`, `BetaDocumentBlock`/`BetaRequestDocumentBlock`). These are not part of the response `BetaContentBlock` union but may appear in user messages round-tripped through the CLI. Verify the parser handles these if they appear in `user_message.content` arrays. Check the `@content_parsers` map for entries like `"image"`, `"document"`, and `"tool_result"`.
 
+### 8. Check test and factory coverage
+
+For each **Implemented** content block type, verify:
+
+- A test file exists at `test/claude_code/content/<type>_test.exs`
+- A factory function exists in `lib/claude_code/test/factory.ex` for creating test instances
+
+Flag any **Implemented** types that are missing test files or factory functions. For **Missing** types that will be implemented, note that both a factory function and test file will be needed.
+
 ## Output Format
 
 Return two coverage tables:

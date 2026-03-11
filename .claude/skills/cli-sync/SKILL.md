@@ -63,6 +63,8 @@ For each change identified, consult the appropriate reference file for patterns:
 | New control requests | `references/type-mapping.md` | `test/claude_code/cli/control_test.exs` |
 | Version update | Update `@default_cli_version` in `installer.ex` | -- |
 
+When adding new message or content types, also add a factory function in `lib/claude_code/test/factory.ex` and update `lib/claude_code/test.ex` if the type needs a user-facing test helper.
+
 When adding new options, prefer Elixir-native syntax: atoms for enumerations, tagged tuples for variants with data, preprocessing in `command.ex` over direct mapping.
 
 ### Step 5: Update Reference Files

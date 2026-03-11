@@ -69,6 +69,16 @@ Examine the output of `git diff HEAD -- .claude/skills/cli-sync/captured/ts-sdk-
 
 Read `captured/python-sdk-types.py` and extract the `Message` union members. Confirm that the wire type strings match between Python and TypeScript SDKs. Flag any discrepancies.
 
+### 7. Check test and factory coverage
+
+For each **Implemented** message type, verify:
+
+- A test file exists at `test/claude_code/message/<type>_test.exs` (or under `system_message/` for subtypes)
+- A factory function exists in `lib/claude_code/test/factory.ex` for creating test instances
+- A message builder exists in `lib/claude_code/test.ex` if the type is commonly used in user-facing test stubs
+
+Flag any **Implemented** types that are missing test files or factory functions. For **Missing** types that will be implemented, note that both a factory function and test file will be needed.
+
 ## Output Format
 
 Return a coverage table:
