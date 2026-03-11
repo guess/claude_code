@@ -307,7 +307,7 @@ defmodule ClaudeCode.Session do
       {:ok, account} = ClaudeCode.Session.account_info(session)
       IO.puts(account.email)
   """
-  @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
+  @spec account_info(session()) :: {:ok, ClaudeCode.Session.AccountInfo.t() | nil} | {:error, term()}
   def account_info(session) do
     case server_info(session) do
       {:ok, %{account: account}} -> {:ok, account}

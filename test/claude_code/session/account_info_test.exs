@@ -1,7 +1,7 @@
-defmodule ClaudeCode.AccountInfoTest do
+defmodule ClaudeCode.Session.AccountInfoTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.AccountInfo
+  alias ClaudeCode.Session.AccountInfo
 
   describe "new/1" do
     test "parses all fields from JSON" do

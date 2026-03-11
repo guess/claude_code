@@ -49,7 +49,7 @@ defmodule ClaudeCode.CLI.Control.Types do
           commands: [ClaudeCode.SlashCommand.t()],
           agents: [ClaudeCode.AgentInfo.t()],
           models: [ClaudeCode.Model.Info.t()],
-          account: ClaudeCode.AccountInfo.t() | nil,
+          account: ClaudeCode.Session.AccountInfo.t() | nil,
           output_style: String.t() | nil,
           available_output_styles: [String.t()],
           fast_mode_state: String.t() | nil

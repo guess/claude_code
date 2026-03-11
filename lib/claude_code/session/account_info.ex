@@ -1,4 +1,4 @@
-defmodule ClaudeCode.AccountInfo do
+defmodule ClaudeCode.Session.AccountInfo do
   @moduledoc """
   Information about the authenticated user's account.
 
@@ -36,8 +36,8 @@ defmodule ClaudeCode.AccountInfo do
 
   ## Examples
 
-      iex> ClaudeCode.AccountInfo.new(%{"email" => "user@example.com", "subscriptionType" => "pro"})
-      %ClaudeCode.AccountInfo{email: "user@example.com", subscription_type: "pro"}
+      iex> ClaudeCode.Session.AccountInfo.new(%{"email" => "user@example.com", "subscriptionType" => "pro"})
+      %ClaudeCode.Session.AccountInfo{email: "user@example.com", subscription_type: "pro"}
 
   """
   @spec new(map()) :: t()

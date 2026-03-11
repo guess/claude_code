@@ -778,7 +778,7 @@ defmodule ClaudeCode.Adapter.Port do
       commands: parse_list(response["commands"], &ClaudeCode.SlashCommand.new/1),
       agents: parse_list(response["agents"], &ClaudeCode.AgentInfo.new/1),
       models: parse_list(response["models"], &Model.Info.new/1),
-      account: parse_optional(response["account"], &ClaudeCode.AccountInfo.new/1),
+      account: parse_optional(response["account"], &ClaudeCode.Session.AccountInfo.new/1),
       output_style: response["output_style"],
       available_output_styles: response["available_output_styles"] || [],
       fast_mode_state: response["fast_mode_state"]
