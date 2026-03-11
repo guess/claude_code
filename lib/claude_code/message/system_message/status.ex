@@ -28,6 +28,8 @@ defmodule ClaudeCode.Message.SystemMessage.Status do
 
   use ClaudeCode.JSONEncoder
 
+  alias ClaudeCode.Session.PermissionMode
+
   @enforce_keys [:type, :subtype, :session_id, :status]
   defstruct [
     :type,
@@ -70,7 +72,7 @@ defmodule ClaudeCode.Message.SystemMessage.Status do
        type: :system,
        subtype: :status,
        status: status,
-       permission_mode: ClaudeCode.Session.PermissionMode.parse(json["permission_mode"]),
+       permission_mode: PermissionMode.parse(json["permission_mode"]),
        uuid: json["uuid"],
        session_id: session_id
      }}

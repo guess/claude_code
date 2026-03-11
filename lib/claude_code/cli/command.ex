@@ -10,6 +10,7 @@ defmodule ClaudeCode.CLI.Command do
   """
 
   alias ClaudeCode.MCP.Server
+  alias ClaudeCode.Session.PermissionMode
 
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
@@ -189,7 +190,7 @@ defmodule ClaudeCode.CLI.Command do
   end
 
   defp convert_option(:permission_mode, mode) do
-    {"--permission-mode", ClaudeCode.Session.PermissionMode.encode(mode)}
+    {"--permission-mode", PermissionMode.encode(mode)}
   end
 
   defp convert_option(:add_dir, value) when is_list(value) do
