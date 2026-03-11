@@ -143,7 +143,7 @@ Every function, struct, and option referenced in code examples must exist in the
 
 Common errors caught previously:
 
-- `ClaudeCode.Session.session_id/1` does not exist — use `ClaudeCode.get_session_id/1`
+- `ClaudeCode.get_session_id/1` was moved to `ClaudeCode.Session.session_id/1`
 - `:hooks` is a session-only option — it cannot be passed to `ClaudeCode.query/2`
 - `ClaudeCode.Agent` fields `description` and `prompt` are optional (only `:name` is enforced)
 - `setting_sources` accepts strings (`["user", "project"]`), not atoms (`[:user, :project]`)

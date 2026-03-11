@@ -255,7 +255,7 @@ Resume conversations, fork sessions, and read history:
 session |> ClaudeCode.stream("Remember: the code is 12345") |> Stream.run()
 
 # Save session ID, stop, resume later
-session_id = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.Session.session_id(session)
 ClaudeCode.stop(session)
 
 {:ok, resumed} = ClaudeCode.start_link(resume: session_id)
@@ -264,8 +264,8 @@ ClaudeCode.stop(session)
 {:ok, forked} = ClaudeCode.start_link(resume: session_id, fork_session: true)
 
 # Runtime controls without restarting
-ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
-ClaudeCode.set_permission_mode(session, :accept_edits)
+ClaudeCode.Session.set_model(session, "claude-sonnet-4-5-20250929")
+ClaudeCode.Session.set_permission_mode(session, :accept_edits)
 ```
 
 [Sessions guide →](docs/guides/sessions.md)
@@ -316,7 +316,7 @@ checkpoint_id =
   end)
 
 # Undo all file changes back to that checkpoint
-ClaudeCode.rewind_files(session, checkpoint_id)
+ClaudeCode.Session.rewind_files(session, checkpoint_id)
 ```
 
 [File checkpointing guide →](docs/guides/file-checkpointing.md)

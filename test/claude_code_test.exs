@@ -7,7 +7,7 @@ defmodule ClaudeCodeTest do
     test "starts a session with valid API key" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
       assert is_pid(session)
-      assert ClaudeCode.alive?(session)
+      assert ClaudeCode.Session.alive?(session)
       ClaudeCode.stop(session)
     end
 
@@ -18,7 +18,7 @@ defmodule ClaudeCodeTest do
           name: :test_session
         )
 
-      assert ClaudeCode.alive?(:test_session)
+      assert ClaudeCode.Session.alive?(:test_session)
       assert Process.whereis(:test_session) == session
 
       ClaudeCode.stop(:test_session)
@@ -39,7 +39,7 @@ defmodule ClaudeCodeTest do
       try do
         {:ok, session} = ClaudeCode.start_link()
         assert is_pid(session)
-        assert ClaudeCode.alive?(session)
+        assert ClaudeCode.Session.alive?(session)
         ClaudeCode.stop(session)
       after
         # Restore original config
@@ -59,7 +59,7 @@ defmodule ClaudeCodeTest do
       try do
         {:ok, session} = ClaudeCode.start_link(api_key: "session-key")
         assert is_pid(session)
-        assert ClaudeCode.alive?(session)
+        assert ClaudeCode.Session.alive?(session)
         ClaudeCode.stop(session)
       after
         # Restore original config
@@ -83,7 +83,7 @@ defmodule ClaudeCodeTest do
         )
 
       assert is_pid(session)
-      assert ClaudeCode.alive?(session)
+      assert ClaudeCode.Session.alive?(session)
       ClaudeCode.stop(session)
     end
 
@@ -185,7 +185,7 @@ defmodule ClaudeCodeTest do
   describe "alive?/1" do
     test "returns true for running session" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
-      assert ClaudeCode.alive?(session)
+      assert ClaudeCode.Session.alive?(session)
       ClaudeCode.stop(session)
     end
 
@@ -196,11 +196,11 @@ defmodule ClaudeCodeTest do
       # Give it a moment to stop
       Process.sleep(100)
 
-      refute ClaudeCode.alive?(session)
+      refute ClaudeCode.Session.alive?(session)
     end
 
     test "returns false for non-existent named session" do
-      refute ClaudeCode.alive?(:non_existent_session)
+      refute ClaudeCode.Session.alive?(:non_existent_session)
     end
   end
 
@@ -264,24 +264,24 @@ defmodule ClaudeCodeTest do
     end
 
     test "set_model/2 sends set_model control request", %{session: session} do
-      assert :ok = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+      assert :ok = ClaudeCode.Session.set_model(session, "claude-sonnet-4-5-20250929")
     end
 
     test "set_permission_mode/2 sends control request", %{session: session} do
-      assert :ok = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+      assert :ok = ClaudeCode.Session.set_permission_mode(session, :bypass_permissions)
     end
 
-    test "get_mcp_status/1 sends mcp_status control request", %{session: session} do
-      assert {:ok, []} = ClaudeCode.get_mcp_status(session)
+    test "mcp_status/1 sends mcp_status control request", %{session: session} do
+      assert {:ok, []} = ClaudeCode.Session.mcp_status(session)
     end
 
-    test "get_server_info/1 returns cached server info", %{session: session} do
-      assert {:ok, _info} = ClaudeCode.get_server_info(session)
+    test "server_info/1 returns cached server info", %{session: session} do
+      assert {:ok, _info} = ClaudeCode.Session.server_info(session)
     end
 
     test "rewind_files/2 sends rewind_files control request", %{session: session} do
       assert {:ok, %{can_rewind: _}} =
-               ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+               ClaudeCode.Session.rewind_files(session, "user-msg-uuid-123")
     end
   end
 
@@ -293,7 +293,7 @@ defmodule ClaudeCodeTest do
 
       {:ok, session} = ClaudeCode.start_link(adapter: {ClaudeCode.Test, ClaudeCode})
 
-      assert :healthy = ClaudeCode.health(session)
+      assert :healthy = ClaudeCode.Session.health(session)
 
       ClaudeCode.stop(session)
     end

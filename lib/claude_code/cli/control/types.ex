@@ -3,11 +3,11 @@ defmodule ClaudeCode.CLI.Control.Types do
   Type definitions for control protocol responses.
 
   These types describe the shape of maps returned by control protocol
-  operations like `ClaudeCode.set_mcp_servers/2` and `ClaudeCode.rewind_files/2`.
+  operations like `ClaudeCode.Session.set_mcp_servers/2` and `ClaudeCode.Session.rewind_files/2`.
   """
 
   @typedoc """
-  Result of a `ClaudeCode.set_mcp_servers/2` operation.
+  Result of a `ClaudeCode.Session.set_mcp_servers/2` operation.
 
   ## Fields
 
@@ -22,7 +22,7 @@ defmodule ClaudeCode.CLI.Control.Types do
         }
 
   @typedoc """
-  Result of a `ClaudeCode.rewind_files/2` operation.
+  Result of a `ClaudeCode.Session.rewind_files/2` operation.
 
   ## Fields
 
@@ -43,7 +43,7 @@ defmodule ClaudeCode.CLI.Control.Types do
   @typedoc """
   Response from session initialization (matches `SDKControlInitializeResponse`).
 
-  Returned by `ClaudeCode.get_server_info/1`.
+  Returned by `ClaudeCode.Session.server_info/1`.
   """
   @type initialize_response :: %{
           commands: [ClaudeCode.SlashCommand.t()],

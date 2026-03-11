@@ -27,7 +27,7 @@ ClaudeCode.stop(session)
 
 ### Getting the Session ID
 
-The session ID is available from the system init message or via `ClaudeCode.get_session_id/1`:
+The session ID is available from the system init message or via `ClaudeCode.Session.session_id/1`:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(model: "claude-opus-4-6")
@@ -43,7 +43,7 @@ session
 end)
 
 # Or retrieve it directly from the session GenServer
-session_id = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.Session.session_id(session)
 # You can save this ID for later resumption
 ```
 
@@ -73,7 +73,7 @@ The SDK supports resuming sessions from previous conversation states, enabling c
 # Get the session ID after a conversation
 {:ok, session} = ClaudeCode.start_link()
 session |> ClaudeCode.stream("Remember: the code is 12345") |> Stream.run()
-session_id = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.Session.session_id(session)
 ClaudeCode.stop(session)
 
 # Later: resume with the same context
@@ -135,7 +135,7 @@ Forking is useful when you want to:
 # First, capture the session ID
 {:ok, session} = ClaudeCode.start_link(model: "claude-opus-4-6")
 session |> ClaudeCode.stream("Help me design a REST API") |> Stream.run()
-session_id = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.Session.session_id(session)
 
 # Fork the session to try a different approach
 {:ok, forked} = ClaudeCode.start_link(
@@ -149,7 +149,7 @@ forked
 |> ClaudeCode.Stream.final_text()
 
 # After first query, fork has a new session ID
-forked_id = ClaudeCode.get_session_id(forked)
+forked_id = ClaudeCode.Session.session_id(forked)
 forked_id != session_id
 # => true
 
@@ -170,7 +170,7 @@ continued
 Reset conversation history without stopping the session:
 
 ```elixir
-ClaudeCode.clear(session)
+ClaudeCode.Session.clear(session)
 
 # Next query starts fresh
 session
@@ -184,7 +184,7 @@ Access past conversations stored in `~/.claude/projects/`:
 
 ```elixir
 # By session ID
-{:ok, messages} = ClaudeCode.conversation("abc123-def456")
+{:ok, messages} = ClaudeCode.Session.conversation("abc123-def456")
 
 Enum.each(messages, fn
   %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
@@ -198,7 +198,7 @@ Enum.each(messages, fn
 end)
 
 # From a running session
-{:ok, messages} = ClaudeCode.conversation(session)
+{:ok, messages} = ClaudeCode.Session.conversation(session)
 ```
 
 ## Named Sessions
@@ -270,19 +270,19 @@ Change session settings mid-conversation without restarting:
 
 ```elixir
 # Switch model mid-conversation
-{:ok, _} = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
+{:ok, _} = ClaudeCode.Session.set_model(session, "claude-sonnet-4-5-20250929")
 
 # Change permission mode
-{:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+{:ok, _} = ClaudeCode.Session.set_permission_mode(session, :bypass_permissions)
 
 # Query MCP server status
-{:ok, %{"servers" => servers}} = ClaudeCode.get_mcp_status(session)
+{:ok, %{"servers" => servers}} = ClaudeCode.Session.mcp_status(session)
 
 # Rewind files to a checkpoint (requires enable_file_checkpointing: true)
-{:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
+{:ok, _} = ClaudeCode.Session.rewind_files(session, "user-msg-uuid-123")
 
 # Get server info from the initialize handshake
-{:ok, info} = ClaudeCode.get_server_info(session)
+{:ok, info} = ClaudeCode.Session.server_info(session)
 ```
 
 These functions use the bidirectional control protocol to communicate with the CLI subprocess without interrupting the conversation flow.
@@ -296,7 +296,7 @@ These functions use the bidirectional control protocol to communicate with the C
 | Adapter ready        | Handshake complete, adapter status is `:ready`                |
 | First query          | Sent to the already-running CLI subprocess                    |
 | Subsequent queries   | Reuses existing CLI connection with session context           |
-| `clear/1`            | Resets session ID, next query starts fresh                    |
+| `Session.clear/1`    | Resets session ID, next query starts fresh                    |
 | `stop/1`             | Terminates GenServer and CLI subprocess                       |
 | Process crash        | Supervisor restarts if supervised                             |
 

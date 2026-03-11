@@ -274,7 +274,7 @@ Store the session ID and resume after a disconnect or node restart:
 )
 
 session |> ClaudeCode.stream("Set up a Phoenix project") |> Stream.run()
-session_id = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.Session.session_id(session)
 ClaudeCode.stop(session)
 
 # Later — resume the conversation on the same (or different) remote node

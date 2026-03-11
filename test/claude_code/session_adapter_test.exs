@@ -357,7 +357,7 @@ defmodule ClaudeCode.SessionAdapterTest do
     test "session passes through :healthy from adapter" do
       {:ok, session} = Session.start_link(adapter: {HealthyAdapter, [health_status: :healthy]})
 
-      assert :healthy = ClaudeCode.health(session)
+      assert :healthy = ClaudeCode.Session.health(session)
 
       GenServer.stop(session)
     end
@@ -366,7 +366,7 @@ defmodule ClaudeCode.SessionAdapterTest do
       {:ok, session} =
         Session.start_link(adapter: {HealthyAdapter, [health_status: {:unhealthy, :some_reason}]})
 
-      assert {:unhealthy, :some_reason} = ClaudeCode.health(session)
+      assert {:unhealthy, :some_reason} = ClaudeCode.Session.health(session)
 
       GenServer.stop(session)
     end
@@ -374,7 +374,7 @@ defmodule ClaudeCode.SessionAdapterTest do
     test "session passes through :degraded from adapter" do
       {:ok, session} = Session.start_link(adapter: {HealthyAdapter, [health_status: :degraded]})
 
-      assert :degraded = ClaudeCode.health(session)
+      assert :degraded = ClaudeCode.Session.health(session)
 
       GenServer.stop(session)
     end

@@ -46,7 +46,8 @@ The SDK is organized in three layers:
 3. **Adapters** — Adapter.Port (local CLI via Port), Adapter.Node (distributed via BEAM), Adapter.Test (in-memory stubs)
 
 Key modules:
-- **ClaudeCode.Session** - GenServer that manages the adapter subprocess lifecycle
+- **ClaudeCode.Session** - Public API for session operations (lifecycle, runtime config, MCP, introspection)
+- **ClaudeCode.Session.Server** - GenServer that manages the adapter subprocess lifecycle
 - **ClaudeCode.Adapter.Port** - Port-based adapter that spawns the CLI as a local subprocess
 - **ClaudeCode.Adapter.Node** - Distributed adapter that runs Adapter.Port on a remote BEAM node via Erlang distribution
 - **ClaudeCode.CLI** - Thin facade: binary resolution + command building (delegates to Resolver + Command)
@@ -103,7 +104,9 @@ Core capabilities:
 ## File Structure
 
 - `lib/claude_code/` - Main implementation
-  - `session.ex` - GenServer for session management with options validation
+  - `session.ex` - Public API for session operations (delegates to Session.Server)
+  - `session/`
+    - `server.ex` - GenServer for session management with options validation
   - `options.ex` - Options validation (NimbleOptions); `to_cli_args` delegates to CLI.Command
   - `stream.ex` - Stream utilities for real-time processing
   - `message.ex` - Message type union + helpers; `parse` delegates to CLI.Parser

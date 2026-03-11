@@ -216,7 +216,7 @@ Supported CLI versions: 0.8.0+
 
 1. **Check session status:**
    ```elixir
-   ClaudeCode.alive?(session)
+   ClaudeCode.Session.alive?(session)
    ```
 
 2. **Use supervision (manual setup required):**
@@ -248,7 +248,7 @@ Supported CLI versions: 0.8.0+
 
 1. **Clear session state:**
    ```elixir
-   ClaudeCode.clear(session)
+   ClaudeCode.Session.clear(session)
    ```
 
 2. **Restart session:**

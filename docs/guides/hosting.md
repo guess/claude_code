@@ -147,7 +147,7 @@ In Elixir, use the `:resume` option with a stored session ID to restore conversa
 
 ```elixir
 # Store session_id when stopping
-session_id = ClaudeCode.get_session_id(session)
+session_id = ClaudeCode.Session.session_id(session)
 ClaudeCode.stop(session)
 
 # Later, resume the conversation

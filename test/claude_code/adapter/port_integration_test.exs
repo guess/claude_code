@@ -11,7 +11,7 @@ defmodule ClaudeCode.Adapter.PortIntegrationTest do
     test "returns {:unhealthy, :provisioning} while adapter is starting up" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
-      health = ClaudeCode.health(session)
+      health = ClaudeCode.Session.health(session)
       assert {:unhealthy, :provisioning} = health
 
       GenServer.stop(session)
@@ -42,7 +42,7 @@ defmodule ClaudeCode.Adapter.PortIntegrationTest do
       {:ok, _result} = MockCLI.sync_query(session, "hello")
 
       # Now the port should be alive
-      health = ClaudeCode.health(session)
+      health = ClaudeCode.Session.health(session)
       assert :healthy = health
 
       GenServer.stop(session)

@@ -27,7 +27,6 @@ defmodule ClaudeCode.CLI.Control do
     * `mcp_toggle_request/3` — Enable or disable an MCP server
     * `mcp_set_servers_request/2` — Replace dynamic MCP servers
     * `stop_task_request/2` — Stop a running task
-    * `set_max_thinking_tokens_request/2` — Set thinking token limit
 
   ## Response Builders (SDK -> CLI)
 
@@ -247,23 +246,6 @@ defmodule ClaudeCode.CLI.Control do
   @spec stop_task_request(String.t(), String.t()) :: String.t()
   def stop_task_request(request_id, task_id) do
     encode_control_request(request_id, %{subtype: "stop_task", task_id: task_id})
-  end
-
-  @doc """
-  Builds a set_max_thinking_tokens control request JSON string.
-
-  Sets the maximum number of thinking tokens the model can use.
-  Pass `nil` to clear any previously set limit.
-
-  ## Parameters
-
-    * `request_id` - Unique request identifier
-    * `max_thinking_tokens` - Maximum tokens for thinking, or nil to clear
-
-  """
-  @spec set_max_thinking_tokens_request(String.t(), non_neg_integer() | nil) :: String.t()
-  def set_max_thinking_tokens_request(request_id, max_thinking_tokens) do
-    encode_control_request(request_id, %{subtype: "set_max_thinking_tokens", maxThinkingTokens: max_thinking_tokens})
   end
 
   # --- Response Builders (SDK -> CLI, answering CLI requests) -----------------

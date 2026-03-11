@@ -169,7 +169,7 @@ defmodule ClaudeCode.SessionTest do
       {:ok, session} = Session.start_link(adapter: @adapter)
 
       # Initially no session ID
-      assert ClaudeCode.get_session_id(session) == nil
+      assert ClaudeCode.Session.session_id(session) == nil
 
       # Run query
       _result =
@@ -179,7 +179,7 @@ defmodule ClaudeCode.SessionTest do
 
       # Session ID should be captured
       # Note: ClaudeCode.Test unifies session IDs, so this tests the capture mechanism
-      session_id = ClaudeCode.get_session_id(session)
+      session_id = ClaudeCode.Session.session_id(session)
       assert session_id != nil
 
       ClaudeCode.stop(session)

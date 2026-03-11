@@ -2,23 +2,22 @@ defmodule ClaudeCode do
   @moduledoc """
   Elixir SDK for Claude Code CLI.
 
-  This module provides the main interface for interacting with Claude Code
-  through the command-line interface. It manages sessions as GenServer processes
-  that maintain persistent CLI subprocesses for efficient bidirectional communication.
+  This module provides the main entry points for interacting with Claude Code.
+  For session management, runtime configuration, and introspection, see
+  `ClaudeCode.Session`.
 
   ## API Overview
 
   | Function | Purpose |
   |----------|---------|
-  | `start_link/1` | Start a session (with optional `resume: id`) |
-  | `stop/1` | Stop a session |
-  | `stream/3` | Send prompt to session, get message stream |
+  | `start_link/1` | Start a session |
+  | `stream/3` | Send prompt, get message stream |
   | `query/2` | One-off query (auto start/stop) |
-  | `health/1` | Check adapter health status |
+  | `stop/1` | Stop a session |
 
   ## Quick Start
 
-      # Multi-turn conversation (primary API)
+      # Multi-turn conversation
       {:ok, session} = ClaudeCode.start_link(api_key: "sk-ant-...")
 
       ClaudeCode.stream(session, "What is 5 + 3?")
@@ -33,20 +32,8 @@ defmodule ClaudeCode do
       {:ok, result} = ClaudeCode.query("What is 2 + 2?", api_key: "sk-ant-...")
       IO.puts(result)
 
-  ## Session Lifecycle
-
-  Sessions automatically connect to the Claude CLI on startup and disconnect on stop.
-  The persistent connection enables:
-  - Efficient multi-turn conversations without CLI restart overhead
-  - Automatic session continuity via session IDs
-  - Real-time streaming of responses
-
   ## Supervision for Production
 
-  For production applications, use the supervisor for fault tolerance and
-  automatic restart capabilities:
-
-      # In your application supervision tree
       children = [
         {ClaudeCode.Supervisor, [
           [name: :code_reviewer, api_key: api_key, system_prompt: "You review Elixir code"],
@@ -56,7 +43,6 @@ defmodule ClaudeCode do
 
       Supervisor.start_link(children, strategy: :one_for_one)
 
-      # Access supervised sessions from anywhere
       :code_reviewer
       |> ClaudeCode.stream("Review this function")
       |> ClaudeCode.Stream.text_content()
@@ -64,36 +50,23 @@ defmodule ClaudeCode do
 
   ## Resume Previous Conversations
 
-      # Get session ID from a previous interaction
-      session_id = ClaudeCode.get_session_id(session)
+      session_id = ClaudeCode.Session.session_id(session)
 
-      # Later: resume the conversation
-      {:ok, new_session} = ClaudeCode.start_link(
-        api_key: "sk-ant-...",
-        resume: session_id
-      )
+      {:ok, new_session} = ClaudeCode.start_link(resume: session_id)
 
       ClaudeCode.stream(new_session, "Continue where we left off")
       |> Enum.each(&IO.inspect/1)
 
-      # Or fork to create a branch with a new session ID
-      {:ok, forked} = ClaudeCode.start_link(
-        resume: session_id,
-        fork_session: true
-      )
-
-  See `ClaudeCode.Supervisor` for advanced supervision patterns.
+  See `ClaudeCode.Session` for runtime configuration, MCP management,
+  and introspection functions. See `ClaudeCode.Supervisor` for advanced
+  supervision patterns.
   """
 
   alias ClaudeCode.Adapter.Port.Installer
-  alias ClaudeCode.CLI.Control.Types
   alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Session
 
   @doc """
   Returns the SDK version string.
-
-  Used internally for environment variables passed to the CLI subprocess.
 
   ## Examples
 
@@ -122,7 +95,7 @@ defmodule ClaudeCode do
     Installer.configured_version()
   end
 
-  @type session :: pid() | atom() | {:via, module(), any()}
+  @type session :: ClaudeCode.Session.session()
   @type query_response ::
           {:ok, ResultMessage.t()} | {:error, ResultMessage.t() | term()}
   @type message_stream :: Enumerable.t(ClaudeCode.Message.t())
@@ -172,7 +145,7 @@ defmodule ClaudeCode do
   """
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts \\ []) do
-    Session.start_link(opts)
+    ClaudeCode.Session.start_link(opts)
   end
 
   @doc """
@@ -264,20 +237,7 @@ defmodule ClaudeCode do
   """
   @spec stream(session(), String.t(), keyword()) :: message_stream()
   def stream(session, prompt, opts \\ []) do
-    ClaudeCode.Stream.create(session, prompt, opts)
-  end
-
-  @doc """
-  Returns the health status of the session's adapter.
-
-  ## Examples
-
-      :healthy = ClaudeCode.health(session)
-      {:unhealthy, :port_dead} = ClaudeCode.health(session)
-  """
-  @spec health(session()) :: ClaudeCode.Adapter.health()
-  def health(session) do
-    GenServer.call(session, :health)
+    ClaudeCode.Session.stream(session, prompt, opts)
   end
 
   @doc """
@@ -291,361 +251,10 @@ defmodule ClaudeCode do
   """
   @spec stop(session()) :: :ok
   def stop(session) do
-    GenServer.stop(session)
-  end
-
-  @doc """
-  Checks if a session is alive.
-
-  ## Examples
-
-      true = ClaudeCode.alive?(session)
-  """
-  @spec alive?(session()) :: boolean()
-  def alive?(session) when is_atom(session) do
-    case Process.whereis(session) do
-      nil -> false
-      pid -> Process.alive?(pid)
-    end
-  end
-
-  def alive?(session) when is_pid(session) do
-    Process.alive?(session)
-  end
-
-  @doc """
-  Gets the current session ID for conversation continuity.
-
-  Returns the session ID that Claude CLI is using to maintain conversation
-  context. This ID is automatically captured from CLI responses and used
-  for subsequent queries to continue the conversation.
-
-  You can use this session ID with the `:resume` option when starting a
-  new session to continue the conversation later, or with `:fork_session`
-  to create a branch.
-
-  ## Examples
-
-      session_id = ClaudeCode.get_session_id(session)
-      # => "abc123-session-id"
-
-      # For a new session with no queries yet
-      nil = ClaudeCode.get_session_id(session)
-
-      # Resume later
-      {:ok, new_session} = ClaudeCode.start_link(resume: session_id)
-
-      # Or fork the conversation
-      {:ok, forked} = ClaudeCode.start_link(resume: session_id, fork_session: true)
-  """
-  @spec get_session_id(session()) :: String.t() | nil
-  def get_session_id(session) do
-    GenServer.call(session, :get_session_id)
-  end
-
-  @doc """
-  Clears the current session ID to start a fresh conversation.
-
-  This will cause the next query to start a new conversation context
-  rather than continuing the existing one. Useful when you want to
-  reset the conversation history.
-
-  ## Examples
-
-      :ok = ClaudeCode.clear(session)
-
-      # Next stream will start fresh
-      ClaudeCode.stream(session, "Hello!")
-      |> Enum.each(&IO.inspect/1)
-  """
-  @spec clear(session()) :: :ok
-  def clear(session) do
-    GenServer.call(session, :clear_session)
-  end
-
-  @doc """
-  Changes the model mid-conversation.
-
-  ## Examples
-
-      :ok = ClaudeCode.set_model(session, "claude-sonnet-4-5-20250929")
-  """
-  @spec set_model(session(), String.t()) :: :ok | {:error, term()}
-  def set_model(session, model) do
-    session |> GenServer.call({:control, :set_model, %{model: model}}) |> to_ok()
-  end
-
-  @doc """
-  Changes the permission mode mid-conversation.
-
-  ## Examples
-
-      :ok = ClaudeCode.set_permission_mode(session, :bypass_permissions)
-  """
-  @spec set_permission_mode(session(), atom()) :: :ok | {:error, term()}
-  def set_permission_mode(session, mode) do
-    session |> GenServer.call({:control, :set_permission_mode, %{mode: mode}}) |> to_ok()
-  end
-
-  @doc """
-  Queries MCP server connection status.
-
-  ## Examples
-
-      {:ok, servers} = ClaudeCode.get_mcp_status(session)
-      Enum.each(servers, &IO.puts(&1.name))
-  """
-  @spec get_mcp_status(session()) :: {:ok, [ClaudeCode.MCP.ServerStatus.t()]} | {:error, term()}
-  def get_mcp_status(session) do
-    GenServer.call(session, {:control, :mcp_status, %{}})
-  end
-
-  @doc """
-  Gets server initialization info cached from the control handshake.
-
-  ## Examples
-
-      {:ok, info} = ClaudeCode.get_server_info(session)
-  """
-  @spec get_server_info(session()) :: {:ok, ClaudeCode.CLI.Control.Types.initialize_response() | nil} | {:error, term()}
-  def get_server_info(session) do
-    GenServer.call(session, :get_server_info)
-  end
-
-  @doc """
-  Interrupts the current generation.
-
-  Sends an interrupt signal to the CLI to stop the current generation.
-  This is a fire-and-forget operation — the CLI will stop generating
-  and emit a result message.
-
-  ## Examples
-
-      :ok = ClaudeCode.interrupt(session)
-  """
-  @spec interrupt(session()) :: :ok | {:error, term()}
-  def interrupt(session) do
-    GenServer.call(session, :interrupt)
-  end
-
-  @doc """
-  Rewinds tracked files to the state at a specific user message checkpoint.
-
-  ## Options
-
-    * `:dry_run` - When `true`, preview changes without applying them (default: `false`)
-
-  ## Examples
-
-      {:ok, _} = ClaudeCode.rewind_files(session, "user-msg-uuid-123")
-
-      # Preview changes without applying
-      {:ok, preview} = ClaudeCode.rewind_files(session, "user-msg-uuid-123", dry_run: true)
-  """
-  @spec rewind_files(session(), String.t(), keyword()) :: {:ok, Types.rewind_files_result()} | {:error, term()}
-  def rewind_files(session, user_message_id, opts \\ []) do
-    params = maybe_put_opt(%{user_message_id: user_message_id}, :dry_run, opts)
-
-    GenServer.call(session, {:control, :rewind_files, params})
-  end
-
-  @doc """
-  Reconnects a disconnected or failed MCP server.
-
-  ## Examples
-
-      :ok = ClaudeCode.mcp_reconnect(session, "my-server")
-  """
-  @spec mcp_reconnect(session(), String.t()) :: :ok | {:error, term()}
-  def mcp_reconnect(session, server_name) do
-    session |> GenServer.call({:control, :mcp_reconnect, %{server_name: server_name}}) |> to_ok()
-  end
-
-  @doc """
-  Enables or disables an MCP server.
-
-  ## Examples
-
-      :ok = ClaudeCode.mcp_toggle(session, "my-server", false)
-  """
-  @spec mcp_toggle(session(), String.t(), boolean()) :: :ok | {:error, term()}
-  def mcp_toggle(session, server_name, enabled) do
-    session
-    |> GenServer.call({:control, :mcp_toggle, %{server_name: server_name, enabled: enabled}})
-    |> to_ok()
-  end
-
-  @doc """
-  Stops a running task.
-
-  A task_notification with status 'stopped' will be emitted.
-
-  ## Examples
-
-      :ok = ClaudeCode.stop_task(session, "task-id-123")
-  """
-  @spec stop_task(session(), String.t()) :: :ok | {:error, term()}
-  def stop_task(session, task_id) do
-    session |> GenServer.call({:control, :stop_task, %{task_id: task_id}}) |> to_ok()
-  end
-
-  @doc """
-  Replaces the set of dynamically managed MCP servers.
-
-  ## Examples
-
-      {:ok, _} = ClaudeCode.set_mcp_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
-  """
-  @spec set_mcp_servers(session(), map()) :: {:ok, Types.set_servers_result()} | {:error, term()}
-  def set_mcp_servers(session, servers) do
-    GenServer.call(session, {:control, :set_mcp_servers, %{servers: servers}})
-  end
-
-  @doc """
-  Returns the list of available commands from the initialization response.
-
-  ## Examples
-
-      {:ok, commands} = ClaudeCode.supported_commands(session)
-      Enum.each(commands, &IO.puts(&1.name))
-  """
-  @spec supported_commands(session()) :: {:ok, [ClaudeCode.SlashCommand.t()]} | {:error, term()}
-  def supported_commands(session) do
-    case get_server_info(session) do
-      {:ok, %{commands: commands}} when is_list(commands) -> {:ok, commands}
-      {:ok, _} -> {:ok, []}
-      error -> error
-    end
-  end
-
-  @doc """
-  Returns the list of available models from the initialization response.
-
-  ## Examples
-
-      {:ok, models} = ClaudeCode.supported_models(session)
-      Enum.each(models, &IO.puts(&1.display_name))
-  """
-  @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
-  def supported_models(session) do
-    case get_server_info(session) do
-      {:ok, %{models: models}} when is_list(models) -> {:ok, models}
-      {:ok, _} -> {:ok, []}
-      error -> error
-    end
-  end
-
-  @doc """
-  Returns the list of available subagents from the initialization response.
-
-  ## Examples
-
-      {:ok, agents} = ClaudeCode.supported_agents(session)
-  """
-  @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
-  def supported_agents(session) do
-    case get_server_info(session) do
-      {:ok, %{agents: agents}} when is_list(agents) -> {:ok, agents}
-      {:ok, _} -> {:ok, []}
-      error -> error
-    end
-  end
-
-  @doc """
-  Returns account information from the initialization response.
-
-  ## Examples
-
-      {:ok, account} = ClaudeCode.account_info(session)
-      IO.puts(account.email)
-  """
-  @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
-  def account_info(session) do
-    case get_server_info(session) do
-      {:ok, %{account: account}} -> {:ok, account}
-      {:ok, _} -> {:ok, nil}
-      error -> error
-    end
-  end
-
-  @doc """
-  Sets the maximum number of thinking tokens.
-
-  Pass `nil` to clear any previously set limit.
-
-  ## Examples
-
-      :ok = ClaudeCode.set_max_thinking_tokens(session, 32_000)
-      :ok = ClaudeCode.set_max_thinking_tokens(session, nil)
-  """
-  @spec set_max_thinking_tokens(session(), non_neg_integer() | nil) :: :ok | {:error, term()}
-  def set_max_thinking_tokens(session, max_thinking_tokens) do
-    session
-    |> GenServer.call({:control, :set_max_thinking_tokens, %{max_thinking_tokens: max_thinking_tokens}})
-    |> to_ok()
-  end
-
-  @doc """
-  Reads conversation history from a session's JSONL file.
-
-  Accepts either a session ID string or a running session reference.
-  Returns user and assistant messages parsed into SDK message structs.
-
-  ## Options
-
-  - `:project_path` - Specific project path to search in (optional)
-  - `:claude_dir` - Override the Claude directory (default: `~/.claude`)
-
-  ## Examples
-
-      # Read conversation history by session ID
-      {:ok, messages} = ClaudeCode.conversation("abc123-def456")
-
-      # Or from a running session
-      {:ok, session} = ClaudeCode.start_link()
-      ClaudeCode.query(session, "Hello!")
-      {:ok, messages} = ClaudeCode.conversation(session)
-
-      Enum.each(messages, fn
-        %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
-          IO.puts("User: \#{inspect(content)}")
-        %ClaudeCode.Message.AssistantMessage{message: %{content: blocks}} ->
-          text = Enum.map_join(blocks, "", fn
-            %ClaudeCode.Content.TextBlock{text: t} -> t
-            _ -> ""
-          end)
-          IO.puts("Assistant: \#{text}")
-      end)
-
-  See `ClaudeCode.History` for more options.
-  """
-  @spec conversation(session() | String.t(), keyword()) ::
-          {:ok, [ClaudeCode.Message.AssistantMessage.t() | ClaudeCode.Message.UserMessage.t()]}
-          | {:error, term()}
-  def conversation(session_or_id, opts \\ [])
-
-  def conversation(session_id, opts) when is_binary(session_id) do
-    ClaudeCode.History.conversation(session_id, opts)
-  end
-
-  def conversation(session, opts) do
-    case get_session_id(session) do
-      nil -> {:error, :no_session_id}
-      session_id -> ClaudeCode.History.conversation(session_id, opts)
-    end
+    ClaudeCode.Session.stop(session)
   end
 
   # Private helpers
-
-  defp to_ok({:ok, _}), do: :ok
-  defp to_ok({:error, _} = error), do: error
-
-  defp maybe_put_opt(map, key, opts) do
-    case Keyword.get(opts, key) do
-      nil -> map
-      value -> Map.put(map, key, value)
-    end
-  end
 
   defp collect_result(stream) do
     stream

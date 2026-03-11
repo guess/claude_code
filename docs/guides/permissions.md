@@ -71,13 +71,13 @@ session
 
 **During streaming (dynamic change):**
 
-Call `ClaudeCode.set_permission_mode/2` to change the mode mid-session. The new mode takes effect immediately for all subsequent tool requests. This lets you start restrictive and loosen permissions as trust builds -- for example, switching to `:accept_edits` after reviewing Claude's initial approach.
+Call `ClaudeCode.Session.set_permission_mode/2` to change the mode mid-session. The new mode takes effect immediately for all subsequent tool requests. This lets you start restrictive and loosen permissions as trust builds -- for example, switching to `:accept_edits` after reviewing Claude's initial approach.
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(permission_mode: :default)
 
 # Change mode dynamically mid-session
-{:ok, _} = ClaudeCode.set_permission_mode(session, :accept_edits)
+{:ok, _} = ClaudeCode.Session.set_permission_mode(session, :accept_edits)
 
 # Subsequent queries use the new permission mode
 session

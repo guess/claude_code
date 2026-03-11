@@ -81,6 +81,8 @@ defmodule ClaudeCode.Supervisor do
 
   use Supervisor
 
+  alias ClaudeCode.Session.Server
+
   @doc """
   Starts the ClaudeCode supervisor.
 
@@ -157,7 +159,7 @@ defmodule ClaudeCode.Supervisor do
 
     child_spec = %{
       id: child_id,
-      start: {ClaudeCode.Session, :start_link, [session_config]},
+      start: {Server, :start_link, [session_config]},
       restart: :permanent,
       shutdown: 5000,
       type: :worker
@@ -262,7 +264,7 @@ defmodule ClaudeCode.Supervisor do
 
     %{
       id: child_id,
-      start: {ClaudeCode.Session, :start_link, [session_config]},
+      start: {Server, :start_link, [session_config]},
       restart: :permanent,
       shutdown: 5000,
       type: :worker

@@ -1,482 +1,426 @@
 defmodule ClaudeCode.Session do
   @moduledoc """
-  GenServer that manages Claude Code sessions.
+  Public API for interacting with Claude Code sessions.
 
-  Each session maintains a connection to Claude (via an adapter) and handles
-  request queuing, subscriber management, and session continuity.
+  This module provides functions for managing session lifecycle, runtime
+  configuration, MCP server management, and introspection. For the basic
+  "getting started" API, see `ClaudeCode`.
 
-  The session uses adapters for communication:
-  - `ClaudeCode.Adapter.Port` (default) - Manages a CLI subprocess via Port
-  - `ClaudeCode.Adapter.Test` - Delivers mock messages for testing
+  ## Session Lifecycle
+
+      {:ok, session} = ClaudeCode.Session.start_link(api_key: "sk-ant-...")
+
+      ClaudeCode.Session.stream(session, "What is 5 + 3?")
+      |> Enum.each(&IO.inspect/1)
+
+      ClaudeCode.Session.stop(session)
+
+  ## Runtime Configuration
+
+      :ok = ClaudeCode.Session.set_model(session, "claude-sonnet-4-5-20250929")
+      :ok = ClaudeCode.Session.set_permission_mode(session, :accept_edits)
+
+  ## MCP Server Management
+
+      {:ok, servers} = ClaudeCode.Session.mcp_status(session)
+      :ok = ClaudeCode.Session.mcp_reconnect(session, "my-server")
+
+  ## Introspection
+
+      {:ok, info} = ClaudeCode.Session.server_info(session)
+      {:ok, models} = ClaudeCode.Session.supported_models(session)
   """
 
-  use GenServer
+  alias ClaudeCode.CLI.Control.Types
 
-  alias ClaudeCode.CLI.Parser
-  alias ClaudeCode.Message.AssistantMessage
-  alias ClaudeCode.Message.ResultMessage
-  alias ClaudeCode.Message.SystemMessage
-  alias ClaudeCode.Options
-
-  require Logger
-
-  defstruct [
-    :session_options,
-    :session_id,
-    # Adapter
-    :adapter_module,
-    :adapter_opts,
-    :adapter_pid,
-    # Request tracking
-    :requests,
-    :query_queue,
-    # Caller chain for test adapter stub lookup
-    :callers,
-    # Adapter status (fields with defaults must come last)
-    adapter_status: :provisioning
-  ]
-
-  # Request tracking structure
-  defmodule Request do
-    @moduledoc false
-    defstruct [
-      :id,
-      :subscribers,
-      :messages,
-      :status,
-      :created_at,
-      :error
-    ]
-  end
+  @type session :: pid() | atom() | {:via, module(), any()}
 
   # ============================================================================
-  # Client API
+  # Lifecycle
   # ============================================================================
 
   @doc """
-  Starts a new session GenServer.
+  Starts a new Claude Code session.
 
-  The session eagerly starts the adapter process during init.
+  See `ClaudeCode.start_link/1` for full documentation and examples.
   """
-  def start_link(opts) do
-    {name, session_opts} = Keyword.pop(opts, :name)
-    {_id, session_opts} = Keyword.pop(session_opts, :id)
+  @spec start_link(keyword()) :: GenServer.on_start()
+  def start_link(opts \\ []) do
+    __MODULE__.Server.start_link(opts)
+  end
 
-    # Apply app config defaults and validate options early
-    opts_with_config = Options.apply_app_config_defaults(session_opts)
+  @doc """
+  Sends a query to a session and returns a stream of messages.
 
-    case Options.validate_session_options(opts_with_config) do
-      {:ok, validated_opts} ->
-        # Capture the caller chain for test adapter stub lookup
-        callers = [self() | Process.get(:"$callers") || []]
-        init_opts = validated_opts |> Keyword.put(:name, name) |> Keyword.put(:callers, callers)
+  See `ClaudeCode.stream/3` for full documentation and examples.
+  """
+  @spec stream(session(), String.t(), keyword()) :: Enumerable.t(ClaudeCode.Message.t())
+  def stream(session, prompt, opts \\ []) do
+    ClaudeCode.Stream.create(session, prompt, opts)
+  end
 
-        case name do
-          nil -> GenServer.start_link(__MODULE__, init_opts)
-          _ -> GenServer.start_link(__MODULE__, init_opts, name: name)
-        end
+  @doc """
+  Stops a Claude Code session.
 
-      {:error, validation_error} ->
-        raise ArgumentError, Exception.message(validation_error)
+  This closes the CLI subprocess and cleans up resources.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.stop(session)
+  """
+  @spec stop(session()) :: :ok
+  def stop(session) do
+    GenServer.stop(session)
+  end
+
+  # ============================================================================
+  # Session State
+  # ============================================================================
+
+  @doc """
+  Returns the health status of the session's adapter.
+
+  ## Examples
+
+      :healthy = ClaudeCode.Session.health(session)
+      {:unhealthy, :port_dead} = ClaudeCode.Session.health(session)
+  """
+  @spec health(session()) :: ClaudeCode.Adapter.health()
+  def health(session) do
+    GenServer.call(session, :health)
+  end
+
+  @doc """
+  Checks if a session is alive.
+
+  ## Examples
+
+      true = ClaudeCode.Session.alive?(session)
+  """
+  @spec alive?(session()) :: boolean()
+  def alive?(session) when is_pid(session), do: Process.alive?(session)
+  def alive?(session) when is_atom(session), do: GenServer.whereis(session) != nil
+  def alive?({:via, _, _} = session), do: GenServer.whereis(session) != nil
+
+  @doc """
+  Gets the current session ID for conversation continuity.
+
+  Returns the session ID that Claude CLI is using to maintain conversation
+  context. This ID is automatically captured from CLI responses and used
+  for subsequent queries to continue the conversation.
+
+  You can use this session ID with the `:resume` option when starting a
+  new session to continue the conversation later, or with `:fork_session`
+  to create a branch.
+
+  ## Examples
+
+      session_id = ClaudeCode.Session.session_id(session)
+      # => "abc123-session-id"
+
+      # For a new session with no queries yet
+      nil = ClaudeCode.Session.session_id(session)
+
+      # Resume later
+      {:ok, new_session} = ClaudeCode.start_link(resume: session_id)
+
+      # Or fork the conversation
+      {:ok, forked} = ClaudeCode.start_link(resume: session_id, fork_session: true)
+  """
+  @spec session_id(session()) :: String.t() | nil
+  def session_id(session) do
+    GenServer.call(session, :get_session_id)
+  end
+
+  @doc """
+  Clears the current session ID to start a fresh conversation.
+
+  This will cause the next query to start a new conversation context
+  rather than continuing the existing one. Useful when you want to
+  reset the conversation history.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.clear(session)
+
+      # Next stream will start fresh
+      ClaudeCode.Session.stream(session, "Hello!")
+      |> Enum.each(&IO.inspect/1)
+  """
+  @spec clear(session()) :: :ok
+  def clear(session) do
+    GenServer.call(session, :clear_session)
+  end
+
+  @doc """
+  Interrupts the current generation.
+
+  Sends an interrupt signal to the CLI to stop the current generation.
+  This is a fire-and-forget operation — the CLI will stop generating
+  and emit a result message.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.interrupt(session)
+  """
+  @spec interrupt(session()) :: :ok | {:error, term()}
+  def interrupt(session) do
+    GenServer.call(session, :interrupt)
+  end
+
+  # ============================================================================
+  # Runtime Configuration
+  # ============================================================================
+
+  @doc """
+  Changes the model mid-conversation.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.set_model(session, "claude-sonnet-4-5-20250929")
+  """
+  @spec set_model(session(), String.t()) :: :ok | {:error, term()}
+  def set_model(session, model) do
+    session |> GenServer.call({:control, :set_model, %{model: model}}) |> to_ok()
+  end
+
+  @doc """
+  Changes the permission mode mid-conversation.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.set_permission_mode(session, :bypass_permissions)
+  """
+  @spec set_permission_mode(session(), atom()) :: :ok | {:error, term()}
+  def set_permission_mode(session, mode) do
+    session |> GenServer.call({:control, :set_permission_mode, %{mode: mode}}) |> to_ok()
+  end
+
+  # ============================================================================
+  # MCP Management
+  # ============================================================================
+
+  @doc """
+  Queries MCP server connection status.
+
+  ## Examples
+
+      {:ok, servers} = ClaudeCode.Session.mcp_status(session)
+      Enum.each(servers, &IO.puts(&1.name))
+  """
+  @spec mcp_status(session()) :: {:ok, [ClaudeCode.MCP.ServerStatus.t()]} | {:error, term()}
+  def mcp_status(session) do
+    GenServer.call(session, {:control, :mcp_status, %{}})
+  end
+
+  @doc """
+  Reconnects a disconnected or failed MCP server.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.mcp_reconnect(session, "my-server")
+  """
+  @spec mcp_reconnect(session(), String.t()) :: :ok | {:error, term()}
+  def mcp_reconnect(session, server_name) do
+    session |> GenServer.call({:control, :mcp_reconnect, %{server_name: server_name}}) |> to_ok()
+  end
+
+  @doc """
+  Enables or disables an MCP server.
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.mcp_toggle(session, "my-server", false)
+  """
+  @spec mcp_toggle(session(), String.t(), boolean()) :: :ok | {:error, term()}
+  def mcp_toggle(session, server_name, enabled) do
+    session
+    |> GenServer.call({:control, :mcp_toggle, %{server_name: server_name, enabled: enabled}})
+    |> to_ok()
+  end
+
+  @doc """
+  Replaces the set of dynamically managed MCP servers.
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.Session.set_mcp_servers(session, %{"tools" => %{"type" => "stdio", "command" => "npx"}})
+  """
+  @spec set_mcp_servers(session(), map()) :: {:ok, Types.set_servers_result()} | {:error, term()}
+  def set_mcp_servers(session, servers) do
+    GenServer.call(session, {:control, :set_mcp_servers, %{servers: servers}})
+  end
+
+  # ============================================================================
+  # Introspection
+  # ============================================================================
+
+  @doc """
+  Gets server initialization info cached from the control handshake.
+
+  ## Examples
+
+      {:ok, info} = ClaudeCode.Session.server_info(session)
+  """
+  @spec server_info(session()) :: {:ok, Types.initialize_response() | nil} | {:error, term()}
+  def server_info(session) do
+    GenServer.call(session, :get_server_info)
+  end
+
+  @doc """
+  Returns the list of available commands from the initialization response.
+
+  ## Examples
+
+      {:ok, commands} = ClaudeCode.Session.supported_commands(session)
+      Enum.each(commands, &IO.puts(&1.name))
+  """
+  @spec supported_commands(session()) :: {:ok, [ClaudeCode.SlashCommand.t()]} | {:error, term()}
+  def supported_commands(session), do: extract_server_info_list(session, :commands)
+
+  @doc """
+  Returns the list of available models from the initialization response.
+
+  ## Examples
+
+      {:ok, models} = ClaudeCode.Session.supported_models(session)
+      Enum.each(models, &IO.puts(&1.display_name))
+  """
+  @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
+  def supported_models(session), do: extract_server_info_list(session, :models)
+
+  @doc """
+  Returns the list of available subagents from the initialization response.
+
+  ## Examples
+
+      {:ok, agents} = ClaudeCode.Session.supported_agents(session)
+  """
+  @spec supported_agents(session()) :: {:ok, [ClaudeCode.AgentInfo.t()]} | {:error, term()}
+  def supported_agents(session), do: extract_server_info_list(session, :agents)
+
+  @doc """
+  Returns account information from the initialization response.
+
+  ## Examples
+
+      {:ok, account} = ClaudeCode.Session.account_info(session)
+      IO.puts(account.email)
+  """
+  @spec account_info(session()) :: {:ok, ClaudeCode.AccountInfo.t() | nil} | {:error, term()}
+  def account_info(session) do
+    case server_info(session) do
+      {:ok, %{account: account}} -> {:ok, account}
+      {:ok, _} -> {:ok, nil}
+      error -> error
     end
   end
 
   # ============================================================================
-  # Server Callbacks
+  # History
   # ============================================================================
 
-  @impl true
-  def init(validated_opts) do
-    callers = Keyword.get(validated_opts, :callers, [])
-    {adapter_module, adapter_opts} = resolve_adapter(validated_opts, callers)
+  @doc """
+  Reads conversation history from a session's JSONL file.
 
-    state = %__MODULE__{
-      session_options: validated_opts,
-      session_id: Keyword.get(validated_opts, :resume),
-      adapter_module: adapter_module,
-      adapter_opts: adapter_opts,
-      adapter_pid: nil,
-      requests: %{},
-      query_queue: :queue.new(),
-      callers: callers
-    }
+  Accepts either a session ID string or a running session reference.
+  Returns user and assistant messages parsed into SDK message structs.
 
-    # Eagerly start the adapter
-    case adapter_module.start_link(self(), adapter_opts) do
-      {:ok, pid} ->
-        {:ok, %{state | adapter_pid: pid}}
+  ## Options
 
-      {:error, reason} ->
-        {:stop, reason}
-    end
+  - `:project_path` - Specific project path to search in (optional)
+  - `:claude_dir` - Override the Claude directory (default: `~/.claude`)
+
+  ## Examples
+
+      # Read conversation history by session ID
+      {:ok, messages} = ClaudeCode.Session.conversation("abc123-def456")
+
+      # Or from a running session
+      {:ok, session} = ClaudeCode.start_link()
+      ClaudeCode.Session.stream(session, "Hello!") |> Stream.run()
+      {:ok, messages} = ClaudeCode.Session.conversation(session)
+
+  See `ClaudeCode.History` for more options.
+  """
+  @spec conversation(session() | String.t(), keyword()) ::
+          {:ok, [ClaudeCode.Message.AssistantMessage.t() | ClaudeCode.Message.UserMessage.t()]}
+          | {:error, term()}
+  def conversation(session_or_id, opts \\ [])
+
+  def conversation(session_id, opts) when is_binary(session_id) do
+    ClaudeCode.History.conversation(session_id, opts)
   end
 
-  @impl true
-  def handle_call({:query_stream, prompt, opts}, _from, state) do
-    request = %Request{
-      id: make_ref(),
-      subscribers: [],
-      messages: [],
-      status: :active,
-      created_at: System.monotonic_time()
-    }
-
-    case enqueue_or_execute(request, prompt, opts, state) do
-      {:ok, new_state} ->
-        {:reply, {:ok, request.id}, new_state}
-
-      {:error, reason, new_state} ->
-        {:reply, {:error, reason}, new_state}
-    end
-  end
-
-  def handle_call({:receive_next, req_ref}, from, state) do
-    case Map.get(state.requests, req_ref) do
-      nil ->
-        {:reply, {:error, :unknown_request}, state}
-
-      %{messages: [msg | rest]} = request ->
-        updated_request = %{request | messages: rest}
-        new_requests = Map.put(state.requests, req_ref, updated_request)
-        {:reply, {:message, msg}, %{state | requests: new_requests}}
-
-      %{status: :completed, messages: [], error: nil} ->
-        new_requests = Map.delete(state.requests, req_ref)
-        {:reply, :done, %{state | requests: new_requests}}
-
-      %{status: :completed, messages: [], error: reason} ->
-        new_requests = Map.delete(state.requests, req_ref)
-        {:reply, {:error, reason}, %{state | requests: new_requests}}
-
-      %{status: status, messages: []} = request when status in [:active, :queued] ->
-        updated_request = %{request | subscribers: [from | request.subscribers]}
-        new_requests = Map.put(state.requests, req_ref, updated_request)
-        {:noreply, %{state | requests: new_requests}}
-    end
-  end
-
-  def handle_call(:get_session_id, _from, state) do
-    {:reply, state.session_id, state}
-  end
-
-  def handle_call(:clear_session, _from, state) do
-    {:reply, :ok, %{state | session_id: nil}}
-  end
-
-  def handle_call(:health, _from, state) do
-    health = state.adapter_module.health(state.adapter_pid)
-    {:reply, health, state}
-  end
-
-  def handle_call({:control, subtype, params}, _from, state) do
-    if supports_control?(state.adapter_module) do
-      result = state.adapter_module.send_control_request(state.adapter_pid, subtype, params)
-      {:reply, result, state}
-    else
-      {:reply, {:error, :not_supported}, state}
-    end
-  end
-
-  def handle_call(:get_server_info, _from, state) do
-    if supports_control?(state.adapter_module) do
-      {:reply, state.adapter_module.get_server_info(state.adapter_pid), state}
-    else
-      {:reply, {:error, :not_supported}, state}
-    end
-  end
-
-  def handle_call(:interrupt, _from, state) do
-    if function_exported?(state.adapter_module, :interrupt, 1) do
-      result = state.adapter_module.interrupt(state.adapter_pid)
-      {:reply, result, state}
-    else
-      {:reply, {:error, :not_supported}, state}
-    end
-  end
-
-  @impl true
-  def handle_cast({:stream_cleanup, request_ref}, state) do
-    new_requests = Map.delete(state.requests, request_ref)
-    {:noreply, %{state | requests: new_requests}}
-  end
-
-  # ============================================================================
-  # Adapter Message Handlers
-  # ============================================================================
-
-  @impl true
-  def handle_info({:adapter_status, :ready}, state) do
-    new_state = %{state | adapter_status: :ready}
-    {:noreply, process_next_in_queue(new_state)}
-  end
-
-  def handle_info({:adapter_status, :provisioning}, state) do
-    {:noreply, %{state | adapter_status: :provisioning}}
-  end
-
-  def handle_info({:adapter_status, {:error, reason}}, state) do
-    new_state = fail_queued_requests(state, {:provisioning_failed, reason})
-    {:noreply, %{new_state | adapter_status: {:error, reason}}}
-  end
-
-  def handle_info({:adapter_message, request_id, raw}, state) do
-    with {:ok, message} <- maybe_parse(raw),
-         {:ok, request} <- fetch_request(state, request_id) do
-      state = update_session_id(state, message)
-      updated_request = dispatch_message(message, request)
-      state = %{state | requests: Map.put(state.requests, request_id, updated_request)}
-
-      if match?(%ResultMessage{}, message) do
-        {:noreply, complete_request(request_id, updated_request, state)}
-      else
-        {:noreply, state}
-      end
-    else
-      :unknown_request ->
-        {:noreply, state}
-
-      {:error, reason} ->
-        Logger.warning("Failed to parse raw message: #{inspect(reason)}")
-        {:noreply, state}
-    end
-  end
-
-  def handle_info({:adapter_error, request_id, reason}, state) do
-    case fetch_request(state, request_id) do
-      {:ok, request} ->
-        notify_error(request, reason)
-        new_requests = Map.put(state.requests, request_id, %{request | status: :completed})
-        {:noreply, process_next_in_queue(%{state | requests: new_requests})}
-
-      :unknown_request ->
-        {:noreply, state}
-    end
-  end
-
-  def handle_info({:adapter_control_request, request_id, request}, state) do
-    Logger.warning("Received unhandled control request from adapter: #{inspect(request)} (#{request_id})")
-
-    {:noreply, state}
-  end
-
-  def handle_info(msg, state) do
-    Logger.debug("Session unhandled message: #{inspect(msg)}")
-    {:noreply, state}
-  end
-
-  @impl true
-  def terminate(_reason, state) do
-    if state.adapter_pid do
-      state.adapter_module.stop(state.adapter_pid)
-    end
-
-    :ok
-  rescue
-    _ -> :ok
-  end
-
-  # ============================================================================
-  # Private Functions - Adapter Management
-  # ============================================================================
-
-  defp resolve_adapter(opts, callers) do
-    case Keyword.get(opts, :adapter) do
-      nil ->
-        # Default: CLI adapter with session opts as adapter config
-        {ClaudeCode.Adapter.Port, opts}
-
-      {ClaudeCode.Test, stub_name} ->
-        # Test adapter — backward compatible
-        adapter_opts = opts |> Keyword.put(:stub_name, stub_name) |> Keyword.put(:callers, callers)
-        {ClaudeCode.Adapter.Test, adapter_opts}
-
-      {module, config} when is_atom(module) and is_list(config) ->
-        # Merge session opts with adapter-specific config.
-        # Adapter config takes precedence over session opts.
-        {module, Keyword.merge(opts, config)}
-
-      {module, _name} ->
-        # Legacy custom adapter pattern
-        {module, opts}
+  def conversation(session, opts) do
+    case session_id(session) do
+      nil -> {:error, :no_session_id}
+      sid -> ClaudeCode.History.conversation(sid, opts)
     end
   end
 
   # ============================================================================
-  # Private Functions - Request Management
+  # Tasks
   # ============================================================================
 
-  defp enqueue_or_execute(_request, _prompt, _opts, %{adapter_status: {:error, reason}} = state) do
-    {:error, {:provisioning_failed, reason}, state}
-  end
+  @doc """
+  Stops a running task.
 
-  defp enqueue_or_execute(request, prompt, opts, state) do
-    cond do
-      state.adapter_status != :ready ->
-        enqueue_request(request, prompt, opts, state)
+  A task_notification with status 'stopped' will be emitted.
 
-      has_active_request?(state) ->
-        enqueue_request(request, prompt, opts, state)
+  ## Examples
 
-      true ->
-        execute_request(request, prompt, opts, state)
-    end
-  end
-
-  defp enqueue_request(request, prompt, opts, state) do
-    queued_request = %{request | status: :queued}
-    queue = :queue.in({request, prompt, opts}, state.query_queue)
-    new_requests = Map.put(state.requests, request.id, queued_request)
-    {:ok, %{state | query_queue: queue, requests: new_requests}}
-  end
-
-  defp has_active_request?(state) do
-    Enum.any?(state.requests, fn {_ref, req} -> req.status == :active end)
-  end
-
-  defp execute_request(request, prompt, opts, state) do
-    {:ok, validated_opts} = Options.validate_query_options(opts)
-    merged_opts = Options.merge_options(state.session_options, validated_opts)
-
-    # Merge session_id into opts for the adapter
-    query_opts =
-      if state.session_id do
-        Keyword.put(merged_opts, :session_id, state.session_id)
-      else
-        merged_opts
-      end
-
-    case state.adapter_module.send_query(
-           state.adapter_pid,
-           request.id,
-           prompt,
-           query_opts
-         ) do
-      :ok ->
-        {:ok, %{state | requests: Map.put(state.requests, request.id, request)}}
-
-      {:error, reason} ->
-        {:error, reason, state}
-    end
-  end
-
-  defp process_next_in_queue(state) do
-    case :queue.out(state.query_queue) do
-      {{:value, {request, prompt, opts}}, new_queue} ->
-        new_state = %{state | query_queue: new_queue}
-
-        # Get the tracked request and update to active
-        tracked_request =
-          case Map.get(state.requests, request.id) do
-            nil -> request
-            existing -> %{existing | status: :active}
-          end
-
-        case execute_request(tracked_request, prompt, opts, new_state) do
-          {:ok, updated_state} ->
-            updated_state
-
-          {:error, reason, updated_state} ->
-            notify_error(tracked_request, reason)
-            updated_state
-        end
-
-      {:empty, _queue} ->
-        state
-    end
-  end
-
-  defp fail_queued_requests(state, reason) do
-    {items, empty_queue} = drain_queue(state.query_queue)
-
-    new_requests =
-      Enum.reduce(items, state.requests, fn {request, _prompt, _opts}, requests ->
-        case Map.get(requests, request.id) do
-          nil ->
-            requests
-
-          tracked_request ->
-            notify_error(tracked_request, reason)
-            Map.put(requests, request.id, %{tracked_request | status: :completed, error: reason})
-        end
-      end)
-
-    %{state | requests: new_requests, query_queue: empty_queue}
-  end
-
-  defp drain_queue(queue) do
-    drain_queue(queue, [])
-  end
-
-  defp drain_queue(queue, acc) do
-    case :queue.out(queue) do
-      {{:value, item}, rest} -> drain_queue(rest, [item | acc])
-      {:empty, empty} -> {Enum.reverse(acc), empty}
-    end
+      :ok = ClaudeCode.Session.stop_task(session, "task-id-123")
+  """
+  @spec stop_task(session(), String.t()) :: :ok | {:error, term()}
+  def stop_task(session, task_id) do
+    session |> GenServer.call({:control, :stop_task, %{task_id: task_id}}) |> to_ok()
   end
 
   # ============================================================================
-  # Private Functions - Message Handling
+  # File Checkpointing
   # ============================================================================
 
-  defp dispatch_message(message, request) do
-    case request.subscribers do
-      [subscriber | rest] ->
-        GenServer.reply(subscriber, {:message, message})
-        %{request | subscribers: rest}
+  @doc """
+  Rewinds tracked files to the state at a specific user message checkpoint.
 
-      [] ->
-        %{request | messages: request.messages ++ [message]}
+  ## Options
+
+    * `:dry_run` - When `true`, preview changes without applying them (default: `false`)
+
+  ## Examples
+
+      {:ok, _} = ClaudeCode.Session.rewind_files(session, "user-msg-uuid-123")
+
+      # Preview changes without applying
+      {:ok, preview} = ClaudeCode.Session.rewind_files(session, "user-msg-uuid-123", dry_run: true)
+  """
+  @spec rewind_files(session(), String.t(), keyword()) :: {:ok, Types.rewind_files_result()} | {:error, term()}
+  def rewind_files(session, user_message_id, opts \\ []) do
+    params = maybe_put_opt(%{user_message_id: user_message_id}, :dry_run, opts)
+
+    GenServer.call(session, {:control, :rewind_files, params})
+  end
+
+  # ============================================================================
+  # Private Helpers
+  # ============================================================================
+
+  defp extract_server_info_list(session, key) do
+    case server_info(session) do
+      {:ok, %{^key => list}} when is_list(list) -> {:ok, list}
+      {:ok, _} -> {:ok, []}
+      error -> error
     end
   end
 
-  defp complete_request(req_ref, request, state) do
-    # Notify any waiting subscribers
-    Enum.each(request.subscribers, fn subscriber ->
-      GenServer.reply(subscriber, :done)
-    end)
+  defp to_ok({:ok, _}), do: :ok
+  defp to_ok({:error, _} = error), do: error
 
-    # Mark as completed
-    new_requests = Map.put(state.requests, req_ref, %{request | status: :completed})
-    new_state = %{state | requests: new_requests}
-    process_next_in_queue(new_state)
-  end
-
-  defp notify_error(request, error) do
-    Enum.each(request.subscribers, fn subscriber ->
-      GenServer.reply(subscriber, {:error, error})
-    end)
-  end
-
-  defp fetch_request(state, request_id) do
-    case Map.get(state.requests, request_id) do
-      nil -> :unknown_request
-      request -> {:ok, request}
+  defp maybe_put_opt(map, key, opts) do
+    case Keyword.get(opts, key) do
+      nil -> map
+      value -> Map.put(map, key, value)
     end
-  end
-
-  defp update_session_id(state, message) do
-    new_session_id = extract_session_id(message) || state.session_id
-    %{state | session_id: new_session_id}
-  end
-
-  defp extract_session_id(%AssistantMessage{session_id: sid}) when not is_nil(sid), do: sid
-  defp extract_session_id(%ResultMessage{session_id: sid}) when not is_nil(sid), do: sid
-
-  defp extract_session_id(%{session_id: sid} = msg) when not is_nil(sid) do
-    if SystemMessage.type?(msg), do: sid
-  end
-
-  defp extract_session_id(_), do: nil
-
-  defp maybe_parse(%{__struct__: _} = struct), do: {:ok, struct}
-
-  defp maybe_parse(raw) when is_binary(raw) do
-    with {:ok, json_map} <- Jason.decode(raw), do: Parser.parse_message(json_map)
-  end
-
-  defp maybe_parse(raw) when is_map(raw), do: Parser.parse_message(raw)
-
-  defp supports_control?(adapter_module) do
-    function_exported?(adapter_module, :send_control_request, 3)
   end
 end

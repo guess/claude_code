@@ -90,14 +90,14 @@ The control protocol uses bidirectional JSON messages over stdin/stdout. The CLI
 | `SDKControlInitializeRequest` | *(automatic)* | `Control.initialize_request/5` | *(automatic)* | Implemented |
 | `SDKControlInterruptRequest` | `Query.interrupt()` | `Control.interrupt_request/1` | `ClaudeCode.interrupt/1` | Implemented |
 | `SDKControlSetModelRequest` | `Query.setModel()` | `Control.set_model_request/2` | `ClaudeCode.set_model/2` | Implemented |
-| `SDKControlSetPermissionModeRequest` | `Query.setPermissionMode()` | `Control.set_permission_mode_request/2` | `ClaudeCode.set_permission_mode/2` | Implemented |
-| `SDKControlSetMaxThinkingTokensRequest` | `Query.setMaxThinkingTokens()` | `Control.set_max_thinking_tokens_request/2` | `ClaudeCode.set_max_thinking_tokens/2` | Implemented |
-| `SDKControlRewindFilesRequest` | `Query.rewindFiles()` | `Control.rewind_files_request/2` | `ClaudeCode.rewind_files/2` | Implemented |
-| `SDKControlMcpStatusRequest` | `Query.mcpServerStatus()` | `Control.mcp_status_request/1` | `ClaudeCode.get_mcp_status/1` | Implemented |
-| `SDKControlMcpReconnectRequest` | `Query.reconnectMcpServer()` | `Control.mcp_reconnect_request/2` | `ClaudeCode.mcp_reconnect/2` | Implemented |
-| `SDKControlMcpToggleRequest` | `Query.toggleMcpServer()` | `Control.mcp_toggle_request/3` | `ClaudeCode.mcp_toggle/3` | Implemented |
-| `SDKControlStopTaskRequest` | `Query.stopTask()` | `Control.stop_task_request/2` | `ClaudeCode.stop_task/2` | Implemented |
-| `SDKControlMcpSetServersRequest` | `Query.setMcpServers()` | `Control.mcp_set_servers_request/2` | `ClaudeCode.set_mcp_servers/2` | Implemented |
+| `SDKControlSetPermissionModeRequest` | `Query.setPermissionMode()` | `Control.set_permission_mode_request/2` | `ClaudeCode.Session.set_permission_mode/2` | Implemented |
+| `SDKControlSetMaxThinkingTokensRequest` | `Query.setMaxThinkingTokens()` | -- | -- | **Removed** — deprecated in TS SDK; use `thinking` option instead |
+| `SDKControlRewindFilesRequest` | `Query.rewindFiles()` | `Control.rewind_files_request/2` | `ClaudeCode.Session.rewind_files/2` | Implemented |
+| `SDKControlMcpStatusRequest` | `Query.mcpServerStatus()` | `Control.mcp_status_request/1` | `ClaudeCode.Session.mcp_status/1` | Implemented |
+| `SDKControlMcpReconnectRequest` | `Query.reconnectMcpServer()` | `Control.mcp_reconnect_request/2` | `ClaudeCode.Session.mcp_reconnect/2` | Implemented |
+| `SDKControlMcpToggleRequest` | `Query.toggleMcpServer()` | `Control.mcp_toggle_request/3` | `ClaudeCode.Session.mcp_toggle/3` | Implemented |
+| `SDKControlStopTaskRequest` | `Query.stopTask()` | `Control.stop_task_request/2` | `ClaudeCode.Session.stop_task/2` | Implemented |
+| `SDKControlMcpSetServersRequest` | `Query.setMcpServers()` | `Control.mcp_set_servers_request/2` | `ClaudeCode.Session.set_mcp_servers/2` | Implemented |
 | `SDKControlMcpMessageRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal SDK MCP transport |
 | `SDKControlApplyFlagSettingsRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal settings plumbing |
 | `SDKControlGetSettingsRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal settings plumbing |
@@ -130,9 +130,9 @@ The TS SDK exposes convenience methods on `Query` that read from the cached `SDK
 
 | TS Public Method | Elixir Public API | Status |
 |---|---|---|
-| `Query.initializationResult()` | `ClaudeCode.get_server_info/1` | Implemented (returns raw map) |
-| `Query.supportedModels()` | `ClaudeCode.supported_models/1` | Implemented |
-| `Query.supportedAgents()` | `ClaudeCode.supported_agents/1` | Implemented |
+| `Query.initializationResult()` | `ClaudeCode.Session.server_info/1` | Implemented (returns raw map) |
+| `Query.supportedModels()` | `ClaudeCode.Session.supported_models/1` | Implemented |
+| `Query.supportedAgents()` | `ClaudeCode.Session.supported_agents/1` | Implemented |
 | `Query.supportedCommands()` | `ClaudeCode.supported_commands/1` | Implemented |
 | `Query.accountInfo()` | `ClaudeCode.account_info/1` | Implemented |
 

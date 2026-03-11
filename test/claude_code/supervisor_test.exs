@@ -1,6 +1,7 @@
 defmodule ClaudeCode.SupervisorTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.Session.Server
   alias ClaudeCode.Supervisor, as: ClaudeSupervisor
 
   @api_key "test-api-key"
@@ -27,7 +28,7 @@ defmodule ClaudeCode.SupervisorTest do
       Enum.each(ClaudeSupervisor.list_sessions(supervisor), fn {_id, pid, type, modules} ->
         assert is_pid(pid)
         assert type == :worker
-        assert modules == [ClaudeCode.Session]
+        assert modules == [Server]
       end)
     end
 
@@ -81,7 +82,7 @@ defmodule ClaudeCode.SupervisorTest do
 
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
 
-      assert [{_id, pid, :worker, [ClaudeCode.Session]}] =
+      assert [{_id, pid, :worker, [Server]}] =
                ClaudeSupervisor.list_sessions(supervisor)
 
       assert is_pid(pid)
@@ -91,7 +92,7 @@ defmodule ClaudeCode.SupervisorTest do
       assert {:ok, _pid} =
                ClaudeSupervisor.start_session(supervisor, [api_key: @api_key], id: :custom_id)
 
-      assert [{:custom_id, _pid, :worker, [ClaudeCode.Session]}] =
+      assert [{:custom_id, _pid, :worker, [Server]}] =
                ClaudeSupervisor.list_sessions(supervisor)
     end
 
@@ -162,7 +163,7 @@ defmodule ClaudeCode.SupervisorTest do
       Enum.each(children, fn {_id, pid, type, modules} ->
         assert is_pid(pid)
         assert type == :worker
-        assert modules == [ClaudeCode.Session]
+        assert modules == [Server]
       end)
     end
   end
@@ -209,7 +210,7 @@ defmodule ClaudeCode.SupervisorTest do
 
       Process.sleep(50)
 
-      [{^child_id, new_pid, :worker, [ClaudeCode.Session]}] =
+      [{^child_id, new_pid, :worker, [Server]}] =
         ClaudeSupervisor.list_sessions(supervisor)
 
       assert Process.alive?(new_pid)
@@ -229,7 +230,7 @@ defmodule ClaudeCode.SupervisorTest do
       {:ok, supervisor} = ClaudeSupervisor.start_link(sessions)
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
 
-      [{child_id, original_pid, :worker, [ClaudeCode.Session]}] =
+      [{child_id, original_pid, :worker, [Server]}] =
         ClaudeSupervisor.list_sessions(supervisor)
 
       Process.exit(original_pid, :kill)
@@ -237,7 +238,7 @@ defmodule ClaudeCode.SupervisorTest do
 
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
 
-      [{^child_id, new_pid, :worker, [ClaudeCode.Session]}] =
+      [{^child_id, new_pid, :worker, [Server]}] =
         ClaudeSupervisor.list_sessions(supervisor)
 
       assert new_pid != original_pid
@@ -279,7 +280,7 @@ defmodule ClaudeCode.SupervisorTest do
 
       {:ok, supervisor} = ClaudeSupervisor.start_link(sessions)
 
-      [{:sup_query_session, session_pid, :worker, [ClaudeCode.Session]}] =
+      [{:sup_query_session, session_pid, :worker, [Server]}] =
         ClaudeSupervisor.list_sessions(supervisor)
 
       assert Process.whereis(:sup_query_session) == session_pid

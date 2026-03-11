@@ -238,25 +238,6 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
-  describe "set_max_thinking_tokens_request/2" do
-    test "builds set_max_thinking_tokens request JSON with value" do
-      json = Control.set_max_thinking_tokens_request("req_11_efg", 32_000)
-      decoded = Jason.decode!(json)
-
-      assert decoded["type"] == "control_request"
-      assert decoded["request_id"] == "req_11_efg"
-      assert decoded["request"]["subtype"] == "set_max_thinking_tokens"
-      assert decoded["request"]["maxThinkingTokens"] == 32_000
-    end
-
-    test "builds set_max_thinking_tokens request JSON with nil to clear" do
-      json = Control.set_max_thinking_tokens_request("req_12_hij", nil)
-      decoded = Jason.decode!(json)
-
-      assert decoded["request"]["maxThinkingTokens"] == nil
-    end
-  end
-
   describe "success_response/2" do
     test "builds success control response JSON" do
       json = Control.success_response("req_1_abc", %{status: "ok"})

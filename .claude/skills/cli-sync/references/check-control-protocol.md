@@ -69,12 +69,12 @@ To validate new or unclear control types against real CLI output, use the SDK it
 {:ok, session} = ClaudeCode.start_link(cli_path: :bundled)
 
 # These return real parsed responses from the CLI
-server_info = ClaudeCode.get_server_info(session)
-models = ClaudeCode.supported_models(session)
-agents = ClaudeCode.supported_agents(session)
-commands = ClaudeCode.supported_commands(session)
-account = ClaudeCode.account_info(session)
-mcp_status = ClaudeCode.get_mcp_status(session)
+server_info = ClaudeCode.Session.server_info(session)
+models = ClaudeCode.Session.supported_models(session)
+agents = ClaudeCode.Session.supported_agents(session)
+commands = ClaudeCode.Session.supported_commands(session)
+account = ClaudeCode.Session.account_info(session)
+mcp_status = ClaudeCode.Session.mcp_status(session)
 
 # Write to captured/ for analysis
 File.write!("captured/control-responses.json", Jason.encode!(server_info, pretty: true))

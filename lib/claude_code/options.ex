@@ -376,13 +376,13 @@ defmodule ClaudeCode.Options do
   using the bidirectional control protocol:
 
       # Switch model on the fly
-      {:ok, _} = ClaudeCode.set_model(session, "opus")
+      :ok = ClaudeCode.Session.set_model(session, "opus")
 
       # Change permission mode
-      {:ok, _} = ClaudeCode.set_permission_mode(session, :bypass_permissions)
+      :ok = ClaudeCode.Session.set_permission_mode(session, :bypass_permissions)
 
       # Query MCP server status
-      {:ok, status} = ClaudeCode.get_mcp_status(session)
+      {:ok, status} = ClaudeCode.Session.mcp_status(session)
 
   See the Sessions guide for more details.
 

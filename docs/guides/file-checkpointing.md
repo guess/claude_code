@@ -26,7 +26,7 @@ Checkpoint works with these built-in tools that the agent uses to modify files:
 | Edit         | Makes targeted edits to specific parts of an existing file         |
 | NotebookEdit | Modifies cells in Jupyter notebooks (`.ipynb` files)               |
 
-> File rewinding restores files on disk to a previous state. It does not rewind the conversation itself. The conversation history and context remain intact after calling `ClaudeCode.rewind_files/2`.
+> File rewinding restores files on disk to a previous state. It does not rewind the conversation itself. The conversation history and context remain intact after calling `ClaudeCode.Session.rewind_files/2`.
 
 The checkpoint system tracks:
 
@@ -38,7 +38,7 @@ When you rewind to a checkpoint, created files are deleted and modified files ar
 
 ## Implement checkpointing
 
-To use file checkpointing, enable it in your options, capture checkpoint UUIDs from the response stream, then call `ClaudeCode.rewind_files/2` when you need to restore.
+To use file checkpointing, enable it in your options, capture checkpoint UUIDs from the response stream, then call `ClaudeCode.Session.rewind_files/2` when you need to restore.
 
 The following example shows the complete flow: enable checkpointing, capture the checkpoint UUID and session ID from the response stream, then rewind files. Each step is explained in detail below.
 
@@ -61,7 +61,7 @@ checkpoint_id =
   end)
 
 # Step 4: Rewind files to the checkpoint
-{:ok, _} = ClaudeCode.rewind_files(session, checkpoint_id)
+{:ok, _} = ClaudeCode.Session.rewind_files(session, checkpoint_id)
 ```
 
 ### Step 1: Set the environment variable
@@ -98,7 +98,7 @@ With `enable_file_checkpointing: true` set, each user message in the response st
 
 For most use cases, capture the first user message UUID; rewinding to it restores all files to their original state. To store multiple checkpoints and rewind to intermediate states, see [Multiple restore points](#multiple-restore-points).
 
-Capturing the session ID is optional; you only need it if you want to rewind later from the CLI. Since the Elixir SDK maintains a persistent GenServer session, you can call `ClaudeCode.rewind_files/2` directly at any time while the session is alive.
+Capturing the session ID is optional; you only need it if you want to rewind later from the CLI. Since the Elixir SDK maintains a persistent GenServer session, you can call `ClaudeCode.Session.rewind_files/2` directly at any time while the session is alive.
 
 ```elixir
 alias ClaudeCode.Message.UserMessage
@@ -116,10 +116,10 @@ checkpoint_id =
 
 ### Step 4: Rewind files
 
-Call `ClaudeCode.rewind_files/2` with the session and checkpoint UUID to restore files:
+Call `ClaudeCode.Session.rewind_files/2` with the session and checkpoint UUID to restore files:
 
 ```elixir
-{:ok, _} = ClaudeCode.rewind_files(session, checkpoint_id)
+{:ok, _} = ClaudeCode.Session.rewind_files(session, checkpoint_id)
 ```
 
 Since the Elixir SDK maintains a persistent GenServer session, you can rewind at any time while the session is alive -- no need to resume with an empty prompt as in the Python/TypeScript SDKs.
@@ -164,7 +164,7 @@ session
   # Decide when to revert based on your own logic
   # For example: error detection, validation failure, or user input
   if should_revert?(message) and safe_checkpoint do
-    ClaudeCode.rewind_files(session, safe_checkpoint)
+    ClaudeCode.Session.rewind_files(session, safe_checkpoint)
     # Exit the stream after rewinding, files are restored
     {:halt, safe_checkpoint}
   else
@@ -206,7 +206,7 @@ checkpoints =
 
 # Rewind to any checkpoint
 target = List.first(checkpoints)
-{:ok, _} = ClaudeCode.rewind_files(session, target.id)
+{:ok, _} = ClaudeCode.Session.rewind_files(session, target.id)
 ```
 
 ## Try it out
@@ -267,7 +267,7 @@ if checkpoint_id do
   answer = IO.gets("Rewind to remove the doc comments? (y/n): ") |> String.trim()
 
   if answer == "y" do
-    {:ok, _} = ClaudeCode.rewind_files(session, checkpoint_id)
+    {:ok, _} = ClaudeCode.Session.rewind_files(session, checkpoint_id)
     IO.puts("\nFile restored! Open utils.ex to verify the doc comments are gone.")
   else
     IO.puts("\nKept the modified file.")
@@ -282,7 +282,7 @@ This example demonstrates the complete checkpointing workflow:
 1. **Enable checkpointing**: configure the session with `enable_file_checkpointing: true` and `permission_mode: :accept_edits` to auto-approve file edits
 2. **Capture checkpoint data**: as the agent runs, store the first user message UUID (your restore point) and the session ID
 3. **Prompt for rewind**: after the agent finishes, check your utility file to see the doc comments, then decide if you want to undo the changes
-4. **Rewind**: if yes, call `ClaudeCode.rewind_files/2` to restore the original file
+4. **Rewind**: if yes, call `ClaudeCode.Session.rewind_files/2` to restore the original file
 
 ### 3. Run the example
 
@@ -309,7 +309,7 @@ File checkpointing has the following limitations:
 
 ### Checkpointing options not recognized
 
-If `enable_file_checkpointing` isn't available or `ClaudeCode.rewind_files/2` isn't defined, you may be on an older SDK version.
+If `enable_file_checkpointing` isn't available or `ClaudeCode.Session.rewind_files/2` isn't defined, you may be on an older SDK version.
 
 **Solution:** Update to the latest SDK version in your `mix.exs`:
 
@@ -333,7 +333,7 @@ This error occurs when the checkpoint data doesn't exist for the specified user 
 - The `enable_file_checkpointing: true` option wasn't set when starting the session
 - The session wasn't properly completed before attempting to rewind
 
-**Solution:** Ensure `enable_file_checkpointing: true` is passed to `ClaudeCode.start_link/1`, then capture the user message UUID from the response stream and call `ClaudeCode.rewind_files/2` while the session is still alive.
+**Solution:** Ensure `enable_file_checkpointing: true` is passed to `ClaudeCode.start_link/1`, then capture the user message UUID from the response stream and call `ClaudeCode.Session.rewind_files/2` while the session is still alive.
 
 ## Next steps
 

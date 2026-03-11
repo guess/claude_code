@@ -2,7 +2,7 @@ defmodule ClaudeCode.MCP.ServerStatus do
   @moduledoc """
   Status information for an MCP server connection.
 
-  Returned by `ClaudeCode.get_mcp_status/1`.
+  Returned by `ClaudeCode.Session.mcp_status/1`.
 
   ## Fields
 
