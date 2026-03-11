@@ -13,10 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Forward-compatible message parsing** — Unknown content block types and message types are now preserved as maps instead of being silently dropped, preventing data loss when the CLI adds new types. ([80e2d0c])
 - **Dedicated type modules** — `ClaudeCode.StopReason`, `ClaudeCode.PermissionMode`, `ClaudeCode.PermissionDenial`, `ClaudeCode.ModelUsage`, and `ClaudeCode.Usage` extracted from `ClaudeCode.Types` for better discoverability and documentation. ([80e2d0c])
 - **Extensible parser registries** — Application config options `:content_parsers`, `:message_parsers`, and `:system_parsers` allow registering custom parser functions for new CLI types without forking the SDK. ([80e2d0c])
-- **New control API functions** — `ClaudeCode.set_mcp_servers/2`, `ClaudeCode.mcp_reconnect/2`, `ClaudeCode.mcp_toggle/3`, `ClaudeCode.stop_task/2`, and `ClaudeCode.set_max_thinking_tokens/2` for runtime session control. ([10c4c3e], [3ff858e])
-- **Initialize response accessors** — `ClaudeCode.supported_commands/1`, `ClaudeCode.supported_models/1`, `ClaudeCode.supported_agents/1`, and `ClaudeCode.account_info/1` return typed structs from the initialization handshake. ([3ff858e])
+- **New control API functions** — `ClaudeCode.Session.set_mcp_servers/2`, `ClaudeCode.Session.mcp_reconnect/2`, `ClaudeCode.Session.mcp_toggle/3`, and `ClaudeCode.Session.stop_task/2` for runtime session control. ([10c4c3e], [3ff858e])
+- **Initialize response accessors** — `ClaudeCode.Session.supported_commands/1`, `ClaudeCode.Session.supported_models/1`, `ClaudeCode.Session.supported_agents/1`, and `ClaudeCode.Session.account_info/1` return typed structs from the initialization handshake. ([3ff858e])
 - **Typed response structs** — New `ClaudeCode.SlashCommand`, `ClaudeCode.ModelInfo`, `ClaudeCode.AgentInfo`, `ClaudeCode.AccountInfo`, and `ClaudeCode.MCP.ServerStatus` structs for structured access to CLI responses. ([e3725a4], [90cb40e], [baaf9a7])
-- **`:dry_run` option for `ClaudeCode.rewind_files/2`** — Preview which files would be rewound without actually reverting them. ([9d9e8ac])
+- **`:dry_run` option for `ClaudeCode.Session.rewind_files/2`** — Preview which files would be rewound without actually reverting them. ([9d9e8ac])
 - **`ClaudeCode.cli_version/0`** — Returns the configured CLI version the SDK is using. ([dd2a771])
 - **`ClaudeCode.EffortLevel` module** — Shared type (`t()`) and `parse/1` function for effort levels (`:low`, `:medium`, `:high`, `:max`). `ClaudeCode.ModelInfo.supported_effort_levels` now returns atoms instead of strings. ([718b0b5])
 - **Inbound control request handling** — `Adapter.Port` now handles CLI-initiated `elicitation` requests (logged, returns error) and `cancel` requests (cancels pending control requests). ([d565e20])
@@ -36,9 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **System message subtypes moved to `ClaudeCode.Message.SystemMessage.*` namespace** — `CompactBoundaryMessage` → `SystemMessage.CompactBoundary`, `ElicitationCompleteMessage` → `SystemMessage.ElicitationComplete`, `FilesPersistedEvent` → `SystemMessage.FilesPersisted`, `HookProgressMessage` → `SystemMessage.HookProgress`, `HookResponseMessage` → `SystemMessage.HookResponse`, `HookStartedMessage` → `SystemMessage.HookStarted`, `LocalCommandOutputMessage` → `SystemMessage.LocalCommandOutput`, `StatusMessage` → `SystemMessage.Status`, `TaskNotificationMessage` → `SystemMessage.TaskNotification`, `TaskProgressMessage` → `SystemMessage.TaskProgress`, `TaskStartedMessage` → `SystemMessage.TaskStarted`. New: `SystemMessage.Init` extracted from `SystemMessage`. ([80e2d0c])
-- **`ClaudeCode.get_server_info/1` returns atom-keyed map** — The initialization response now uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. Pattern matches on `%{"commands" => ...}` must be updated to `%{commands: ...}`. ([8bc23e3])
-- **`ClaudeCode.get_mcp_status/1` returns `[MCP.ServerStatus.t()]`** — Now returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
-- **`ClaudeCode.rewind_files/2` returns a typed map** — Now returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
+- **API restructure: session operations moved to `ClaudeCode.Session`** — The top-level `ClaudeCode` module is now slimmed to 4 core functions (`start_link/1`, `stream/3`, `query/2`, `stop/1`). All session management, runtime configuration, MCP management, and introspection functions moved to `ClaudeCode.Session`. The GenServer implementation moved to `ClaudeCode.Session.Server`. ([b5a37b1])
+- **Renamed functions (dropped `get_` prefix)** — `ClaudeCode.get_session_id/1` → `ClaudeCode.Session.session_id/1`, `ClaudeCode.get_mcp_status/1` → `ClaudeCode.Session.mcp_status/1`, `ClaudeCode.get_server_info/1` → `ClaudeCode.Session.server_info/1`. ([b5a37b1])
+- **`ClaudeCode.Session.server_info/1` returns atom-keyed map** — The initialization response now uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. Pattern matches on `%{"commands" => ...}` must be updated to `%{commands: ...}`. ([8bc23e3])
+- **`ClaudeCode.Session.mcp_status/1` returns `[MCP.ServerStatus.t()]`** — Now returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
+- **`ClaudeCode.Session.rewind_files/2` returns a typed map** — Now returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
 - **`ClaudeCode.McpServerStatus` moved to `ClaudeCode.MCP.ServerStatus`** — Relocated to the MCP namespace. ([baaf9a7])
 - **`ClaudeCode.ModelInfo` boolean fields default to `false`** — Fields like `supports_thinking`, `supports_computer_use`, etc. now default to `false` instead of `nil`. ([f6b38e5])
 - **Upgraded bundled CLI to 2.1.72** ([89126bb])
@@ -48,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`ClaudeCode.Types` module** — All types extracted to dedicated modules: `ClaudeCode.StopReason`, `ClaudeCode.PermissionMode`, `ClaudeCode.PermissionDenial`, `ClaudeCode.ModelUsage`, `ClaudeCode.Usage`. Update any direct references to `ClaudeCode.Types`. ([80e2d0c])
 - **`ClaudeCode.McpSetServersResult` and `ClaudeCode.RewindFilesResult` structs** — Replaced with typed maps returned directly from the control protocol. ([baaf9a7])
+- **`set_max_thinking_tokens` control-plane function** — Removed the deprecated mid-session `set_max_thinking_tokens` control command (matches TS SDK deprecation). Use the `:thinking` session option instead. ([b5a37b1])
 
 ## [0.29.0] - 2026-03-02 | CC 2.1.62
 
