@@ -1,4 +1,4 @@
-defmodule ClaudeCode.PermissionDenial do
+defmodule ClaudeCode.Session.PermissionDenial do
   @moduledoc """
   Represents a permission denial from the Claude CLI.
 
@@ -27,8 +27,8 @@ defmodule ClaudeCode.PermissionDenial do
 
   ## Examples
 
-      iex> ClaudeCode.PermissionDenial.parse(%{"tool_name" => "Bash", "tool_use_id" => "tu_1", "tool_input" => %{"command" => "rm -rf /"}})
-      %ClaudeCode.PermissionDenial{tool_name: "Bash", tool_use_id: "tu_1", tool_input: %{"command" => "rm -rf /"}}
+      iex> ClaudeCode.Session.PermissionDenial.parse(%{"tool_name" => "Bash", "tool_use_id" => "tu_1", "tool_input" => %{"command" => "rm -rf /"}})
+      %ClaudeCode.Session.PermissionDenial{tool_name: "Bash", tool_use_id: "tu_1", tool_input: %{"command" => "rm -rf /"}}
 
   """
   @spec parse(map()) :: t()

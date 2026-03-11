@@ -57,7 +57,7 @@ defmodule ClaudeCode.Message.ResultMessage do
   use ClaudeCode.JSONEncoder
 
   alias ClaudeCode.Model.Usage
-  alias ClaudeCode.PermissionDenial
+  alias ClaudeCode.Session.PermissionDenial
 
   @enforce_keys [
     :type,
