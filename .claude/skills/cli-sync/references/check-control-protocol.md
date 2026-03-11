@@ -31,6 +31,20 @@ missing public API accessors for initialize response data.
   `can_use_tool`, `hook_callback`, and `mcp_message` subtypes
 - `lib/claude_code.ex` — public API functions that wrap control requests
 
+### Live docs (fetch with WebFetch)
+
+Fetch the official TypeScript SDK reference to cross-reference `Query` method
+descriptions, deprecation notices, and behavioral notes not present in `.d.ts`:
+
+- URL: `https://platform.claude.com/docs/en/agent-sdk/typescript`
+- Prompt: "Extract the full `Query` interface definition and all method
+  descriptions from the `Query object` section."
+
+Use this as a secondary source alongside `ts-sdk-types.d.ts`. The docs often
+note deprecations (e.g., `setMaxThinkingTokens` is deprecated in favour of
+`thinking`) and describe which methods are only available in streaming input
+mode — detail that is absent from the type file.
+
 ### Current tracking
 
 - `references/type-mapping.md` — the "Control Protocol Coverage" section
@@ -123,8 +137,11 @@ If new control request/response types are found, recommend creating a validation
 1. In `ts-sdk-types.d.ts`, find `Query` class methods that read from the cached
    initialize response (e.g., `supportedModels()`, `accountInfo()`,
    `supportedCommands()`, `supportedAgents()`, `initializationResult()`).
-2. Check `lib/claude_code.ex` for corresponding public functions.
-3. Report any TS accessor methods without an Elixir equivalent.
+2. Fetch the live docs (see "Live docs" in Files to Read) and compare the full
+   `Query` interface listing there against the `.d.ts` — note any new methods,
+   removals, or deprecations the type file doesn't capture.
+3. Check `lib/claude_code.ex` for corresponding public functions.
+4. Report any TS accessor methods without an Elixir equivalent.
 
 ## Output Format
 
