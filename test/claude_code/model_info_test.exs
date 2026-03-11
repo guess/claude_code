@@ -13,7 +13,8 @@ defmodule ClaudeCode.ModelInfoTest do
           "supports_effort" => true,
           "supported_effort_levels" => ["low", "medium", "high"],
           "supports_adaptive_thinking" => true,
-          "supports_fast_mode" => true
+          "supports_fast_mode" => true,
+          "supports_auto_mode" => true
         })
 
       assert info.value == "claude-sonnet-4-6"
@@ -23,6 +24,7 @@ defmodule ClaudeCode.ModelInfoTest do
       assert info.supported_effort_levels == [:low, :medium, :high]
       assert info.supports_adaptive_thinking == true
       assert info.supports_fast_mode == true
+      assert info.supports_auto_mode == true
     end
 
     test "handles minimal fields" do
@@ -39,6 +41,7 @@ defmodule ClaudeCode.ModelInfoTest do
       assert info.supported_effort_levels == []
       assert info.supports_adaptive_thinking == false
       assert info.supports_fast_mode == false
+      assert info.supports_auto_mode == false
     end
   end
 
@@ -61,7 +64,8 @@ defmodule ClaudeCode.ModelInfoTest do
                "supports_effort" => true,
                "supported_effort_levels" => [],
                "supports_adaptive_thinking" => false,
-               "supports_fast_mode" => false
+               "supports_fast_mode" => false,
+               "supports_auto_mode" => false
              }
     end
   end

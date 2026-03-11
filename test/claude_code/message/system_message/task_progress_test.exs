@@ -17,6 +17,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgressTest do
           "duration_ms" => 4200
         },
         "last_tool_name" => "Read",
+        "summary" => "Analyzed 5 files so far",
         "uuid" => "uuid-456",
         "session_id" => "session-xyz"
       }
@@ -29,6 +30,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgressTest do
       assert message.description == "Analyzing files..."
       assert message.usage == %{"total_tokens" => 1500, "tool_uses" => 3, "duration_ms" => 4200}
       assert message.last_tool_name == "Read"
+      assert message.summary == "Analyzed 5 files so far"
       assert message.uuid == "uuid-456"
       assert message.session_id == "session-xyz"
     end
@@ -46,6 +48,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgressTest do
       assert message.description == nil
       assert message.usage == nil
       assert message.last_tool_name == nil
+      assert message.summary == nil
       assert message.uuid == nil
     end
 

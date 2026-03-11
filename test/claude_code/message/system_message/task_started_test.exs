@@ -12,6 +12,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStartedTest do
         "tool_use_id" => "toolu_abc123",
         "description" => "Running background analysis",
         "task_type" => "background",
+        "prompt" => "Analyze the codebase for security issues",
         "uuid" => "uuid-456",
         "session_id" => "session-xyz"
       }
@@ -23,6 +24,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStartedTest do
       assert message.tool_use_id == "toolu_abc123"
       assert message.description == "Running background analysis"
       assert message.task_type == "background"
+      assert message.prompt == "Analyze the codebase for security issues"
       assert message.uuid == "uuid-456"
       assert message.session_id == "session-xyz"
     end
@@ -39,6 +41,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStartedTest do
       assert message.tool_use_id == nil
       assert message.description == nil
       assert message.task_type == nil
+      assert message.prompt == nil
       assert message.uuid == nil
     end
 
