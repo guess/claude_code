@@ -275,7 +275,7 @@ defmodule ClaudeCode.Session do
       {:ok, commands} = ClaudeCode.Session.supported_commands(session)
       Enum.each(commands, &IO.puts(&1.name))
   """
-  @spec supported_commands(session()) :: {:ok, [ClaudeCode.SlashCommand.t()]} | {:error, term()}
+  @spec supported_commands(session()) :: {:ok, [ClaudeCode.Session.SlashCommand.t()]} | {:error, term()}
   def supported_commands(session), do: extract_server_info_list(session, :commands)
 
   @doc """

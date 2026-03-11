@@ -1,7 +1,7 @@
-defmodule ClaudeCode.SlashCommandTest do
+defmodule ClaudeCode.Session.SlashCommandTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.SlashCommand
+  alias ClaudeCode.Session.SlashCommand
 
   describe "new/1" do
     test "parses all fields from JSON map" do

@@ -62,7 +62,7 @@ in `captured/anthropic-api-messages.d.ts`.
 | `ClaudeCode.Model.Info` | `ModelInfo` | -- | From `SDKControlInitializeResponse.models` |
 | `ClaudeCode.AgentInfo` | `AgentInfo` | -- | From `SDKControlInitializeResponse.agents` |
 | `ClaudeCode.AccountInfo` | `AccountInfo` | -- | From `SDKControlInitializeResponse.account` |
-| `ClaudeCode.SlashCommand` | `SlashCommand` | -- | From `SDKControlInitializeResponse.commands` |
+| `ClaudeCode.Session.SlashCommand` | `SlashCommand` | -- | From `SDKControlInitializeResponse.commands` |
 | `ClaudeCode.PermissionDenial` | `SDKPermissionDenial` | -- | In `SDKResultSuccess.permission_denials` |
 | `ClaudeCode.Model.Usage` | `ModelUsage` | -- | Per-model token/cost breakdown |
 | `ClaudeCode.MCP.ServerStatus` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
@@ -189,4 +189,4 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKToolUseSummaryMessage` | `Message.ToolUseSummaryMessage` |
 | `SDKUserMessage` | `Message.UserMessage` |
 | `SDKUserMessageReplay` | `Message.UserMessage` (via `is_replay` field) |
-| `SlashCommand` | `ClaudeCode.SlashCommand` |
+| `SlashCommand` | `ClaudeCode.Session.SlashCommand` |

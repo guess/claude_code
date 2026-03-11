@@ -775,7 +775,7 @@ defmodule ClaudeCode.Adapter.Port do
   @spec parse_initialize_response(map()) :: ClaudeCode.CLI.Control.Types.initialize_response()
   defp parse_initialize_response(response) when is_map(response) do
     %{
-      commands: parse_list(response["commands"], &ClaudeCode.SlashCommand.new/1),
+      commands: parse_list(response["commands"], &ClaudeCode.Session.SlashCommand.new/1),
       agents: parse_list(response["agents"], &ClaudeCode.Session.AgentInfo.new/1),
       models: parse_list(response["models"], &Model.Info.new/1),
       account: parse_optional(response["account"], &ClaudeCode.Session.AccountInfo.new/1),

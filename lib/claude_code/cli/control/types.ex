@@ -46,7 +46,7 @@ defmodule ClaudeCode.CLI.Control.Types do
   Returned by `ClaudeCode.Session.server_info/1`.
   """
   @type initialize_response :: %{
-          commands: [ClaudeCode.SlashCommand.t()],
+          commands: [ClaudeCode.Session.SlashCommand.t()],
           agents: [ClaudeCode.Session.AgentInfo.t()],
           models: [ClaudeCode.Model.Info.t()],
           account: ClaudeCode.Session.AccountInfo.t() | nil,

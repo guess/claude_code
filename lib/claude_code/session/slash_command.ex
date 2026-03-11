@@ -1,4 +1,4 @@
-defmodule ClaudeCode.SlashCommand do
+defmodule ClaudeCode.Session.SlashCommand do
   @moduledoc """
   Information about an available skill (invoked via /command syntax).
 
@@ -30,8 +30,8 @@ defmodule ClaudeCode.SlashCommand do
 
   ## Examples
 
-      iex> ClaudeCode.SlashCommand.new(%{"name" => "commit", "description" => "Create a commit", "argumentHint" => "<message>"})
-      %ClaudeCode.SlashCommand{name: "commit", description: "Create a commit", argument_hint: "<message>"}
+      iex> ClaudeCode.Session.SlashCommand.new(%{"name" => "commit", "description" => "Create a commit", "argumentHint" => "<message>"})
+      %ClaudeCode.Session.SlashCommand{name: "commit", description: "Create a commit", argument_hint: "<message>"}
 
   """
   @spec new(map() | String.t()) :: t()
