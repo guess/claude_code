@@ -189,7 +189,7 @@ defmodule ClaudeCode.CLI.Command do
   end
 
   defp convert_option(:permission_mode, mode) do
-    {"--permission-mode", ClaudeCode.PermissionMode.encode(mode)}
+    {"--permission-mode", ClaudeCode.Session.PermissionMode.encode(mode)}
   end
 
   defp convert_option(:add_dir, value) when is_list(value) do

@@ -70,7 +70,7 @@ defmodule ClaudeCode.Message.SystemMessage.Status do
        type: :system,
        subtype: :status,
        status: status,
-       permission_mode: ClaudeCode.PermissionMode.parse(json["permission_mode"]),
+       permission_mode: ClaudeCode.Session.PermissionMode.parse(json["permission_mode"]),
        uuid: json["uuid"],
        session_id: session_id
      }}

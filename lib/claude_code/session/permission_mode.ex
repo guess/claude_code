@@ -1,4 +1,4 @@
-defmodule ClaudeCode.PermissionMode do
+defmodule ClaudeCode.Session.PermissionMode do
   @moduledoc """
   Permission mode for controlling how Claude handles permission requests.
 
@@ -38,22 +38,22 @@ defmodule ClaudeCode.PermissionMode do
 
   ## Examples
 
-      iex> ClaudeCode.PermissionMode.parse("default")
+      iex> ClaudeCode.Session.PermissionMode.parse("default")
       :default
 
-      iex> ClaudeCode.PermissionMode.parse("acceptEdits")
+      iex> ClaudeCode.Session.PermissionMode.parse("acceptEdits")
       :accept_edits
 
-      iex> ClaudeCode.PermissionMode.parse("bypassPermissions")
+      iex> ClaudeCode.Session.PermissionMode.parse("bypassPermissions")
       :bypass_permissions
 
-      iex> ClaudeCode.PermissionMode.parse("futureMode")
+      iex> ClaudeCode.Session.PermissionMode.parse("futureMode")
       "futureMode"
 
-      iex> ClaudeCode.PermissionMode.parse(nil)
+      iex> ClaudeCode.Session.PermissionMode.parse(nil)
       nil
 
-      iex> ClaudeCode.PermissionMode.parse(nil, :default)
+      iex> ClaudeCode.Session.PermissionMode.parse(nil, :default)
       :default
 
   """
@@ -67,13 +67,13 @@ defmodule ClaudeCode.PermissionMode do
 
   ## Examples
 
-      iex> ClaudeCode.PermissionMode.encode(:default)
+      iex> ClaudeCode.Session.PermissionMode.encode(:default)
       "default"
 
-      iex> ClaudeCode.PermissionMode.encode(:accept_edits)
+      iex> ClaudeCode.Session.PermissionMode.encode(:accept_edits)
       "acceptEdits"
 
-      iex> ClaudeCode.PermissionMode.encode(:bypass_permissions)
+      iex> ClaudeCode.Session.PermissionMode.encode(:bypass_permissions)
       "bypassPermissions"
 
   """

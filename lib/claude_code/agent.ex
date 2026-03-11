@@ -64,7 +64,7 @@ defmodule ClaudeCode.Agent do
           model: String.t() | nil,
           tools: [String.t()] | nil,
           disallowed_tools: [String.t()] | nil,
-          permission_mode: ClaudeCode.PermissionMode.t() | nil,
+          permission_mode: ClaudeCode.Session.PermissionMode.t() | nil,
           max_turns: pos_integer() | nil,
           skills: [String.t()] | nil,
           mcp_servers: map() | nil,
@@ -185,7 +185,7 @@ defmodule ClaudeCode.Agent do
 
   # Atom-to-CLI-string conversions for enum fields
 
-  defp encode_permission_mode(mode), do: ClaudeCode.PermissionMode.encode(mode)
+  defp encode_permission_mode(mode), do: ClaudeCode.Session.PermissionMode.encode(mode)
 
   defp encode_memory(:user), do: "user"
   defp encode_memory(:project), do: "project"
