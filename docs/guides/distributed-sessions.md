@@ -300,7 +300,7 @@ The remote node needs `claude_code` as a dependency and the CLI binary installed
 
 ```bash
 # In your remote application's mix.exs, add:
-# {:claude_code, "~> 0.29"}
+# {:claude_code, "~> 0.30"}
 
 # Then install the CLI
 mix deps.get

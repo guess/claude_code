@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-03-11 | CC 2.1.72
+
 **Breaking release** — This release reorganizes the public API and module structure for long-term clarity. See the Changed section for a migration summary.
 
 ### Added

@@ -314,7 +314,7 @@ If `enable_file_checkpointing` isn't available or `ClaudeCode.Session.rewind_fil
 **Solution:** Update to the latest SDK version in your `mix.exs`:
 
 ```elixir
-{:claude_code, "~> 0.29"}
+{:claude_code, "~> 0.30"}
 ```
 
 Then run `mix deps.get`.
