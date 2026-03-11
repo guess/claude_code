@@ -7,49 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+**Breaking release** — This release reorganizes the public API and module structure for long-term clarity. See the Changed section for a migration summary.
+
 ### Added
+
+#### New features
 
 - **9 new content block types** — `ClaudeCode.Content.ServerToolUseBlock`, `ClaudeCode.Content.ServerToolResultBlock`, `ClaudeCode.Content.MCPToolUseBlock`, `ClaudeCode.Content.MCPToolResultBlock`, `ClaudeCode.Content.ImageBlock`, `ClaudeCode.Content.DocumentBlock`, `ClaudeCode.Content.RedactedThinkingBlock`, `ClaudeCode.Content.CompactionBlock`, and `ClaudeCode.Content.ContainerUploadBlock` for parsing all CLI content types. ([80e2d0c])
 - **Forward-compatible message parsing** — Unknown content block types and message types are now preserved as maps instead of being silently dropped, preventing data loss when the CLI adds new types. ([80e2d0c])
-- **Dedicated type modules** — `ClaudeCode.Session.PermissionMode`, `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.Model.Usage`, and `ClaudeCode.Usage` extracted from `ClaudeCode.Types` for better discoverability and documentation. Stop reason parsing inlined into `ClaudeCode.Message`. ([80e2d0c])
 - **Extensible parser registries** — Application config options `:content_parsers`, `:message_parsers`, and `:system_parsers` allow registering custom parser functions for new CLI types without forking the SDK. ([80e2d0c])
 - **New control API functions** — `ClaudeCode.Session.set_mcp_servers/2`, `ClaudeCode.Session.mcp_reconnect/2`, `ClaudeCode.Session.mcp_toggle/3`, and `ClaudeCode.Session.stop_task/2` for runtime session control. ([10c4c3e], [3ff858e])
 - **Initialize response accessors** — `ClaudeCode.Session.supported_commands/1`, `ClaudeCode.Session.supported_models/1`, `ClaudeCode.Session.supported_agents/1`, and `ClaudeCode.Session.account_info/1` return typed structs from the initialization handshake. ([3ff858e])
 - **Typed response structs** — New `ClaudeCode.Session.SlashCommand`, `ClaudeCode.Model.Info`, `ClaudeCode.Session.AgentInfo`, `ClaudeCode.Session.AccountInfo`, and `ClaudeCode.MCP.Status` structs for structured access to CLI responses. ([e3725a4], [90cb40e], [baaf9a7])
+- **Inbound control request handling** — `ClaudeCode.Adapter.Port` now handles CLI-initiated `elicitation` requests (logged, returns error) and `cancel` requests (cancels pending control requests). ([d565e20])
 - **`:dry_run` option for `ClaudeCode.Session.rewind_files/2`** — Preview which files would be rewound without actually reverting them. ([9d9e8ac])
 - **`ClaudeCode.cli_version/0`** — Returns the configured CLI version the SDK is using. ([dd2a771])
 - **`ClaudeCode.Model.Effort` module** — Shared type (`t()`) and `parse/1` function for effort levels (`:low`, `:medium`, `:high`, `:max`). `ClaudeCode.Model.Info.supported_effort_levels` now returns atoms instead of strings. ([718b0b5])
-- **Inbound control request handling** — `Adapter.Port` now handles CLI-initiated `elicitation` requests (logged, returns error) and `cancel` requests (cancels pending control requests). ([d565e20])
-- **`ClaudeCode.Message.SystemMessage.FilesPersisted`** — Added `failed` and `processed_at` fields. ([f215376])
-- **`ClaudeCode.Message.RateLimitEvent`** — Added `overage_status`, `overage_resets_at`, `overage_disabled_reason`, `is_using_overage`, `surpassed_threshold`, and `rate_limit_type` fields. ([412c802])
-- **`ClaudeCode.Sandbox`** — Added `enable_weaker_network_isolation` field. ([a84106d])
-- **`ClaudeCode.Message.SystemMessage.TaskProgress`** — Added optional `:summary` field carrying an AI-generated summary of progress so far, emitted when `agentProgressSummaries` is enabled. ([89126bb])
-- **`ClaudeCode.Message.SystemMessage.TaskStarted`** — Added optional `:prompt` field containing the prompt or instruction that started the task. ([89126bb])
-- **`ClaudeCode.Model.Info`** — Added optional `:supports_auto_mode` field (boolean, defaults to `false`) indicating whether the model supports auto mode. ([89126bb])
+
+#### New struct fields (CLI 2.1.72 sync)
+
+- `ClaudeCode.Message.SystemMessage.FilesPersisted` — Added `failed` and `processed_at` fields. ([f215376])
+- `ClaudeCode.Message.RateLimitEvent` — Added `overage_status`, `overage_resets_at`, `overage_disabled_reason`, `is_using_overage`, `surpassed_threshold`, and `rate_limit_type` fields. ([412c802])
+- `ClaudeCode.Sandbox` — Added `enable_weaker_network_isolation` field. ([a84106d])
+- `ClaudeCode.Message.SystemMessage.TaskProgress` — Added optional `:summary` field (AI-generated progress summary, emitted when `agentProgressSummaries` is enabled). ([89126bb])
+- `ClaudeCode.Message.SystemMessage.TaskStarted` — Added optional `:prompt` field (the prompt that started the task). ([89126bb])
+- `ClaudeCode.Model.Info` — Added optional `:supports_auto_mode` field (boolean, defaults to `false`). ([89126bb])
 
 ### Fixed
 
 - **Race condition in `ClaudeCode.Session` queued request error handling** — When the CLI adapter failed before the stream caller registered as a subscriber, the error was silently lost and the stream would halt normally instead of raising. ([d52f77d])
 - **Atom-safe map key conversion from CLI JSON payloads** — Replaced unbounded `String.to_atom` with `safe_atomize_keys/1` (uses `binary_to_existing_atom`) for map keys parsed from external CLI input. Unknown keys stay as strings instead of creating new atoms, preventing atom table exhaustion. ([3c9dc90])
-- **`ClaudeCode.Message.AssistantMessage` now parses `:refusal` stop reason** — Aligns with `ClaudeCode.Message.ResultMessage` and the `ClaudeCode.Types.stop_reason` typespec. ([28c15a3])
+- **`ClaudeCode.Message.AssistantMessage` now parses `:refusal` stop reason** — Aligns with `ClaudeCode.Message.ResultMessage` and the stop_reason typespec. ([28c15a3])
+- **Streaming docs/examples corrected** — Documentation and examples now consistently show partial streaming configured at session start and streamed with `ClaudeCode.stream/2` or `ClaudeCode.stream/3`.
 
 ### Changed
 
-- **System message subtypes moved to `ClaudeCode.Message.SystemMessage.*` namespace** — `CompactBoundaryMessage` → `SystemMessage.CompactBoundary`, `ElicitationCompleteMessage` → `SystemMessage.ElicitationComplete`, `FilesPersistedEvent` → `SystemMessage.FilesPersisted`, `HookProgressMessage` → `SystemMessage.HookProgress`, `HookResponseMessage` → `SystemMessage.HookResponse`, `HookStartedMessage` → `SystemMessage.HookStarted`, `LocalCommandOutputMessage` → `SystemMessage.LocalCommandOutput`, `StatusMessage` → `SystemMessage.Status`, `TaskNotificationMessage` → `SystemMessage.TaskNotification`, `TaskProgressMessage` → `SystemMessage.TaskProgress`, `TaskStartedMessage` → `SystemMessage.TaskStarted`. New: `SystemMessage.Init` extracted from `SystemMessage`. ([80e2d0c])
-- **API restructure: session operations moved to `ClaudeCode.Session`** — The top-level `ClaudeCode` module is now slimmed to 4 core functions (`start_link/1`, `stream/3`, `query/2`, `stop/1`). All session management, runtime configuration, MCP management, and introspection functions moved to `ClaudeCode.Session`. The GenServer implementation moved to ClaudeCode.Session.Server. ([b5a37b1])
-- **Renamed functions (dropped `get_` prefix)** — ClaudeCode.get_session_id/1 → `ClaudeCode.Session.session_id/1`, ClaudeCode.get_mcp_status/1 → `ClaudeCode.Session.mcp_status/1`, ClaudeCode.get_server_info/1 → `ClaudeCode.Session.server_info/1`. ([b5a37b1])
-- **`ClaudeCode.Session.server_info/1` returns atom-keyed map** — The initialization response now uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. Pattern matches on `%{"commands" => ...}` must be updated to `%{commands: ...}`. ([8bc23e3])
-- **`ClaudeCode.Session.mcp_status/1` returns `[ClaudeCode.MCP.Status.t()]`** — Now returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
-- **`ClaudeCode.Session.rewind_files/2` returns a typed map** — Now returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
-- **`ClaudeCode.McpServerStatus` moved to `ClaudeCode.MCP.Status`** — Relocated to the MCP namespace. ([baaf9a7])
+#### API restructure and module reorganization
+
+The top-level `ClaudeCode` module is now slimmed to 4 core functions: `start_link/1`, `stream/3`, `query/2`, `stop/1`. All session management, runtime configuration, MCP management, and introspection functions moved to `ClaudeCode.Session`. The GenServer implementation moved to Session.Server (internal module). ([b5a37b1])
+
+**Module moves** (old → new):
+
+| Old location | New location |
+|---|---|
+| ClaudeCode.get\_session\_id/1 | `ClaudeCode.Session.session_id/1` |
+| ClaudeCode.get\_mcp\_status/1 | `ClaudeCode.Session.mcp_status/1` |
+| ClaudeCode.get\_server\_info/1 | `ClaudeCode.Session.server_info/1` |
+| ClaudeCode.Types | Extracted to `ClaudeCode.Session.PermissionMode`, `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.Model.Usage`, `ClaudeCode.Usage` |
+| ClaudeCode.StopReason | Inlined into `ClaudeCode.Message` as `stop_reason()` type and `parse_stop_reason/1` |
+| ClaudeCode.PermissionMode | `ClaudeCode.Session.PermissionMode` |
+| ClaudeCode.PermissionDenial | `ClaudeCode.Session.PermissionDenial` |
+| ClaudeCode.AccountInfo | `ClaudeCode.Session.AccountInfo` |
+| ClaudeCode.AgentInfo | `ClaudeCode.Session.AgentInfo` |
+| ClaudeCode.SlashCommand | `ClaudeCode.Session.SlashCommand` |
+| ClaudeCode.McpServerStatus | `ClaudeCode.MCP.Status` |
+| ClaudeCode.McpSetServersResult | Replaced with typed map |
+| ClaudeCode.RewindFilesResult | Replaced with typed map |
+| System message subtypes (e.g., CompactBoundaryMessage) | `ClaudeCode.Message.SystemMessage.*` namespace (e.g., `ClaudeCode.Message.SystemMessage.CompactBoundary`) |
+
+New system message subtype: `ClaudeCode.Message.SystemMessage.Init` extracted from `SystemMessage`. ([80e2d0c])
+
+#### Other changes
+
+- **`ClaudeCode.Session.server_info/1` returns atom-keyed map** — Uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. ([8bc23e3])
+- **`ClaudeCode.Session.mcp_status/1` returns `[ClaudeCode.MCP.Status.t()]`** — Returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
+- **`ClaudeCode.Session.rewind_files/2` returns a typed map** — Returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
 - **`ClaudeCode.Model.Info` boolean fields default to `false`** — Fields like `supports_thinking`, `supports_computer_use`, etc. now default to `false` instead of `nil`. ([f6b38e5])
 - **Upgraded bundled CLI to 2.1.72** ([89126bb])
-- **Module reorganization for discoverability** — `ClaudeCode.PermissionMode` moved to `ClaudeCode.Session.PermissionMode`, `ClaudeCode.PermissionDenial` moved to `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.AccountInfo` moved to `ClaudeCode.Session.AccountInfo`, `ClaudeCode.AgentInfo` moved to `ClaudeCode.Session.AgentInfo`, `ClaudeCode.SlashCommand` moved to `ClaudeCode.Session.SlashCommand`, `ClaudeCode.MCP.ServerStatus` moved to `ClaudeCode.MCP.Status`. `ClaudeCode.StopReason` inlined into `ClaudeCode.Message` as `stop_reason()` type and `parse_stop_reason/1`.
-- **Streaming docs/examples corrected for partial-message behavior** — Documentation and examples now consistently show partial streaming configured at session start (`ClaudeCode.start_link(include_partial_messages: true)`) and streamed with `ClaudeCode.stream/2` or `ClaudeCode.stream/3`, with stale partial-stream module guidance removed.
 
 ### Removed
 
-- **`ClaudeCode.Types` module** — All types extracted to dedicated modules: `ClaudeCode.Session.PermissionMode`, `ClaudeCode.Session.PermissionDenial`, `ClaudeCode.Model.Usage`, `ClaudeCode.Usage`. Stop reason parsing inlined into `ClaudeCode.Message`. Update any direct references to `ClaudeCode.Types`. ([80e2d0c])
+- **`ClaudeCode.Types` module** — See module moves table above. ([80e2d0c])
 - **`ClaudeCode.McpSetServersResult` and `ClaudeCode.RewindFilesResult` structs** — Replaced with typed maps returned directly from the control protocol. ([baaf9a7])
 - **`set_max_thinking_tokens` control-plane function** — Removed the deprecated mid-session `set_max_thinking_tokens` control command (matches TS SDK deprecation). Use the `:thinking` session option instead. ([b5a37b1])
 
