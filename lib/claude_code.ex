@@ -115,7 +115,7 @@ defmodule ClaudeCode do
   ## Examples
 
       iex> ClaudeCode.cli_version()
-      "2.1.70"
+      "2.1.72"
   """
   @spec cli_version() :: String.t()
   def cli_version do

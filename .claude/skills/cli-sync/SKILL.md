@@ -61,7 +61,7 @@ For each change identified, consult the appropriate reference file for patterns:
 | New struct fields | `references/type-mapping.md` | `test/claude_code/message/<type>_test.exs` or `content/` |
 | New CLI options | `references/cli-flags.md` | `test/claude_code/options_test.exs`, `cli/command_test.exs` |
 | New control requests | `references/type-mapping.md` | `test/claude_code/cli/control_test.exs` |
-| Version update | Update `@default_cli_version` in `installer.ex` | -- |
+| Version update | Update `@default_cli_version` in `installer.ex` and the doctest in `lib/claude_code.ex` (`ClaudeCode.cli_version/0`) | -- |
 
 When adding new message or content types, also add a factory function in `lib/claude_code/test/factory.ex` and update `lib/claude_code/test.ex` if the type needs a user-facing test helper.
 
