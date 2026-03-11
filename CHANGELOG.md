@@ -23,9 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ClaudeCode.Message.SystemMessage.FilesPersisted`** — Added `failed` and `processed_at` fields. ([f215376])
 - **`ClaudeCode.Message.RateLimitEvent`** — Added `overage_status`, `overage_resets_at`, `overage_disabled_reason`, `is_using_overage`, `surpassed_threshold`, and `rate_limit_type` fields. ([412c802])
 - **`ClaudeCode.Sandbox`** — Added `enable_weaker_network_isolation` field. ([a84106d])
-- **`ClaudeCode.Message.SystemMessage.TaskProgress`** — Added optional `:summary` field carrying an AI-generated summary of progress so far, emitted when `agentProgressSummaries` is enabled.
-- **`ClaudeCode.Message.SystemMessage.TaskStarted`** — Added optional `:prompt` field containing the prompt or instruction that started the task.
-- **`ClaudeCode.ModelInfo`** — Added optional `:supports_auto_mode` field (boolean, defaults to `false`) indicating whether the model supports auto mode.
+- **`ClaudeCode.Message.SystemMessage.TaskProgress`** — Added optional `:summary` field carrying an AI-generated summary of progress so far, emitted when `agentProgressSummaries` is enabled. ([89126bb])
+- **`ClaudeCode.Message.SystemMessage.TaskStarted`** — Added optional `:prompt` field containing the prompt or instruction that started the task. ([89126bb])
+- **`ClaudeCode.ModelInfo`** — Added optional `:supports_auto_mode` field (boolean, defaults to `false`) indicating whether the model supports auto mode. ([89126bb])
 
 ### Fixed
 
@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`ClaudeCode.rewind_files/2` returns a typed map** — Now returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
 - **`ClaudeCode.McpServerStatus` moved to `ClaudeCode.MCP.ServerStatus`** — Relocated to the MCP namespace. ([baaf9a7])
 - **`ClaudeCode.ModelInfo` boolean fields default to `false`** — Fields like `supports_thinking`, `supports_computer_use`, etc. now default to `false` instead of `nil`. ([f6b38e5])
-- **Upgraded bundled CLI to 2.1.72** ([ac24906])
+- **Upgraded bundled CLI to 2.1.72** ([89126bb])
 - **Streaming docs/examples corrected for partial-message behavior** — Documentation and examples now consistently show partial streaming configured at session start (`ClaudeCode.start_link(include_partial_messages: true)`) and streamed with `ClaudeCode.stream/2` or `ClaudeCode.stream/3`, with stale partial-stream module guidance removed.
 
 ### Removed
