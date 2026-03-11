@@ -14,6 +14,7 @@ Options:
   --allowedTools, --allowed-tools <tools...>        Comma or space-separated list of tool names to allow (e.g. "Bash(git:*) Edit")
   --append-system-prompt <prompt>                   Append a system prompt to the default system prompt
   --betas <betas...>                                Beta headers to include in API requests (API key users only)
+  --brief                                           Enable SendUserMessage tool for agent-to-user communication
   --chrome                                          Enable Claude in Chrome integration
   -c, --continue                                    Continue the most recent conversation in the current directory
   --dangerously-skip-permissions                    Bypass all permission checks. Recommended only for sandboxes with no internet access.
@@ -21,7 +22,7 @@ Options:
   --debug-file <path>                               Write debug logs to a specific file path (implicitly enables debug mode)
   --disable-slash-commands                          Disable all skills
   --disallowedTools, --disallowed-tools <tools...>  Comma or space-separated list of tool names to deny (e.g. "Bash(git:*) Edit")
-  --effort <level>                                  Effort level for the current session (low, medium, high)
+  --effort <level>                                  Effort level for the current session (low, medium, high, max)
   --fallback-model <model>                          Enable automatic fallback to specified model when default model is overloaded (only works with --print)
   --file <specs...>                                 File resources to download at startup. Format: file_id:relative_path (e.g., --file file_abc:doc.txt file_def:img.png)
   --fork-session                                    When resuming, create a new session ID instead of reusing the original (use with --resume or --continue)
@@ -38,7 +39,7 @@ Options:
   --no-chrome                                       Disable Claude in Chrome integration
   --no-session-persistence                          Disable session persistence - sessions will not be saved to disk and cannot be resumed (only works with --print)
   --output-format <format>                          Output format (only works with --print): "text" (default), "json" (single result), or "stream-json" (realtime streaming) (choices: "text", "json", "stream-json")
-  --permission-mode <mode>                          Permission mode to use for the session (choices: "acceptEdits", "bypassPermissions", "default", "dontAsk", "plan")
+  --permission-mode <mode>                          Permission mode to use for the session (choices: "acceptEdits", "bypassPermissions", "default", "dontAsk", "plan", "auto")
   --plugin-dir <paths...>                           Load plugins from directories for this session only (repeatable)
   -p, --print                                       Print response and exit (useful for pipes). Note: The workspace trust dialog is skipped when Claude is run with the -p mode. Only use this flag in directories you trust.
   --replay-user-messages                            Re-emit user messages from stdin back on stdout for acknowledgment (only works with --input-format=stream-json and --output-format=stream-json)
@@ -60,6 +61,6 @@ Commands:
   doctor                                            Check the health of your Claude Code auto-updater
   install [options] [target]                        Install Claude Code native build. Use [target] to specify version (stable, latest, or specific version)
   mcp                                               Configure and manage MCP servers
-  plugin                                            Manage Claude Code plugins
+  plugin|plugins                                    Manage Claude Code plugins
   setup-token                                       Set up a long-lived authentication token (requires Claude subscription)
   update|upgrade                                    Check for updates and install if available

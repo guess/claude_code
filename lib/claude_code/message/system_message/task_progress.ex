@@ -14,6 +14,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgress do
   - `:description` - Human-readable progress description
   - `:usage` - Token and tool usage stats (optional map with `total_tokens`, `tool_uses`, `duration_ms`)
   - `:last_tool_name` - Name of the most recently used tool (optional)
+  - `:summary` - AI-generated summary of progress so far (optional)
   - `:uuid` - Message UUID
   - `:session_id` - Session identifier
 
@@ -49,6 +50,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgress do
     :description,
     :usage,
     :last_tool_name,
+    :summary,
     :uuid,
     :session_id
   ]
@@ -61,6 +63,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgress do
           description: String.t() | nil,
           usage: map() | nil,
           last_tool_name: String.t() | nil,
+          summary: String.t() | nil,
           uuid: String.t() | nil,
           session_id: String.t()
         }
@@ -92,6 +95,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskProgress do
        description: json["description"],
        usage: json["usage"],
        last_tool_name: json["last_tool_name"],
+       summary: json["summary"],
        uuid: json["uuid"],
        session_id: session_id
      }}

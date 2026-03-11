@@ -13,6 +13,7 @@ defmodule ClaudeCode.ModelInfo do
     * `:supported_effort_levels` - Available effort levels (e.g., `[:low, :medium, :high]`)
     * `:supports_adaptive_thinking` - Whether this model supports adaptive thinking
     * `:supports_fast_mode` - Whether this model supports fast mode
+    * `:supports_auto_mode` - Whether this model supports auto mode (optional)
   """
 
   use ClaudeCode.JSONEncoder
@@ -24,7 +25,8 @@ defmodule ClaudeCode.ModelInfo do
     supports_effort: false,
     supported_effort_levels: [],
     supports_adaptive_thinking: false,
-    supports_fast_mode: false
+    supports_fast_mode: false,
+    supports_auto_mode: false
   ]
 
   @type t :: %__MODULE__{
@@ -34,7 +36,8 @@ defmodule ClaudeCode.ModelInfo do
           supports_effort: boolean(),
           supported_effort_levels: [ClaudeCode.EffortLevel.t()],
           supports_adaptive_thinking: boolean(),
-          supports_fast_mode: boolean()
+          supports_fast_mode: boolean(),
+          supports_auto_mode: boolean()
         }
 
   @doc """
@@ -55,7 +58,8 @@ defmodule ClaudeCode.ModelInfo do
       supports_effort: data["supports_effort"] || false,
       supported_effort_levels: parse_effort_levels(data["supported_effort_levels"]),
       supports_adaptive_thinking: data["supports_adaptive_thinking"] || false,
-      supports_fast_mode: data["supports_fast_mode"] || false
+      supports_fast_mode: data["supports_fast_mode"] || false,
+      supports_auto_mode: data["supports_auto_mode"] || false
     }
   end
 

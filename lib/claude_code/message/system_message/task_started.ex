@@ -12,6 +12,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStarted do
   - `:tool_use_id` - Associated tool use block ID (optional)
   - `:description` - Human-readable description of the task
   - `:task_type` - Type classification of the task (optional)
+  - `:prompt` - The prompt or instruction that started the task (optional)
   - `:uuid` - Message UUID
   - `:session_id` - Session identifier
 
@@ -41,6 +42,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStarted do
     :tool_use_id,
     :description,
     :task_type,
+    :prompt,
     :uuid,
     :session_id
   ]
@@ -52,6 +54,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStarted do
           tool_use_id: String.t() | nil,
           description: String.t() | nil,
           task_type: String.t() | nil,
+          prompt: String.t() | nil,
           uuid: String.t() | nil,
           session_id: String.t()
         }
@@ -82,6 +85,7 @@ defmodule ClaudeCode.Message.SystemMessage.TaskStarted do
        tool_use_id: json["tool_use_id"],
        description: json["description"],
        task_type: json["task_type"],
+       prompt: json["prompt"],
        uuid: json["uuid"],
        session_id: session_id
      }}

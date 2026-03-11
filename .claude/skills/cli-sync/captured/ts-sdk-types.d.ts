@@ -619,6 +619,10 @@ export declare type ModelInfo = {
      * Whether this model supports fast mode
      */
     supportsFastMode?: boolean;
+    /**
+     * Whether this model supports auto mode
+     */
+    supportsAutoMode?: boolean;
 };
 
 export declare type ModelUsage = {
@@ -973,6 +977,7 @@ export declare type Options = {
     plugins?: SdkPluginConfig[];
 
 
+
     /**
      * Enable prompt suggestions. When true, the agent emits a `prompt_suggestion`
      * message after each turn with a predicted next user prompt.
@@ -985,6 +990,16 @@ export declare type Options = {
      * - Suggestions piggyback on the parent's prompt cache, making them nearly free.
      */
     promptSuggestions?: boolean;
+    /**
+     * Enable periodic AI-generated progress summaries for running subagents. When
+     * true, the subagent's conversation is forked every ~30s to produce a short
+     * present-tense description (e.g. "Analyzing authentication module"), emitted
+     * on `task_progress` events via the `summary` field. The fork reuses the
+     * subagent's model and prompt cache, so cost is typically minimal.
+     *
+     * Applies to both foreground and background subagents. Defaults to false.
+     */
+    agentProgressSummaries?: boolean;
     /**
      * Session ID to resume. Loads the conversation history from the specified session.
      */
@@ -1612,6 +1627,7 @@ declare type SDKControlInitializeRequest = {
     appendSystemPrompt?: string;
     agents?: Record<string, coreTypes.AgentDefinition>;
     promptSuggestions?: boolean;
+    agentProgressSummaries?: boolean;
 };
 
 /**
@@ -1700,7 +1716,7 @@ declare type SDKControlRequest = {
     request: SDKControlRequestInner;
 };
 
-declare type SDKControlRequestInner = SDKControlInterruptRequest | SDKControlPermissionRequest | SDKControlInitializeRequest | SDKControlSetPermissionModeRequest | SDKControlSetModelRequest | SDKControlSetMaxThinkingTokensRequest | SDKControlMcpStatusRequest | SDKHookCallbackRequest | SDKControlMcpMessageRequest | SDKControlRewindFilesRequest | SDKControlMcpSetServersRequest | SDKControlMcpReconnectRequest | SDKControlMcpToggleRequest | SDKControlMcpAuthenticateRequest | SDKControlMcpClearAuthRequest | SDKControlMcpOAuthCallbackUrlRequest | SDKControlRemoteControlRequest | SDKControlSetProactiveRequest | SDKControlStopTaskRequest | SDKControlApplyFlagSettingsRequest | SDKControlGetSettingsRequest | SDKControlElicitationRequest;
+declare type SDKControlRequestInner = SDKControlInterruptRequest | SDKControlPermissionRequest | SDKControlInitializeRequest | SDKControlSetPermissionModeRequest | SDKControlSetModelRequest | SDKControlSetMaxThinkingTokensRequest | SDKControlMcpStatusRequest | SDKHookCallbackRequest | SDKControlMcpMessageRequest | SDKControlRewindFilesRequest | SDKControlMcpSetServersRequest | SDKControlMcpReconnectRequest | SDKControlMcpToggleRequest | SDKControlEndSessionRequest | SDKControlMcpAuthenticateRequest | SDKControlMcpClearAuthRequest | SDKControlMcpOAuthCallbackUrlRequest | SDKControlRemoteControlRequest | SDKControlSetProactiveRequest | SDKControlStopTaskRequest | SDKControlApplyFlagSettingsRequest | SDKControlGetSettingsRequest | SDKControlElicitationRequest;
 
 declare type SDKControlResponse = {
     type: 'control_response';
@@ -2155,6 +2171,7 @@ export declare type SDKTaskProgressMessage = {
         duration_ms: number;
     };
     last_tool_name?: string;
+    summary?: string;
     uuid: UUID;
     session_id: string;
 };
@@ -2166,6 +2183,7 @@ export declare type SDKTaskStartedMessage = {
     tool_use_id?: string;
     description: string;
     task_type?: string;
+    prompt?: string;
     uuid: UUID;
     session_id: string;
 };
@@ -2266,6 +2284,10 @@ export declare interface Settings {
      * Path to a script that refreshes AWS authentication
      */
     awsAuthRefresh?: string;
+    /**
+     * Command to refresh GCP authentication (e.g., gcloud auth application-default login)
+     */
+    gcpAuthRefresh?: string;
     /**
      * Custom file suggestion configuration for \@ mentions
      */
@@ -2942,6 +2964,10 @@ export declare interface Settings {
      * When false, thinking is disabled. When absent or true, thinking is enabled automatically for supported models.
      */
     alwaysThinkingEnabled?: boolean;
+    /**
+     * Persisted effort level for supported models. "max" is session-scoped and not persisted.
+     */
+    effortLevel?: 'low' | 'medium' | 'high';
     /**
      * When true, fast mode is enabled. When absent or false, fast mode is off.
      */
