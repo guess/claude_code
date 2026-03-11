@@ -3,24 +3,24 @@ defmodule ClaudeCode.Hook.Registry do
 
   @type t :: %__MODULE__{}
 
-  defstruct callbacks: %{}, can_use_tool: nil, targets: %{}
+  defstruct callbacks: %{}, targets: %{}
 
   @doc """
-  Builds a registry from the `:hooks` map and `:can_use_tool` callback.
+  Builds a registry from the `:hooks` map.
 
   Returns `{registry, wire_format_hooks}` where `wire_format_hooks` is
   the map to include in the initialize handshake (or nil if no hooks).
   """
-  @spec new(map() | nil, module() | function() | nil) :: {%__MODULE__{}, map() | nil}
-  def new(nil, can_use_tool) do
-    {%__MODULE__{can_use_tool: can_use_tool}, nil}
+  @spec new(map() | nil) :: {%__MODULE__{}, map() | nil}
+  def new(nil) do
+    {%__MODULE__{}, nil}
   end
 
-  def new(hooks_map, can_use_tool) when hooks_map == %{} do
-    {%__MODULE__{can_use_tool: can_use_tool}, nil}
+  def new(hooks_map) when hooks_map == %{} do
+    {%__MODULE__{}, nil}
   end
 
-  def new(hooks_map, can_use_tool) when is_map(hooks_map) do
+  def new(hooks_map) when is_map(hooks_map) do
     {callbacks, targets, wire_format, _counter} =
       Enum.reduce(hooks_map, {%{}, %{}, %{}, 0}, fn {event_name, matchers}, {cb_acc, tgt_acc, wire_acc, counter} ->
         {matcher_entries, new_cb_acc, new_tgt_acc, new_counter} =
@@ -49,7 +49,7 @@ defmodule ClaudeCode.Hook.Registry do
 
     wire = if wire_format == %{}, do: nil, else: wire_format
 
-    {%__MODULE__{callbacks: callbacks, can_use_tool: can_use_tool, targets: targets}, wire}
+    {%__MODULE__{callbacks: callbacks, targets: targets}, wire}
   end
 
   @doc """
@@ -70,8 +70,6 @@ defmodule ClaudeCode.Hook.Registry do
 
   @doc """
   Splits the registry into `{local_registry, remote_registry}` based on execution target.
-
-  The local registry retains `can_use_tool`; the remote registry sets it to `nil`.
   """
   @spec split(%__MODULE__{}) :: {%__MODULE__{}, %__MODULE__{}}
   def split(%__MODULE__{} = registry) do
@@ -85,13 +83,11 @@ defmodule ClaudeCode.Hook.Registry do
 
     local = %__MODULE__{
       callbacks: Map.new(local_cbs),
-      can_use_tool: registry.can_use_tool,
       targets: Map.new(local_tgts)
     }
 
     remote = %__MODULE__{
       callbacks: Map.new(remote_cbs),
-      can_use_tool: nil,
       targets: Map.new(remote_tgts)
     }
 

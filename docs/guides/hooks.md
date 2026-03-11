@@ -434,76 +434,9 @@ Fires when a tool requires permission. Similar to `PreToolUse` but occurs at the
 | `{:allow, updated_input}` | Permit with modified input |
 | `{:deny, reason}` | Block the tool call |
 
-## can_use_tool
-
-> **Elixir-specific:** The `:can_use_tool` option is an Elixir SDK convenience that provides a simpler API for permission decisions. It registers a single permission callback that the CLI invokes before every tool execution, without needing matcher configuration.
-
-The `:can_use_tool` option registers a permission callback that the CLI invokes before every tool execution. Your callback decides whether to allow, deny, or modify the tool call.
-
-### Module callback
-
-```elixir
-defmodule MyApp.ToolPermissions do
-  @behaviour ClaudeCode.Hook
-
-  @impl true
-  def call(%{tool_name: "Bash", input: %{"command" => cmd}}, _tool_use_id) do
-    cond do
-      String.contains?(cmd, "rm -rf") -> {:deny, "Destructive command blocked"}
-      String.starts_with?(cmd, "sudo") -> {:deny, "No sudo allowed"}
-      true -> :allow
-    end
-  end
-
-  def call(_input, _tool_use_id), do: :allow
-end
-
-{:ok, session} = ClaudeCode.start_link(can_use_tool: MyApp.ToolPermissions)
-```
-
-### Anonymous function
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  can_use_tool: fn %{tool_name: name}, _id ->
-    if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, "Read-only mode"}
-  end
-)
-```
-
-### Return values
-
-| Return | Effect |
-|--------|--------|
-| `:allow` | Permit the tool call |
-| `{:allow, updated_input}` | Permit with modified input |
-| `{:allow, updated_input, permissions: updates}` | Permit with modified input and permission updates |
-| `{:deny, reason}` | Block the tool call with an explanation |
-| `{:deny, reason, interrupt: true}` | Block and interrupt the session |
-
-### How it works
-
-When `:can_use_tool` is set, the SDK automatically adds `--permission-prompt-tool stdio` to the CLI flags. The CLI sends a control request before each tool execution, and the adapter invokes your callback synchronously to get a decision.
-
-> **Note:** `:can_use_tool` and `:permission_prompt_tool` cannot be used together. If you need programmatic tool approval, use `:can_use_tool`.
-
-### Using can_use_tool with hooks
-
-`:can_use_tool` handles permission decisions while hooks handle lifecycle observation and other event types:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  can_use_tool: MyApp.ToolPermissions,
-  hooks: %{
-    PostToolUse: [%{hooks: [MyApp.AuditLogger]}],
-    Stop: [%{hooks: [MyApp.BudgetGuard]}]
-  }
-)
-```
-
 ## The Hook behaviour
 
-Both `:can_use_tool` and `:hooks` use the same `ClaudeCode.Hook` behaviour:
+The `:hooks` option uses the `ClaudeCode.Hook` behaviour:
 
 ```elixir
 defmodule MyApp.MyHook do
@@ -691,10 +624,6 @@ end
 - When using `{:allow, updated_input}`, ensure you are returning a complete input map, not just the changed fields
 - The hook response module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
 - On the wire, `updatedInput` must be inside `hookSpecificOutput` alongside `permissionDecision: "allow"` -- the Elixir SDK handles this automatically
-
-### can_use_tool and permission_prompt_tool conflict
-
-`:can_use_tool` and `:permission_prompt_tool` cannot be used together. If both are set, the SDK will raise an error. Use `:can_use_tool` for programmatic tool approval.
 
 ### Subagent permission prompts multiplying
 

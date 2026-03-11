@@ -42,23 +42,4 @@ defmodule ClaudeCode.Adapter.ControlHandler do
         %{}
     end
   end
-
-  @spec handle_can_use_tool(map(), HookRegistry.t()) :: map()
-  def handle_can_use_tool(request, hook_registry) do
-    case hook_registry.can_use_tool do
-      nil ->
-        %{"behavior" => "allow"}
-
-      callback ->
-        input = %{
-          tool_name: request["tool_name"],
-          input: request["input"],
-          permission_suggestions: request["permission_suggestions"],
-          blocked_path: request["blocked_path"]
-        }
-
-        result = Hook.invoke(callback, input, nil)
-        HookResponse.to_can_use_tool_wire(result)
-    end
-  end
 end

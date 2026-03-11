@@ -97,43 +97,6 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
   end
 
   # ============================================================================
-  # can_use_tool Routing Integration Tests
-  # ============================================================================
-
-  describe "can_use_tool routing through proxy" do
-    test "can_use_tool control request is routed to CallbackProxy" do
-      cut_request =
-        Jason.encode!(%{
-          type: "control_request",
-          request_id: "cli_cut_1",
-          request: %{
-            subtype: "can_use_tool",
-            tool_name: "Bash",
-            input: %{"command" => "ls"}
-          }
-        })
-
-      {mock_script, response_file} = MockCLI.setup_with_control_requests([cut_request])
-
-      {:ok, proxy} =
-        CallbackProxy.start_link(hook_registry: %{} |> HookRegistry.new(AllowHook) |> elem(0))
-
-      adapter = start_adapter_with_proxy(mock_script, proxy, %HookRegistry{})
-      AdapterPort.send_query(adapter, "req_1", "test", [])
-
-      [response] = MockCLI.read_responses(response_file, 1)
-
-      assert response["type"] == "control_response"
-      resp = response["response"]
-      assert resp["subtype"] == "success"
-      assert resp["response"]["behavior"] == "allow"
-
-      GenServer.stop(adapter)
-      GenServer.stop(proxy)
-    end
-  end
-
-  # ============================================================================
   # Hook Callback Routing Integration Tests
   # ============================================================================
 
@@ -155,7 +118,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
 
       # Remote hook lives in Adapter.Port's registry — proxy shouldn't be called
       hooks = %{PreToolUse: [%{hooks: [AllowHook], where: :remote}]}
-      {full_registry, _wire} = HookRegistry.new(hooks, nil)
+      {full_registry, _wire} = HookRegistry.new(hooks)
       {_local, remote_registry} = HookRegistry.split(full_registry)
 
       {:ok, proxy} = CallbackProxy.start_link(hook_registry: %HookRegistry{})
@@ -191,7 +154,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
 
       # Local hook lives in the proxy's registry — Adapter.Port delegates
       hooks = %{PreToolUse: [%{hooks: [AllowHook]}]}
-      {full_registry, _wire} = HookRegistry.new(hooks, nil)
+      {full_registry, _wire} = HookRegistry.new(hooks)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 
       {:ok, proxy} = CallbackProxy.start_link(hook_registry: local_registry)

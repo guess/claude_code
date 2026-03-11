@@ -26,7 +26,7 @@ defmodule ClaudeCode.Adapter do
     Adapter status change. Statuses: `:provisioning`, `:ready`, `{:error, reason}`.
 
   - `notify_control_request/3` → `{:adapter_control_request, request_id, request}` —
-    Forwards a control protocol request (e.g. `can_use_tool`) from the CLI to Session.
+    Forwards a control protocol request (e.g. `hook_callback`) from the CLI to Session.
 
   ## Usage
 

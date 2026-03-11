@@ -297,7 +297,7 @@ defmodule MockCLI do
   ## Example
 
       {mock_script, response_file} = MockCLI.setup_with_control_requests([
-        Jason.encode!(%{type: "control_request", request_id: "r1", request: %{subtype: "can_use_tool", ...}})
+        Jason.encode!(%{type: "control_request", request_id: "r1", request: %{subtype: "hook_callback", ...}})
       ])
 
       # ... start adapter with cli_path: mock_script, send a query ...

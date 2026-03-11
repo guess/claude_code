@@ -39,33 +39,9 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxyTest do
       assert result["content"] == [%{"type" => "text", "text" => "8"}]
     end
 
-    test "handles can_use_tool control requests" do
-      {registry, _wire} = HookRegistry.new(nil, AllowHook)
-
-      {:ok, proxy} =
-        CallbackProxy.start_link(
-          mcp_servers: nil,
-          hook_registry: registry
-        )
-
-      msg = %{
-        "request_id" => "req_1",
-        "request" => %{
-          "subtype" => "can_use_tool",
-          "tool_name" => "Read",
-          "input" => %{},
-          "permission_suggestions" => nil,
-          "blocked_path" => nil
-        }
-      }
-
-      response = GenServer.call(proxy, {:control_request, msg})
-      assert response == %{"behavior" => "allow"}
-    end
-
     test "handles hook_callback control requests" do
       hooks = %{PostToolUse: [%{hooks: [AllowHook]}]}
-      {registry, _wire} = HookRegistry.new(hooks, nil)
+      {registry, _wire} = HookRegistry.new(hooks)
 
       {:ok, proxy} =
         CallbackProxy.start_link(

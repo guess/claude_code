@@ -28,7 +28,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
     def call(_input, _tool_use_id), do: :ok
   end
 
-  describe "new/2" do
+  describe "new/1" do
     test "builds registry from hooks map" do
       hooks = %{
         PreToolUse: [
@@ -36,19 +36,13 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {registry, _wire} = Registry.new(hooks, nil)
+      {registry, _wire} = Registry.new(hooks)
       assert map_size(registry.callbacks) == 1
     end
 
-    test "builds registry with can_use_tool callback" do
-      {registry, _wire} = Registry.new(%{}, AllowAll)
-      assert registry.can_use_tool == AllowAll
-    end
-
-    test "builds registry with nil hooks and nil can_use_tool" do
-      {registry, wire} = Registry.new(nil, nil)
+    test "builds registry with nil hooks" do
+      {registry, wire} = Registry.new(nil)
       assert registry.callbacks == %{}
-      assert registry.can_use_tool == nil
       assert wire == nil
     end
 
@@ -63,7 +57,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {registry, _wire} = Registry.new(hooks, nil)
+      {registry, _wire} = Registry.new(hooks)
       assert map_size(registry.callbacks) == 3
       assert Map.has_key?(registry.callbacks, "hook_0")
       assert Map.has_key?(registry.callbacks, "hook_1")
@@ -79,7 +73,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {registry, _wire} = Registry.new(hooks, nil)
+      {registry, _wire} = Registry.new(hooks)
       assert map_size(registry.callbacks) == 1
     end
 
@@ -91,7 +85,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {registry, _wire} = Registry.new(hooks, nil)
+      {registry, _wire} = Registry.new(hooks)
       assert Registry.target(registry, "hook_0") == :remote
       assert Registry.target(registry, "hook_1") == :local
     end
@@ -101,7 +95,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         PreToolUse: [%{hooks: [DenyBash]}]
       }
 
-      {registry, _wire} = Registry.new(hooks, nil)
+      {registry, _wire} = Registry.new(hooks)
       assert Registry.target(registry, "hook_0") == :local
     end
 
@@ -113,7 +107,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {_registry, wire} = Registry.new(hooks, nil)
+      {_registry, wire} = Registry.new(hooks)
       assert %{"PreToolUse" => entries} = wire
       assert length(entries) == 2
 
@@ -133,22 +127,20 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {registry, _wire} = Registry.new(hooks, AllowAll)
+      {registry, _wire} = Registry.new(hooks)
       {local_reg, remote_reg} = Registry.split(registry)
 
-      # Local gets AllowAll (the only :local hook) + can_use_tool
+      # Local gets AllowAll (the only :local hook)
       local_callbacks = Map.values(local_reg.callbacks)
       assert local_callbacks == [AllowAll]
-      assert local_reg.can_use_tool == AllowAll
 
-      # Remote gets DenyBash + AuditLogger, no can_use_tool
+      # Remote gets DenyBash + AuditLogger
       remote_callbacks = remote_reg.callbacks |> Map.values() |> MapSet.new()
       assert remote_callbacks == MapSet.new([DenyBash, AuditLogger])
-      assert remote_reg.can_use_tool == nil
     end
   end
 
-  describe "to_wire_format/1 (via new/2)" do
+  describe "to_wire_format/1 (via new/1)" do
     test "produces correct wire format for hooks" do
       hooks = %{
         PreToolUse: [
@@ -156,7 +148,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {_registry, wire} = Registry.new(hooks, nil)
+      {_registry, wire} = Registry.new(hooks)
 
       assert %{"PreToolUse" => [matcher_entry]} = wire
       assert matcher_entry["matcher"] == "Bash"
@@ -171,7 +163,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {_registry, wire} = Registry.new(hooks, nil)
+      {_registry, wire} = Registry.new(hooks)
 
       assert %{"PostToolUse" => [matcher_entry]} = wire
       assert matcher_entry["matcher"] == nil
@@ -186,19 +178,19 @@ defmodule ClaudeCode.Hook.RegistryTest do
         ]
       }
 
-      {_registry, wire} = Registry.new(hooks, nil)
+      {_registry, wire} = Registry.new(hooks)
 
       assert %{"PreToolUse" => [matcher_entry]} = wire
       assert matcher_entry["hookCallbackIds"] == ["hook_0", "hook_1"]
     end
 
     test "returns nil wire format when no hooks configured" do
-      {_registry, wire} = Registry.new(nil, AllowAll)
+      {_registry, wire} = Registry.new(nil)
       assert wire == nil
     end
 
     test "returns nil wire format for empty hooks map" do
-      {_registry, wire} = Registry.new(%{}, nil)
+      {_registry, wire} = Registry.new(%{})
       assert wire == nil
     end
   end
@@ -209,12 +201,12 @@ defmodule ClaudeCode.Hook.RegistryTest do
         PreToolUse: [%{hooks: [DenyBash]}]
       }
 
-      {registry, _wire} = Registry.new(hooks, nil)
+      {registry, _wire} = Registry.new(hooks)
       assert {:ok, DenyBash} = Registry.lookup(registry, "hook_0")
     end
 
     test "returns error for unknown ID" do
-      {registry, _wire} = Registry.new(%{}, nil)
+      {registry, _wire} = Registry.new(%{})
       assert :error = Registry.lookup(registry, "hook_999")
     end
   end

@@ -3,8 +3,7 @@ defmodule ClaudeCode.Hook do
   Behaviour for hook callbacks.
 
   Implement this behaviour in a module, or pass an anonymous function
-  with the same `call/2` signature. Used by both `:can_use_tool` and
-  `:hooks` options.
+  with the same `call/2` signature. Used by the `:hooks` option.
 
   ## Hook events and return types
 
@@ -15,15 +14,13 @@ defmodule ClaudeCode.Hook do
   See the [Hooks guide](hooks.html#hook-event-reference) for the full input
   field reference per event.
 
-  ### can_use_tool / PreToolUse (permission decisions)
+  ### PreToolUse (permission decisions)
 
   Input: `:tool_name`, `:tool_input`, `:tool_use_id`
 
       :allow
       {:allow, updated_input}
-      {:allow, updated_input, permissions: [permission_update]}
       {:deny, reason}
-      {:deny, reason, interrupt: true}
 
   ### PostToolUse (observation)
 

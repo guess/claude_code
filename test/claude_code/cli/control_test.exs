@@ -257,13 +257,13 @@ defmodule ClaudeCode.CLI.ControlTest do
 
   describe "error_response/2" do
     test "builds error control response JSON" do
-      json = Control.error_response("req_1_abc", "Not implemented: can_use_tool")
+      json = Control.error_response("req_1_abc", "Not implemented: elicitation")
       decoded = Jason.decode!(json)
 
       assert decoded["type"] == "control_response"
       assert decoded["response"]["subtype"] == "error"
       assert decoded["response"]["request_id"] == "req_1_abc"
-      assert decoded["response"]["error"] == "Not implemented: can_use_tool"
+      assert decoded["response"]["error"] == "Not implemented: elicitation"
     end
   end
 
