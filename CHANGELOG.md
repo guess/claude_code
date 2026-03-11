@@ -36,8 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **System message subtypes moved to `ClaudeCode.Message.SystemMessage.*` namespace** — `CompactBoundaryMessage` → `SystemMessage.CompactBoundary`, `ElicitationCompleteMessage` → `SystemMessage.ElicitationComplete`, `FilesPersistedEvent` → `SystemMessage.FilesPersisted`, `HookProgressMessage` → `SystemMessage.HookProgress`, `HookResponseMessage` → `SystemMessage.HookResponse`, `HookStartedMessage` → `SystemMessage.HookStarted`, `LocalCommandOutputMessage` → `SystemMessage.LocalCommandOutput`, `StatusMessage` → `SystemMessage.Status`, `TaskNotificationMessage` → `SystemMessage.TaskNotification`, `TaskProgressMessage` → `SystemMessage.TaskProgress`, `TaskStartedMessage` → `SystemMessage.TaskStarted`. New: `SystemMessage.Init` extracted from `SystemMessage`. ([80e2d0c])
-- **API restructure: session operations moved to `ClaudeCode.Session`** — The top-level `ClaudeCode` module is now slimmed to 4 core functions (`start_link/1`, `stream/3`, `query/2`, `stop/1`). All session management, runtime configuration, MCP management, and introspection functions moved to `ClaudeCode.Session`. The GenServer implementation moved to `ClaudeCode.Session.Server`. ([b5a37b1])
-- **Renamed functions (dropped `get_` prefix)** — `ClaudeCode.get_session_id/1` → `ClaudeCode.Session.session_id/1`, `ClaudeCode.get_mcp_status/1` → `ClaudeCode.Session.mcp_status/1`, `ClaudeCode.get_server_info/1` → `ClaudeCode.Session.server_info/1`. ([b5a37b1])
+- **API restructure: session operations moved to `ClaudeCode.Session`** — The top-level `ClaudeCode` module is now slimmed to 4 core functions (`start_link/1`, `stream/3`, `query/2`, `stop/1`). All session management, runtime configuration, MCP management, and introspection functions moved to `ClaudeCode.Session`. The GenServer implementation moved to ClaudeCode.Session.Server. ([b5a37b1])
+- **Renamed functions (dropped `get_` prefix)** — ClaudeCode.get_session_id/1 → `ClaudeCode.Session.session_id/1`, ClaudeCode.get_mcp_status/1 → `ClaudeCode.Session.mcp_status/1`, ClaudeCode.get_server_info/1 → `ClaudeCode.Session.server_info/1`. ([b5a37b1])
 - **`ClaudeCode.Session.server_info/1` returns atom-keyed map** — The initialization response now uses atom keys (`%{commands: [...], models: [...], agents: [...], account: %AccountInfo{}, ...}`) instead of string keys. Pattern matches on `%{"commands" => ...}` must be updated to `%{commands: ...}`. ([8bc23e3])
 - **`ClaudeCode.Session.mcp_status/1` returns `[ClaudeCode.MCP.Status.t()]`** — Now returns the server list directly instead of `%{"servers" => [...]}`. ([ffa1b81])
 - **`ClaudeCode.Session.rewind_files/2` returns a typed map** — Now returns a typed map instead of a raw map. ([7acdfd5], [baaf9a7])
@@ -218,7 +218,7 @@ Hooks, permissions, and MCP tools that run inside your application process — n
 
 #### Session control and new options
 
-- **`ClaudeCode.interrupt/1`** - Fire-and-forget signal to cancel a running generation mid-stream ([5c04495])
+- **ClaudeCode.interrupt/1** - Fire-and-forget signal to cancel a running generation mid-stream ([5c04495])
 - **`:extra_args`** - Pass-through arbitrary CLI flags not covered by named options ([5c04495])
 - **`:max_buffer_size`** - Protection against unbounded buffer growth from large JSON responses. Default: 1MB ([5c04495])
 
@@ -239,11 +239,11 @@ config :claude_code, cli_path: :global
 
 Runtime control of sessions without restarting. See [Sessions — Runtime Control](docs/guides/sessions.md#runtime-control).
 
-- `ClaudeCode.set_model/2` - Change the model mid-conversation ([7ba2007])
-- `ClaudeCode.set_permission_mode/2` - Change the permission mode mid-conversation ([7ba2007])
-- `ClaudeCode.get_mcp_status/1` - Query MCP server connection status ([7ba2007])
-- `ClaudeCode.get_server_info/1` - Get server info cached from handshake ([228c57f])
-- `ClaudeCode.rewind_files/2` - Rewind files to a checkpoint. See [File Checkpointing](docs/guides/file-checkpointing.md). ([7ba2007])
+- ClaudeCode.set_model/2 - Change the model mid-conversation ([7ba2007])
+- ClaudeCode.set_permission_mode/2 - Change the permission mode mid-conversation ([7ba2007])
+- ClaudeCode.get_mcp_status/1 - Query MCP server connection status ([7ba2007])
+- ClaudeCode.get_server_info/1 - Get server info cached from handshake ([228c57f])
+- ClaudeCode.rewind_files/2 - Rewind files to a checkpoint. See [File Checkpointing](docs/guides/file-checkpointing.md). ([7ba2007])
 - Returns `{:error, :not_supported}` for adapters without control protocol support
 - **Initialize handshake** - Adapter sends `initialize` request on startup, transitions through `:initializing` → `:ready`. Agents are now delivered through the handshake (matching the Python SDK) instead of as a CLI flag. See [Subagents](docs/guides/subagents.md). ([228c57f], [2a4473b])
 
@@ -262,7 +262,7 @@ Swappable backends for different execution environments.
 
 - **`ClaudeCode.Adapter` behaviour** - 4 callbacks: `start_link/2`, `send_query/4`, `health/1`, `stop/1` ([1582644])
 - **Adapter notification helpers** - `notify_message/2`, `notify_done/2`, `notify_error/2`, `notify_status/2` ([1704326])
-- **`ClaudeCode.health/1`** - Check adapter health (`:healthy` | `:degraded` | `{:unhealthy, reason}`). See [Hosting](docs/guides/hosting.md). ([383dda6])
+- **ClaudeCode.health/1** - Check adapter health (`:healthy` | `:degraded` | `{:unhealthy, reason}`). See [Hosting](docs/guides/hosting.md). ([383dda6])
 
 #### CLI management
 
@@ -325,7 +325,7 @@ Swappable backends for different execution environments.
 ### Added
 
 - **Session history reading** - Read and parse conversation history from session files ([ad737ea])
-  - `ClaudeCode.conversation/2` - Read conversation (user/assistant messages) by session ID
+  - ClaudeCode.conversation/2 - Read conversation (user/assistant messages) by session ID
   - `ClaudeCode.History.list_projects/1` - List all projects with session history
   - `ClaudeCode.History.list_sessions/2` - List all sessions for a project
   - `ClaudeCode.History.read_session/2` - Read all raw entries from a session (low-level)
@@ -580,7 +580,7 @@ Swappable backends for different execution environments.
   - Auto-connect on first query, auto-disconnect on session stop
   - Multi-turn conversations without subprocess restarts
   - New `:resume` option in `start_link/1` for resuming sessions
-  - New `ClaudeCode.get_session_id/1` and `ClaudeCode.Input` module
+  - New ClaudeCode.get_session_id/1 and `ClaudeCode.Input` module
 - **Extended thinking support** - `ClaudeCode.Content.Thinking` for reasoning blocks
   - Stream utilities: `ClaudeCode.Stream.thinking_content/1`, `ClaudeCode.Stream.thinking_deltas/1`
   - `StreamEvent` helpers: `thinking_delta?/1`, `get_thinking/1`
