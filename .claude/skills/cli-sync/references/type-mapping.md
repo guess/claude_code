@@ -59,12 +59,12 @@ in `captured/anthropic-api-messages.d.ts`.
 | `ClaudeCode.Sandbox.Network` | `SandboxNetworkConfig` | `SandboxNetworkConfig` | |
 | `ClaudeCode.Sandbox.Filesystem` | `SandboxFilesystemConfig` | -- | FS write/read allow/deny lists |
 | `ClaudeCode.Agent` | `AgentDefinition` | `AgentDefinition` | Input config for custom agents |
-| `ClaudeCode.ModelInfo` | `ModelInfo` | -- | From `SDKControlInitializeResponse.models` |
+| `ClaudeCode.Model.Info` | `ModelInfo` | -- | From `SDKControlInitializeResponse.models` |
 | `ClaudeCode.AgentInfo` | `AgentInfo` | -- | From `SDKControlInitializeResponse.agents` |
 | `ClaudeCode.AccountInfo` | `AccountInfo` | -- | From `SDKControlInitializeResponse.account` |
 | `ClaudeCode.SlashCommand` | `SlashCommand` | -- | From `SDKControlInitializeResponse.commands` |
 | `ClaudeCode.PermissionDenial` | `SDKPermissionDenial` | -- | In `SDKResultSuccess.permission_denials` |
-| `ClaudeCode.ModelUsage` | `ModelUsage` | -- | Per-model token/cost breakdown |
+| `ClaudeCode.Model.Usage` | `ModelUsage` | -- | Per-model token/cost breakdown |
 | `ClaudeCode.MCP.ServerStatus` | `McpServerStatus` | -- | Returned by `mcpServerStatus()` |
 | `ClaudeCode.CLI.Control.Types.set_servers_result` | `McpSetServersResult` | -- | Type spec only (raw map); returned by `setMcpServers()` |
 | `ClaudeCode.CLI.Control.Types.rewind_files_result` | `RewindFilesResult` | -- | Type spec only (raw map); returned by `rewindFiles()` |
@@ -159,8 +159,8 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `BetaToolUseBlock` | `Content.ToolUseBlock` |
 | `McpServerStatus` | `ClaudeCode.MCP.ServerStatus` |
 | `McpSetServersResult` | `ClaudeCode.CLI.Control.Types.set_servers_result` (type spec) |
-| `ModelInfo` | `ClaudeCode.ModelInfo` |
-| `ModelUsage` | `ClaudeCode.ModelUsage` |
+| `ModelInfo` | `ClaudeCode.Model.Info` |
+| `ModelUsage` | `ClaudeCode.Model.Usage` |
 | `RewindFilesResult` | `ClaudeCode.CLI.Control.Types.rewind_files_result` (type spec) |
 | `SandboxFilesystemConfig` | `ClaudeCode.Sandbox.Filesystem` |
 | `SandboxNetworkConfig` | `ClaudeCode.Sandbox.Network` |

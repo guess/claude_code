@@ -48,7 +48,7 @@ defmodule ClaudeCode.CLI.Control.Types do
   @type initialize_response :: %{
           commands: [ClaudeCode.SlashCommand.t()],
           agents: [ClaudeCode.AgentInfo.t()],
-          models: [ClaudeCode.ModelInfo.t()],
+          models: [ClaudeCode.Model.Info.t()],
           account: ClaudeCode.AccountInfo.t() | nil,
           output_style: String.t() | nil,
           available_output_styles: [String.t()],

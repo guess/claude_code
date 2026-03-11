@@ -331,7 +331,7 @@ Currently `handle_control_response/2` stores the raw response map in `state.serv
 ```elixir
 defp parse_initialize_response(response) when is_map(response) do
   response
-  |> maybe_parse_list("models", &ClaudeCode.ModelInfo.new/1)
+  |> maybe_parse_list("models", &ClaudeCode.Model.Info.new/1)
   |> maybe_parse_list("agents", &ClaudeCode.AgentInfo.new/1)
   |> maybe_parse_map("account", &ClaudeCode.AccountInfo.new/1)
 end
@@ -388,7 +388,7 @@ Returns the list of available models from the initialization response.
     {:ok, models} = ClaudeCode.supported_models(session)
     Enum.each(models, &IO.puts(&1.display_name))
 """
-@spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
+@spec supported_models(session()) :: {:ok, [ClaudeCode.Model.Info.t()]} | {:error, term()}
 def supported_models(session) do
   case get_server_info(session) do
     {:ok, %{"models" => models}} when is_list(models) -> {:ok, models}

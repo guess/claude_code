@@ -56,6 +56,7 @@ defmodule ClaudeCode.Message.ResultMessage do
 
   use ClaudeCode.JSONEncoder
 
+  alias ClaudeCode.Model.Usage
   alias ClaudeCode.PermissionDenial
 
   @enforce_keys [
@@ -110,7 +111,7 @@ defmodule ClaudeCode.Message.ResultMessage do
           usage: ClaudeCode.Usage.t(),
           uuid: String.t() | nil,
           stop_reason: ClaudeCode.StopReason.t() | nil,
-          model_usage: %{String.t() => ClaudeCode.ModelUsage.t()},
+          model_usage: %{String.t() => Usage.t()},
           permission_denials: [PermissionDenial.t()],
           structured_output: any() | nil,
           errors: [String.t()] | nil,
@@ -157,7 +158,7 @@ defmodule ClaudeCode.Message.ResultMessage do
         usage: ClaudeCode.Usage.parse(json["usage"]),
         uuid: json["uuid"],
         stop_reason: ClaudeCode.StopReason.parse(json["stop_reason"]),
-        model_usage: ClaudeCode.ModelUsage.parse(json["model_usage"]),
+        model_usage: Usage.parse(json["model_usage"]),
         permission_denials: parse_permission_denials(json["permission_denials"]),
         structured_output: json["structured_output"],
         errors: json["errors"],

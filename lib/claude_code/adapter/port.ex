@@ -24,6 +24,7 @@ defmodule ClaudeCode.Adapter.Port do
   alias ClaudeCode.Hook.Registry, as: HookRegistry
   alias ClaudeCode.MCP.Server, as: MCPServer
   alias ClaudeCode.MCP.ServerStatus
+  alias ClaudeCode.Model
 
   require Logger
 
@@ -776,7 +777,7 @@ defmodule ClaudeCode.Adapter.Port do
     %{
       commands: parse_list(response["commands"], &ClaudeCode.SlashCommand.new/1),
       agents: parse_list(response["agents"], &ClaudeCode.AgentInfo.new/1),
-      models: parse_list(response["models"], &ClaudeCode.ModelInfo.new/1),
+      models: parse_list(response["models"], &Model.Info.new/1),
       account: parse_optional(response["account"], &ClaudeCode.AccountInfo.new/1),
       output_style: response["output_style"],
       available_output_styles: response["available_output_styles"] || [],

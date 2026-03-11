@@ -95,7 +95,7 @@ Update the file structure section to reflect the moves.
 
 ## Not Changing
 
-- `ModelInfo`, `AccountInfo`, `AgentInfo`, `SlashCommand` — stay top-level as domain entity structs
-- `EffortLevel` — stays top-level as a shared utility
+- `Model.Info` — moved to `ClaudeCode.Model.Info`; `AccountInfo`, `AgentInfo`, `SlashCommand` — stay top-level as domain entity structs
+- `Model.Effort` — moved to `ClaudeCode.Model.Effort`
 - `message/` — flat structure works fine at 21 types
 - `content/` — fine at 4 types

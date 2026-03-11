@@ -1,12 +1,12 @@
-defmodule ClaudeCode.ModelInfoTest do
+defmodule ClaudeCode.Model.InfoTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.ModelInfo
+  alias ClaudeCode.Model.Info
 
   describe "new/1" do
     test "parses all fields from JSON" do
       info =
-        ModelInfo.new(%{
+        Info.new(%{
           "value" => "claude-sonnet-4-6",
           "display_name" => "Claude Sonnet 4.6",
           "description" => "Fast and capable model",
@@ -29,7 +29,7 @@ defmodule ClaudeCode.ModelInfoTest do
 
     test "handles minimal fields" do
       info =
-        ModelInfo.new(%{
+        Info.new(%{
           "value" => "claude-haiku-4-5",
           "display_name" => "Claude Haiku 4.5",
           "description" => "Fastest model"
@@ -48,7 +48,7 @@ defmodule ClaudeCode.ModelInfoTest do
   describe "Jason.Encoder" do
     test "encodes to JSON with snake_case keys, omitting nils" do
       info =
-        ModelInfo.new(%{
+        Info.new(%{
           "value" => "claude-sonnet-4-6",
           "display_name" => "Claude Sonnet 4.6",
           "description" => "Fast model",

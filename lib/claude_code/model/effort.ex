@@ -1,8 +1,8 @@
-defmodule ClaudeCode.EffortLevel do
+defmodule ClaudeCode.Model.Effort do
   @moduledoc """
   Effort level for controlling how much effort Claude puts into its response.
 
-  Used by `ClaudeCode.ModelInfo` to describe supported effort levels and by
+  Used by `ClaudeCode.Model.Info` to describe supported effort levels and by
   session/query options to configure the effort level.
 
   ## Values
@@ -22,10 +22,10 @@ defmodule ClaudeCode.EffortLevel do
 
   ## Examples
 
-      iex> ClaudeCode.EffortLevel.parse("low")
+      iex> ClaudeCode.Model.Effort.parse("low")
       :low
 
-      iex> ClaudeCode.EffortLevel.parse("max")
+      iex> ClaudeCode.Model.Effort.parse("max")
       :max
 
   """

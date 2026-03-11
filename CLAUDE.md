@@ -117,7 +117,11 @@ Core capabilities:
   - `permission_mode.ex` - Permission mode enum parsing
   - `permission_denial.ex` - Permission denial struct
   - `stop_reason.ex` - Stop reason enum parsing
-  - `model_usage.ex` - Model usage struct and parsing
+  - `model.ex` - Model namespace module
+  - `model/` - Model-related types
+    - `info.ex` - Model info struct (capabilities, effort levels)
+    - `usage.ex` - Per-model token usage struct and parsing
+    - `effort.ex` - Effort level enum parsing
   - `usage.ex` - Shared usage parsing utilities
   - `system.ex` - System command abstraction (formerly system_cmd.ex)
   - `adapter.ex` - Adapter behaviour definition + notification helpers

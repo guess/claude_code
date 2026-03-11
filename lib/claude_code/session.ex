@@ -286,7 +286,7 @@ defmodule ClaudeCode.Session do
       {:ok, models} = ClaudeCode.Session.supported_models(session)
       Enum.each(models, &IO.puts(&1.display_name))
   """
-  @spec supported_models(session()) :: {:ok, [ClaudeCode.ModelInfo.t()]} | {:error, term()}
+  @spec supported_models(session()) :: {:ok, [ClaudeCode.Model.Info.t()]} | {:error, term()}
   def supported_models(session), do: extract_server_info_list(session, :models)
 
   @doc """

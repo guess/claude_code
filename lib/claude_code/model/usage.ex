@@ -1,4 +1,4 @@
-defmodule ClaudeCode.ModelUsage do
+defmodule ClaudeCode.Model.Usage do
   @moduledoc """
   Per-model token usage statistics from the Claude CLI.
 
@@ -38,10 +38,10 @@ defmodule ClaudeCode.ModelUsage do
 
   ## Examples
 
-      iex> ClaudeCode.ModelUsage.parse(%{"claude-sonnet" => %{"input_tokens" => 100, "output_tokens" => 50}})
+      iex> ClaudeCode.Model.Usage.parse(%{"claude-sonnet" => %{"input_tokens" => 100, "output_tokens" => 50}})
       %{"claude-sonnet" => %{input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: nil, cache_read_input_tokens: nil, web_search_requests: 0, cost_usd: nil, context_window: nil, max_output_tokens: nil}}
 
-      iex> ClaudeCode.ModelUsage.parse(nil)
+      iex> ClaudeCode.Model.Usage.parse(nil)
       %{}
 
   """
@@ -61,10 +61,10 @@ defmodule ClaudeCode.ModelUsage do
 
   ## Examples
 
-      iex> ClaudeCode.ModelUsage.parse_single(%{"input_tokens" => 100, "output_tokens" => 50})
+      iex> ClaudeCode.Model.Usage.parse_single(%{"input_tokens" => 100, "output_tokens" => 50})
       %{input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: nil, cache_read_input_tokens: nil, web_search_requests: 0, cost_usd: nil, context_window: nil, max_output_tokens: nil}
 
-      iex> ClaudeCode.ModelUsage.parse_single(nil)
+      iex> ClaudeCode.Model.Usage.parse_single(nil)
       nil
 
   """

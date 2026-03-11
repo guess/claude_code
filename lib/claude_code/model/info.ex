@@ -1,4 +1,4 @@
-defmodule ClaudeCode.ModelInfo do
+defmodule ClaudeCode.Model.Info do
   @moduledoc """
   Information about an available model.
 
@@ -18,6 +18,8 @@ defmodule ClaudeCode.ModelInfo do
 
   use ClaudeCode.JSONEncoder
 
+  alias ClaudeCode.Model.Effort
+
   defstruct [
     :value,
     :display_name,
@@ -34,19 +36,19 @@ defmodule ClaudeCode.ModelInfo do
           display_name: String.t(),
           description: String.t(),
           supports_effort: boolean(),
-          supported_effort_levels: [ClaudeCode.EffortLevel.t()],
+          supported_effort_levels: [Effort.t()],
           supports_adaptive_thinking: boolean(),
           supports_fast_mode: boolean(),
           supports_auto_mode: boolean()
         }
 
   @doc """
-  Creates a ModelInfo from a JSON map.
+  Creates a Model.Info from a JSON map.
 
   ## Examples
 
-      iex> ClaudeCode.ModelInfo.new(%{"value" => "claude-sonnet-4-6", "displayName" => "Claude Sonnet 4.6", "description" => "Fast model"})
-      %ClaudeCode.ModelInfo{value: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6", description: "Fast model", supports_effort: false, supported_effort_levels: [], supports_adaptive_thinking: false, supports_fast_mode: false}
+      iex> ClaudeCode.Model.Info.new(%{"value" => "claude-sonnet-4-6", "displayName" => "Claude Sonnet 4.6", "description" => "Fast model"})
+      %ClaudeCode.Model.Info{value: "claude-sonnet-4-6", display_name: "Claude Sonnet 4.6", description: "Fast model", supports_effort: false, supported_effort_levels: [], supports_adaptive_thinking: false, supports_fast_mode: false}
 
   """
   @spec new(map()) :: t()
@@ -64,5 +66,5 @@ defmodule ClaudeCode.ModelInfo do
   end
 
   defp parse_effort_levels(nil), do: []
-  defp parse_effort_levels(list) when is_list(list), do: Enum.map(list, &ClaudeCode.EffortLevel.parse/1)
+  defp parse_effort_levels(list) when is_list(list), do: Enum.map(list, &Effort.parse/1)
 end
