@@ -355,20 +355,32 @@ defmodule ClaudeCode.Options do
 
   ## Plugins
 
-  Load custom plugins to extend Claude's capabilities:
+  Load local plugins or enable marketplace plugins:
 
-      # From a directory path
+      # Local plugins (directory paths)
       {:ok, session} = ClaudeCode.start_link(
         plugins: ["./my-plugin"]
       )
 
-      # With explicit type (currently only :local is supported)
+      # Marketplace plugins (name@marketplace format)
+      {:ok, session} = ClaudeCode.start_link(
+        plugins: ["code-simplifier@claude-plugins-official"]
+      )
+
+      # Mixed local and marketplace plugins
       {:ok, session} = ClaudeCode.start_link(
         plugins: [
-          %{type: :local, path: "./my-plugin"},
-          "./another-plugin"
+          "./my-local-plugin",
+          "code-simplifier@claude-plugins-official",
+          %{type: :local, path: "./another-plugin"},
+          %{type: :marketplace, id: "pr-review-toolkit@claude-plugins-official"}
         ]
       )
+
+  Strings containing `@` are treated as marketplace plugin IDs and merged into
+  `settings.enabledPlugins`. Strings without `@` are treated as local filesystem
+  paths and passed as `--plugin-dir` flags. Marketplace plugins require that the
+  marketplace is already configured (see `ClaudeCode.Plugin.Marketplace`).
 
   ## Runtime Control
 
@@ -582,7 +594,9 @@ defmodule ClaudeCode.Options do
     ],
     plugins: [
       type: {:list, {:or, [:string, :map]}},
-      doc: "Plugin configurations - list of paths or maps with type: :local and path keys"
+      doc:
+        "Plugin configurations - local paths, marketplace IDs (name@marketplace), " <>
+          "or maps with type: :local/:marketplace"
     ],
     include_partial_messages: [
       type: :boolean,
@@ -757,7 +771,9 @@ defmodule ClaudeCode.Options do
     ],
     plugins: [
       type: {:list, {:or, [:string, :map]}},
-      doc: "Override plugin configurations for this query"
+      doc:
+        "Override plugin configurations for this query - local paths, marketplace IDs (name@marketplace), " <>
+          "or maps with type: :local/:marketplace"
     ],
     include_partial_messages: [
       type: :boolean,

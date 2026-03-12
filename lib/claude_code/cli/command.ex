@@ -60,6 +60,7 @@ defmodule ClaudeCode.CLI.Command do
     opts
     |> preprocess_sandbox()
     |> preprocess_thinking()
+    |> preprocess_plugins()
     |> ensure_setting_sources()
     |> Enum.reduce([], fn {key, value}, acc ->
       case convert_option(key, value) do
@@ -215,11 +216,11 @@ defmodule ClaudeCode.CLI.Command do
     {"--setting-sources", sources_csv}
   end
 
+  # After preprocess_plugins/1, only local plugins remain in :plugins
   defp convert_option(:plugins, value) when is_list(value) do
     if value == [] do
       nil
     else
-      # Extract path from each plugin config (string path or map with type: :local)
       Enum.flat_map(value, fn
         path when is_binary(path) ->
           ["--plugin-dir", path]
@@ -401,6 +402,73 @@ defmodule ClaudeCode.CLI.Command do
 
       {_unknown, opts} ->
         opts
+    end
+  end
+
+  # -- Private: plugins preprocessing ----------------------------------------
+
+  # Partitions plugins into local and marketplace. Local plugins stay in :plugins
+  # for convert_option/2 to handle. Marketplace plugins are merged into
+  # settings.enabledPlugins.
+  defp preprocess_plugins(opts) do
+    case Keyword.get(opts, :plugins) do
+      nil ->
+        opts
+
+      [] ->
+        opts
+
+      plugins when is_list(plugins) ->
+        {locals, marketplace_ids} = partition_plugins(plugins)
+
+        opts = Keyword.put(opts, :plugins, locals)
+
+        if marketplace_ids == [] do
+          opts
+        else
+          enabled = Map.new(marketplace_ids, &{&1, true})
+          merged = merge_enabled_plugins_into_settings(Keyword.get(opts, :settings), enabled)
+          Keyword.put(opts, :settings, merged)
+        end
+    end
+  end
+
+  defp partition_plugins(plugins) do
+    plugins
+    |> Enum.reduce({[], []}, fn plugin, {locals, marketplace_ids} ->
+      case marketplace_id(plugin) do
+        {:ok, id} -> {locals, [id | marketplace_ids]}
+        :not_marketplace -> {[plugin | locals], marketplace_ids}
+      end
+    end)
+    |> then(fn {locals, ids} -> {Enum.reverse(locals), Enum.reverse(ids)} end)
+  end
+
+  # String with @ → marketplace ID
+  defp marketplace_id(id) when is_binary(id) do
+    if String.contains?(id, "@"), do: {:ok, id}, else: :not_marketplace
+  end
+
+  defp marketplace_id(%{type: :marketplace, id: id}), do: {:ok, id}
+  defp marketplace_id(_other), do: :not_marketplace
+
+  defp merge_enabled_plugins_into_settings(nil, enabled) do
+    %{"enabledPlugins" => enabled}
+  end
+
+  defp merge_enabled_plugins_into_settings(settings, enabled) when is_map(settings) do
+    existing = Map.get(settings, "enabledPlugins", %{})
+    Map.put(settings, "enabledPlugins", Map.merge(existing, enabled))
+  end
+
+  defp merge_enabled_plugins_into_settings(json_string, enabled) when is_binary(json_string) do
+    case Jason.decode(json_string) do
+      {:ok, decoded} ->
+        existing = Map.get(decoded, "enabledPlugins", %{})
+        Map.put(decoded, "enabledPlugins", Map.merge(existing, enabled))
+
+      {:error, _} ->
+        %{"enabledPlugins" => enabled}
     end
   end
 

@@ -54,6 +54,8 @@ Key modules:
 - **ClaudeCode.CLI.Command** - Converts Elixir options to CLI flags and builds argument lists
 - **ClaudeCode.CLI.Parser** - Parses newline-delimited JSON from CLI output into structs
 - **ClaudeCode.Adapter.Port.Installer** - CLI binary download and version management
+- **ClaudeCode.Plugin** - Plugin management (list, install, uninstall, enable, disable, update, validate)
+- **ClaudeCode.Plugin.Marketplace** - Marketplace management (list, add, remove, update)
 
 Key CLI flags used:
 - `--input-format stream-json` - Bidirectional streaming mode (reads from stdin)
@@ -119,6 +121,9 @@ Core capabilities:
   - `message/` - Message type modules (system, assistant, user, result, partial, tool_progress, etc.)
   - `message/system_message/` - System message subtypes (init, status, hook_*, task_*, compact_boundary, etc.)
   - `content/` - Content block modules (text, tool_use, tool_result, thinking, server_tool_use, mcp_tool_use, etc.)
+  - `plugin.ex` - Plugin management (list, install, uninstall, enable, disable, update, validate)
+  - `plugin/`
+    - `marketplace.ex` - Marketplace management (list, add, remove, update)
   - `model.ex` - Model namespace module
   - `model/` - Model-related types
     - `info.ex` - Model info struct (capabilities, effort levels)

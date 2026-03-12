@@ -4,7 +4,7 @@ Load custom plugins to extend Claude Code with commands, agents, skills, and hoo
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/plugins). Examples are adapted for Elixir.
 
-Plugins allow you to extend Claude Code with custom functionality that can be shared across projects. Through the Elixir SDK, you can programmatically load plugins from local directories to add custom slash commands, agents, skills, hooks, and MCP servers to your agent sessions.
+Plugins allow you to extend Claude Code with custom functionality that can be shared across projects. Through the Elixir SDK, you can load plugins from local directories or enable marketplace plugins, and programmatically manage plugin installation and marketplaces.
 
 ## What are plugins?
 
@@ -20,7 +20,9 @@ For complete information on plugin structure and how to create plugins, see [Plu
 
 ## Loading plugins
 
-Load plugins by providing their local file system paths in your options configuration. The SDK supports loading multiple plugins from different locations. Each plugin path is passed to the CLI as a `--plugin-dir` flag.
+### Local plugins
+
+Load local plugins by providing their file system paths. Each local plugin path is passed to the CLI as a `--plugin-dir` flag.
 
 ```elixir
 # As simple path strings
@@ -35,17 +37,42 @@ Load plugins by providing their local file system paths in your options configur
     %{type: :local, path: "/absolute/path/to/another-plugin"}
   ]
 )
+```
 
-# Mixed formats also work
+### Marketplace plugins
+
+Enable plugins from configured marketplaces using the `name@marketplace` format. Marketplace plugins are merged into `settings.enabledPlugins` and require that the marketplace is already configured (see [Managing marketplaces](#managing-marketplaces)).
+
+```elixir
+# As simple strings (@ indicates a marketplace plugin)
+{:ok, session} = ClaudeCode.start_link(
+  plugins: ["code-simplifier@claude-plugins-official"]
+)
+
+# As typed configuration maps
 {:ok, session} = ClaudeCode.start_link(
   plugins: [
-    "./my-plugin",
-    %{type: :local, path: "./another-plugin"}
+    %{type: :marketplace, id: "code-simplifier@claude-plugins-official"}
   ]
 )
 ```
 
-Both path strings and `%{type: :local, path: "..."}` maps are accepted. See `ClaudeCode.Options` for the full schema.
+### Mixed formats
+
+Local and marketplace plugins can be freely combined:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  plugins: [
+    "./my-local-plugin",
+    "code-simplifier@claude-plugins-official",
+    %{type: :local, path: "./another-plugin"},
+    %{type: :marketplace, id: "pr-review-toolkit@claude-plugins-official"}
+  ]
+)
+```
+
+Strings containing `@` are treated as marketplace plugin IDs. Strings without `@` are treated as local filesystem paths. See `ClaudeCode.Options` for the full schema.
 
 ### Path specifications
 
@@ -128,7 +155,7 @@ result =
 %ResultMessage{result: text} = result
 ```
 
-> **Note:** If you installed a plugin via the CLI (for example, `/plugin install my-plugin@marketplace`), you can still use it in the SDK by providing its installation path. Check `~/.claude/plugins/` for CLI-installed plugins.
+> **Tip:** You can also enable CLI-installed marketplace plugins directly via the `:plugins` option using the `name@marketplace` format (for example, `"code-simplifier@claude-plugins-official"`), or manage installations programmatically with `ClaudeCode.Plugin.install/2`.
 
 ## Complete example
 
@@ -220,6 +247,93 @@ Combine plugins from different locations:
     %{type: :local, path: Path.expand("~/.claude/custom-plugins/shared-plugin")}
   ]
 )
+```
+
+## Managing plugins
+
+The `ClaudeCode.Plugin` module provides functions for managing plugin installations, wrapping the `claude plugin` CLI commands.
+
+### Listing installed plugins
+
+```elixir
+{:ok, plugins} = ClaudeCode.Plugin.list()
+
+Enum.each(plugins, fn plugin ->
+  IO.puts("#{plugin.id} v#{plugin.version} (#{plugin.scope}, enabled: #{plugin.enabled})")
+end)
+```
+
+### Installing and uninstalling
+
+```elixir
+# Install from a marketplace
+{:ok, _} = ClaudeCode.Plugin.install("code-simplifier@claude-plugins-official")
+
+# Install with a specific scope
+{:ok, _} = ClaudeCode.Plugin.install("my-plugin@my-org", scope: :project)
+
+# Uninstall
+{:ok, _} = ClaudeCode.Plugin.uninstall("code-simplifier@claude-plugins-official")
+```
+
+### Enabling and disabling
+
+```elixir
+{:ok, _} = ClaudeCode.Plugin.enable("code-simplifier@claude-plugins-official")
+{:ok, _} = ClaudeCode.Plugin.disable("code-simplifier@claude-plugins-official")
+
+# Disable all plugins
+{:ok, _} = ClaudeCode.Plugin.disable_all(scope: :project)
+```
+
+### Updating and validating
+
+```elixir
+# Update a plugin to the latest version
+{:ok, _} = ClaudeCode.Plugin.update("code-simplifier@claude-plugins-official")
+
+# Validate a local plugin manifest
+{:ok, _} = ClaudeCode.Plugin.validate("./my-plugin")
+```
+
+## Managing marketplaces
+
+The `ClaudeCode.Plugin.Marketplace` module provides functions for managing marketplace configurations.
+
+### Listing marketplaces
+
+```elixir
+{:ok, marketplaces} = ClaudeCode.Plugin.Marketplace.list()
+
+Enum.each(marketplaces, fn m ->
+  IO.puts("#{m.name} (#{m.source}: #{m.repo})")
+end)
+```
+
+### Adding and removing
+
+```elixir
+# Add from GitHub shorthand
+{:ok, _} = ClaudeCode.Plugin.Marketplace.add("owner/repo")
+
+# Add with scope and sparse checkout (for monorepos)
+{:ok, _} = ClaudeCode.Plugin.Marketplace.add("owner/monorepo",
+  scope: :project,
+  sparse: [".claude-plugin", "plugins"]
+)
+
+# Remove a marketplace
+{:ok, _} = ClaudeCode.Plugin.Marketplace.remove("my-marketplace")
+```
+
+### Updating
+
+```elixir
+# Update all marketplaces
+{:ok, _} = ClaudeCode.Plugin.Marketplace.update()
+
+# Update a specific marketplace
+{:ok, _} = ClaudeCode.Plugin.Marketplace.update("my-marketplace")
 ```
 
 ## Troubleshooting
