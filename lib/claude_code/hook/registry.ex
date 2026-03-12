@@ -12,45 +12,22 @@ defmodule ClaudeCode.Hook.Registry do
   the map to include in the initialize handshake (or nil if no hooks).
   """
   @spec new(map() | nil) :: {%__MODULE__{}, map() | nil}
-  def new(nil) do
-    {%__MODULE__{}, nil}
-  end
-
-  def new(hooks_map) when hooks_map == %{} do
-    {%__MODULE__{}, nil}
-  end
+  def new(nil), do: {%__MODULE__{}, nil}
+  def new(hooks_map) when hooks_map == %{}, do: {%__MODULE__{}, nil}
 
   def new(hooks_map) when is_map(hooks_map) do
-    {callbacks, targets, wire_format, _counter} =
-      Enum.reduce(hooks_map, {%{}, %{}, %{}, 0}, fn {event_name, matchers}, {cb_acc, tgt_acc, wire_acc, counter} ->
-        {matcher_entries, new_cb_acc, new_tgt_acc, new_counter} =
-          Enum.reduce(matchers, {[], cb_acc, tgt_acc, counter}, fn matcher_config, {entries, cbs, tgts, cnt} ->
-            matcher_config = normalize_matcher(matcher_config)
-            hook_list = Map.get(matcher_config, :hooks, [])
-            where = Map.get(matcher_config, :where, :local)
+    state = %{callbacks: %{}, targets: %{}, counter: 0}
 
-            {ids_rev, updated_cbs, updated_tgts, updated_cnt} =
-              Enum.reduce(hook_list, {[], cbs, tgts, cnt}, fn hook, {id_acc, cb, tg, c} ->
-                id = "hook_#{c}"
-                {[id | id_acc], Map.put(cb, id, hook), Map.put(tg, id, where), c + 1}
-              end)
-
-            entry =
-              maybe_put_timeout(
-                %{"matcher" => Map.get(matcher_config, :matcher), "hookCallbackIds" => Enum.reverse(ids_rev)},
-                Map.get(matcher_config, :timeout)
-              )
-
-            {[entry | entries], updated_cbs, updated_tgts, updated_cnt}
-          end)
-
-        event_key = to_string(event_name)
-        {new_cb_acc, new_tgt_acc, Map.put(wire_acc, event_key, Enum.reverse(matcher_entries)), new_counter}
+    {wire_format, state} =
+      Enum.map_reduce(hooks_map, state, fn {event_name, matchers}, acc ->
+        {entries, acc} = Enum.map_reduce(matchers, acc, &register_matcher/2)
+        {{to_string(event_name), entries}, acc}
       end)
 
-    wire = if wire_format == %{}, do: nil, else: wire_format
+    wire = Map.new(wire_format)
+    wire = if wire == %{}, do: nil, else: wire
 
-    {%__MODULE__{callbacks: callbacks, targets: targets}, wire}
+    {%__MODULE__{callbacks: state.callbacks, targets: state.targets}, wire}
   end
 
   @doc """
@@ -82,17 +59,35 @@ defmodule ClaudeCode.Hook.Registry do
     {local_tgts, remote_tgts} =
       Enum.split_with(registry.targets, fn {_id, where} -> where == :local end)
 
-    local = %__MODULE__{
-      callbacks: Map.new(local_cbs),
-      targets: Map.new(local_tgts)
+    {
+      %__MODULE__{callbacks: Map.new(local_cbs), targets: Map.new(local_tgts)},
+      %__MODULE__{callbacks: Map.new(remote_cbs), targets: Map.new(remote_tgts)}
     }
+  end
 
-    remote = %__MODULE__{
-      callbacks: Map.new(remote_cbs),
-      targets: Map.new(remote_tgts)
-    }
+  defp register_matcher(matcher_config, acc) do
+    config = normalize_matcher(matcher_config)
+    hook_list = Map.get(config, :hooks, [])
+    where = Map.get(config, :where, :local)
 
-    {local, remote}
+    {ids, acc} =
+      Enum.map_reduce(hook_list, acc, fn hook, %{counter: c} = acc ->
+        id = "hook_#{c}"
+
+        acc = %{
+          acc
+          | callbacks: Map.put(acc.callbacks, id, hook),
+            targets: Map.put(acc.targets, id, where),
+            counter: c + 1
+        }
+
+        {id, acc}
+      end)
+
+    entry = %{"matcher" => Map.get(config, :matcher), "hookCallbackIds" => ids}
+    entry = maybe_put_timeout(entry, Map.get(config, :timeout))
+
+    {entry, acc}
   end
 
   defp normalize_matcher(hook) when is_atom(hook), do: %{hooks: [hook]}

@@ -16,8 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** Removed the `:can_use_tool` option. Use `PreToolUse` hooks instead, which provide the same permission decision capability through the standard hooks API. The CLI no longer sends `can_use_tool` control requests — all permission decisions are routed through hook callbacks. Migrate by moving your callback into `hooks: %{PreToolUse: [your_callback]}`.
 - Removed `ClaudeCode.Adapter.ControlHandler.handle_can_use_tool/2`
 - Removed `ClaudeCode.Hook.Response.to_can_use_tool_wire/1`
-- Removed `can_use_tool` field from `ClaudeCode.Hook.Registry` struct
-- Changed `ClaudeCode.Hook.Registry.new/2` to `ClaudeCode.Hook.Registry.new/1` (no longer accepts a `can_use_tool` parameter)
+- Removed `can_use_tool` field from the hook registry struct
+- Changed hook registry constructor from arity-2 to arity-1 (no longer accepts a `can_use_tool` parameter)
 
 ## [0.30.0] - 2026-03-11 | CC 2.1.72
 
