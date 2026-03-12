@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Shorthand syntax for `:hooks` option** — Accept bare modules and 2-arity functions directly in hook lists (e.g., `hooks: %{PreToolUse: [MyApp.Guard]}`), removing the need for map wrappers in the common case. The full map form remains available for matchers, timeouts, and `:where`. See `ClaudeCode.Options` and the [Hooks guide](docs/guides/hooks.md#shorthand-syntax).
+
 ### Removed
 
-- **Breaking:** Removed the `:can_use_tool` option. Use `PreToolUse` hooks instead, which provide the same permission decision capability through the standard hooks API. The CLI no longer sends `can_use_tool` control requests — all permission decisions are routed through hook callbacks. Migrate by moving your callback into `hooks: %{PreToolUse: [%{hooks: [your_callback]}]}`.
+- **Breaking:** Removed the `:can_use_tool` option. Use `PreToolUse` hooks instead, which provide the same permission decision capability through the standard hooks API. The CLI no longer sends `can_use_tool` control requests — all permission decisions are routed through hook callbacks. Migrate by moving your callback into `hooks: %{PreToolUse: [your_callback]}`.
 - Removed `ClaudeCode.Adapter.ControlHandler.handle_can_use_tool/2`
 - Removed `ClaudeCode.Hook.Response.to_can_use_tool_wire/1`
 - Removed `can_use_tool` field from `ClaudeCode.Hook.Registry` struct
