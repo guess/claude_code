@@ -219,6 +219,7 @@ defmodule ClaudeCode.CLI.Command do
     if value == [] do
       nil
     else
+      # Extract path from each plugin config (string path or map with type: :local)
       Enum.flat_map(value, fn
         path when is_binary(path) ->
           ["--plugin-dir", path]

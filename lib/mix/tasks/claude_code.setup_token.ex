@@ -29,7 +29,7 @@ defmodule Mix.Tasks.ClaudeCode.SetupToken do
         # to avoid Elixir's IO system choking on raw terminal escape codes.
         script = System.find_executable("script")
 
-        if !script do
+        unless script do
           Mix.shell().error("""
           `script` command not found. Run the CLI directly instead:
             #{cli_path} setup-token
