@@ -4,7 +4,7 @@ Load custom plugins to extend Claude Code with commands, agents, skills, and hoo
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/plugins). Examples are adapted for Elixir.
 
-Plugins allow you to extend Claude Code with custom functionality that can be shared across projects. Through the Elixir SDK, you can load plugins from local directories and programmatically manage plugin installations and marketplaces.
+Plugins allow you to extend Claude Code with custom functionality that can be shared across projects. Through the Elixir SDK, you can programmatically load plugins from local directories to add custom slash commands, agents, skills, hooks, and MCP servers to your agent sessions.
 
 ## What are plugins?
 
@@ -20,9 +20,7 @@ For complete information on plugin structure and how to create plugins, see [Plu
 
 ## Loading plugins
 
-### Local plugins
-
-Load local plugins by providing their file system paths. Each local plugin path is passed to the CLI as a `--plugin-dir` flag.
+Load plugins by providing their local file system paths in your options configuration. The SDK supports loading multiple plugins from different locations. Each plugin path is passed to the CLI as a `--plugin-dir` flag.
 
 ```elixir
 # As simple path strings
@@ -37,7 +35,17 @@ Load local plugins by providing their file system paths. Each local plugin path 
     %{type: :local, path: "/absolute/path/to/another-plugin"}
   ]
 )
+
+# Mixed formats also work
+{:ok, session} = ClaudeCode.start_link(
+  plugins: [
+    "./my-plugin",
+    %{type: :local, path: "./another-plugin"}
+  ]
+)
 ```
+
+Both path strings and `%{type: :local, path: "..."}` maps are accepted. See `ClaudeCode.Options` for the full schema.
 
 ### Path specifications
 
