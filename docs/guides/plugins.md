@@ -4,7 +4,7 @@ Load custom plugins to extend Claude Code with commands, agents, skills, and hoo
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/plugins). Examples are adapted for Elixir.
 
-Plugins allow you to extend Claude Code with custom functionality that can be shared across projects. Through the Elixir SDK, you can load plugins from local directories or enable marketplace plugins, and programmatically manage plugin installation and marketplaces.
+Plugins allow you to extend Claude Code with custom functionality that can be shared across projects. Through the Elixir SDK, you can load plugins from local directories and programmatically manage plugin installations and marketplaces.
 
 ## What are plugins?
 
@@ -38,41 +38,6 @@ Load local plugins by providing their file system paths. Each local plugin path 
   ]
 )
 ```
-
-### Marketplace plugins
-
-Enable plugins from configured marketplaces using the `name@marketplace` format. Marketplace plugins are merged into `settings.enabledPlugins` and require that the marketplace is already configured (see [Managing marketplaces](#managing-marketplaces)).
-
-```elixir
-# As simple strings (@ indicates a marketplace plugin)
-{:ok, session} = ClaudeCode.start_link(
-  plugins: ["code-simplifier@claude-plugins-official"]
-)
-
-# As typed configuration maps
-{:ok, session} = ClaudeCode.start_link(
-  plugins: [
-    %{type: :marketplace, id: "code-simplifier@claude-plugins-official"}
-  ]
-)
-```
-
-### Mixed formats
-
-Local and marketplace plugins can be freely combined:
-
-```elixir
-{:ok, session} = ClaudeCode.start_link(
-  plugins: [
-    "./my-local-plugin",
-    "code-simplifier@claude-plugins-official",
-    %{type: :local, path: "./another-plugin"},
-    %{type: :marketplace, id: "pr-review-toolkit@claude-plugins-official"}
-  ]
-)
-```
-
-Strings containing `@` are treated as marketplace plugin IDs. Strings without `@` are treated as local filesystem paths. See `ClaudeCode.Options` for the full schema.
 
 ### Path specifications
 
@@ -155,7 +120,7 @@ result =
 %ResultMessage{result: text} = result
 ```
 
-> **Tip:** You can also enable CLI-installed marketplace plugins directly via the `:plugins` option using the `name@marketplace` format (for example, `"code-simplifier@claude-plugins-official"`), or manage installations programmatically with `ClaudeCode.Plugin.install/2`.
+> **Tip:** To use marketplace plugins, install and enable them with `ClaudeCode.Plugin.install/2` and `ClaudeCode.Plugin.enable/2` before starting a session. See [Managing plugins](#managing-plugins).
 
 ## Complete example
 
