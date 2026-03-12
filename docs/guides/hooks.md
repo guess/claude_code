@@ -50,22 +50,30 @@ This is a `PreToolUse` hook. It runs before the tool executes and can block or a
 
 ## Available hooks
 
-The SDK provides hooks for different stages of agent execution:
+The SDK provides hooks for different stages of agent execution. Some hooks are available across all SDKs, while others are TypeScript-only.
 
-| Hook Event | Supported | What triggers it | Example use case |
-|------------|-----------|------------------|------------------|
-| `PreToolUse` | Yes | Tool call request (can block or modify) | Block dangerous shell commands |
-| `PostToolUse` | Yes | Tool execution result | Log all file changes to audit trail |
-| `PostToolUseFailure` | Yes | Tool execution failure | Handle or log tool errors |
-| `UserPromptSubmit` | Yes | User prompt submission | Inject additional context into prompts |
-| `Stop` | Yes | Agent execution stop | Save session state before exit |
-| `SubagentStart` | Yes | Subagent initialization | Track parallel task spawning |
-| `SubagentStop` | Yes | Subagent completion | Aggregate results from parallel tasks |
-| `PreCompact` | Yes | Conversation compaction request | Archive full transcript before summarizing |
-| `Notification` | Yes | Agent status messages | Send agent status updates externally |
-| `PermissionRequest` | Yes | Permission prompt before tool execution | Custom permission UI |
+| Hook Event | Elixir SDK | Python SDK | TypeScript SDK | What triggers it | Example use case |
+|------------|------------|------------|----------------|------------------|------------------|
+| `PreToolUse` | Yes | Yes | Yes | Tool call request (can block or modify) | Block dangerous shell commands |
+| `PostToolUse` | Yes | Yes | Yes | Tool execution result | Log all file changes to audit trail |
+| `PostToolUseFailure` | Yes | Yes | Yes | Tool execution failure | Handle or log tool errors |
+| `UserPromptSubmit` | Yes | Yes | Yes | User prompt submission | Inject additional context into prompts |
+| `Stop` | Yes | Yes | Yes | Agent execution stop | Save session state before exit |
+| `SubagentStart` | Yes | Yes | Yes | Subagent initialization | Track parallel task spawning |
+| `SubagentStop` | Yes | Yes | Yes | Subagent completion | Aggregate results from parallel tasks |
+| `PreCompact` | Yes | Yes | Yes | Conversation compaction request | Archive full transcript before summarizing |
+| `Notification` | Yes | Yes | Yes | Agent status messages | Send agent status updates externally |
+| `PermissionRequest` | Yes | Yes | Yes | Permission dialog would be displayed | Custom permission handling |
+| `SessionStart` | No | No | Yes | Session initialization | Initialize logging and telemetry |
+| `SessionEnd` | No | No | Yes | Session termination | Clean up temporary resources |
+| `Setup` | No | No | Yes | Session setup/maintenance | Run initialization tasks |
+| `TeammateIdle` | No | No | Yes | Teammate becomes idle | Reassign work or notify |
+| `TaskCompleted` | No | No | Yes | Background task completes | Aggregate results from parallel tasks |
+| `ConfigChange` | No | No | Yes | Configuration file changes | Reload settings dynamically |
+| `WorktreeCreate` | No | No | Yes | Git worktree created | Track isolated workspaces |
+| `WorktreeRemove` | No | No | Yes | Git worktree removed | Clean up workspace resources |
 
-> **Note:** The TypeScript SDK defines additional hook events (`SessionStart`, `SessionEnd`, `Setup`, `ConfigChange`, `InstructionsLoaded`, `Elicitation`, `ElicitationResult`, `TaskCompleted`, `TeammateIdle`, `WorktreeCreate`, `WorktreeRemove`) that are not emitted by the CLI to SDK consumers. These are handled internally by the TypeScript SDK and are not available in the Elixir or Python SDKs.
+> **Note:** The TypeScript-only hook events (`SessionStart`, `SessionEnd`, `Setup`, `ConfigChange`, `TeammateIdle`, `TaskCompleted`, `WorktreeCreate`, `WorktreeRemove`) are not emitted by the CLI to SDK consumers. They are handled internally by the TypeScript SDK and are not available in the Elixir or Python SDKs.
 
 ## Common use cases
 
