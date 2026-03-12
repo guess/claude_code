@@ -234,6 +234,10 @@ defmodule ClaudeCode.MixProject do
         Hooks: [
           ClaudeCode.Hook
         ],
+        Plugins: [
+          ClaudeCode.Plugin,
+          ClaudeCode.Plugin.Marketplace
+        ],
         "MCP Integration": ~r/ClaudeCode\.MCP/,
         Testing: [
           ClaudeCode.Test,
