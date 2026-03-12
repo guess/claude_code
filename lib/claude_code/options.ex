@@ -370,6 +370,9 @@ defmodule ClaudeCode.Options do
         ]
       )
 
+  For marketplace plugin management (install, enable, disable), see
+  `ClaudeCode.Plugin` and `ClaudeCode.Plugin.Marketplace`.
+
   ## Runtime Control
 
   Some settings can be changed mid-conversation without restarting the session,

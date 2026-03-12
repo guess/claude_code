@@ -128,7 +128,7 @@ result =
 %ResultMessage{result: text} = result
 ```
 
-> **Note:** If you installed a plugin via the CLI (for example, `/plugin install my-plugin@marketplace`), you can still use it in the SDK by providing its installation path. Check `~/.claude/plugins/` for CLI-installed plugins.
+> **Tip:** To use marketplace plugins, install and enable them with `ClaudeCode.Plugin.install/2` and `ClaudeCode.Plugin.enable/2` before starting a session. See [Managing plugins](#managing-plugins).
 
 ## Complete example
 
@@ -220,6 +220,90 @@ Combine plugins from different locations:
     %{type: :local, path: Path.expand("~/.claude/custom-plugins/shared-plugin")}
   ]
 )
+```
+
+## Managing plugins
+
+The `ClaudeCode.Plugin` module provides functions for managing plugin installations, wrapping the `claude plugin` CLI commands.
+
+### Listing installed plugins
+
+```elixir
+{:ok, plugins} = ClaudeCode.Plugin.list()
+
+Enum.each(plugins, fn plugin ->
+  IO.puts("#{plugin.id} v#{plugin.version} (#{plugin.scope}, enabled: #{plugin.enabled})")
+end)
+```
+
+### Installing and uninstalling
+
+```elixir
+# Install from a marketplace
+{:ok, _} = ClaudeCode.Plugin.install("code-simplifier@claude-plugins-official")
+
+# Install with a specific scope
+{:ok, _} = ClaudeCode.Plugin.install("my-plugin@my-org", scope: :project)
+
+# Uninstall
+{:ok, _} = ClaudeCode.Plugin.uninstall("code-simplifier@claude-plugins-official")
+```
+
+### Enabling and disabling
+
+```elixir
+{:ok, _} = ClaudeCode.Plugin.enable("code-simplifier@claude-plugins-official")
+{:ok, _} = ClaudeCode.Plugin.disable("code-simplifier@claude-plugins-official")
+
+# Disable all plugins
+{:ok, _} = ClaudeCode.Plugin.disable_all(scope: :project)
+```
+
+### Updating
+
+```elixir
+# Update a plugin to the latest version
+{:ok, _} = ClaudeCode.Plugin.update("code-simplifier@claude-plugins-official")
+```
+
+## Managing marketplaces
+
+The `ClaudeCode.Plugin.Marketplace` module provides functions for managing marketplace configurations.
+
+### Listing marketplaces
+
+```elixir
+{:ok, marketplaces} = ClaudeCode.Plugin.Marketplace.list()
+
+Enum.each(marketplaces, fn m ->
+  IO.puts("#{m.name} (#{m.source}: #{m.repo})")
+end)
+```
+
+### Adding and removing
+
+```elixir
+# Add from GitHub shorthand
+{:ok, _} = ClaudeCode.Plugin.Marketplace.add("owner/repo")
+
+# Add with scope and sparse checkout (for monorepos)
+{:ok, _} = ClaudeCode.Plugin.Marketplace.add("owner/monorepo",
+  scope: :project,
+  sparse: [".claude-plugin", "plugins"]
+)
+
+# Remove a marketplace
+{:ok, _} = ClaudeCode.Plugin.Marketplace.remove("my-marketplace")
+```
+
+### Updating
+
+```elixir
+# Update all marketplaces
+{:ok, _} = ClaudeCode.Plugin.Marketplace.update()
+
+# Update a specific marketplace
+{:ok, _} = ClaudeCode.Plugin.Marketplace.update("my-marketplace")
 ```
 
 ## Troubleshooting

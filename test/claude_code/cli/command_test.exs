@@ -918,6 +918,8 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert plugin_count == 2
     end
 
+    # -- File options --------------------------------------------------------
+
     test "converts file list to multiple --file flags" do
       opts = [file: ["file_abc:doc.txt", "file_def:img.png"]]
 

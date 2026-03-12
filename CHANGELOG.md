@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **`mix claude_code.setup_token` task** — New mix task that runs `claude setup-token` to configure an OAuth token via an interactive browser flow. Allocates a PTY to support the CLI's terminal UI on both macOS and Linux. ([aff71ca])
+- **`ClaudeCode.Plugin` module** — Plugin management functions wrapping `claude plugin` CLI commands: `list/1`, `install/2`, `uninstall/2`, `enable/2`, `disable/2`, `disable_all/1`, `update/2`.
+- **`ClaudeCode.Plugin.Marketplace` module** — Marketplace management functions wrapping `claude plugin marketplace` CLI commands: `list/1`, `add/2`, `remove/1`, `update/1`.
+- **`ClaudeCode.Plugin.CLI` module** — Shared CLI execution helper for plugin and marketplace commands.
 
 ## [0.31.0] - 2026-03-11 | CC 2.1.72
 

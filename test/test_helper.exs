@@ -1,5 +1,5 @@
 # ExUnit.start(capture_log: true)
-ExUnit.start(exclude: [:distributed])
+ExUnit.start(exclude: [:distributed, :integration])
 
 # Start the ownership server for ClaudeCode.Test
 Supervisor.start_link([ClaudeCode.Test], strategy: :one_for_one)
