@@ -104,10 +104,10 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
     test "handles {:control_request, msg} calls" do
       {:ok, proxy} = MockProxy.start_link(handler: fn msg -> %{"handled" => msg["subtype"]} end)
 
-      msg = %{"request_id" => "req_1", "request" => %{"subtype" => "can_use_tool"}, "subtype" => "can_use_tool"}
+      msg = %{"request_id" => "req_1", "request" => %{"subtype" => "hook_callback"}, "subtype" => "hook_callback"}
       result = GenServer.call(proxy, {:control_request, msg})
 
-      assert result == %{"handled" => "can_use_tool"}
+      assert result == %{"handled" => "hook_callback"}
     end
 
     test "returns custom response based on handler" do
@@ -118,7 +118,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
           end
         )
 
-      result = GenServer.call(proxy, {:control_request, %{"request" => %{"subtype" => "can_use_tool"}}})
+      result = GenServer.call(proxy, {:control_request, %{"request" => %{"subtype" => "hook_callback"}}})
       assert result == %{"behavior" => "allow"}
     end
   end
@@ -151,24 +151,24 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
       assert_receive {:proxy_called, ^msg}
     end
 
-    test "can_use_tool is routed to proxy" do
+    test "hook_callback is routed to proxy" do
       test_pid = self()
 
       {:ok, proxy} =
         MockProxy.start_link(
           handler: fn msg ->
             send(test_pid, {:proxy_called, msg})
-            %{"behavior" => "allow"}
+            %{}
           end
         )
 
       msg = %{
         "request_id" => "req_2",
-        "request" => %{"subtype" => "can_use_tool", "tool_name" => "Bash", "input" => %{}}
+        "request" => %{"subtype" => "hook_callback", "callback_id" => "hook_0", "input" => %{}, "tool_use_id" => nil}
       }
 
       result = GenServer.call(proxy, {:control_request, msg})
-      assert result == %{"behavior" => "allow"}
+      assert result == %{}
       assert_receive {:proxy_called, ^msg}
     end
 
@@ -185,7 +185,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
 
       # Build a registry with a known hook
       hooks = %{PreToolUse: [%{hooks: [RemoteHook]}]}
-      {registry, _wire} = HookRegistry.new(hooks, nil)
+      {registry, _wire} = HookRegistry.new(hooks)
 
       # Verify the hook is in the registry
       assert {:ok, RemoteHook} = HookRegistry.lookup(registry, "hook_0")
@@ -217,7 +217,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
         )
 
       # Empty registry - no local hooks
-      {registry, _wire} = HookRegistry.new(%{}, nil)
+      {registry, _wire} = HookRegistry.new(%{})
 
       # Verify the hook is NOT in the registry
       assert :error = HookRegistry.lookup(registry, "hook_99")
@@ -328,13 +328,13 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
   describe "HookRegistry lookup-then-delegate pattern" do
     test "lookup succeeds for registered hooks" do
       hooks = %{PreToolUse: [%{hooks: [RemoteHook]}]}
-      {registry, _wire} = HookRegistry.new(hooks, nil)
+      {registry, _wire} = HookRegistry.new(hooks)
 
       assert {:ok, RemoteHook} = HookRegistry.lookup(registry, "hook_0")
     end
 
     test "lookup fails for unregistered hooks" do
-      {registry, _wire} = HookRegistry.new(%{}, nil)
+      {registry, _wire} = HookRegistry.new(%{})
 
       assert :error = HookRegistry.lookup(registry, "hook_unknown")
     end
@@ -345,7 +345,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
         PreToolUse: [%{hooks: [RemoteHook], where: :remote}]
       }
 
-      {full_registry, _wire} = HookRegistry.new(hooks, nil)
+      {full_registry, _wire} = HookRegistry.new(hooks)
       {_local, remote_registry} = HookRegistry.split(full_registry)
 
       # The remote registry should have the hook
@@ -364,7 +364,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
         ]
       }
 
-      {full_registry, _wire} = HookRegistry.new(hooks, nil)
+      {full_registry, _wire} = HookRegistry.new(hooks)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 
       # hook_0 is local, hook_1 is remote

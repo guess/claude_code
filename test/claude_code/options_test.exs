@@ -462,34 +462,6 @@ defmodule ClaudeCode.OptionsTest do
     end
   end
 
-  describe "can_use_tool validation" do
-    test "accepts a module atom" do
-      {:ok, opts} = Options.validate_session_options(can_use_tool: SomeModule)
-      assert Keyword.get(opts, :can_use_tool) == SomeModule
-    end
-
-    test "accepts a 2-arity function" do
-      hook_fn = fn _input, _id -> :allow end
-      {:ok, opts} = Options.validate_session_options(can_use_tool: hook_fn)
-      assert is_function(Keyword.get(opts, :can_use_tool), 2)
-    end
-
-    test "rejects non-module non-function values" do
-      assert {:error, _} = Options.validate_session_options(can_use_tool: "not valid")
-    end
-
-    test "cannot be used with permission_prompt_tool" do
-      hook_fn = fn _input, _id -> :allow end
-
-      assert_raise ArgumentError, ~r/cannot.*both/i, fn ->
-        Options.validate_session_options(
-          can_use_tool: hook_fn,
-          permission_prompt_tool: "stdio"
-        )
-      end
-    end
-  end
-
   describe "hooks validation" do
     test "accepts a map with atom keys and matcher lists" do
       hooks = %{

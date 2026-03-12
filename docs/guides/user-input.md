@@ -8,7 +8,7 @@ Surface Claude's approval requests and clarifying questions to users, then retur
 
 While working on a task, Claude sometimes needs to check in with users. It might need permission before deleting files, or need to ask which database to use for a new project. Your application needs to surface these requests to users so Claude can continue with their input.
 
-Claude requests user input in two situations: when it needs **permission to use a tool** (like deleting files or running commands), and when it has **clarifying questions** (via the `AskUserQuestion` tool). Both trigger your `:can_use_tool` callback, which pauses execution until you return a response. This is different from normal conversation turns where Claude finishes and waits for your next message.
+Claude requests user input in two situations: when it needs **permission to use a tool** (like deleting files or running commands), and when it has **clarifying questions** (via the `AskUserQuestion` tool). Both are handled through `PreToolUse` hooks, which pause execution until you return a response. This is different from normal conversation turns where Claude finishes and waits for your next message.
 
 For clarifying questions, Claude generates the questions and options. Your role is to present them to users and return their selections. You cannot add your own questions to this flow; if you need to ask users something yourself, do that separately in your application logic.
 
@@ -16,34 +16,38 @@ This guide shows you how to detect each type of request and respond appropriatel
 
 ## Detect when Claude needs input
 
-Pass a `:can_use_tool` callback in your session or query options. The callback fires whenever Claude needs user input, receiving the tool input map and tool use ID as arguments:
+Register a `PreToolUse` hook in your session options. The hook fires whenever Claude wants to use a tool, receiving the tool input map and tool use ID as arguments:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  can_use_tool: fn %{tool_name: name} = input, _tool_use_id ->
-    # Prompt user and return :allow or {:deny, reason}
-    :allow
-  end
+  hooks: %{
+    PreToolUse: [
+      %{hooks: [fn %{tool_name: name} = input, _tool_use_id ->
+        # Prompt user and return :allow or {:deny, reason}
+        :allow
+      end]}
+    ]
+  }
 )
 ```
 
-The callback fires in two cases:
+The hook fires in two cases:
 
 1. **Tool needs approval**: Claude wants to use a tool that is not auto-approved by [permission rules](permissions.md) or modes. Check the `:tool_name` field for the tool (e.g., `"Bash"`, `"Write"`).
 2. **Claude asks a question**: Claude calls the `AskUserQuestion` tool. Check if `tool_name == "AskUserQuestion"` to handle it differently. If you specify a `:tools` list, include `"AskUserQuestion"` for this to work. See [Handle clarifying questions](#handle-clarifying-questions) for details.
 
-> **Note:** To automatically allow or deny tools without prompting users, use [hooks](hooks.md) instead. Hooks execute before `:can_use_tool` and can allow, deny, or modify requests based on your own logic. You can also use the [`PermissionRequest` hook](hooks.md#available-hooks) to send external notifications (Slack, email, push) when Claude is waiting for approval.
+> **Note:** You can use matcher patterns to target specific tools. For example, use `%{matcher: "Bash", hooks: [MyApp.BashGuard]}` to only intercept Bash commands, or omit the matcher to intercept all tools. You can also use the [`PermissionRequest` hook](hooks.md#available-hooks) to send external notifications (Slack, email, push) when Claude is waiting for approval.
 
 ## Handle tool approval requests
 
-Once you have passed a `:can_use_tool` callback, it fires when Claude wants to use a tool that is not auto-approved. Your callback receives two arguments:
+When a `PreToolUse` hook fires, it receives the tool input and tool use ID. Your callback receives two arguments:
 
 | Argument | Description |
 |----------|-------------|
-| `input` (map) | A map containing `:tool_name`, `:input`, and other fields about the tool Claude wants to use |
-| `tool_use_id` | Currently always `nil` for `:can_use_tool` callbacks (reserved for future use) |
+| `input` (map) | A map containing `:tool_name`, `:tool_input`, `:tool_use_id`, and other fields about the tool Claude wants to use |
+| `tool_use_id` | The tool use ID string |
 
-The `:input` field within the map contains tool-specific parameters. Common examples:
+The `:tool_input` field within the map contains tool-specific parameters. Common examples:
 
 | Tool | Input fields |
 |------|--------------|
@@ -54,25 +58,29 @@ The `:input` field within the map contains tool-specific parameters. Common exam
 
 You can display this information to the user so they can decide whether to allow or reject the action, then return the appropriate response.
 
-The following example asks Claude to create and delete a test file. When Claude attempts each operation, the callback prints the tool request to the terminal and prompts for y/n approval:
+The following example asks Claude to create and delete a test file. When Claude attempts each operation, the hook prints the tool request to the terminal and prompts for y/n approval:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  can_use_tool: fn %{tool_name: name, input: input}, _tool_use_id ->
-    IO.puts("\nTool: #{name}")
+  hooks: %{
+    PreToolUse: [
+      %{hooks: [fn %{tool_name: name, tool_input: input}, _tool_use_id ->
+        IO.puts("\nTool: #{name}")
 
-    if name == "Bash" do
-      IO.puts("Command: #{input["command"]}")
-      if input["description"], do: IO.puts("Description: #{input["description"]}")
-    else
-      IO.puts("Input: #{inspect(input)}")
-    end
+        if name == "Bash" do
+          IO.puts("Command: #{input["command"]}")
+          if input["description"], do: IO.puts("Description: #{input["description"]}")
+        else
+          IO.puts("Input: #{inspect(input)}")
+        end
 
-    case IO.gets("Allow this action? (y/n): ") |> String.trim() do
-      "y" -> {:allow, input}
-      _ -> {:deny, "User denied this action"}
-    end
-  end
+        case IO.gets("Allow this action? (y/n): ") |> String.trim() do
+          "y" -> {:allow, input}
+          _ -> {:deny, "User denied this action"}
+        end
+      end]}
+    ]
+  }
 )
 
 session
@@ -85,15 +93,13 @@ This example uses a y/n flow where any input other than "y" is treated as a deni
 
 ### Respond to tool requests
 
-Your callback returns one of the following response types:
+Your hook returns one of the following response types:
 
 | Return | Effect |
 |--------|--------|
 | `:allow` | Permit the tool call |
 | `{:allow, updated_input}` | Permit with modified input |
-| `{:allow, updated_input, permissions: updates}` | Permit with modified input and permission updates |
 | `{:deny, reason}` | Block the tool call with an explanation |
-| `{:deny, reason, interrupt: true}` | Block and interrupt the session |
 
 When allowing with input, pass the tool input (original or modified). When denying, provide a message explaining why. Claude sees this message and may adjust its approach.
 
@@ -121,7 +127,7 @@ Beyond allowing or denying, you can modify the tool's input or provide context t
 The user approves the action as-is. Return `:allow` and the tool executes exactly as Claude requested:
 
 ```elixir
-can_use_tool: fn %{tool_name: name}, _id ->
+fn %{tool_name: name}, _id ->
   IO.puts("Claude wants to use #{name}")
   if confirm?("Allow this action?"), do: :allow, else: {:deny, "User declined"}
 end
@@ -132,12 +138,12 @@ end
 The user approves but wants to modify the request first. You can change the input before the tool executes. Claude sees the result but is not told you changed anything. Useful for sanitizing parameters, adding constraints, or scoping access:
 
 ```elixir
-can_use_tool: fn %{tool_name: "Bash", input: input}, _id ->
+fn %{tool_name: "Bash", tool_input: input}, _id ->
   # Scope all commands to sandbox
   sandboxed = Map.update!(input, "command", &String.replace(&1, "/tmp", "/tmp/sandbox"))
   {:allow, sandboxed}
 
-%{input: input}, _id ->
+%{tool_input: input}, _id ->
   {:allow, input}
 end
 ```
@@ -147,9 +153,9 @@ end
 The user does not want this action to happen. Block the tool and provide a message explaining why. Claude sees this message and may try a different approach:
 
 ```elixir
-can_use_tool: fn %{tool_name: name} = input, _id ->
+fn %{tool_name: name, tool_input: input}, _id ->
   if confirm?("Allow #{name}?") do
-    {:allow, input.input}
+    {:allow, input}
   else
     {:deny, "User rejected this action"}
   end
@@ -161,10 +167,10 @@ end
 The user does not want this specific action, but has a different idea. Block the tool and include guidance in your message. Claude will read this and decide how to proceed based on your feedback:
 
 ```elixir
-can_use_tool: fn %{tool_name: "Bash", input: %{"command" => cmd}} = _input, _id when cmd =~ "rm" ->
+fn %{tool_name: "Bash", tool_input: %{"command" => cmd}}, _id when cmd =~ "rm" ->
   {:deny, "User doesn't want to delete files. They asked if you could compress them into an archive instead."}
 
-%{input: input}, _id ->
+%{tool_input: input}, _id ->
   {:allow, input}
 end
 ```
@@ -182,7 +188,7 @@ defmodule MyApp.ToolPermissions do
   @behaviour ClaudeCode.Hook
 
   @impl true
-  def call(%{tool_name: "Bash", input: %{"command" => cmd}}, _tool_use_id) do
+  def call(%{tool_name: "Bash", tool_input: %{"command" => cmd}}, _tool_use_id) do
     cond do
       String.contains?(cmd, "rm -rf") -> {:deny, "Destructive command blocked"}
       String.starts_with?(cmd, "sudo") -> {:deny, "No sudo allowed"}
@@ -193,31 +199,37 @@ defmodule MyApp.ToolPermissions do
   def call(_input, _tool_use_id), do: :allow
 end
 
-{:ok, session} = ClaudeCode.start_link(can_use_tool: MyApp.ToolPermissions)
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    PreToolUse: [MyApp.ToolPermissions]
+  }
+)
 ```
 
-See the [Hooks guide](hooks.md) for the full `:can_use_tool` API including input rewriting and return value reference.
+See the [Hooks guide](hooks.md) for the full PreToolUse hook API including input rewriting and return value reference.
 
 ## Handle clarifying questions
 
-When Claude needs more direction on a task with multiple valid approaches, it calls the `AskUserQuestion` tool. This triggers your `:can_use_tool` callback with `tool_name` set to `"AskUserQuestion"`. The input contains Claude's questions as multiple-choice options, which you display to the user and return their selections.
+When Claude needs more direction on a task with multiple valid approaches, it calls the `AskUserQuestion` tool. This triggers your `PreToolUse` hook with `tool_name` set to `"AskUserQuestion"`. The input contains Claude's questions as multiple-choice options, which you display to the user and return their selections.
 
 > **Tip:** Clarifying questions are especially common in [plan mode](permissions.md#plan-mode-plan), where Claude explores the codebase and asks questions before proposing a plan. This makes plan mode ideal for interactive workflows where you want Claude to gather requirements before making changes.
 
-### Step 1: Pass a `:can_use_tool` callback
+### Step 1: Register a PreToolUse hook
 
-Pass a `:can_use_tool` callback in your session or query options. By default, `AskUserQuestion` is available. If you specify a `:tools` list to restrict Claude's capabilities (for example, a read-only agent with only `Read`, `Glob`, and `Grep`), include `"AskUserQuestion"` in that list. Otherwise, Claude will not be able to ask clarifying questions:
+Register a `PreToolUse` hook in your session options. By default, `AskUserQuestion` is available. If you specify a `:tools` list to restrict Claude's capabilities (for example, a read-only agent with only `Read`, `Glob`, and `Grep`), include `"AskUserQuestion"` in that list. Otherwise, Claude will not be able to ask clarifying questions:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
   tools: ["Read", "Glob", "Grep", "AskUserQuestion"],
-  can_use_tool: &my_tool_handler/2
+  hooks: %{
+    PreToolUse: [&my_tool_handler/2]
+  }
 )
 ```
 
 ### Step 2: Detect AskUserQuestion
 
-In your callback, check if the tool name equals `"AskUserQuestion"` to handle it differently from other tools:
+In your hook, check if the tool name equals `"AskUserQuestion"` to handle it differently from other tools:
 
 ```elixir
 def my_tool_handler(%{tool_name: "AskUserQuestion"} = input, tool_use_id) do
@@ -275,7 +287,7 @@ For multi-select questions, join multiple labels with `", "`. If you [support fr
 
 ```elixir
 {:allow, %{
-  "questions" => input.input["questions"],
+  "questions" => input.tool_input["questions"],
   "answers" => %{
     "How should I format the output?" => "Summary",
     "Which sections should I include?" => "Introduction, Conclusion"
@@ -348,7 +360,7 @@ Claude asks clarifying questions when it needs user input to proceed. For exampl
 
 This example handles those questions in a terminal application:
 
-1. **Route the request**: The `:can_use_tool` callback checks if the tool name is `"AskUserQuestion"` and routes to a dedicated handler
+1. **Route the request**: The `PreToolUse` hook checks if the tool name is `"AskUserQuestion"` and routes to a dedicated handler
 2. **Display questions**: The handler loops through the `"questions"` list and prints each question with numbered options
 3. **Collect input**: The user can enter a number to select an option, or type free text directly (e.g., "jquery", "i don't know")
 4. **Map answers**: The code checks if input is numeric (uses the option's label) or free text (uses the text directly)
@@ -359,11 +371,11 @@ defmodule MyApp.UserInput do
   @behaviour ClaudeCode.Hook
 
   @impl true
-  def call(%{tool_name: "AskUserQuestion", input: input}, _tool_use_id) do
+  def call(%{tool_name: "AskUserQuestion", tool_input: input}, _tool_use_id) do
     handle_questions(input)
   end
 
-  def call(%{input: input}, _tool_use_id) do
+  def call(%{tool_input: input}, _tool_use_id) do
     # Auto-approve other tools for this example
     {:allow, input}
   end
@@ -412,7 +424,11 @@ defmodule MyApp.UserInput do
   end
 end
 
-{:ok, session} = ClaudeCode.start_link(can_use_tool: MyApp.UserInput)
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    PreToolUse: [MyApp.UserInput]
+  }
+)
 
 session
 |> ClaudeCode.stream("Help me decide on the tech stack for a new mobile app")
@@ -427,7 +443,7 @@ session
 
 ## Other ways to get user input
 
-The `:can_use_tool` callback and `AskUserQuestion` tool cover most approval and clarification scenarios, but the SDK offers other ways to get input from users:
+`PreToolUse` hooks and the `AskUserQuestion` tool cover most approval and clarification scenarios, but the SDK offers other ways to get input from users:
 
 ### Streaming input
 
@@ -447,7 +463,7 @@ Use [custom tools](custom-tools.md) when you need to:
 - **Integrate external approval systems**: connect to existing ticketing, workflow, or approval platforms
 - **Implement domain-specific interactions**: create tools tailored to your application's needs, like code review interfaces or deployment checklists
 
-Custom tools give you full control over the interaction, but require more implementation work than using the built-in `:can_use_tool` callback.
+Custom tools give you full control over the interaction, but require more implementation work than using `PreToolUse` hooks.
 
 ## Related resources
 

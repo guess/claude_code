@@ -108,8 +108,7 @@ defmodule ClaudeCode.Adapter.Port do
   @impl GenServer
   def init({session, opts}) do
     hooks_map = Keyword.get(opts, :hooks)
-    can_use_tool = Keyword.get(opts, :can_use_tool)
-    {built_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
+    {built_registry, hooks_wire} = HookRegistry.new(hooks_map)
 
     # Callers may provide a pre-built hook registry (e.g. a partitioned subset).
     hook_registry =
@@ -633,10 +632,6 @@ defmodule ClaudeCode.Adapter.Port do
         subtype == "mcp_message" ->
           proxy_call(proxy, msg, timeout)
 
-        # can_use_tool always goes to proxy (permission decisions are always local)
-        subtype == "can_use_tool" ->
-          proxy_call(proxy, msg, timeout)
-
         # hook_callback: check local registry first (remote hooks), then proxy (local hooks)
         subtype == "hook_callback" ->
           callback_id = request["callback_id"]
@@ -669,9 +664,6 @@ defmodule ClaudeCode.Adapter.Port do
 
     response_data =
       case subtype do
-        "can_use_tool" ->
-          ControlHandler.handle_can_use_tool(request, state.hook_registry)
-
         "hook_callback" ->
           ControlHandler.handle_hook_callback(request, state.hook_registry)
 

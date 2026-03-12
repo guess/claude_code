@@ -34,8 +34,6 @@ defmodule ClaudeCode.Adapter.Node do
     - `:local` (default) — runs on your app server via the proxy
     - `:remote` — runs on the sandbox server in the remote `Adapter.Port`
 
-  The `can_use_tool` callback always runs locally.
-
   ## Failure Handling
 
   The distributed link between Session and the remote adapter fires on
@@ -65,11 +63,10 @@ defmodule ClaudeCode.Adapter.Node do
     with :ok <- connect_node(node, timeout),
          :ok <- ensure_workspace(node, cwd) do
       hooks_map = Keyword.get(config, :hooks)
-      can_use_tool = Keyword.get(config, :can_use_tool)
       mcp_servers = Keyword.get(config, :mcp_servers)
 
       # Build full registry so we can partition by execution target
-      {full_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
+      {full_registry, _wire} = HookRegistry.new(hooks_map)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 
       # Build stub sdk_mcp_servers map: names only (nil values), since the
@@ -104,7 +101,6 @@ defmodule ClaudeCode.Adapter.Node do
         |> Keyword.drop(@node_opts ++ [:mcp_servers])
         |> Keyword.put(:hook_registry, remote_registry)
         |> Keyword.put(:sdk_mcp_servers, stub_sdk_servers)
-        |> Keyword.put(:can_use_tool, if(can_use_tool, do: :proxied))
         |> Keyword.put(:callback_proxy, proxy)
         |> Keyword.put(:callback_timeout, callback_timeout)
 
@@ -144,8 +140,7 @@ defmodule ClaudeCode.Adapter.Node do
   defp has_local_callbacks?(local_registry, mcp_servers) do
     has_mcp = mcp_servers != nil and mcp_servers != %{}
     has_hooks = map_size(local_registry.callbacks) > 0
-    has_can_use_tool = local_registry.can_use_tool != nil
-    has_mcp or has_hooks or has_can_use_tool
+    has_mcp or has_hooks
   end
 
   defp connect_node(node, timeout) do

@@ -3,46 +3,6 @@ defmodule ClaudeCode.Hook.ResponseTest do
 
   alias ClaudeCode.Hook.Response
 
-  describe "to_can_use_tool_wire/1" do
-    test "translates :allow" do
-      assert %{"behavior" => "allow"} = Response.to_can_use_tool_wire(:allow)
-    end
-
-    test "translates {:allow, updated_input}" do
-      result = Response.to_can_use_tool_wire({:allow, %{"command" => "ls"}})
-      assert result["behavior"] == "allow"
-      assert result["updatedInput"] == %{"command" => "ls"}
-    end
-
-    test "translates {:allow, updated_input, permissions: updates}" do
-      updates = [%{type: :add_rules, rules: [%{tool_name: "Bash", rule_content: "allow ls"}]}]
-      result = Response.to_can_use_tool_wire({:allow, %{}, permissions: updates})
-      assert result["behavior"] == "allow"
-      assert result["updatedInput"] == %{}
-      assert is_list(result["updatedPermissions"])
-    end
-
-    test "translates {:deny, reason}" do
-      result = Response.to_can_use_tool_wire({:deny, "Not allowed"})
-      assert result["behavior"] == "deny"
-      assert result["message"] == "Not allowed"
-      refute Map.has_key?(result, "interrupt")
-    end
-
-    test "translates {:deny, reason, interrupt: true}" do
-      result = Response.to_can_use_tool_wire({:deny, "Critical", interrupt: true})
-      assert result["behavior"] == "deny"
-      assert result["message"] == "Critical"
-      assert result["interrupt"] == true
-    end
-
-    test "translates {:error, reason} as deny" do
-      result = Response.to_can_use_tool_wire({:error, "callback crashed"})
-      assert result["behavior"] == "deny"
-      assert result["message"] =~ "callback crashed"
-    end
-  end
-
   describe "to_hook_callback_wire/1" do
     test "translates :ok as empty response" do
       assert %{} = Response.to_hook_callback_wire(:ok)

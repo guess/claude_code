@@ -183,18 +183,16 @@ alias ClaudeCode.Agent
 
 ### Hooks and Permissions
 
-Intercept every tool execution with `can_use_tool` for programmatic approval, or use lifecycle hooks for auditing, budget guards, and more:
+Use lifecycle hooks for programmatic tool approval, auditing, budget guards, and more:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
-  # Programmatic tool approval
-  can_use_tool: fn %{tool_name: name}, _id ->
-    if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, "Read-only mode"}
-  end,
-  # Lifecycle hooks
   hooks: %{
-    PostToolUse: [%{hooks: [MyApp.AuditLogger]}],
-    Stop: [%{hooks: [MyApp.BudgetGuard]}]
+    PreToolUse: [fn %{tool_name: name}, _id ->
+      if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, "Read-only mode"}
+    end],
+    PostToolUse: [MyApp.AuditLogger],
+    Stop: [MyApp.BudgetGuard]
   }
 )
 ```

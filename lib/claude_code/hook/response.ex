@@ -2,34 +2,6 @@ defmodule ClaudeCode.Hook.Response do
   @moduledoc false
 
   @doc """
-  Translates a can_use_tool callback return value to CLI wire format.
-  """
-  @spec to_can_use_tool_wire(term()) :: map()
-  def to_can_use_tool_wire(:allow) do
-    %{"behavior" => "allow"}
-  end
-
-  def to_can_use_tool_wire({:allow, updated_input}) do
-    %{"behavior" => "allow", "updatedInput" => updated_input}
-  end
-
-  def to_can_use_tool_wire({:allow, updated_input, permissions: updates}) do
-    %{"behavior" => "allow", "updatedInput" => updated_input, "updatedPermissions" => updates}
-  end
-
-  def to_can_use_tool_wire({:deny, reason}) do
-    %{"behavior" => "deny", "message" => reason}
-  end
-
-  def to_can_use_tool_wire({:deny, reason, interrupt: true}) do
-    %{"behavior" => "deny", "message" => reason, "interrupt" => true}
-  end
-
-  def to_can_use_tool_wire({:error, reason}) do
-    %{"behavior" => "deny", "message" => "Hook error: #{reason}"}
-  end
-
-  @doc """
   Translates a hook_callback return value to CLI wire format.
   """
   @spec to_hook_callback_wire(term()) :: map()

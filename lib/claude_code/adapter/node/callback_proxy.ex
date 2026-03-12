@@ -44,10 +44,6 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxy do
     ControlHandler.handle_hook_callback(request, state.hook_registry)
   end
 
-  defp dispatch("can_use_tool", request, state) do
-    ControlHandler.handle_can_use_tool(request, state.hook_registry)
-  end
-
   defp dispatch(subtype, _request, _state) do
     Logger.warning("CallbackProxy received unhandled control request: #{subtype}")
     nil
