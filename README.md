@@ -52,8 +52,9 @@ mix deps.get
 mix claude_code.install  # optional – downloads on first use if skipped
 
 # Authenticate (pick one)
-export ANTHROPIC_API_KEY="sk-..."          # Option A: API key
-"$(mix claude_code.path)" /login           # Option B: Claude subscription
+export ANTHROPIC_API_KEY="sk-..."       # Option A: API key
+mix claude_code.setup_token             # Option B: Claude subscription (opens browser)
+export CLAUDE_CODE_OAUTH_TOKEN="..."    # Then set the token it prints
 ```
 
 ## Quick Start
