@@ -111,6 +111,12 @@ defmodule ClaudeCode.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       before_closing_body_tag: &before_closing_body_tag/1,
+      nest_modules_by_prefix: [
+        ClaudeCode.Message.SystemMessage,
+        ClaudeCode.Message,
+        ClaudeCode.Content,
+        ClaudeCode.Session
+      ],
       extras: [
         "README.md",
         "CHANGELOG.md",
@@ -200,19 +206,7 @@ defmodule ClaudeCode.MixProject do
         Streaming: [
           ClaudeCode.Stream
         ],
-        Messages: [
-          ClaudeCode.Message,
-          ClaudeCode.Message.AssistantMessage,
-          ClaudeCode.Message.AuthStatusMessage,
-          ClaudeCode.Message.PartialAssistantMessage,
-          ClaudeCode.Message.PromptSuggestionMessage,
-          ClaudeCode.Message.RateLimitEvent,
-          ClaudeCode.Message.ResultMessage,
-          ClaudeCode.Message.SystemMessage,
-          ClaudeCode.Message.ToolProgressMessage,
-          ClaudeCode.Message.ToolUseSummaryMessage,
-          ClaudeCode.Message.UserMessage
-        ],
+        Messages: ~r/ClaudeCode\.Message(?!\.SystemMessage\.)/,
         "System Messages": ~r/ClaudeCode\.Message\.SystemMessage\./,
         "Content Blocks": [
           ClaudeCode.Content,
@@ -243,8 +237,7 @@ defmodule ClaudeCode.MixProject do
         "MCP Integration": ~r/ClaudeCode\.MCP/,
         Testing: [
           ClaudeCode.Test,
-          ClaudeCode.Test.Factory,
-          ClaudeCode.Adapter.Test
+          ClaudeCode.Test.Factory
         ],
         Installation: [
           ClaudeCode.Adapter.Port.Installer,
@@ -257,6 +250,7 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Adapter,
           ClaudeCode.Adapter.Port,
           ClaudeCode.Adapter.Node,
+          ClaudeCode.Adapter.Test,
           ClaudeCode.CLI.Command,
           ClaudeCode.CLI.Control,
           ClaudeCode.CLI.Control.Types,
