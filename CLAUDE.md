@@ -54,7 +54,7 @@ Key modules:
 - **ClaudeCode.CLI.Command** - Converts Elixir options to CLI flags and builds argument lists
 - **ClaudeCode.CLI.Parser** - Parses newline-delimited JSON from CLI output into structs
 - **ClaudeCode.Adapter.Port.Installer** - CLI binary download and version management
-- **ClaudeCode.Plugin** - Plugin management (list, install, uninstall, enable, disable, update, validate)
+- **ClaudeCode.Plugin** - Plugin management (list, install, uninstall, enable, disable, update)
 - **ClaudeCode.Plugin.Marketplace** - Marketplace management (list, add, remove, update)
 
 Key CLI flags used:

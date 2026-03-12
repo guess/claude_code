@@ -286,14 +286,11 @@ end)
 {:ok, _} = ClaudeCode.Plugin.disable_all(scope: :project)
 ```
 
-### Updating and validating
+### Updating
 
 ```elixir
 # Update a plugin to the latest version
 {:ok, _} = ClaudeCode.Plugin.update("code-simplifier@claude-plugins-official")
-
-# Validate a local plugin manifest
-{:ok, _} = ClaudeCode.Plugin.validate("./my-plugin")
 ```
 
 ## Managing marketplaces

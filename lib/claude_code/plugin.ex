@@ -6,7 +6,7 @@ defmodule ClaudeCode.Plugin do
   and validate plugins from configured marketplaces.
 
   All functions resolve the CLI binary via `ClaudeCode.Adapter.Port.Resolver` and execute
-  commands synchronously.
+  commands synchronously via `ClaudeCode.System`.
 
   > **Note:** Remote node support is not yet implemented — these commands run on
   > the local machine only.
@@ -24,7 +24,7 @@ defmodule ClaudeCode.Plugin do
       {:ok, _} = ClaudeCode.Plugin.disable("code-simplifier@claude-plugins-official")
   """
 
-  alias ClaudeCode.Adapter.Port.Resolver
+  alias ClaudeCode.Plugin.CLI, as: PluginCLI
 
   defstruct [
     :id,
@@ -65,7 +65,7 @@ defmodule ClaudeCode.Plugin do
   """
   @spec list(keyword()) :: {:ok, [t()]} | {:error, String.t()}
   def list(opts \\ []) do
-    run_command(["plugin", "list", "--json"], opts, &parse_list/1)
+    PluginCLI.run(["plugin", "list", "--json"], opts, &parse_list/1)
   end
 
   @doc """
@@ -85,8 +85,8 @@ defmodule ClaudeCode.Plugin do
   """
   @spec install(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def install(plugin_id, opts \\ []) do
-    args = ["plugin", "install"] ++ scope_args(opts) ++ [plugin_id]
-    run_command(args, opts, &{:ok, String.trim(&1)})
+    args = ["plugin", "install"] ++ PluginCLI.scope_args(opts) ++ [plugin_id]
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
@@ -102,8 +102,8 @@ defmodule ClaudeCode.Plugin do
   """
   @spec uninstall(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def uninstall(plugin_id, opts \\ []) do
-    args = ["plugin", "uninstall"] ++ scope_args(opts) ++ [plugin_id]
-    run_command(args, opts, &{:ok, String.trim(&1)})
+    args = ["plugin", "uninstall"] ++ PluginCLI.scope_args(opts) ++ [plugin_id]
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
@@ -119,8 +119,8 @@ defmodule ClaudeCode.Plugin do
   """
   @spec enable(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def enable(plugin_id, opts \\ []) do
-    args = ["plugin", "enable"] ++ scope_args(opts) ++ [plugin_id]
-    run_command(args, opts, &{:ok, String.trim(&1)})
+    args = ["plugin", "enable"] ++ PluginCLI.scope_args(opts) ++ [plugin_id]
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
@@ -136,8 +136,8 @@ defmodule ClaudeCode.Plugin do
   """
   @spec disable(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def disable(plugin_id, opts \\ []) do
-    args = ["plugin", "disable"] ++ scope_args(opts) ++ [plugin_id]
-    run_command(args, opts, &{:ok, String.trim(&1)})
+    args = ["plugin", "disable"] ++ PluginCLI.scope_args(opts) ++ [plugin_id]
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
@@ -154,8 +154,8 @@ defmodule ClaudeCode.Plugin do
   """
   @spec disable_all(keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def disable_all(opts \\ []) do
-    args = ["plugin", "disable", "--all"] ++ scope_args(opts)
-    run_command(args, opts, &{:ok, String.trim(&1)})
+    args = ["plugin", "disable", "--all"] ++ PluginCLI.scope_args(opts)
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
@@ -173,38 +173,8 @@ defmodule ClaudeCode.Plugin do
   """
   @spec update(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
   def update(plugin_id, opts \\ []) do
-    args = ["plugin", "update"] ++ scope_args(opts) ++ [plugin_id]
-    run_command(args, opts, &{:ok, String.trim(&1)})
-  end
-
-  @doc """
-  Validates a plugin or marketplace manifest at the given path.
-
-  ## Examples
-
-      {:ok, _} = ClaudeCode.Plugin.validate("./my-plugin")
-  """
-  @spec validate(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def validate(path) do
-    run_command(["plugin", "validate", path], [], &{:ok, String.trim(&1)})
-  end
-
-  # -- Private: CLI execution --------------------------------------------------
-
-  defp run_command(args, opts, parse_fn) do
-    with {:ok, binary} <- Resolver.find_binary(opts) do
-      case System.cmd(binary, args, stderr_to_stdout: true) do
-        {output, 0} -> parse_fn.(output)
-        {error_output, _exit_code} -> {:error, String.trim(error_output)}
-      end
-    end
-  end
-
-  defp scope_args(opts) do
-    case Keyword.get(opts, :scope) do
-      nil -> []
-      scope -> ["--scope", to_string(scope)]
-    end
+    args = ["plugin", "update"] ++ PluginCLI.scope_args(opts) ++ [plugin_id]
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   # -- Private: JSON parsing ---------------------------------------------------
