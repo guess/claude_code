@@ -25,6 +25,7 @@ defmodule ClaudeCode.Hook.Registry do
       Enum.reduce(hooks_map, {%{}, %{}, %{}, 0}, fn {event_name, matchers}, {cb_acc, tgt_acc, wire_acc, counter} ->
         {matcher_entries, new_cb_acc, new_tgt_acc, new_counter} =
           Enum.reduce(matchers, {[], cb_acc, tgt_acc, counter}, fn matcher_config, {entries, cbs, tgts, cnt} ->
+            matcher_config = normalize_matcher(matcher_config)
             hook_list = Map.get(matcher_config, :hooks, [])
             where = Map.get(matcher_config, :where, :local)
 
@@ -93,6 +94,10 @@ defmodule ClaudeCode.Hook.Registry do
 
     {local, remote}
   end
+
+  defp normalize_matcher(hook) when is_atom(hook), do: %{hooks: [hook]}
+  defp normalize_matcher(hook) when is_function(hook, 2), do: %{hooks: [hook]}
+  defp normalize_matcher(%{} = config), do: config
 
   defp maybe_put_timeout(entry, nil), do: entry
   defp maybe_put_timeout(entry, timeout), do: Map.put(entry, "timeout", timeout)

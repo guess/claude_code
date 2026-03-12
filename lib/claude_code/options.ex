@@ -455,15 +455,29 @@ defmodule ClaudeCode.Options do
       doc: """
       Lifecycle hook configurations.
 
-      A map of event names to lists of matcher configs. Each matcher has:
-      - `:matcher` - Regex pattern for tool names (nil = match all)
-      - `:hooks` - List of modules or 2-arity functions
-      - `:timeout` - Optional timeout in seconds
+      A map of event names to lists of hook entries. Each entry can be:
 
-      Example:
+      - A **bare module** or **2-arity function** (shorthand — registered without a matcher)
+      - A **map** with `:matcher`, `:hooks`, and optional `:timeout`
+
+      Shorthand:
+          hooks: %{
+            PreToolUse: [MyApp.BashGuard],
+            PostToolUse: [fn input, _id -> Logger.info(inspect(input)); :ok end]
+          }
+
+      Full form (required for matchers, timeouts, or `:where`):
           hooks: %{
             PreToolUse: [%{matcher: "Bash", hooks: [MyApp.BashGuard]}],
             PostToolUse: [%{hooks: [MyApp.AuditLogger]}]
+          }
+
+      Mixed:
+          hooks: %{
+            PreToolUse: [
+              MyApp.GlobalGuard,
+              %{matcher: "Bash", hooks: [MyApp.BashGuard], timeout: 30}
+            ]
           }
       """
     ],

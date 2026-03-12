@@ -92,6 +92,32 @@ The `:hooks` option is a map where:
 - **Keys** are [hook event names](#available-hooks) (e.g., `PreToolUse`, `PostToolUse`, `Stop`)
 - **Values** are lists of [matchers](#matchers), each containing an optional filter pattern and your [callback functions](#callback-function-inputs)
 
+### Shorthand syntax
+
+When you don't need a matcher, timeout, or `:where`, pass a bare module or 2-arity function directly:
+
+```elixir
+# Shorthand — bare module or function
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    PreToolUse: [MyApp.BashGuard],
+    PostToolUse: [fn _input, _id -> :ok end]
+  }
+)
+
+# Mixed — shorthand alongside full matcher configs
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    PreToolUse: [
+      MyApp.GlobalGuard,                                       # shorthand
+      %{matcher: "Bash", hooks: [MyApp.BashGuard], timeout: 30}  # full form
+    ]
+  }
+)
+```
+
+The shorthand is equivalent to `%{hooks: [MyModule]}` — registered without a matcher (matches all tools) and with default timeout.
+
 Your hook callbacks receive [input data](#hook-event-reference) about the event and return a [response](#callback-outputs) so the agent knows to allow, block, or modify the operation.
 
 ### Matchers
@@ -467,10 +493,10 @@ Hooks execute in the order they appear in the list. Keep each hook focused on a 
 {:ok, session} = ClaudeCode.start_link(
   hooks: %{
     PreToolUse: [
-      %{hooks: [MyApp.RateLimiter]},         # First: check rate limits
-      %{hooks: [MyApp.AuthorizationCheck]},   # Second: verify permissions
-      %{hooks: [MyApp.InputSanitizer]},       # Third: sanitize inputs
-      %{hooks: [MyApp.AuditLogger]}           # Last: log the action
+      MyApp.RateLimiter,         # First: check rate limits
+      MyApp.AuthorizationCheck,  # Second: verify permissions
+      MyApp.InputSanitizer,      # Third: sanitize inputs
+      MyApp.AuditLogger          # Last: log the action
     ]
   }
 )

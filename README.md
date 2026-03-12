@@ -188,11 +188,11 @@ Use lifecycle hooks for programmatic tool approval, auditing, budget guards, and
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
   hooks: %{
-    PreToolUse: [%{hooks: [fn %{tool_name: name}, _id ->
+    PreToolUse: [fn %{tool_name: name}, _id ->
       if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, "Read-only mode"}
-    end]}],
-    PostToolUse: [%{hooks: [MyApp.AuditLogger]}],
-    Stop: [%{hooks: [MyApp.BudgetGuard]}]
+    end],
+    PostToolUse: [MyApp.AuditLogger],
+    Stop: [MyApp.BudgetGuard]
   }
 )
 ```

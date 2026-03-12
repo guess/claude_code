@@ -201,7 +201,7 @@ end
 
 {:ok, session} = ClaudeCode.start_link(
   hooks: %{
-    PreToolUse: [%{hooks: [MyApp.ToolPermissions]}]
+    PreToolUse: [MyApp.ToolPermissions]
   }
 )
 ```
@@ -222,7 +222,7 @@ Register a `PreToolUse` hook in your session options. By default, `AskUserQuesti
 {:ok, session} = ClaudeCode.start_link(
   tools: ["Read", "Glob", "Grep", "AskUserQuestion"],
   hooks: %{
-    PreToolUse: [%{hooks: [&my_tool_handler/2]}]
+    PreToolUse: [&my_tool_handler/2]
   }
 )
 ```
@@ -426,7 +426,7 @@ end
 
 {:ok, session} = ClaudeCode.start_link(
   hooks: %{
-    PreToolUse: [%{hooks: [MyApp.UserInput]}]
+    PreToolUse: [MyApp.UserInput]
   }
 )
 

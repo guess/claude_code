@@ -99,6 +99,56 @@ defmodule ClaudeCode.Hook.RegistryTest do
       assert Registry.target(registry, "hook_0") == :local
     end
 
+    test "accepts bare module atom as shorthand" do
+      hooks = %{
+        PreToolUse: [DenyBash]
+      }
+
+      {registry, wire} = Registry.new(hooks)
+      assert map_size(registry.callbacks) == 1
+      assert {:ok, DenyBash} = Registry.lookup(registry, "hook_0")
+      assert %{"PreToolUse" => [entry]} = wire
+      assert entry["hookCallbackIds"] == ["hook_0"]
+    end
+
+    test "accepts bare 2-arity function as shorthand" do
+      hook_fn = fn _input, _id -> :allow end
+
+      hooks = %{
+        PreToolUse: [hook_fn]
+      }
+
+      {registry, wire} = Registry.new(hooks)
+      assert map_size(registry.callbacks) == 1
+      assert {:ok, ^hook_fn} = Registry.lookup(registry, "hook_0")
+      assert %{"PreToolUse" => [entry]} = wire
+      assert entry["hookCallbackIds"] == ["hook_0"]
+    end
+
+    test "accepts mixed shorthand and full map configs" do
+      hook_fn = fn _input, _id -> :ok end
+
+      hooks = %{
+        PreToolUse: [
+          AllowAll,
+          %{matcher: "Bash", hooks: [DenyBash]},
+          hook_fn
+        ]
+      }
+
+      {registry, wire} = Registry.new(hooks)
+      assert map_size(registry.callbacks) == 3
+      assert {:ok, AllowAll} = Registry.lookup(registry, "hook_0")
+      assert {:ok, DenyBash} = Registry.lookup(registry, "hook_1")
+      assert {:ok, ^hook_fn} = Registry.lookup(registry, "hook_2")
+
+      assert %{"PreToolUse" => entries} = wire
+      assert length(entries) == 3
+      assert Enum.at(entries, 0)["matcher"] == nil
+      assert Enum.at(entries, 1)["matcher"] == "Bash"
+      assert Enum.at(entries, 2)["matcher"] == nil
+    end
+
     test "wire format includes callbacks from all execution targets" do
       hooks = %{
         PreToolUse: [
