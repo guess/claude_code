@@ -4,20 +4,22 @@ description: Update version number across the project
 
 Update version to the specified X.Y.Z value.
 
+**CRITICAL: You MUST Read each file BEFORE attempting to Edit it. The Edit tool will fail if you have not read the file first. Do not skip this step for any file.**
+
 ### Steps
 
-1. Get current version from `mix.exs`
+1. Read `mix.exs` and get current version.
 
 2. Search for **both** version patterns (replace X.Y with actual current major.minor):
    ```bash
    grep -rn "X\.Y" --include="*.md" --include="*.ex" --include="*.exs" . | grep -v deps/ | grep -v _build/ | grep -v CHANGELOG
    ```
 
-3. Update all matches (preserve existing format):
+3. For each file that needs updating: **Read the file first**, then Edit it (preserve existing format):
    - Full versions `"X.Y.Z"` → new full version
    - Dependency specs `"~> X.Y"` → new major.minor
 
-4. Update `CHANGELOG.md`:
+4. Read then update `CHANGELOG.md`:
    - Get the bundled CLI version from `@default_cli_version` in `lib/claude_code/adapter/port/installer.ex`
    - Convert Unreleased to `[X.Y.Z] - YYYY-MM-DD | CC A.B.C` where A.B.C is the CLI version
    - Example: `## [0.18.0] - 2026-02-08 | CC 2.1.37`
