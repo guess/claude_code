@@ -194,23 +194,58 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Supervisor
         ],
         Configuration: [
-          ClaudeCode.Options
+          ClaudeCode.Options,
+          ClaudeCode.Agent
         ],
         Streaming: [
           ClaudeCode.Stream
         ],
-        "Types & Parsing": [
+        Messages: [
           ClaudeCode.Message,
-          ClaudeCode.Content
+          ClaudeCode.Message.AssistantMessage,
+          ClaudeCode.Message.AuthStatusMessage,
+          ClaudeCode.Message.PartialAssistantMessage,
+          ClaudeCode.Message.PromptSuggestionMessage,
+          ClaudeCode.Message.RateLimitEvent,
+          ClaudeCode.Message.ResultMessage,
+          ClaudeCode.Message.SystemMessage,
+          ClaudeCode.Message.ToolProgressMessage,
+          ClaudeCode.Message.ToolUseSummaryMessage,
+          ClaudeCode.Message.UserMessage
         ],
+        "System Messages": ~r/ClaudeCode\.Message\.SystemMessage\./,
+        "Content Blocks": [
+          ClaudeCode.Content,
+          ~r/ClaudeCode\.Content\./
+        ],
+        "Session Types": [
+          ClaudeCode.Session.AccountInfo,
+          ClaudeCode.Session.AgentInfo,
+          ClaudeCode.Session.PermissionDenial,
+          ClaudeCode.Session.PermissionMode,
+          ClaudeCode.Session.SlashCommand
+        ],
+        Model: [
+          ClaudeCode.Model,
+          ClaudeCode.Model.Effort,
+          ClaudeCode.Model.Info,
+          ClaudeCode.Model.Usage,
+          ClaudeCode.Usage
+        ],
+        Sandbox: [
+          ClaudeCode.Sandbox,
+          ClaudeCode.Sandbox.Filesystem,
+          ClaudeCode.Sandbox.Network
+        ],
+        Hooks: [
+          ClaudeCode.Hook
+        ],
+        "MCP Integration": ~r/ClaudeCode\.MCP/,
         Testing: [
           ClaudeCode.Test,
           ClaudeCode.Test.Factory,
           ClaudeCode.Adapter.Test
         ],
-        "MCP Integration": ~r/ClaudeCode.MCP/,
-        Messages: ~r/ClaudeCode.Message/,
-        "Content Blocks": ~r/ClaudeCode.Content/,
         Installation: [
           ClaudeCode.Adapter.Port.Installer,
           ClaudeCode.Adapter.Port.Resolver,
@@ -224,6 +259,7 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Adapter.Node,
           ClaudeCode.CLI.Command,
           ClaudeCode.CLI.Control,
+          ClaudeCode.CLI.Control.Types,
           ClaudeCode.CLI.Input,
           ClaudeCode.CLI.Parser,
           ClaudeCode.History,
