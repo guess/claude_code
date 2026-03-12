@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`mix claude_code.setup_token` task** — New mix task that runs `claude setup-token` to configure an OAuth token via an interactive browser flow. Allocates a PTY to support the CLI's terminal UI on both macOS and Linux. ([aff71ca])
+
 ## [0.31.0] - 2026-03-11 | CC 2.1.72
 
 ### Added
