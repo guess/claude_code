@@ -52,7 +52,7 @@ defmodule ClaudeCode.MCP.Router do
           "serverInfo" => %{"name" => server_name, "version" => "1.0.0"}
         })
 
-      "notifications/initialized" ->
+      "notifications/" <> _ ->
         # Notifications have no "id" field in JSONRPC 2.0
         %{"jsonrpc" => "2.0", "result" => %{}}
 

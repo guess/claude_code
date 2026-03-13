@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`ClaudeCode.MCP.Router` generic notification handling** — Handle all JSONRPC 2.0 notification types (`notifications/*`) instead of only `notifications/initialized`. Previously, other notification types like `notifications/cancelled` would crash with a `FunctionClauseError` because `jsonrpc_error/3` requires an `"id"` field that notifications don't have.
+
 ### Added
 
 - **`mix claude_code.setup_token` task** — New mix task that runs `claude setup-token` to configure an OAuth token via an interactive browser flow. Allocates a PTY to support the CLI's terminal UI on both macOS and Linux. ([aff71ca])

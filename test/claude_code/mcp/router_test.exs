@@ -18,9 +18,25 @@ defmodule ClaudeCode.MCP.RouterTest do
     end
   end
 
-  describe "handle_request/2 - notifications/initialized" do
-    test "returns empty result without id (JSONRPC notification)" do
+  describe "handle_request/2 - notifications" do
+    test "returns empty result for notifications/initialized" do
       message = %{"jsonrpc" => "2.0", "method" => "notifications/initialized"}
+      response = Router.handle_request(ClaudeCode.TestTools, message)
+
+      assert response["result"] == %{}
+      refute Map.has_key?(response, "id")
+    end
+
+    test "returns empty result for notifications/cancelled" do
+      message = %{"jsonrpc" => "2.0", "method" => "notifications/cancelled"}
+      response = Router.handle_request(ClaudeCode.TestTools, message)
+
+      assert response["result"] == %{}
+      refute Map.has_key?(response, "id")
+    end
+
+    test "returns empty result for any notification type" do
+      message = %{"jsonrpc" => "2.0", "method" => "notifications/progress"}
       response = Router.handle_request(ClaudeCode.TestTools, message)
 
       assert response["result"] == %{}
