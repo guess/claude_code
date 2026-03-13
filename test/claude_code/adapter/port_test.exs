@@ -802,7 +802,7 @@ defmodule ClaudeCode.Adapter.PortTest do
       GenServer.stop(adapter)
     end
 
-    test "disconnects on buffer overflow" do
+    test "disconnects on buffer overflow from single incomplete line" do
       {:ok, context} =
         MockCLI.setup_with_script("""
         #!/bin/bash
@@ -839,6 +839,68 @@ defmodule ClaudeCode.Adapter.PortTest do
 
       state = :sys.get_state(adapter)
       assert state.status == :disconnected
+
+      GenServer.stop(adapter)
+    end
+
+    test "does not overflow when many complete lines arrive in a single chunk" do
+      # Regression: before the fix, the buffer overflow check ran BEFORE extracting
+      # complete lines, so a burst of many small complete JSON lines whose combined
+      # byte size exceeded max_buffer_size would trigger a false overflow even though
+      # the remaining incomplete buffer was empty.
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        INIT_DONE=false
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            INIT_DONE=true
+          elif [ "$INIT_DONE" = true ]; then
+            # Build all messages into a single buffer and write them atomically via printf.
+            # Individual echo calls would be delivered as separate port data events,
+            # but printf with a single string ensures they arrive in one chunk.
+            # Each line is ~300 bytes. 20 lines = ~6000 bytes > max_buffer_size of 2000.
+            # All lines are newline-terminated, so after extract_lines the remaining buffer is empty.
+            MSG='{"type":"assistant","message":{"id":"msg_X","type":"message","role":"assistant","content":[{"type":"text","text":"chunk"}],"model":"claude-sonnet-4-20250514","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":10,"output_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"server_tool_use":null}}}'
+            RES='{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"done","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+            BATCH=""
+            for i in $(seq 1 20); do
+              BATCH="${BATCH}${MSG}"$'\n'
+            done
+            BATCH="${BATCH}${RES}"$'\n'
+            printf '%s' "$BATCH"
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          max_buffer_size: 2000
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      req_ref = make_ref()
+      :ok = Port.send_query(adapter, req_ref, "hello", [])
+
+      # Should receive the result successfully, NOT a buffer_overflow error.
+      # The adapter sends raw JSON maps to the session (parsing happens in Session.Server),
+      # so we match on the raw map here.
+      assert_receive {:adapter_message, ^req_ref, %{"type" => "result", "result" => "done"}},
+                     5000
+
+      refute_received {:adapter_error, ^req_ref, {:buffer_overflow, _}}
+
+      state = :sys.get_state(adapter)
+      assert state.status == :ready
 
       GenServer.stop(adapter)
     end

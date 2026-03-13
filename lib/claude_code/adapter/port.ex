@@ -252,19 +252,20 @@ defmodule ClaudeCode.Adapter.Port do
 
   def handle_info({port, {:data, data}}, %{port: port} = state) do
     new_buffer = state.buffer <> data
+    {lines, remaining_buffer} = extract_lines(new_buffer)
 
-    if byte_size(new_buffer) > state.max_buffer_size do
-      Logger.error("Buffer overflow: #{byte_size(new_buffer)} bytes exceeds max #{state.max_buffer_size}")
+    new_state =
+      Enum.reduce(lines, %{state | buffer: remaining_buffer}, fn line, acc_state ->
+        process_line(line, acc_state)
+      end)
 
-      {:noreply, handle_port_disconnect(state, {:buffer_overflow, byte_size(new_buffer)})}
+    if byte_size(new_state.buffer) > new_state.max_buffer_size do
+      Logger.error(
+        "Buffer overflow: incomplete line is #{byte_size(new_state.buffer)} bytes, exceeds max #{new_state.max_buffer_size}"
+      )
+
+      {:noreply, handle_port_disconnect(new_state, {:buffer_overflow, byte_size(new_state.buffer)})}
     else
-      {lines, remaining_buffer} = extract_lines(new_buffer)
-
-      new_state =
-        Enum.reduce(lines, %{state | buffer: remaining_buffer}, fn line, acc_state ->
-          process_line(line, acc_state)
-        end)
-
       {:noreply, new_state}
     end
   end

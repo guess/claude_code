@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`ClaudeCode.Adapter.Port` buffer overflow false positive** — The buffer overflow check now runs after extracting complete lines, not before. Previously, a burst of many small complete JSON messages arriving in a single chunk could trigger a false overflow even though only the remaining incomplete buffer should count against the limit.
 - **`ClaudeCode.MCP.Router` generic notification handling** — Handle all JSONRPC 2.0 notification types (`notifications/*`) instead of only `notifications/initialized`. Previously, other notification types like `notifications/cancelled` would crash with a `FunctionClauseError` because `jsonrpc_error/3` requires an `"id"` field that notifications don't have.
 
 ### Added
