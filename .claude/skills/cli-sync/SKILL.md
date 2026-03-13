@@ -12,7 +12,7 @@ Synchronize the ClaudeCode Elixir SDK with the Claude CLI to detect schema chang
 
 The Claude CLI evolves independently of this SDK. This skill dispatches five parallel agents to check alignment across all layers: versions, message types, content blocks, control protocol, and CLI options. Each agent has self-contained instructions in a `references/check-*.md` file.
 
-**Canonical sources**: The TypeScript SDK (`@anthropic-ai/claude-agent-sdk`) provides the `SDKMessage` union (message types) and `SDKControl*` types (control protocol). The Anthropic API SDK (`@anthropic-ai/sdk`) provides `BetaContentBlock` types. The Python SDK (`claude-agent-sdk-python`) provides cross-reference for options and field names.
+**Canonical sources**: The TypeScript SDK (`@anthropic-ai/claude-agent-sdk`) provides the `SDKMessage` union (message types) and `SDKControl*` types (control protocol). The Anthropic API SDK (`@anthropic-ai/sdk`) provides `BetaContentBlock` types. The Python SDK (`claude-agent-sdk-python`) provides cross-reference for options, field names, control protocol handling, and message parsing. See `references/upstream-sources.md` for the complete file-level mapping.
 
 ## Workflow
 

@@ -12,7 +12,7 @@
 # What it captures:
 #   - CLI version
 #   - CLI --help output
-#   - Python SDK types.py and subprocess_cli.py (via gh)
+#   - Python SDK types.py, subprocess_cli.py, query.py, message_parser.py, client.py (via gh)
 #   - TypeScript SDK sdk.d.ts type definitions (via npm/unpkg)
 #   - Anthropic API types (BetaRawMessageStreamEvent etc. from @anthropic-ai/sdk)
 #   - SDK version tracking files
@@ -65,19 +65,45 @@ fi
 
 # --- Python SDK via gh ---
 echo "[4/8] Fetching Python SDK sources via gh..."
+PYTHON_REPO="anthropics/claude-agent-sdk-python"
+PYTHON_SRC="src/claude_agent_sdk"
 if command -v gh &> /dev/null; then
     # types.py - canonical message/content type definitions
-    gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/types.py --jq '.content' 2>/dev/null | base64 -d \
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/types.py" --jq '.content' 2>/dev/null | base64 -d \
         > "$OUTPUT_DIR/python-sdk-types.py" 2>/dev/null || echo "# FAILED to fetch types.py" > "$OUTPUT_DIR/python-sdk-types.py"
     echo "  Done: python-sdk-types.py"
 
     # subprocess_cli.py - CLI flag mapping
-    gh api repos/anthropics/claude-agent-sdk-python/contents/src/claude_agent_sdk/_internal/transport/subprocess_cli.py --jq '.content' 2>/dev/null | base64 -d \
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/_internal/transport/subprocess_cli.py" --jq '.content' 2>/dev/null | base64 -d \
         > "$OUTPUT_DIR/python-sdk-subprocess-cli.py" 2>/dev/null || echo "# FAILED to fetch subprocess_cli.py" > "$OUTPUT_DIR/python-sdk-subprocess-cli.py"
     echo "  Done: python-sdk-subprocess-cli.py"
+
+    # query.py - control protocol handling, hook dispatch, can_use_tool routing
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/_internal/query.py" --jq '.content' 2>/dev/null | base64 -d \
+        > "$OUTPUT_DIR/python-sdk-query.py" 2>/dev/null || echo "# FAILED to fetch query.py" > "$OUTPUT_DIR/python-sdk-query.py"
+    echo "  Done: python-sdk-query.py"
+
+    # message_parser.py - message type dispatch and field extraction
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/_internal/message_parser.py" --jq '.content' 2>/dev/null | base64 -d \
+        > "$OUTPUT_DIR/python-sdk-message-parser.py" 2>/dev/null || echo "# FAILED to fetch message_parser.py" > "$OUTPUT_DIR/python-sdk-message-parser.py"
+    echo "  Done: python-sdk-message-parser.py"
+
+    # client.py (internal) - option validation, mutual exclusion, preprocessing
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/_internal/client.py" --jq '.content' 2>/dev/null | base64 -d \
+        > "$OUTPUT_DIR/python-sdk-client.py" 2>/dev/null || echo "# FAILED to fetch _internal/client.py" > "$OUTPUT_DIR/python-sdk-client.py"
+    echo "  Done: python-sdk-client.py"
+
+    # client.py (public) - public client API surface
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/client.py" --jq '.content' 2>/dev/null | base64 -d \
+        > "$OUTPUT_DIR/python-sdk-public-client.py" 2>/dev/null || echo "# FAILED to fetch client.py" > "$OUTPUT_DIR/python-sdk-public-client.py"
+    echo "  Done: python-sdk-public-client.py"
 else
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-types.py"
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-subprocess-cli.py"
+    echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-query.py"
+    echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-message-parser.py"
+    echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-client.py"
+    echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-public-client.py"
     echo "  WARNING: gh CLI not found, skipping Python SDK fetch"
 fi
 
