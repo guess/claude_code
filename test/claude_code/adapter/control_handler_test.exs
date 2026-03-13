@@ -105,13 +105,13 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
       assert result == %{}
     end
 
-    test "defaults hook_event_name to PreToolUse when not in input" do
+    test "passes through hook_event_name from input" do
       hooks = %{PreToolUse: [%{hooks: [MapAllowHook]}]}
       {registry, _wire} = HookRegistry.new(hooks)
 
       request = %{
         "callback_id" => "hook_0",
-        "input" => %{"tool_name" => "Read"},
+        "input" => %{"hook_event_name" => "PreToolUse", "tool_name" => "Read"},
         "tool_use_id" => nil
       }
 

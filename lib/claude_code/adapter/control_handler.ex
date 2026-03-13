@@ -27,9 +27,7 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   end
 
   @spec handle_can_use_tool(map(), HookRegistry.t()) :: map()
-  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}) do
-    %{"behavior" => "allow"}
-  end
+  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}), do: %{"behavior" => "allow"}
 
   def handle_can_use_tool(request, %HookRegistry{can_use_tool: callback}) do
     input =
@@ -49,9 +47,7 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   @spec handle_hook_callback(map(), HookRegistry.t()) :: map()
   def handle_hook_callback(request, hook_registry) do
     callback_id = request["callback_id"]
-    raw_input = request["input"] || %{}
-    hook_event_name = raw_input["hook_event_name"] || "PreToolUse"
-    input = raw_input |> Map.put("hook_event_name", hook_event_name) |> ClaudeCode.MapUtils.safe_atomize_keys()
+    input = (request["input"] || %{}) |> ClaudeCode.MapUtils.safe_atomize_keys()
     tool_use_id = request["tool_use_id"]
 
     case HookRegistry.lookup(hook_registry, callback_id) do

@@ -1156,7 +1156,7 @@ defmodule ClaudeCode.Adapter.PortTest do
           "request" => %{
             "subtype" => "hook_callback",
             "callback_id" => "hook_0",
-            "input" => %{"tool_name" => "Bash", "command" => "ls"},
+            "input" => %{"hook_event_name" => "PreToolUse", "tool_name" => "Bash", "command" => "ls"},
             "tool_use_id" => "tool_123"
           }
         })
@@ -1165,7 +1165,7 @@ defmodule ClaudeCode.Adapter.PortTest do
       send(adapter, {state.port, {:data, hook_callback_request <> "\n"}})
 
       assert_receive {:hook_called, input, tool_use_id}, 2000
-      assert input == %{tool_name: "Bash", command: "ls", hook_event_name: "PreToolUse"}
+      assert input == %{hook_event_name: "PreToolUse", tool_name: "Bash", command: "ls"}
       assert tool_use_id == "tool_123"
 
       GenServer.stop(adapter)

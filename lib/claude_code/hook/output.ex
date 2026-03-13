@@ -17,6 +17,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule Async do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:timeout]
 
     def to_wire(%__MODULE__{} = o) do
@@ -29,6 +30,7 @@ defmodule ClaudeCode.Hook.Output do
 
     defmodule Allow do
       @moduledoc false
+      @type t :: %__MODULE__{}
       defstruct [:updated_input, :updated_permissions]
 
       def to_wire(%__MODULE__{} = o) do
@@ -40,6 +42,7 @@ defmodule ClaudeCode.Hook.Output do
 
     defmodule Deny do
       @moduledoc false
+      @type t :: %__MODULE__{}
       defstruct [:message, :interrupt]
 
       def to_wire(%__MODULE__{} = o) do
@@ -52,6 +55,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule PreToolUse do
     @moduledoc false
+    @type t :: %__MODULE__{}
 
     defstruct [
       :permission_decision,
@@ -71,6 +75,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule PostToolUse do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:additional_context, :updated_mcp_tool_output]
 
     def to_wire(%__MODULE__{} = o) do
@@ -82,6 +87,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule PostToolUseFailure do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:additional_context]
 
     def to_wire(%__MODULE__{} = o) do
@@ -91,6 +97,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule UserPromptSubmit do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:additional_context]
 
     def to_wire(%__MODULE__{} = o) do
@@ -100,6 +107,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule SessionStart do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:additional_context]
 
     def to_wire(%__MODULE__{} = o) do
@@ -109,6 +117,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule Notification do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:additional_context]
 
     def to_wire(%__MODULE__{} = o) do
@@ -118,6 +127,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule SubagentStart do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:additional_context]
 
     def to_wire(%__MODULE__{} = o) do
@@ -127,6 +137,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule PreCompact do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:custom_instructions]
 
     def to_wire(%__MODULE__{} = o) do
@@ -136,6 +147,7 @@ defmodule ClaudeCode.Hook.Output do
 
   defmodule PermissionRequest do
     @moduledoc false
+    @type t :: %__MODULE__{}
     defstruct [:decision]
 
     def to_wire(%__MODULE__{decision: decision}) do
