@@ -14,6 +14,7 @@ Detect new, removed, or changed CLI flags and SDK options by comparing CLI help 
 - `captured/ts-sdk-types.d.ts` -- Search for the `ClaudeAgentOptions` or `Options` type definition. Extract all option names and their types.
 - `captured/python-sdk-subprocess-cli.py` -- The `_build_command()` method showing how the Python SDK maps options to CLI flags.
 - `captured/python-sdk-types.py` -- Python SDK's options type definitions (class fields and their types).
+- `captured/python-sdk-client.py` -- Internal client showing option validation, mutual exclusion rules (e.g., `can_use_tool` vs `permission_prompt_tool_name`), and agent/hook preprocessing.
 
 ### Elixir implementation
 

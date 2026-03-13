@@ -12,6 +12,7 @@ Detect coverage gaps in the Elixir SDK's message type handling. Compare the cano
 
 - `captured/ts-sdk-types.d.ts` -- Extract the `SDKMessage` union type and all member type definitions. This is the canonical source of truth for all message types the CLI can emit.
 - `captured/python-sdk-types.py` -- Cross-reference the Python SDK's `Message` union (a subset of ~5 types). Useful for confirming wire type strings and field names.
+- `captured/python-sdk-message-parser.py` -- Message parsing dispatch logic. Shows how the Python SDK maps wire type strings to typed objects, including subtype handling for system messages.
 
 ### Elixir implementation
 

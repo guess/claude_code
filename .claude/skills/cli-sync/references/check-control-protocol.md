@@ -15,6 +15,11 @@ missing public API accessors for initialize response data.
 
 - `captured/ts-sdk-types.d.ts` — search for all `SDKControl*` type definitions
   (request types, response types, and related interfaces)
+- `captured/python-sdk-query.py` — control request/response handling logic,
+  hook dispatch, `can_use_tool` routing, MCP message routing. Cross-reference
+  for control flow patterns and request subtypes.
+- `captured/python-sdk-client.py` — option validation and mutual exclusion
+  rules (e.g., `can_use_tool` vs `permission_prompt_tool_name`)
 
 ### Elixir implementation
 
