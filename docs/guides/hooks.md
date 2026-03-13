@@ -26,9 +26,9 @@ defmodule MyApp.ProtectEnvFiles do
   @impl true
   def call(%{hook_event_name: "PreToolUse", tool_input: %{"file_path" => file_path}}, _tool_use_id) do
     if Path.basename(file_path) == ".env" do
-      {:deny, "Cannot modify .env files"}
+      {:deny, permission_decision_reason: "Cannot modify .env files"}
     else
-      :allow
+      {:allow, []}
     end
   end
 
@@ -186,7 +186,7 @@ When multiple hooks or permission rules apply, the SDK evaluates them in this or
 3. **Allow** rules are checked third.
 4. **Default to Ask** if nothing matches.
 
-If any hook returns `{:deny, reason}`, the operation is blocked -- other hooks returning `:allow` will not override it.
+If any hook returns `{:deny, permission_decision_reason: reason}`, the operation is blocked -- other hooks returning `{:allow, []}` will not override it.
 
 ## The Hook behaviour
 
@@ -262,14 +262,14 @@ defmodule MyApp.RedirectToSandbox do
   @impl true
   def call(%{hook_event_name: "PreToolUse", tool_name: "Write", tool_input: input}, _tool_use_id) do
     original_path = Map.get(input, "file_path", "")
-    {:allow, Map.put(input, "file_path", "/sandbox#{original_path}")}
+    {:allow, updated_input: Map.put(input, "file_path", "/sandbox#{original_path}")}
   end
 
   def call(_input, _tool_use_id), do: :ok
 end
 ```
 
-> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
+> When using `{:allow, updated_input: new_map}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input: ...}`.
 
 ### Auto-approve specific tools
 
@@ -284,7 +284,7 @@ defmodule MyApp.AutoApproveReadOnly do
   @impl true
   def call(%{hook_event_name: "PreToolUse", tool_name: name}, _tool_use_id)
       when name in @read_only_tools do
-    :allow
+    {:allow, []}
   end
 
   def call(_input, _tool_use_id), do: :ok
@@ -327,7 +327,7 @@ You can use anonymous functions instead of modules for simple hooks:
       %{matcher: "Bash", hooks: [
         fn %{tool_input: %{"command" => cmd}}, _id ->
           Logger.info("Bash: #{cmd}")
-          :allow
+          :ok
         end
       ]}
     ]
@@ -355,9 +355,9 @@ Matchers only match **tool names**, not file paths or other arguments. To filter
 def call(%{hook_event_name: "PreToolUse", tool_input: %{"file_path" => path}}, _id) do
   if String.ends_with?(path, ".md") do
     # Process markdown files...
-    :allow
+    :ok
   else
-    :allow
+    :ok
   end
 end
 ```
@@ -369,14 +369,14 @@ end
 
 ### Tool blocked unexpectedly
 
-- Check all `PreToolUse` hooks for `{:deny, reason}` returns
+- Check all `PreToolUse` hooks for `{:deny, permission_decision_reason: reason}` returns
 - Add logging to your hooks to see what reasons they are returning
 - Verify matcher patterns are not too broad (an omitted matcher matches all tools)
 
 ### Modified input not applied
 
-- When using `{:allow, updated_input}`, ensure you are returning a complete input map, not just the changed fields
-- The hook response module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
+- When using `{:allow, updated_input: new_map}`, ensure you are returning a complete input map, not just the changed fields
+- The hook response module translates `{:allow, updated_input: ...}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
 - On the wire, `updatedInput` must be inside `hookSpecificOutput` alongside `permissionDecision: "allow"` -- the Elixir SDK handles this automatically
 
 ### Subagent permission prompts multiplying
