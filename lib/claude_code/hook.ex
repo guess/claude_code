@@ -8,10 +8,34 @@ defmodule ClaudeCode.Hook do
   See the [Hooks guide](hooks.html) for configuration, matchers, patterns,
   and troubleshooting.
 
-  ## Output structs
+  ## Return values
 
-  All hook callbacks should return ClaudeCode.Hook.Output structs.
-  Use `alias ClaudeCode.Hook.Output` in your hook modules for concise notation.
+  Hook callbacks support three tiers of return values:
+
+  ### Tier 1: Bare atom
+
+      :ok
+
+  No opinion / acknowledge. Works for every hook event.
+
+  ### Tier 2: Tagged tuple
+
+      {:allow, updated_input: %{"command" => "ls"}}
+      {:deny, permission_decision_reason: "Blocked"}
+      {:ask, permission_decision_reason: "Needs review"}
+      {:halt, stop_reason: "Budget remaining"}
+      {:block, reason: "Rate limited"}
+      {:ok, additional_context: "Logged"}
+
+  The action atom determines intent. Keyword opts are literal struct field names
+  of the target output struct — no renaming. See the event reference below for
+  which actions and fields apply to each event.
+
+  ### Tier 3: Full struct (escape hatch)
+
+      %Output{suppress_output: true, hook_specific_output: %Output.PreToolUse{...}}
+
+  For when you need top-level fields alongside hook-specific data.
 
   ## Common input fields
 
@@ -50,36 +74,28 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | No opinion — continue through permission pipeline |
-  | `%Output{hook_specific_output: %Output.PreToolUse{permission_decision: "allow"}}` | Bypass permission system |
-  | `%Output{hook_specific_output: %Output.PreToolUse{permission_decision: "allow", updated_input: %{...}}}` | Allow with modified input |
-  | `%Output{hook_specific_output: %Output.PreToolUse{permission_decision: "allow", permission_decision_reason: "...", additional_context: "..."}}` | Allow with context |
-  | `%Output{hook_specific_output: %Output.PreToolUse{permission_decision: "deny", permission_decision_reason: "..."}}` | Block tool call |
-  | `%Output{hook_specific_output: %Output.PreToolUse{permission_decision: "ask", permission_decision_reason: "..."}}` | Escalate to user prompt |
+  | `:ok` | No opinion — continue through permission pipeline |
+  | `{:allow, []}` | Bypass permission system |
+  | `{:allow, updated_input: %{...}}` | Allow with modified input |
+  | `{:allow, permission_decision_reason: "...", additional_context: "..."}` | Allow with context |
+  | `{:deny, permission_decision_reason: "..."}` | Block tool call |
+  | `{:ask, permission_decision_reason: "..."}` | Escalate to user prompt |
 
   **Example:**
 
       defmodule MyApp.BlockDangerous do
         @behaviour ClaudeCode.Hook
-        alias ClaudeCode.Hook.Output
 
         @impl true
         def call(%{hook_event_name: "PreToolUse", tool_input: %{"command" => cmd}}, _tool_use_id) do
           if String.contains?(cmd, "rm -rf /") do
-            %Output{
-              hook_specific_output: %Output.PreToolUse{
-                permission_decision: "deny",
-                permission_decision_reason: "Dangerous command blocked"
-              }
-            }
+            {:deny, permission_decision_reason: "Dangerous command blocked"}
           else
-            %Output{
-              hook_specific_output: %Output.PreToolUse{permission_decision: "allow"}
-            }
+            {:allow, []}
           end
         end
 
-        def call(_input, _tool_use_id), do: %Output{}
+        def call(_input, _tool_use_id), do: :ok
       end
 
   ### PostToolUse
@@ -99,13 +115,13 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Acknowledge the event |
+  | `:ok` | Acknowledge the event |
+  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
 
   **Example:**
 
       defmodule MyApp.AuditLogger do
         @behaviour ClaudeCode.Hook
-        alias ClaudeCode.Hook.Output
 
         @impl true
         def call(%{hook_event_name: "PostToolUse"} = event, _tool_use_id) do
@@ -114,10 +130,10 @@ defmodule ClaudeCode.Hook do
             input: event.tool_input,
             result: event.tool_response
           })
-          %Output{}
+          :ok
         end
 
-        def call(_input, _tool_use_id), do: %Output{}
+        def call(_input, _tool_use_id), do: :ok
       end
 
   ### PostToolUseFailure
@@ -138,7 +154,8 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Acknowledge the event |
+  | `:ok` | Acknowledge the event |
+  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
 
   ### UserPromptSubmit
 
@@ -154,8 +171,8 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Allow the prompt |
-  | `%Output{decision: "block", reason: "..."}` | Block the prompt submission |
+  | `:ok` | Allow the prompt |
+  | `{:block, reason: "..."}` | Block the prompt submission |
 
   ### Stop
 
@@ -172,25 +189,24 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Allow the session to stop |
-  | `%Output{continue: false, stop_reason: "..."}` | Keep the session running |
+  | `:ok` | Allow the session to stop |
+  | `{:halt, stop_reason: "..."}` | Keep the session running |
 
   **Example:**
 
       defmodule MyApp.BudgetGuard do
         @behaviour ClaudeCode.Hook
-        alias ClaudeCode.Hook.Output
 
         @impl true
         def call(%{hook_event_name: "Stop"}, _tool_use_id) do
           if MyApp.Budget.remaining() > 0 do
-            %Output{continue: false, stop_reason: "Budget remaining, keep working"}
+            {:halt, stop_reason: "Budget remaining, keep working"}
           else
-            %Output{}
+            :ok
           end
         end
 
-        def call(_input, _tool_use_id), do: %Output{}
+        def call(_input, _tool_use_id), do: :ok
       end
 
   ### SubagentStart
@@ -208,7 +224,8 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Acknowledge the event |
+  | `:ok` | Acknowledge the event |
+  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
 
   ### SubagentStop
 
@@ -228,8 +245,8 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Allow the subagent to stop |
-  | `%Output{continue: false, stop_reason: "..."}` | Keep the subagent running |
+  | `:ok` | Allow the subagent to stop |
+  | `{:halt, stop_reason: "..."}` | Keep the subagent running |
 
   ### PreCompact
 
@@ -246,8 +263,8 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Allow compaction normally |
-  | `%Output{hook_specific_output: %Output.PreCompact{custom_instructions: "..."}}` | Provide custom instructions for compaction |
+  | `:ok` | Allow compaction normally |
+  | `{:ok, custom_instructions: "..."}` | Provide custom instructions for compaction |
 
   ### Notification
 
@@ -265,7 +282,8 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | Acknowledge the event |
+  | `:ok` | Acknowledge the event |
+  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
 
   ### PermissionRequest
 
@@ -284,15 +302,23 @@ defmodule ClaudeCode.Hook do
 
   | Return | Effect |
   |--------|--------|
-  | `%Output{}` | No opinion |
-  | `%Output{hook_specific_output: %Output.PermissionRequest{decision: %Output.PermissionDecision.Allow{}}}` | Grant permission |
-  | `%Output{hook_specific_output: %Output.PermissionRequest{decision: %Output.PermissionDecision.Allow{updated_input: %{...}}}}` | Grant with modified input |
-  | `%Output{hook_specific_output: %Output.PermissionRequest{decision: %Output.PermissionDecision.Allow{updated_permissions: [...]}}}` | Grant with permission updates |
-  | `%Output{hook_specific_output: %Output.PermissionRequest{decision: %Output.PermissionDecision.Deny{message: "..."}}}` | Deny permission |
-  | `%Output{hook_specific_output: %Output.PermissionRequest{decision: %Output.PermissionDecision.Deny{message: "...", interrupt: true}}}` | Deny and interrupt |
+  | `:ok` | No opinion |
+  | `{:allow, []}` | Grant permission |
+  | `{:allow, updated_input: %{...}}` | Grant with modified input |
+  | `{:allow, updated_permissions: [...]}` | Grant with permission updates |
+  | `{:deny, message: "..."}` | Deny permission |
+  | `{:deny, message: "...", interrupt: true}` | Deny and interrupt |
   """
 
-  @callback call(input :: map(), tool_use_id :: String.t() | nil) :: term()
+  @type hook_action :: :allow | :deny | :ask | :halt | :block | :ok
+  @type hook_result ::
+          :ok
+          | {hook_action(), keyword()}
+          | ClaudeCode.Hook.Output.t()
+          | ClaudeCode.Hook.Output.PermissionDecision.Allow.t()
+          | ClaudeCode.Hook.Output.PermissionDecision.Deny.t()
+
+  @callback call(input :: map(), tool_use_id :: String.t() | nil) :: hook_result()
 
   @doc """
   Invokes a hook callback (module or function) with error protection.
