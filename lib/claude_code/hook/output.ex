@@ -187,4 +187,62 @@ defmodule ClaudeCode.Hook.Output do
   @doc false
   def maybe_put(map, _key, nil), do: map
   def maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  # -- Shorthand coercion --
+
+  @doc false
+  @spec coerce(term(), String.t() | atom()) :: struct()
+
+  # Tier 1: bare :ok
+  def coerce(:ok, _event), do: %__MODULE__{}
+
+  # Tier 3: struct passthrough
+  def coerce(%__MODULE__{} = output, _event), do: output
+  def coerce(%Async{} = output, _event), do: output
+  def coerce(%PermissionDecision.Allow{} = output, _event), do: output
+  def coerce(%PermissionDecision.Deny{} = output, _event), do: output
+
+  # Tier 2: tagged tuples — top-level Output fields
+
+  # :halt — Stop / SubagentStop → continue: false
+  def coerce({:halt, opts}, _event) do
+    struct(__MODULE__, [{:continue, false} | opts])
+  end
+
+  # :block — UserPromptSubmit → decision: "block"
+  def coerce({:block, opts}, _event) do
+    struct(__MODULE__, [{:decision, "block"} | opts])
+  end
+
+  # Tier 2: tagged tuples — hook-specific Output fields
+
+  # :allow / :deny / :ask — PreToolUse
+  def coerce({action, opts}, "PreToolUse") when action in [:allow, :deny, :ask] do
+    wrap(struct(PreToolUse, [{:permission_decision, to_string(action)} | opts]))
+  end
+
+  # :allow / :deny — PermissionRequest
+  def coerce({:allow, opts}, "PermissionRequest") do
+    wrap(%PermissionRequest{decision: struct(PermissionDecision.Allow, opts)})
+  end
+
+  def coerce({:deny, opts}, "PermissionRequest") do
+    wrap(%PermissionRequest{decision: struct(PermissionDecision.Deny, opts)})
+  end
+
+  # :allow / :deny — can_use_tool
+  def coerce({:allow, opts}, :can_use_tool), do: struct(PermissionDecision.Allow, opts)
+  def coerce({:deny, opts}, :can_use_tool), do: struct(PermissionDecision.Deny, opts)
+
+  # {:ok, opts} — event-specific inner struct
+  def coerce({:ok, opts}, "PostToolUse"), do: wrap(struct(PostToolUse, opts))
+  def coerce({:ok, opts}, "PostToolUseFailure"), do: wrap(struct(PostToolUseFailure, opts))
+  def coerce({:ok, opts}, "UserPromptSubmit"), do: wrap(struct(UserPromptSubmit, opts))
+  def coerce({:ok, opts}, "SessionStart"), do: wrap(struct(SessionStart, opts))
+  def coerce({:ok, opts}, "Notification"), do: wrap(struct(Notification, opts))
+  def coerce({:ok, opts}, "SubagentStart"), do: wrap(struct(SubagentStart, opts))
+  def coerce({:ok, opts}, "PreCompact"), do: wrap(struct(PreCompact, opts))
+  def coerce({:ok, _opts}, _event), do: %__MODULE__{}
+
+  defp wrap(inner), do: %__MODULE__{hook_specific_output: inner}
 end

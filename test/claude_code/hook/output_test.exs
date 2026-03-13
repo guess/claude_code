@@ -354,6 +354,215 @@ defmodule ClaudeCode.Hook.OutputTest do
     end
   end
 
+  # -- coerce/2 tests --
+
+  describe "coerce/2 — tier 1 (bare :ok)" do
+    test "bare :ok returns empty Output struct" do
+      assert %Output{} = Output.coerce(:ok, "PreToolUse")
+      assert %Output{} = Output.coerce(:ok, "PostToolUse")
+      assert %Output{} = Output.coerce(:ok, :can_use_tool)
+    end
+  end
+
+  describe "coerce/2 — tier 3 (struct passthrough)" do
+    test "Output struct passes through unchanged" do
+      output = %Output{suppress_output: true}
+      assert Output.coerce(output, "PreToolUse") == output
+    end
+
+    test "PermissionDecision.Allow struct passes through" do
+      allow = %Allow{updated_input: %{"x" => 1}}
+      assert Output.coerce(allow, :can_use_tool) == allow
+    end
+
+    test "PermissionDecision.Deny struct passes through" do
+      deny = %Deny{message: "no"}
+      assert Output.coerce(deny, :can_use_tool) == deny
+    end
+  end
+
+  describe "coerce/2 — :halt (Stop/SubagentStop)" do
+    test "halt with stop_reason" do
+      result = Output.coerce({:halt, stop_reason: "Budget remaining"}, "Stop")
+      assert %Output{continue: false, stop_reason: "Budget remaining"} = result
+    end
+
+    test "halt with stop_reason for SubagentStop" do
+      result = Output.coerce({:halt, stop_reason: "Task complete"}, "SubagentStop")
+      assert %Output{continue: false, stop_reason: "Task complete"} = result
+    end
+
+    test "halt with extra top-level fields" do
+      result = Output.coerce({:halt, stop_reason: "Done", system_message: "Halted"}, "Stop")
+      assert %Output{continue: false, stop_reason: "Done", system_message: "Halted"} = result
+    end
+  end
+
+  describe "coerce/2 — :block (UserPromptSubmit)" do
+    test "block with reason" do
+      result = Output.coerce({:block, reason: "Rate limited"}, "UserPromptSubmit")
+      assert %Output{decision: "block", reason: "Rate limited"} = result
+    end
+  end
+
+  describe "coerce/2 — :allow/:deny/:ask (PreToolUse)" do
+    test "allow with no opts" do
+      result = Output.coerce({:allow, []}, "PreToolUse")
+      assert %Output{hook_specific_output: %Output.PreToolUse{permission_decision: "allow"}} = result
+    end
+
+    test "allow with updated_input" do
+      result = Output.coerce({:allow, updated_input: %{"command" => "ls"}}, "PreToolUse")
+      assert %Output{hook_specific_output: inner} = result
+      assert %Output.PreToolUse{permission_decision: "allow", updated_input: %{"command" => "ls"}} = inner
+    end
+
+    test "deny with permission_decision_reason" do
+      result = Output.coerce({:deny, permission_decision_reason: "Dangerous"}, "PreToolUse")
+      assert %Output{hook_specific_output: inner} = result
+      assert %Output.PreToolUse{permission_decision: "deny", permission_decision_reason: "Dangerous"} = inner
+    end
+
+    test "deny with additional_context" do
+      result =
+        Output.coerce(
+          {:deny, permission_decision_reason: "No", additional_context: "Extra info"},
+          "PreToolUse"
+        )
+
+      assert %Output{hook_specific_output: inner} = result
+      assert inner.permission_decision == "deny"
+      assert inner.additional_context == "Extra info"
+    end
+
+    test "ask with permission_decision_reason" do
+      result = Output.coerce({:ask, permission_decision_reason: "Needs review"}, "PreToolUse")
+      assert %Output{hook_specific_output: inner} = result
+
+      assert %Output.PreToolUse{permission_decision: "ask", permission_decision_reason: "Needs review"} =
+               inner
+    end
+  end
+
+  describe "coerce/2 — :allow/:deny (PermissionRequest)" do
+    test "allow with no opts" do
+      result = Output.coerce({:allow, []}, "PermissionRequest")
+
+      assert %Output{
+               hook_specific_output: %Output.PermissionRequest{
+                 decision: %Allow{}
+               }
+             } = result
+    end
+
+    test "allow with updated_input" do
+      result = Output.coerce({:allow, updated_input: %{"command" => "ls"}}, "PermissionRequest")
+      assert %Output{hook_specific_output: %Output.PermissionRequest{decision: decision}} = result
+      assert %Allow{updated_input: %{"command" => "ls"}} = decision
+    end
+
+    test "allow with updated_permissions" do
+      result = Output.coerce({:allow, updated_permissions: ["Bash"]}, "PermissionRequest")
+      assert %Output{hook_specific_output: %Output.PermissionRequest{decision: decision}} = result
+      assert %Allow{updated_permissions: ["Bash"]} = decision
+    end
+
+    test "deny with message" do
+      result = Output.coerce({:deny, message: "Blocked"}, "PermissionRequest")
+      assert %Output{hook_specific_output: %Output.PermissionRequest{decision: decision}} = result
+      assert %Deny{message: "Blocked"} = decision
+    end
+
+    test "deny with message and interrupt" do
+      result = Output.coerce({:deny, message: "No", interrupt: true}, "PermissionRequest")
+      assert %Output{hook_specific_output: %Output.PermissionRequest{decision: decision}} = result
+      assert %Deny{message: "No", interrupt: true} = decision
+    end
+  end
+
+  describe "coerce/2 — :allow/:deny (can_use_tool)" do
+    test "allow with no opts" do
+      result = Output.coerce({:allow, []}, :can_use_tool)
+      assert %Allow{} = result
+    end
+
+    test "allow with updated_input" do
+      result = Output.coerce({:allow, updated_input: %{"x" => 1}}, :can_use_tool)
+      assert %Allow{updated_input: %{"x" => 1}} = result
+    end
+
+    test "deny with message" do
+      result = Output.coerce({:deny, message: "Nope"}, :can_use_tool)
+      assert %Deny{message: "Nope"} = result
+    end
+
+    test "deny with interrupt" do
+      result = Output.coerce({:deny, message: "No", interrupt: true}, :can_use_tool)
+      assert %Deny{message: "No", interrupt: true} = result
+    end
+  end
+
+  describe "coerce/2 — {:ok, opts} (event-specific inner structs)" do
+    test "PostToolUse with additional_context" do
+      result = Output.coerce({:ok, additional_context: "Logged"}, "PostToolUse")
+      assert %Output{hook_specific_output: %Output.PostToolUse{additional_context: "Logged"}} = result
+    end
+
+    test "PostToolUse with updated_mcp_tool_output" do
+      result = Output.coerce({:ok, updated_mcp_tool_output: "new output"}, "PostToolUse")
+
+      assert %Output{hook_specific_output: %Output.PostToolUse{updated_mcp_tool_output: "new output"}} =
+               result
+    end
+
+    test "PostToolUseFailure with additional_context" do
+      result = Output.coerce({:ok, additional_context: "Retrying"}, "PostToolUseFailure")
+
+      assert %Output{hook_specific_output: %Output.PostToolUseFailure{additional_context: "Retrying"}} =
+               result
+    end
+
+    test "UserPromptSubmit with additional_context" do
+      result = Output.coerce({:ok, additional_context: "Validated"}, "UserPromptSubmit")
+
+      assert %Output{hook_specific_output: %Output.UserPromptSubmit{additional_context: "Validated"}} =
+               result
+    end
+
+    test "SessionStart with additional_context" do
+      result = Output.coerce({:ok, additional_context: "Prod environment"}, "SessionStart")
+
+      assert %Output{hook_specific_output: %Output.SessionStart{additional_context: "Prod environment"}} =
+               result
+    end
+
+    test "Notification with additional_context" do
+      result = Output.coerce({:ok, additional_context: "Noted"}, "Notification")
+
+      assert %Output{hook_specific_output: %Output.Notification{additional_context: "Noted"}} =
+               result
+    end
+
+    test "SubagentStart with additional_context" do
+      result = Output.coerce({:ok, additional_context: "Spawned"}, "SubagentStart")
+
+      assert %Output{hook_specific_output: %Output.SubagentStart{additional_context: "Spawned"}} =
+               result
+    end
+
+    test "PreCompact with custom_instructions" do
+      result = Output.coerce({:ok, custom_instructions: "Keep signatures"}, "PreCompact")
+
+      assert %Output{hook_specific_output: %Output.PreCompact{custom_instructions: "Keep signatures"}} =
+               result
+    end
+
+    test "{:ok, []} with unknown event falls back to empty Output" do
+      result = Output.coerce({:ok, []}, "SomeUnknownEvent")
+      assert %Output{} = result
+    end
+  end
+
   describe "Output.to_wire/1 - nested hook-specific outputs via dispatcher" do
     test "PreToolUse nested in Output" do
       result =
