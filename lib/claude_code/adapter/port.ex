@@ -545,6 +545,7 @@ defmodule ClaudeCode.Adapter.Port do
         end
 
       {:error, _} ->
+        Logger.debug("Non-JSON CLI output: #{String.slice(line, 0, 500)}")
         state
     end
   end
