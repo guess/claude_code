@@ -38,16 +38,17 @@ defmodule ClaudeCode.Adapter.ControlHandler do
     result = Hook.invoke(callback, input, nil)
 
     case result do
-      %{__struct__: _} = output -> HookOutput.to_wire(output)
       {:error, reason} -> %{"behavior" => "deny", "message" => "Hook error: #{reason}"}
-      _ -> %{"behavior" => "allow"}
+      value -> value |> HookOutput.coerce(:can_use_tool) |> HookOutput.to_wire()
     end
   end
 
   @spec handle_hook_callback(map(), HookRegistry.t()) :: map()
   def handle_hook_callback(request, hook_registry) do
     callback_id = request["callback_id"]
-    input = ClaudeCode.MapUtils.safe_atomize_keys(request["input"] || %{})
+    raw_input = request["input"] || %{}
+    hook_event_name = raw_input["hook_event_name"] || "PreToolUse"
+    input = raw_input |> Map.put("hook_event_name", hook_event_name) |> ClaudeCode.MapUtils.safe_atomize_keys()
     tool_use_id = request["tool_use_id"]
 
     case HookRegistry.lookup(hook_registry, callback_id) do
@@ -55,8 +56,8 @@ defmodule ClaudeCode.Adapter.ControlHandler do
         result = Hook.invoke(callback, input, tool_use_id)
 
         case result do
-          %{__struct__: _} = output -> HookOutput.to_wire(output)
-          _ -> %{}
+          {:error, _reason} -> %{}
+          value -> value |> HookOutput.coerce(hook_event_name) |> HookOutput.to_wire()
         end
 
       :error ->

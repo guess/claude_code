@@ -360,7 +360,10 @@ defmodule ClaudeCode.Hook.OutputTest do
     test "bare :ok returns empty Output struct" do
       assert %Output{} = Output.coerce(:ok, "PreToolUse")
       assert %Output{} = Output.coerce(:ok, "PostToolUse")
-      assert %Output{} = Output.coerce(:ok, :can_use_tool)
+    end
+
+    test "bare :ok with :can_use_tool returns Allow struct" do
+      assert %Output.PermissionDecision.Allow{} = Output.coerce(:ok, :can_use_tool)
     end
   end
 

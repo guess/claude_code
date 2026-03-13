@@ -105,6 +105,71 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
       assert result == %{}
     end
 
+    test "shorthand {:deny, opts} produces correct PreToolUse wire format" do
+      deny_hook = fn %{hook_event_name: "PreToolUse"}, _id ->
+        {:deny, permission_decision_reason: "Blocked by shorthand"}
+      end
+
+      hooks = %{PreToolUse: [%{hooks: [deny_hook]}]}
+      {registry, _wire} = HookRegistry.new(hooks)
+
+      request = %{
+        "callback_id" => "hook_0",
+        "input" => %{"hook_event_name" => "PreToolUse", "tool_name" => "Bash"},
+        "tool_use_id" => nil
+      }
+
+      result = ControlHandler.handle_hook_callback(request, registry)
+      assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
+      assert result["hookSpecificOutput"]["permissionDecisionReason"] == "Blocked by shorthand"
+    end
+
+    test "shorthand :ok produces empty wire format" do
+      ok_hook = fn _input, _id -> :ok end
+      hooks = %{PostToolUse: [%{hooks: [ok_hook]}]}
+      {registry, _wire} = HookRegistry.new(hooks)
+
+      request = %{
+        "callback_id" => "hook_0",
+        "input" => %{"hook_event_name" => "PostToolUse"},
+        "tool_use_id" => nil
+      }
+
+      result = ControlHandler.handle_hook_callback(request, registry)
+      assert result == %{}
+    end
+
+    test "shorthand {:halt, opts} produces Stop wire format" do
+      halt_hook = fn _input, _id -> {:halt, stop_reason: "Budget left"} end
+      hooks = %{Stop: [%{hooks: [halt_hook]}]}
+      {registry, _wire} = HookRegistry.new(hooks)
+
+      request = %{
+        "callback_id" => "hook_0",
+        "input" => %{"hook_event_name" => "Stop"},
+        "tool_use_id" => nil
+      }
+
+      result = ControlHandler.handle_hook_callback(request, registry)
+      assert result["continue"] == false
+      assert result["stopReason"] == "Budget left"
+    end
+
+    test "shorthand {:ok, opts} with additional_context produces PostToolUse wire format" do
+      ctx_hook = fn _input, _id -> {:ok, additional_context: "Noted"} end
+      hooks = %{PostToolUse: [%{hooks: [ctx_hook]}]}
+      {registry, _wire} = HookRegistry.new(hooks)
+
+      request = %{
+        "callback_id" => "hook_0",
+        "input" => %{"hook_event_name" => "PostToolUse"},
+        "tool_use_id" => nil
+      }
+
+      result = ControlHandler.handle_hook_callback(request, registry)
+      assert result["hookSpecificOutput"]["additionalContext"] == "Noted"
+    end
+
     test "passes through hook_event_name from input" do
       hooks = %{PreToolUse: [%{hooks: [MapAllowHook]}]}
       {registry, _wire} = HookRegistry.new(hooks)
@@ -165,6 +230,52 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
       request = %{
         "tool_name" => "Bash",
         "input" => %{"command" => "ls"},
+        "permission_suggestions" => [],
+        "blocked_path" => nil
+      }
+
+      result = ControlHandler.handle_can_use_tool(request, registry)
+      assert result["behavior"] == "allow"
+    end
+
+    test "shorthand {:allow, []} returns allow wire format" do
+      callback = fn _input, _id -> {:allow, []} end
+      {registry, _wire} = HookRegistry.new(%{}, callback)
+
+      request = %{
+        "tool_name" => "Bash",
+        "input" => %{"command" => "ls"},
+        "permission_suggestions" => [],
+        "blocked_path" => nil
+      }
+
+      result = ControlHandler.handle_can_use_tool(request, registry)
+      assert result["behavior"] == "allow"
+    end
+
+    test "shorthand {:deny, message: ...} returns deny wire format" do
+      callback = fn _input, _id -> {:deny, message: "Policy denied"} end
+      {registry, _wire} = HookRegistry.new(%{}, callback)
+
+      request = %{
+        "tool_name" => "Bash",
+        "input" => %{},
+        "permission_suggestions" => [],
+        "blocked_path" => nil
+      }
+
+      result = ControlHandler.handle_can_use_tool(request, registry)
+      assert result["behavior"] == "deny"
+      assert result["message"] == "Policy denied"
+    end
+
+    test "shorthand :ok returns allow for can_use_tool" do
+      callback = fn _input, _id -> :ok end
+      {registry, _wire} = HookRegistry.new(%{}, callback)
+
+      request = %{
+        "tool_name" => "Bash",
+        "input" => %{},
         "permission_suggestions" => [],
         "blocked_path" => nil
       }

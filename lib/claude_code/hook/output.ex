@@ -194,6 +194,7 @@ defmodule ClaudeCode.Hook.Output do
   @spec coerce(term(), String.t() | atom()) :: struct()
 
   # Tier 1: bare :ok
+  def coerce(:ok, :can_use_tool), do: %PermissionDecision.Allow{}
   def coerce(:ok, _event), do: %__MODULE__{}
 
   # Tier 3: struct passthrough
@@ -243,6 +244,9 @@ defmodule ClaudeCode.Hook.Output do
   def coerce({:ok, opts}, "SubagentStart"), do: wrap(struct(SubagentStart, opts))
   def coerce({:ok, opts}, "PreCompact"), do: wrap(struct(PreCompact, opts))
   def coerce({:ok, _opts}, _event), do: %__MODULE__{}
+
+  # Catch-all: unrecognized values (e.g. legacy bare atoms) → empty output
+  def coerce(_value, _event), do: %__MODULE__{}
 
   defp wrap(inner), do: %__MODULE__{hook_specific_output: inner}
 end
