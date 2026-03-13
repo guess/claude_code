@@ -133,6 +133,12 @@ defmodule ClaudeCode.Test do
           :ok
   def stub(name, fun_or_messages) do
     case NimbleOwnership.fetch_owner(@ownership, default_callers(), name) do
+      {:shared_owner, _owner} ->
+        # Shared ownership, update the stub
+        NimbleOwnership.get_and_update(@ownership, self(), name, fn _ ->
+          {:ok, fun_or_messages}
+        end)
+
       {:ok, _owner} ->
         # Already owned, update the stub
         NimbleOwnership.get_and_update(@ownership, self(), name, fn _ ->
