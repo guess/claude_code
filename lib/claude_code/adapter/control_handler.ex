@@ -27,19 +27,15 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   end
 
   @spec handle_can_use_tool(map(), HookRegistry.t()) :: map()
-  def handle_can_use_tool(request, %HookRegistry{can_use_tool: nil}) do
-    _ = request
+  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}) do
     %{"behavior" => "allow"}
   end
 
   def handle_can_use_tool(request, %HookRegistry{can_use_tool: callback}) do
     input =
-      ClaudeCode.MapUtils.safe_atomize_keys(%{
-        "tool_name" => request["tool_name"],
-        "input" => request["input"],
-        "permission_suggestions" => request["permission_suggestions"],
-        "blocked_path" => request["blocked_path"]
-      })
+      request
+      |> Map.take(["tool_name", "input", "permission_suggestions", "blocked_path"])
+      |> ClaudeCode.MapUtils.safe_atomize_keys()
 
     result = Hook.invoke(callback, input, nil)
 

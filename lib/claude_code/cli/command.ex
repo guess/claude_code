@@ -354,7 +354,6 @@ defmodule ClaudeCode.CLI.Command do
   # :sandbox is preprocessed into :settings; :thinking is preprocessed into :max_thinking_tokens
   # :enable_file_checkpointing is set via env var
   # :prompt_suggestions and :tool_config are sent via control protocol initialize
-  defp convert_option(:can_use_tool, _value), do: nil
   defp convert_option(:sandbox, _value), do: nil
   defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil
