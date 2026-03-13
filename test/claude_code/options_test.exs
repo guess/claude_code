@@ -1,6 +1,8 @@
 defmodule ClaudeCode.OptionsTest do
   use ExUnit.Case
 
+  alias ClaudeCode.Hook.Output
+  alias ClaudeCode.Hook.Output.PermissionDecision.Allow
   alias ClaudeCode.Options
 
   describe "validate_session_options/1" do
@@ -462,6 +464,42 @@ defmodule ClaudeCode.OptionsTest do
     end
   end
 
+  describe "can_use_tool option" do
+    test "accepts a 2-arity function" do
+      opts = [can_use_tool: fn _input, _id -> %Allow{} end]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert is_function(validated[:can_use_tool], 2)
+    end
+
+    test "accepts a module atom" do
+      opts = [can_use_tool: MyHookModule]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:can_use_tool] == MyHookModule
+    end
+
+    test "rejects invalid values" do
+      assert {:error, _} = Options.validate_session_options(can_use_tool: "not valid")
+      assert {:error, _} = Options.validate_session_options(can_use_tool: 42)
+    end
+
+    test "raises when combined with permission_prompt_tool" do
+      opts = [
+        can_use_tool: fn _, _ -> %Allow{} end,
+        permission_prompt_tool: "some-tool"
+      ]
+
+      assert {:error, %NimbleOptions.ValidationError{} = error} =
+               Options.validate_session_options(opts)
+
+      assert error.message =~ "mutually exclusive"
+    end
+
+    test "is not set by default" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      refute Keyword.has_key?(validated, :can_use_tool)
+    end
+  end
+
   describe "hooks validation" do
     test "accepts a map with atom keys and matcher lists" do
       hooks = %{
@@ -474,7 +512,7 @@ defmodule ClaudeCode.OptionsTest do
 
     test "accepts a map with function hooks" do
       hooks = %{
-        PostToolUse: [%{hooks: [fn _input, _id -> :ok end]}]
+        PostToolUse: [%{hooks: [fn _input, _id -> %Output{} end]}]
       }
 
       {:ok, opts} = Options.validate_session_options(hooks: hooks)

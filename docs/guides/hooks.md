@@ -48,6 +48,8 @@ end
 
 This is a `PreToolUse` hook. It runs before the tool executes and can block or allow operations based on your logic. The rest of this guide covers all available hooks, their configuration options, and patterns for common use cases.
 
+> **MCP tools:** PreToolUse hooks also apply to in-process MCP tool calls. MCP tool names follow the `mcp__<server>__<tool>` pattern (e.g., `mcp__my-tools__get_weather`), so matchers like `"mcp__my-tools__.*"` work as expected.
+
 ## Available hooks
 
 The SDK provides hooks for different stages of agent execution. Some hooks are available across all SDKs, while others are TypeScript-only.

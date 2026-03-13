@@ -120,6 +120,65 @@ defmodule ClaudeCode.MCP.RouterTest do
     end
   end
 
+  describe "handle_request/2 - tools/call parameter validation" do
+    test "rejects invalid parameter types with -32602 error" do
+      message = %{
+        "jsonrpc" => "2.0",
+        "id" => 20,
+        "method" => "tools/call",
+        "params" => %{"name" => "add", "arguments" => %{"x" => "not_a_number", "y" => 3}}
+      }
+
+      response = Router.handle_request(ClaudeCode.TestTools, message)
+
+      assert response["error"]["code"] == -32_602
+      assert response["error"]["message"] =~ "Invalid params"
+      assert response["error"]["message"] =~ "x"
+    end
+
+    test "rejects missing required parameters with -32602 error" do
+      message = %{
+        "jsonrpc" => "2.0",
+        "id" => 21,
+        "method" => "tools/call",
+        "params" => %{"name" => "add", "arguments" => %{"x" => 5}}
+      }
+
+      response = Router.handle_request(ClaudeCode.TestTools, message)
+
+      assert response["error"]["code"] == -32_602
+      assert response["error"]["message"] =~ "Invalid params"
+      assert response["error"]["message"] =~ "y"
+    end
+
+    test "allows valid params through to execution" do
+      message = %{
+        "jsonrpc" => "2.0",
+        "id" => 22,
+        "method" => "tools/call",
+        "params" => %{"name" => "add", "arguments" => %{"x" => 5, "y" => 3}}
+      }
+
+      response = Router.handle_request(ClaudeCode.TestTools, message)
+
+      assert response["result"]["content"] == [%{"type" => "text", "text" => "8"}]
+    end
+
+    test "allows tools with no schema (empty params)" do
+      message = %{
+        "jsonrpc" => "2.0",
+        "id" => 23,
+        "method" => "tools/call",
+        "params" => %{"name" => "get_time", "arguments" => %{}}
+      }
+
+      response = Router.handle_request(ClaudeCode.TestTools, message)
+
+      assert response["result"]["content"]
+      refute response["result"]["isError"]
+    end
+  end
+
   describe "handle_request/2 - unknown method" do
     test "returns method not found error" do
       message = %{"jsonrpc" => "2.0", "id" => 8, "method" => "unknown/method"}

@@ -2,8 +2,8 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   @moduledoc false
 
   alias ClaudeCode.Hook
+  alias ClaudeCode.Hook.Output, as: HookOutput
   alias ClaudeCode.Hook.Registry, as: HookRegistry
-  alias ClaudeCode.Hook.Response, as: HookResponse
   alias ClaudeCode.MCP.Router, as: MCPRouter
 
   require Logger
@@ -26,16 +26,46 @@ defmodule ClaudeCode.Adapter.ControlHandler do
     %{"mcp_response" => mcp_response}
   end
 
+  @spec handle_can_use_tool(map(), HookRegistry.t()) :: map()
+  def handle_can_use_tool(request, %HookRegistry{can_use_tool: nil}) do
+    _ = request
+    %{"behavior" => "allow"}
+  end
+
+  def handle_can_use_tool(request, %HookRegistry{can_use_tool: callback}) do
+    input =
+      ClaudeCode.MapUtils.safe_atomize_keys(%{
+        "tool_name" => request["tool_name"],
+        "input" => request["input"],
+        "permission_suggestions" => request["permission_suggestions"],
+        "blocked_path" => request["blocked_path"]
+      })
+
+    result = Hook.invoke(callback, input, nil)
+
+    case result do
+      %{__struct__: _} = output -> HookOutput.to_wire(output)
+      {:error, reason} -> %{"behavior" => "deny", "message" => "Hook error: #{reason}"}
+      _ -> %{"behavior" => "allow"}
+    end
+  end
+
   @spec handle_hook_callback(map(), HookRegistry.t()) :: map()
   def handle_hook_callback(request, hook_registry) do
     callback_id = request["callback_id"]
-    input = ClaudeCode.MapUtils.safe_atomize_keys(request["input"])
+    raw_input = request["input"] || %{}
+    hook_event_name = raw_input["hook_event_name"] || "PreToolUse"
+    input = raw_input |> Map.put("hook_event_name", hook_event_name) |> ClaudeCode.MapUtils.safe_atomize_keys()
     tool_use_id = request["tool_use_id"]
 
     case HookRegistry.lookup(hook_registry, callback_id) do
       {:ok, callback} ->
         result = Hook.invoke(callback, input, tool_use_id)
-        HookResponse.to_hook_callback_wire(result)
+
+        case result do
+          %{__struct__: _} = output -> HookOutput.to_wire(output)
+          _ -> %{}
+        end
 
       :error ->
         Logger.warning("Unknown hook callback ID: #{callback_id}")

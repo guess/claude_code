@@ -64,9 +64,10 @@ defmodule ClaudeCode.Adapter.Node do
          :ok <- ensure_workspace(node, cwd) do
       hooks_map = Keyword.get(config, :hooks)
       mcp_servers = Keyword.get(config, :mcp_servers)
+      can_use_tool = Keyword.get(config, :can_use_tool)
 
       # Build full registry so we can partition by execution target
-      {full_registry, _wire} = HookRegistry.new(hooks_map)
+      {full_registry, _wire} = HookRegistry.new(hooks_map, can_use_tool)
       {local_registry, remote_registry} = HookRegistry.split(full_registry)
 
       # Build stub sdk_mcp_servers map: names only (nil values), since the

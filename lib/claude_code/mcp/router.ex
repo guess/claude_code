@@ -9,6 +9,8 @@ defmodule ClaudeCode.MCP.Router do
   control request from the CLI for a `type: "sdk"` server.
   """
 
+  alias Hermes.Server.Component
+  alias Hermes.Server.Component.Schema
   alias Hermes.Server.Frame
   alias Hermes.Server.Response
 
@@ -84,26 +86,44 @@ defmodule ClaudeCode.MCP.Router do
 
       module ->
         atom_args = atomize_keys(args)
-        frame = Frame.new(assigns)
 
-        try do
-          case module.execute(atom_args, frame) do
-            {:reply, response, _frame} ->
-              jsonrpc_result(message, Response.to_protocol(response))
+        case validate_params(module, atom_args) do
+          {:ok, validated} ->
+            execute_tool(module, validated, assigns, message)
 
-            {:error, %{message: error_msg}, _frame} ->
-              jsonrpc_result(message, %{
-                "content" => [%{"type" => "text", "text" => to_string(error_msg)}],
-                "isError" => true
-              })
-          end
-        rescue
-          e ->
-            jsonrpc_result(message, %{
-              "content" => [%{"type" => "text", "text" => "Tool error: #{Exception.message(e)}"}],
-              "isError" => true
-            })
+          {:error, errors} ->
+            error_msg = Schema.format_errors(errors)
+            jsonrpc_error(message, -32_602, "Invalid params: #{error_msg}")
         end
+    end
+  end
+
+  defp validate_params(module, params) do
+    raw_schema = module.__mcp_raw_schema__()
+    peri_schema = Component.__clean_schema_for_peri__(raw_schema)
+    Peri.validate(peri_schema, params)
+  end
+
+  defp execute_tool(module, params, assigns, message) do
+    frame = Frame.new(assigns)
+
+    try do
+      case module.execute(params, frame) do
+        {:reply, response, _frame} ->
+          jsonrpc_result(message, Response.to_protocol(response))
+
+        {:error, %{message: error_msg}, _frame} ->
+          jsonrpc_result(message, %{
+            "content" => [%{"type" => "text", "text" => to_string(error_msg)}],
+            "isError" => true
+          })
+      end
+    rescue
+      e ->
+        jsonrpc_result(message, %{
+          "content" => [%{"type" => "text", "text" => "Tool error: #{Exception.message(e)}"}],
+          "isError" => true
+        })
     end
   end
 

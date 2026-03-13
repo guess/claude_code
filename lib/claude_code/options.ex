@@ -662,6 +662,11 @@ defmodule ClaudeCode.Options do
           sandbox: [enabled: true, filesystem: [allow_write: ["/tmp"]]]
       """
     ],
+    can_use_tool: [
+      type: {:or, [:atom, {:fun, 2}]},
+      doc:
+        "Permission prompt callback. Receives tool info map and tool_use_id, returns a map. Mutually exclusive with :permission_prompt_tool."
+    ],
     enable_file_checkpointing: [
       type: :boolean,
       default: false,
@@ -811,7 +816,7 @@ defmodule ClaudeCode.Options do
       opts |> normalize_agents() |> NimbleOptions.validate!(@session_opts_schema)
 
     warn_deprecated_max_thinking_tokens(validated)
-    {:ok, validated}
+    validate_mutual_exclusions(validated)
   rescue
     e in NimbleOptions.ValidationError ->
       {:error, e}
@@ -909,6 +914,18 @@ defmodule ClaudeCode.Options do
 
   def validate_sandbox(other) do
     {:error, "expected a %ClaudeCode.Sandbox{} struct, keyword list, or map, got: #{inspect(other)}"}
+  end
+
+  defp validate_mutual_exclusions(opts) do
+    if Keyword.has_key?(opts, :can_use_tool) && Keyword.has_key?(opts, :permission_prompt_tool) do
+      {:error,
+       %NimbleOptions.ValidationError{
+         key: :can_use_tool,
+         message: ":can_use_tool and :permission_prompt_tool are mutually exclusive — use one or the other"
+       }}
+    else
+      {:ok, opts}
+    end
   end
 
   defp warn_deprecated_max_thinking_tokens(opts) do

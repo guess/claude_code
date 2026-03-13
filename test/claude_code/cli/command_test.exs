@@ -1171,5 +1171,27 @@ defmodule ClaudeCode.CLI.CommandTest do
       args = Command.to_cli_args(opts)
       refute "--tool-config" in args
     end
+
+    test "can_use_tool produces --permission-prompt-tool stdio" do
+      opts = [can_use_tool: fn _tool, _input -> :allow end]
+
+      args = Command.to_cli_args(opts)
+      assert "--permission-prompt-tool" in args
+      assert "stdio" in args
+    end
+
+    test "nil can_use_tool produces no flag" do
+      opts = [can_use_tool: nil]
+
+      args = Command.to_cli_args(opts)
+      refute "--permission-prompt-tool" in args
+    end
+
+    test "can_use_tool is not passed as --can-use-tool flag" do
+      opts = [can_use_tool: fn _tool, _input -> :allow end]
+
+      args = Command.to_cli_args(opts)
+      refute "--can-use-tool" in args
+    end
   end
 end

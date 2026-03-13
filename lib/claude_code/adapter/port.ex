@@ -38,6 +38,7 @@ defmodule ClaudeCode.Adapter.Port do
   @adapter_internal_keys [
     :callback_proxy,
     :callback_timeout,
+    :can_use_tool,
     :hook_registry,
     :sdk_mcp_servers,
     :max_buffer_size
@@ -108,7 +109,8 @@ defmodule ClaudeCode.Adapter.Port do
   @impl GenServer
   def init({session, opts}) do
     hooks_map = Keyword.get(opts, :hooks)
-    {built_registry, hooks_wire} = HookRegistry.new(hooks_map)
+    can_use_tool = Keyword.get(opts, :can_use_tool)
+    {built_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
 
     # Callers may provide a pre-built hook registry (e.g. a partitioned subset).
     hook_registry =
@@ -643,6 +645,10 @@ defmodule ClaudeCode.Adapter.Port do
             :error -> proxy_call(proxy, msg, timeout)
           end
 
+        # can_use_tool: always route to proxy (callback lives on the local node)
+        subtype == "can_use_tool" ->
+          proxy_call(proxy, msg, timeout)
+
         true ->
           Logger.warning("Unhandled control request with proxy: #{subtype}")
           nil
@@ -673,6 +679,9 @@ defmodule ClaudeCode.Adapter.Port do
           server_name = request["server_name"]
           jsonrpc = request["message"]
           ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
+
+        "can_use_tool" ->
+          ControlHandler.handle_can_use_tool(request, state.hook_registry)
 
         "elicitation" ->
           Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")

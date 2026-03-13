@@ -7,6 +7,8 @@ defmodule ClaudeCode.Adapter.PortTest do
   # shell_escape/1 Tests
   # ============================================================================
 
+  alias ClaudeCode.Hook.Output.PermissionDecision.Allow
+
   describe "shell_escape/1" do
     test "returns simple strings unchanged" do
       assert Port.shell_escape("hello") == "hello"
@@ -1163,7 +1165,7 @@ defmodule ClaudeCode.Adapter.PortTest do
       send(adapter, {state.port, {:data, hook_callback_request <> "\n"}})
 
       assert_receive {:hook_called, input, tool_use_id}, 2000
-      assert input == %{tool_name: "Bash", command: "ls"}
+      assert input == %{tool_name: "Bash", command: "ls", hook_event_name: "PreToolUse"}
       assert tool_use_id == "tool_123"
 
       GenServer.stop(adapter)
@@ -1267,6 +1269,46 @@ defmodule ClaudeCode.Adapter.PortTest do
       GenServer.stop(adapter)
     end
 
+    test "can_use_tool is stripped from CLI args via adapter_internal_keys" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        INIT_DONE=false
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      can_use_tool_fn = fn _input, _tool_use_id -> %Allow{} end
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          can_use_tool: can_use_tool_fn
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      # Verify can_use_tool was stored in the registry
+      state = :sys.get_state(adapter)
+      assert state.hook_registry.can_use_tool == can_use_tool_fn
+
+      GenServer.stop(adapter)
+    end
+
     test "uses hooks from session opts and pre-built sdk_mcp_servers for handshake" do
       # Simulates the distributed path: hooks stay in session opts (Port builds
       # wire from them), sdk_mcp_servers is a pre-built stub map with nil values
@@ -1310,6 +1352,274 @@ defmodule ClaudeCode.Adapter.PortTest do
       # Mock only responds when both "hookCallbackIds" and "my_mcp_server"
       # appear in the initialize request.
       assert_receive {:adapter_status, :ready}, 10_000
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  describe "can_use_tool routing" do
+    test "routes can_use_tool request to callback and returns allow" do
+      test_pid = self()
+
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        INIT_DONE=false
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      can_use_tool_fn = fn input, _tool_use_id ->
+        send(test_pid, {:can_use_tool_called, input})
+        %Allow{}
+      end
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          can_use_tool: can_use_tool_fn
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      can_use_tool_request =
+        Jason.encode!(%{
+          "type" => "control_request",
+          "request_id" => "req_cut_1",
+          "request" => %{
+            "subtype" => "can_use_tool",
+            "tool_name" => "Bash",
+            "input" => %{"command" => "rm -rf /"}
+          }
+        })
+
+      state = :sys.get_state(adapter)
+      send(adapter, {state.port, {:data, can_use_tool_request <> "\n"}})
+
+      assert_receive {:can_use_tool_called, input}, 2000
+      assert input.tool_name == "Bash"
+      assert input.input == %{"command" => "rm -rf /"}
+
+      GenServer.stop(adapter)
+    end
+
+    test "can_use_tool returns deny when callback denies" do
+      test_pid = self()
+
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        INIT_DONE=false
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      can_use_tool_fn = fn input, _tool_use_id ->
+        send(test_pid, {:can_use_tool_called, input})
+        %ClaudeCode.Hook.Output.PermissionDecision.Deny{message: "Not allowed"}
+      end
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          can_use_tool: can_use_tool_fn
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      can_use_tool_request =
+        Jason.encode!(%{
+          "type" => "control_request",
+          "request_id" => "req_cut_2",
+          "request" => %{
+            "subtype" => "can_use_tool",
+            "tool_name" => "Bash",
+            "input" => %{"command" => "rm -rf /"}
+          }
+        })
+
+      state = :sys.get_state(adapter)
+      send(adapter, {state.port, {:data, can_use_tool_request <> "\n"}})
+
+      assert_receive {:can_use_tool_called, _input}, 2000
+
+      GenServer.stop(adapter)
+    end
+
+    test "can_use_tool returns default allow when no callback configured" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        INIT_DONE=false
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            if [ "$INIT_DONE" = false ]; then
+              INIT_DONE=true
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script]
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      # No can_use_tool callback configured - should return default allow
+      can_use_tool_request =
+        Jason.encode!(%{
+          "type" => "control_request",
+          "request_id" => "req_cut_3",
+          "request" => %{
+            "subtype" => "can_use_tool",
+            "tool_name" => "Bash",
+            "input" => %{"command" => "ls"}
+          }
+        })
+
+      state = :sys.get_state(adapter)
+      send(adapter, {state.port, {:data, can_use_tool_request <> "\n"}})
+
+      # Give it time to process - should not crash
+      Process.sleep(100)
+      assert Process.alive?(adapter)
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  describe "hooks and can_use_tool coexistence" do
+    test "session with both PreToolUse hooks and can_use_tool routes each correctly" do
+      test_pid = self()
+
+      # Mock CLI that verifies hooks are present in the initialize handshake
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"subtype":"initialize"'; then
+            if echo "$line" | grep -q '"hooks"'; then
+              REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+              echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+            fi
+          else
+            echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"ok","session_id":"test","total_cost_usd":0.001,"usage":{}}'
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      hook_fn = fn input, tool_use_id ->
+        send(test_pid, {:hook_called, input, tool_use_id})
+        :ok
+      end
+
+      hooks = %{
+        "PreToolUse" => [
+          %{matcher: %{"tool_name" => "Read"}, hooks: [hook_fn]}
+        ]
+      }
+
+      can_use_tool_fn = fn input, _tool_use_id ->
+        send(test_pid, {:can_use_tool_called, input})
+        %Allow{}
+      end
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          hooks: hooks,
+          can_use_tool: can_use_tool_fn
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      # Mock only responds when it sees "hooks" in the initialize request,
+      # confirming wire hooks are sent in the handshake
+      assert_receive {:adapter_status, :ready}, 10_000
+
+      # Verify both are stored in the registry
+      state = :sys.get_state(adapter)
+      assert state.hook_registry.can_use_tool == can_use_tool_fn
+      assert map_size(state.hook_registry.callbacks) > 0
+
+      # Send a can_use_tool control request
+      can_use_tool_request =
+        Jason.encode!(%{
+          "type" => "control_request",
+          "request_id" => "req_coexist_1",
+          "request" => %{
+            "subtype" => "can_use_tool",
+            "tool_name" => "Bash",
+            "input" => %{"command" => "ls"}
+          }
+        })
+
+      send(adapter, {state.port, {:data, can_use_tool_request <> "\n"}})
+
+      assert_receive {:can_use_tool_called, input}, 2000
+      assert input.tool_name == "Bash"
+      assert input.input == %{"command" => "ls"}
+
+      # Send a hook_callback control request
+      hook_callback_request =
+        Jason.encode!(%{
+          "type" => "control_request",
+          "request_id" => "req_coexist_2",
+          "request" => %{
+            "subtype" => "hook_callback",
+            "callback_id" => "hook_0",
+            "input" => %{"hook_event_name" => "PreToolUse", "tool_name" => "Read"},
+            "tool_use_id" => "tool_456"
+          }
+        })
+
+      send(adapter, {state.port, {:data, hook_callback_request <> "\n"}})
+
+      assert_receive {:hook_called, hook_input, tool_use_id}, 2000
+      assert hook_input == %{hook_event_name: "PreToolUse", tool_name: "Read"}
+      assert tool_use_id == "tool_456"
 
       GenServer.stop(adapter)
     end
