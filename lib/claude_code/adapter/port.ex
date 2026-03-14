@@ -32,8 +32,7 @@ defmodule ClaudeCode.Adapter.Port do
   require Logger
 
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
-  # should be slightly higher than the max control_timeout (120s)
-  @client_control_exit_timeout 125_000
+  @default_control_timeout 60_000
 
   # Keys consumed by Adapter.Port that should never reach CLI command building.
   @adapter_internal_keys [
@@ -58,11 +57,11 @@ defmodule ClaudeCode.Adapter.Port do
     :callback_proxy,
     status: :provisioning,
     control_counter: 0,
+    control_timeout: @default_control_timeout,
     pending_control_requests: %{},
-    control_timeout: 30_000,
     max_buffer_size: 1_048_576,
     sdk_mcp_servers: %{},
-    callback_timeout: 30_000
+    callback_timeout: 60_000
   ]
 
   # ============================================================================
@@ -91,7 +90,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   @impl ClaudeCode.Adapter
   def send_control_request(adapter, subtype, params) do
-    GenServer.call(adapter, {:control_request, subtype, params}, @client_control_exit_timeout)
+    GenServer.call(adapter, {:control_request, subtype, params}, :infinity)
   end
 
   @impl ClaudeCode.Adapter
@@ -138,12 +137,12 @@ defmodule ClaudeCode.Adapter.Port do
       buffer: "",
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
-      control_timeout: Keyword.get(opts, :control_timeout, 30_000),
+      control_timeout: Keyword.get(opts, :control_timeout, @default_control_timeout),
       hook_registry: hook_registry,
       hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
       callback_proxy: Keyword.get(opts, :callback_proxy),
-      callback_timeout: Keyword.get(opts, :callback_timeout, 30_000)
+      callback_timeout: Keyword.get(opts, :callback_timeout, 60_000)
     }
 
     Process.link(session)
