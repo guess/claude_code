@@ -365,6 +365,20 @@ defmodule ClaudeCode.Hook.OutputTest do
     test "bare :ok with :can_use_tool returns Allow struct" do
       assert %Allow{} = Output.coerce(:ok, :can_use_tool)
     end
+
+    test "bare :allow delegates to {:allow, []}" do
+      assert %Allow{} = Output.coerce(:allow, :can_use_tool)
+
+      result = Output.coerce(:allow, "PreToolUse")
+      assert %Output{hook_specific_output: %Output.PreToolUse{permission_decision: "allow"}} = result
+    end
+
+    test "bare :deny delegates to {:deny, []}" do
+      assert %Deny{} = Output.coerce(:deny, :can_use_tool)
+
+      result = Output.coerce(:deny, "PreToolUse")
+      assert %Output{hook_specific_output: %Output.PreToolUse{permission_decision: "deny"}} = result
+    end
   end
 
   describe "coerce/2 — tier 3 (struct passthrough)" do

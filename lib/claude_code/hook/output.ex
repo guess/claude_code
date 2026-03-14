@@ -111,9 +111,11 @@ defmodule ClaudeCode.Hook.Output do
   @doc false
   @spec coerce(term(), String.t() | atom()) :: struct()
 
-  # Tier 1: bare :ok
+  # Tier 1: bare atoms
   def coerce(:ok, :can_use_tool), do: %PermissionDecision.Allow{}
   def coerce(:ok, _event), do: %__MODULE__{}
+  def coerce(:allow, event), do: coerce({:allow, []}, event)
+  def coerce(:deny, event), do: coerce({:deny, []}, event)
 
   # Tier 3: struct passthrough
   def coerce(%__MODULE__{} = output, _event), do: output

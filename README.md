@@ -190,7 +190,7 @@ Intercept every tool execution with `can_use_tool` for programmatic approval, or
 {:ok, session} = ClaudeCode.start_link(
   # Programmatic tool approval
   can_use_tool: fn %{tool_name: name}, _id ->
-    if name in ["Read", "Glob", "Grep"], do: {:allow, []}, else: {:deny, message: "Read-only mode"}
+    if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, message: "Read-only mode"}
   end,
   # Lifecycle hooks
   hooks: %{

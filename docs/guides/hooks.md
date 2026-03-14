@@ -205,11 +205,11 @@ defmodule MyApp.ToolPermissions do
     cond do
       String.contains?(cmd, "rm -rf") -> {:deny, message: "Destructive command blocked"}
       String.starts_with?(cmd, "sudo") -> {:deny, message: "No sudo allowed"}
-      true -> {:allow, []}
+      true -> :allow
     end
   end
 
-  def call(_input, _tool_use_id), do: {:allow, []}
+  def call(_input, _tool_use_id), do: :allow
 end
 
 {:ok, session} = ClaudeCode.start_link(can_use_tool: MyApp.ToolPermissions)
@@ -220,7 +220,7 @@ end
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
   can_use_tool: fn %{tool_name: name}, _id ->
-    if name in ["Read", "Glob", "Grep"], do: {:allow, []}, else: {:deny, message: "Read-only mode"}
+    if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, message: "Read-only mode"}
   end
 )
 ```
@@ -229,10 +229,10 @@ end
 
 | Return | Effect |
 |--------|--------|
-| `{:allow, []}` | Permit the tool call |
+| `:allow` | Permit the tool call |
 | `{:allow, updated_input: %{...}}` | Permit with modified input |
 | `{:allow, updated_permissions: [...]}` | Permit with updated permission rules |
-| `{:deny, []}` | Block the tool call |
+| `:deny` | Block the tool call |
 | `{:deny, message: "reason"}` | Block with an explanation |
 | `{:deny, message: "reason", interrupt: true}` | Block and interrupt the session |
 
