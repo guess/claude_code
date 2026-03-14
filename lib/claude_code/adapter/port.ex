@@ -712,7 +712,8 @@ defmodule ClaudeCode.Adapter.Port do
   @doc false
   def extract_sdk_mcp_servers(opts) do
     opts
-    |> Keyword.get(:mcp_servers, %{})
+    |> Keyword.get(:mcp_servers)
+    |> Kernel.||(%{})
     |> Enum.flat_map(fn
       {name, module} when is_atom(module) ->
         if MCPServer.sdk_server?(module), do: [{name, {module, %{}}}], else: []
