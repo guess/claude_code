@@ -639,7 +639,7 @@ defmodule ClaudeCode.Adapter.Port do
           route_hook_callback(request, state.hook_registry, proxy, msg, timeout)
 
         subtype == "can_use_tool" ->
-          proxy_call(proxy, msg, timeout)
+          route_can_use_tool(request, state.hook_registry, proxy, msg, timeout)
 
         true ->
           Logger.warning("Unhandled control request with proxy: #{subtype}")
@@ -691,6 +691,16 @@ defmodule ClaudeCode.Adapter.Port do
 
     if state.port, do: Port.command(state.port, response <> "\n")
     state
+  end
+
+  # Handle locally when callback exists in local registry, otherwise proxy
+  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, _proxy, _msg, _timeout)
+       when cb != nil do
+    {:ok, ControlHandler.handle_can_use_tool(request, registry)}
+  end
+
+  defp route_can_use_tool(_request, _hook_registry, proxy, msg, timeout) do
+    proxy_call(proxy, msg, timeout)
   end
 
   # Check local registry first (remote hooks), then fall back to proxy (local hooks)
