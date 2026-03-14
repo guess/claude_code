@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.2] - 2026-03-14 | CC 2.1.76
+
+### Fixed
+
+- **`mix claude_code.install` version check** — `ClaudeCode.Adapter.Port.Installer.version_of/1` now retries once after 500ms on exit code 137 (SIGKILL). On macOS, Gatekeeper can kill a freshly-copied binary during initial code signature verification, causing `claude --version` to fail with empty output. This led to "Could not determine installed version" on every install and unnecessary reinstalls.
+
 ## [0.32.1] - 2026-03-14 | CC 2.1.76
 
 ### Fixed

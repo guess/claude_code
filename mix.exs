@@ -3,7 +3,7 @@ defmodule ClaudeCode.MixProject do
 
   alias ClaudeCode.Hook.Output
 
-  @version "0.32.1"
+  @version "0.32.2"
   @source_url "https://github.com/guess/claude_code"
 
   def project do
