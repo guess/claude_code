@@ -174,12 +174,25 @@ defmodule ClaudeCode.Adapter.Port.Installer do
   """
   @spec version_of(String.t()) :: {:ok, String.t()} | {:error, term()}
   def version_of(path) do
-    case SystemCmd.cmd(path, ["--version"], stderr_to_stdout: true) do
-      {output, 0} -> {:ok, parse_version_output(output)}
-      {error, _code} -> {:error, {:cli_error, error}}
-    end
+    run_version_cmd(path)
   rescue
     e -> {:error, {:execution_failed, Exception.message(e)}}
+  end
+
+  # macOS may SIGKILL (exit 137) a freshly-copied binary while Gatekeeper
+  # verifies its code signature. A single retry after a short pause handles this.
+  defp run_version_cmd(path, retries \\ 1) do
+    case SystemCmd.cmd(path, ["--version"], stderr_to_stdout: true) do
+      {output, 0} ->
+        {:ok, parse_version_output(output)}
+
+      {_error, 137} when retries > 0 ->
+        Process.sleep(500)
+        run_version_cmd(path, retries - 1)
+
+      {error, _code} ->
+        {:error, {:cli_error, error}}
+    end
   end
 
   @doc """

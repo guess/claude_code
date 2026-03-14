@@ -150,6 +150,44 @@ defmodule ClaudeCode.Adapter.Port.InstallerTest do
         File.rm_rf!(mock_dir)
       end
     end
+
+    test "retries once on exit code 137 (macOS Gatekeeper SIGKILL)" do
+      # First call fails with 137, second succeeds
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      expect(Mock, :cmd, 2, fn _path, ["--version"], _opts ->
+        call = Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+
+        if call == 0 do
+          {"", 137}
+        else
+          {"2.1.76 (Claude Code)", 0}
+        end
+      end)
+
+      Application.put_env(:claude_code, ClaudeCode.System, Mock)
+
+      try do
+        assert {:ok, "2.1.76"} = Installer.version_of("/some/path/claude")
+      after
+        Application.delete_env(:claude_code, ClaudeCode.System)
+        Agent.stop(counter)
+      end
+    end
+
+    test "returns error after retry on persistent exit code 137" do
+      stub(Mock, :cmd, fn _path, ["--version"], _opts ->
+        {"", 137}
+      end)
+
+      Application.put_env(:claude_code, ClaudeCode.System, Mock)
+
+      try do
+        assert {:error, {:cli_error, ""}} = Installer.version_of("/some/path/claude")
+      after
+        Application.delete_env(:claude_code, ClaudeCode.System)
+      end
+    end
   end
 
   describe "cli_not_found_message/0" do
