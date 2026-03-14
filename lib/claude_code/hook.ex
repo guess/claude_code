@@ -37,6 +37,26 @@ defmodule ClaudeCode.Hook do
 
   For when you need top-level fields alongside hook-specific data.
 
+  ## Output modules
+
+  The following modules define the structs used in hook return values:
+
+  | Module | Used by |
+  |--------|---------|
+  | `ClaudeCode.Hook.Output` | Top-level wrapper (all events) |
+  | `ClaudeCode.Hook.Output.Async` | Async hook responses |
+  | `ClaudeCode.Hook.Output.PreToolUse` | `PreToolUse` event-specific fields |
+  | `ClaudeCode.Hook.Output.PostToolUse` | `PostToolUse` event-specific fields |
+  | `ClaudeCode.Hook.Output.PostToolUseFailure` | `PostToolUseFailure` event-specific fields |
+  | `ClaudeCode.Hook.Output.UserPromptSubmit` | `UserPromptSubmit` event-specific fields |
+  | `ClaudeCode.Hook.Output.SessionStart` | `SessionStart` event-specific fields |
+  | `ClaudeCode.Hook.Output.Notification` | `Notification` event-specific fields |
+  | `ClaudeCode.Hook.Output.SubagentStart` | `SubagentStart` event-specific fields |
+  | `ClaudeCode.Hook.Output.PreCompact` | `PreCompact` event-specific fields |
+  | `ClaudeCode.Hook.Output.PermissionRequest` | `PermissionRequest` event-specific fields |
+  | `ClaudeCode.Hook.PermissionDecision.Allow` | Permission allow decision |
+  | `ClaudeCode.Hook.PermissionDecision.Deny` | Permission deny decision |
+
   ## Common input fields
 
   All hook events include these base fields:
