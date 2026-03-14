@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Breaking**: `hermes_mcp` is now a required dependency (was optional). It was already required at compile time for `ClaudeCode.MCP.Server`.
-- **Breaking**: Removed `ClaudeCode.MCP.available?/0` and `ClaudeCode.MCP.require_hermes!/0` — no longer needed with `hermes_mcp` required.
+- **Breaking**: Removed `ClaudeCode.MCP`.`available?/0` and `ClaudeCode.MCP`.`require_hermes!/0` — no longer needed with `hermes_mcp` required.
 
 ### Fixed
 
@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`mix claude_code.setup_token` task** — New mix task that runs `claude setup-token` to configure an OAuth token via an interactive browser flow. Allocates a PTY to support the CLI's terminal UI on both macOS and Linux. ([aff71ca])
 - **`ClaudeCode.Plugin` module** — Plugin management functions wrapping `claude plugin` CLI commands: `list/1`, `install/2`, `uninstall/2`, `enable/2`, `disable/2`, `disable_all/1`, `update/2`.
 - **`ClaudeCode.Plugin.Marketplace` module** — Marketplace management functions wrapping `claude plugin marketplace` CLI commands: `list/1`, `add/2`, `remove/1`, `update/1`.
-- **`ClaudeCode.Plugin.CLI` module** — Shared CLI execution helper for plugin and marketplace commands.
+- **`ClaudeCode.Plugin`.`CLI` module** — Shared CLI execution helper for plugin and marketplace commands.
 
 ## [0.31.0] - 2026-03-11 | CC 2.1.72
 
@@ -35,8 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **Breaking:** Removed the `:can_use_tool` option. Use `PreToolUse` hooks instead, which provide the same permission decision capability through the standard hooks API. The CLI no longer sends `can_use_tool` control requests — all permission decisions are routed through hook callbacks. Migrate by moving your callback into `hooks: %{PreToolUse: [your_callback]}`.
-- Removed `ClaudeCode.Adapter.ControlHandler.handle_can_use_tool/2`
-- Removed `ClaudeCode.Hook.Response.to_can_use_tool_wire/1`
+- Removed `handle_can_use_tool/2` from the adapter control handler
+- Removed `ClaudeCode.Hook.Response`.`to_can_use_tool_wire/1`
 - Removed `can_use_tool` field from the hook registry struct
 - Changed hook registry constructor from arity-2 to arity-1 (no longer accepts a `can_use_tool` parameter)
 

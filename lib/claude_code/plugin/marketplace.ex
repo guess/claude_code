@@ -6,7 +6,7 @@ defmodule ClaudeCode.Plugin.Marketplace do
   They can reference plugins from GitHub repos, git URLs, npm packages, and more.
 
   All functions resolve the CLI binary via `ClaudeCode.Adapter.Port.Resolver` and execute
-  commands synchronously via `ClaudeCode.System`.
+  commands synchronously via the system command abstraction.
 
   > **Note:** Remote node support is not yet implemented — these commands run on
   > the local machine only.
