@@ -302,6 +302,8 @@ defmodule ClaudeCode.Hook do
   @type hook_action :: :allow | :deny | :ask | :halt | :block | :ok
   @type hook_result ::
           :ok
+          | :allow
+          | :deny
           | {hook_action(), keyword()}
           | ClaudeCode.Hook.Output.t()
           | ClaudeCode.Hook.PermissionDecision.Allow.t()
