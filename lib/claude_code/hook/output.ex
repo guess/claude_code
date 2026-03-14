@@ -2,6 +2,17 @@ defmodule ClaudeCode.Hook.Output do
   @moduledoc false
 
   alias ClaudeCode.Hook.Output
+  alias ClaudeCode.Hook.PermissionDecision
+  alias Output.Async
+  alias Output.Notification
+  alias Output.PermissionRequest
+  alias Output.PostToolUse
+  alias Output.PostToolUseFailure
+  alias Output.PreCompact
+  alias Output.PreToolUse
+  alias Output.SessionStart
+  alias Output.SubagentStart
+  alias Output.UserPromptSubmit
 
   @type t :: %__MODULE__{}
 
@@ -14,149 +25,6 @@ defmodule ClaudeCode.Hook.Output do
     :reason,
     :hook_specific_output
   ]
-
-  defmodule Async do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:timeout]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"async" => true}, "asyncTimeout", o.timeout)
-    end
-  end
-
-  defmodule PermissionDecision do
-    @moduledoc false
-
-    defmodule Allow do
-      @moduledoc false
-      @type t :: %__MODULE__{}
-      defstruct [:updated_input, :updated_permissions]
-
-      def to_wire(%__MODULE__{} = o) do
-        %{"behavior" => "allow"}
-        |> Output.maybe_put("updatedInput", o.updated_input)
-        |> Output.maybe_put("updatedPermissions", o.updated_permissions)
-      end
-    end
-
-    defmodule Deny do
-      @moduledoc false
-      @type t :: %__MODULE__{}
-      defstruct [:message, :interrupt]
-
-      def to_wire(%__MODULE__{} = o) do
-        %{"behavior" => "deny"}
-        |> Output.maybe_put("message", o.message)
-        |> Output.maybe_put("interrupt", o.interrupt)
-      end
-    end
-  end
-
-  defmodule PreToolUse do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-
-    defstruct [
-      :permission_decision,
-      :permission_decision_reason,
-      :updated_input,
-      :additional_context
-    ]
-
-    def to_wire(%__MODULE__{} = o) do
-      %{"hookEventName" => "PreToolUse"}
-      |> Output.maybe_put("permissionDecision", o.permission_decision)
-      |> Output.maybe_put("permissionDecisionReason", o.permission_decision_reason)
-      |> Output.maybe_put("updatedInput", o.updated_input)
-      |> Output.maybe_put("additionalContext", o.additional_context)
-    end
-  end
-
-  defmodule PostToolUse do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:additional_context, :updated_mcp_tool_output]
-
-    def to_wire(%__MODULE__{} = o) do
-      %{"hookEventName" => "PostToolUse"}
-      |> Output.maybe_put("additionalContext", o.additional_context)
-      |> Output.maybe_put("updatedMCPToolOutput", o.updated_mcp_tool_output)
-    end
-  end
-
-  defmodule PostToolUseFailure do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:additional_context]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"hookEventName" => "PostToolUseFailure"}, "additionalContext", o.additional_context)
-    end
-  end
-
-  defmodule UserPromptSubmit do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:additional_context]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"hookEventName" => "UserPromptSubmit"}, "additionalContext", o.additional_context)
-    end
-  end
-
-  defmodule SessionStart do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:additional_context]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"hookEventName" => "SessionStart"}, "additionalContext", o.additional_context)
-    end
-  end
-
-  defmodule Notification do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:additional_context]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"hookEventName" => "Notification"}, "additionalContext", o.additional_context)
-    end
-  end
-
-  defmodule SubagentStart do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:additional_context]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"hookEventName" => "SubagentStart"}, "additionalContext", o.additional_context)
-    end
-  end
-
-  defmodule PreCompact do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:custom_instructions]
-
-    def to_wire(%__MODULE__{} = o) do
-      Output.maybe_put(%{"hookEventName" => "PreCompact"}, "customInstructions", o.custom_instructions)
-    end
-  end
-
-  defmodule PermissionRequest do
-    @moduledoc false
-    @type t :: %__MODULE__{}
-    defstruct [:decision]
-
-    def to_wire(%__MODULE__{decision: decision}) do
-      %{
-        "hookEventName" => "PermissionRequest",
-        "decision" => decision.__struct__.to_wire(decision)
-      }
-    end
-  end
 
   # -- Main to_wire dispatcher --
 
