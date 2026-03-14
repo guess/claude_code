@@ -663,9 +663,10 @@ defmodule ClaudeCode.Options do
       """
     ],
     can_use_tool: [
-      type: {:or, [:atom, {:fun, 2}]},
+      type: {:custom, ClaudeCode.Options, :validate_can_use_tool, []},
+      type_doc: "module implementing `ClaudeCode.Hook` | `(map(), String.t() | nil -> term())`",
       doc:
-        "Permission prompt callback. Receives tool info map and tool_use_id, returns a map. Mutually exclusive with :permission_prompt_tool."
+        "Permission prompt callback. Receives tool info map and tool_use_id, returns a permission decision. Mutually exclusive with :permission_prompt_tool."
     ],
     enable_file_checkpointing: [
       type: :boolean,
@@ -916,8 +917,23 @@ defmodule ClaudeCode.Options do
     {:error, "expected a %ClaudeCode.Sandbox{} struct, keyword list, or map, got: #{inspect(other)}"}
   end
 
+  @doc false
+  def validate_can_use_tool(callback) when is_function(callback, 2), do: {:ok, callback}
+
+  def validate_can_use_tool(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :call, 2) do
+      {:ok, module}
+    else
+      {:error, "expected a module implementing ClaudeCode.Hook (call/2), got: #{inspect(module)}"}
+    end
+  end
+
+  def validate_can_use_tool(other) do
+    {:error, "expected a module implementing ClaudeCode.Hook or a 2-arity function, got: #{inspect(other)}"}
+  end
+
   defp validate_mutual_exclusions(opts) do
-    if Keyword.has_key?(opts, :can_use_tool) && Keyword.has_key?(opts, :permission_prompt_tool) do
+    if Keyword.get(opts, :can_use_tool) && Keyword.get(opts, :permission_prompt_tool) do
       {:error,
        %NimbleOptions.ValidationError{
          key: :can_use_tool,

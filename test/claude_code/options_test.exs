@@ -5,6 +5,14 @@ defmodule ClaudeCode.OptionsTest do
   alias ClaudeCode.Hook.PermissionDecision.Allow
   alias ClaudeCode.Options
 
+  defmodule TestHookModule do
+    @moduledoc false
+    @behaviour ClaudeCode.Hook
+
+    @impl true
+    def call(_input, _tool_use_id), do: :allow
+  end
+
   describe "validate_session_options/1" do
     test "validates valid options" do
       opts = [
@@ -471,15 +479,20 @@ defmodule ClaudeCode.OptionsTest do
       assert is_function(validated[:can_use_tool], 2)
     end
 
-    test "accepts a module atom" do
-      opts = [can_use_tool: MyHookModule]
+    test "accepts a module implementing ClaudeCode.Hook" do
+      opts = [can_use_tool: TestHookModule]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:can_use_tool] == MyHookModule
+      assert validated[:can_use_tool] == TestHookModule
     end
 
     test "rejects invalid values" do
       assert {:error, _} = Options.validate_session_options(can_use_tool: "not valid")
       assert {:error, _} = Options.validate_session_options(can_use_tool: 42)
+    end
+
+    test "rejects module without call/2" do
+      assert {:error, error} = Options.validate_session_options(can_use_tool: String)
+      assert error.message =~ "ClaudeCode.Hook"
     end
 
     test "raises when combined with permission_prompt_tool" do

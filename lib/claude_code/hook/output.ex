@@ -116,6 +116,19 @@ defmodule ClaudeCode.Hook.Output do
 
   def coerce_permission(:allow), do: %PermissionDecision.Allow{}
   def coerce_permission(:deny), do: %PermissionDecision.Deny{}
+
+  def coerce_permission({:deny, reason}) when is_binary(reason) do
+    Logger.warning(~s({:deny, "reason"} is deprecated — use {:deny, message: "reason"} instead))
+
+    %PermissionDecision.Deny{message: reason}
+  end
+
+  def coerce_permission({:allow, updated_input}) when is_map(updated_input) do
+    Logger.warning("{:allow, updated_input_map} is deprecated — use {:allow, updated_input: map} instead")
+
+    %PermissionDecision.Allow{updated_input: updated_input}
+  end
+
   def coerce_permission({:allow, opts}), do: struct(PermissionDecision.Allow, opts)
   def coerce_permission({:deny, opts}), do: struct(PermissionDecision.Deny, opts)
   def coerce_permission(%PermissionDecision.Allow{} = output), do: output
@@ -154,6 +167,22 @@ defmodule ClaudeCode.Hook.Output do
   # :block — UserPromptSubmit → decision: "block"
   def coerce({:block, opts}, _event) do
     struct(__MODULE__, [{:decision, "block"} | opts])
+  end
+
+  # Tier 3b: deprecated shorthand — {:deny, "reason"} and {:allow, %{updated_input}}
+  # These were the 0.31 API; migrate to {:deny, permission_decision_reason: "reason"}
+  # and {:allow, updated_input: %{...}}.
+
+  def coerce({:deny, reason}, event) when is_binary(reason) do
+    Logger.warning(~s({:deny, "reason"} is deprecated — use {:deny, permission_decision_reason: "reason"} instead))
+
+    coerce({:deny, permission_decision_reason: reason}, event)
+  end
+
+  def coerce({:allow, updated_input}, event) when is_map(updated_input) do
+    Logger.warning("{:allow, updated_input_map} is deprecated — use {:allow, updated_input: map} instead")
+
+    coerce({:allow, updated_input: updated_input}, event)
   end
 
   # Tier 4: tagged tuples — hook-specific Output fields

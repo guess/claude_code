@@ -744,4 +744,61 @@ defmodule ClaudeCode.Hook.OutputTest do
       assert result["hookSpecificOutput"]["customInstructions"] == "Keep it short"
     end
   end
+
+  # -- Deprecated shorthand tests --
+
+  describe "coerce/2 — deprecated shorthands" do
+    import ExUnit.CaptureLog
+
+    test "{:deny, \"reason\"} logs deprecation and produces deny PreToolUse output" do
+      log =
+        capture_log(fn ->
+          result = Output.coerce({:deny, "Blocked"}, "PreToolUse")
+          assert %Output{hook_specific_output: inner} = result
+          assert inner.permission_decision == "deny"
+          assert inner.permission_decision_reason == "Blocked"
+        end)
+
+      assert log =~ "deprecated"
+      assert log =~ "permission_decision_reason"
+    end
+
+    test "{:allow, map} logs deprecation and produces allow PreToolUse output" do
+      log =
+        capture_log(fn ->
+          result = Output.coerce({:allow, %{"cmd" => "ls"}}, "PreToolUse")
+          assert %Output{hook_specific_output: inner} = result
+          assert inner.permission_decision == "allow"
+          assert inner.updated_input == %{"cmd" => "ls"}
+        end)
+
+      assert log =~ "deprecated"
+      assert log =~ "updated_input"
+    end
+
+  end
+
+  describe "coerce_permission/1 — deprecated shorthands" do
+    import ExUnit.CaptureLog
+
+    test "{:deny, \"reason\"} logs deprecation and produces Deny with message" do
+      log =
+        capture_log(fn ->
+          result = Output.coerce_permission({:deny, "Blocked"})
+          assert %Deny{message: "Blocked"} = result
+        end)
+
+      assert log =~ "deprecated"
+    end
+
+    test "{:allow, map} logs deprecation and produces Allow with updated_input" do
+      log =
+        capture_log(fn ->
+          result = Output.coerce_permission({:allow, %{"cmd" => "ls"}})
+          assert %Allow{updated_input: %{"cmd" => "ls"}} = result
+        end)
+
+      assert log =~ "deprecated"
+    end
+  end
 end
