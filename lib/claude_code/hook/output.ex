@@ -43,6 +43,8 @@ defmodule ClaudeCode.Hook.Output do
   alias Output.SubagentStart
   alias Output.UserPromptSubmit
 
+  require Logger
+
   @type decision :: String.t()
 
   @type hook_specific_output ::
@@ -106,24 +108,43 @@ defmodule ClaudeCode.Hook.Output do
   def maybe_put(map, _key, nil), do: map
   def maybe_put(map, key, value), do: Map.put(map, key, value)
 
-  # -- Shorthand coercion --
+  # -- Permission coercion (can_use_tool) --
+  # Always returns %PermissionDecision.Allow{} or %PermissionDecision.Deny{}
 
   @doc false
-  @spec coerce(term(), String.t() | atom()) :: struct()
+  @spec coerce_permission(term()) :: PermissionDecision.Allow.t() | PermissionDecision.Deny.t()
+
+  def coerce_permission(:allow), do: %PermissionDecision.Allow{}
+  def coerce_permission(:deny), do: %PermissionDecision.Deny{}
+  def coerce_permission({:allow, opts}), do: struct(PermissionDecision.Allow, opts)
+  def coerce_permission({:deny, opts}), do: struct(PermissionDecision.Deny, opts)
+  def coerce_permission(%PermissionDecision.Allow{} = output), do: output
+  def coerce_permission(%PermissionDecision.Deny{} = output), do: output
+
+  def coerce_permission(value) do
+    Logger.warning(
+      "Hook returned #{inspect(value)} for permission decision — use :allow, :deny, {:allow, opts}, or {:deny, opts}"
+    )
+
+    %PermissionDecision.Deny{message: "Hook returned invalid permission decision: #{inspect(value)}"}
+  end
+
+  # -- Hook event coercion --
+  # Always returns %Output{} or %Async{}
+
+  @doc false
+  @spec coerce(term(), String.t()) :: t() | Async.t()
 
   # Tier 1: bare atoms
-  def coerce(:ok, :can_use_tool), do: %PermissionDecision.Allow{}
   def coerce(:ok, _event), do: %__MODULE__{}
   def coerce(:allow, event), do: coerce({:allow, []}, event)
   def coerce(:deny, event), do: coerce({:deny, []}, event)
 
-  # Tier 3: struct passthrough
+  # Tier 2: struct passthrough
   def coerce(%__MODULE__{} = output, _event), do: output
   def coerce(%Async{} = output, _event), do: output
-  def coerce(%PermissionDecision.Allow{} = output, _event), do: output
-  def coerce(%PermissionDecision.Deny{} = output, _event), do: output
 
-  # Tier 2: tagged tuples — top-level Output fields
+  # Tier 3: tagged tuples — top-level Output fields
 
   # :halt — Stop / SubagentStop → continue: false
   def coerce({:halt, opts}, _event) do
@@ -135,25 +156,26 @@ defmodule ClaudeCode.Hook.Output do
     struct(__MODULE__, [{:decision, "block"} | opts])
   end
 
-  # Tier 2: tagged tuples — hook-specific Output fields
+  # Tier 4: tagged tuples — hook-specific Output fields
 
   # :allow / :deny / :ask — PreToolUse
   def coerce({action, opts}, "PreToolUse") when action in [:allow, :deny, :ask] do
     wrap(struct(PreToolUse, [{:permission_decision, to_string(action)} | opts]))
   end
 
-  # :allow / :deny — PermissionRequest
-  def coerce({:allow, opts}, "PermissionRequest") do
-    wrap(%PermissionRequest{decision: struct(PermissionDecision.Allow, opts)})
+  # :allow / :deny — PermissionRequest (reuse coerce_permission)
+  def coerce({action, _opts} = value, "PermissionRequest") when action in [:allow, :deny] do
+    wrap(%PermissionRequest{decision: coerce_permission(value)})
   end
 
-  def coerce({:deny, opts}, "PermissionRequest") do
-    wrap(%PermissionRequest{decision: struct(PermissionDecision.Deny, opts)})
-  end
+  # :allow / :deny / :ask — invalid for this event type
+  def coerce({action, _opts}, event) when action in [:allow, :deny, :ask] do
+    Logger.warning(
+      "Hook returned #{inspect(action)} for #{inspect(event)}, which only applies to PreToolUse or PermissionRequest — returning empty output"
+    )
 
-  # :allow / :deny — can_use_tool
-  def coerce({:allow, opts}, :can_use_tool), do: struct(PermissionDecision.Allow, opts)
-  def coerce({:deny, opts}, :can_use_tool), do: struct(PermissionDecision.Deny, opts)
+    %__MODULE__{}
+  end
 
   # {:ok, opts} — event-specific inner struct
   def coerce({:ok, opts}, "PreToolUse"), do: wrap(struct(PreToolUse, opts))
@@ -166,8 +188,14 @@ defmodule ClaudeCode.Hook.Output do
   def coerce({:ok, opts}, "PreCompact"), do: wrap(struct(PreCompact, opts))
   def coerce({:ok, _opts}, _event), do: %__MODULE__{}
 
-  # Catch-all: unrecognized values (e.g. legacy bare atoms) → empty output
-  def coerce(_value, _event), do: %__MODULE__{}
+  # Catch-all: unrecognized return values
+  def coerce(value, event) do
+    Logger.warning(
+      "Hook returned unrecognized value #{inspect(value)} for event #{inspect(event)} — returning empty output"
+    )
+
+    %__MODULE__{}
+  end
 
   defp wrap(inner), do: %__MODULE__{hook_specific_output: inner}
 end

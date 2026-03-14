@@ -268,7 +268,9 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
       assert result["message"] == "Policy denied"
     end
 
-    test "shorthand :ok returns allow for can_use_tool" do
+    test "shorthand :ok returns deny for can_use_tool (invalid shorthand)" do
+      import ExUnit.CaptureLog
+
       callback = fn _input, _id -> :ok end
       {registry, _wire} = HookRegistry.new(%{}, callback)
 
@@ -279,8 +281,13 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "blocked_path" => nil
       }
 
-      result = ControlHandler.handle_can_use_tool(request, registry)
-      assert result["behavior"] == "allow"
+      log =
+        capture_log(fn ->
+          result = ControlHandler.handle_can_use_tool(request, registry)
+          assert result["behavior"] == "deny"
+        end)
+
+      assert log =~ "use :allow, :deny"
     end
 
     test "handles callback errors gracefully" do

@@ -39,7 +39,7 @@ defmodule ClaudeCode.Adapter.ControlHandler do
 
     case result do
       {:error, reason} -> %{"behavior" => "deny", "message" => "Hook error: #{reason}"}
-      value -> value |> HookOutput.coerce(:can_use_tool) |> HookOutput.to_wire()
+      value -> value |> HookOutput.coerce_permission() |> HookOutput.to_wire()
     end
   end
 

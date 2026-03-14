@@ -4,12 +4,16 @@ defmodule ClaudeCode.Hook.PermissionDecision.Allow do
 
   Returned from `:can_use_tool` callbacks and `PermissionRequest` hooks.
 
-  Shorthand: `{:allow, updated_input: %{...}}` or bare `:ok`.
+  Shorthand: `:allow` or `{:allow, updated_input: %{...}}`.
 
   ## Fields
 
     * `:updated_input` - replacement tool input map (overrides the original)
-    * `:updated_permissions` - list of permission rules to apply
+    * `:updated_permissions` - list of permission rule maps to persist. Each map
+      should contain a `"type"` key matching a CLI permission type, e.g.:
+
+          [%{"type" => "toolAlwaysAllow", "tool" => "Bash"}]
+          [%{"type" => "toolAlwaysDeny", "tool" => "Write"}]
   """
   alias ClaudeCode.Hook.Output
 

@@ -357,44 +357,99 @@ defmodule ClaudeCode.Hook.OutputTest do
   # -- coerce/2 tests --
 
   describe "coerce/2 — tier 1 (bare :ok)" do
+    import ExUnit.CaptureLog
+
     test "bare :ok returns empty Output struct" do
       assert %Output{} = Output.coerce(:ok, "PreToolUse")
       assert %Output{} = Output.coerce(:ok, "PostToolUse")
     end
 
-    test "bare :ok with :can_use_tool returns Allow struct" do
-      assert %Allow{} = Output.coerce(:ok, :can_use_tool)
-    end
-
     test "bare :allow delegates to {:allow, []}" do
-      assert %Allow{} = Output.coerce(:allow, :can_use_tool)
-
       result = Output.coerce(:allow, "PreToolUse")
       assert %Output{hook_specific_output: %Output.PreToolUse{permission_decision: "allow"}} = result
     end
 
     test "bare :deny delegates to {:deny, []}" do
-      assert %Deny{} = Output.coerce(:deny, :can_use_tool)
-
       result = Output.coerce(:deny, "PreToolUse")
       assert %Output{hook_specific_output: %Output.PreToolUse{permission_decision: "deny"}} = result
     end
   end
 
-  describe "coerce/2 — tier 3 (struct passthrough)" do
+  describe "coerce/2 — bare :allow/:deny for non-permission events" do
+    import ExUnit.CaptureLog
+
+    test "bare :allow for PostToolUse logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{hook_specific_output: nil} = Output.coerce(:allow, "PostToolUse")
+        end)
+
+      assert log =~ "only applies to PreToolUse"
+    end
+
+    test "bare :deny for Stop logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{hook_specific_output: nil} = Output.coerce(:deny, "Stop")
+        end)
+
+      assert log =~ "only applies to PreToolUse"
+    end
+
+    test "{:allow, opts} for SessionStart logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{} = Output.coerce({:allow, []}, "SessionStart")
+        end)
+
+      assert log =~ "only applies to PreToolUse"
+    end
+
+    test "{:deny, opts} for Notification logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{} = Output.coerce({:deny, []}, "Notification")
+        end)
+
+      assert log =~ "only applies to PreToolUse"
+    end
+  end
+
+  describe "coerce/2 — catch-all (unrecognized values)" do
+    import ExUnit.CaptureLog
+
+    test "unrecognized atom logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{} = Output.coerce(:bogus, "PreToolUse")
+        end)
+
+      assert log =~ "unrecognized value"
+    end
+
+    test "unrecognized tuple logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{} = Output.coerce({:unknown, []}, "PostToolUse")
+        end)
+
+      assert log =~ "unrecognized value"
+    end
+
+    test "string value logs warning and returns empty Output" do
+      log =
+        capture_log(fn ->
+          assert %Output{} = Output.coerce("allow", "PreToolUse")
+        end)
+
+      assert log =~ "unrecognized value"
+    end
+  end
+
+  describe "coerce/2 — tier 2 (struct passthrough)" do
     test "Output struct passes through unchanged" do
       output = %Output{suppress_output: true}
       assert Output.coerce(output, "PreToolUse") == output
-    end
-
-    test "PermissionDecision.Allow struct passes through" do
-      allow = %Allow{updated_input: %{"x" => 1}}
-      assert Output.coerce(allow, :can_use_tool) == allow
-    end
-
-    test "PermissionDecision.Deny struct passes through" do
-      deny = %Deny{message: "no"}
-      assert Output.coerce(deny, :can_use_tool) == deny
     end
   end
 
@@ -497,25 +552,73 @@ defmodule ClaudeCode.Hook.OutputTest do
     end
   end
 
-  describe "coerce/2 — :allow/:deny (can_use_tool)" do
-    test "allow with no opts" do
-      result = Output.coerce({:allow, []}, :can_use_tool)
-      assert %Allow{} = result
+  describe "coerce_permission/1 (can_use_tool)" do
+    import ExUnit.CaptureLog
+
+    test "bare :allow" do
+      assert %Allow{} = Output.coerce_permission(:allow)
     end
 
-    test "allow with updated_input" do
-      result = Output.coerce({:allow, updated_input: %{"x" => 1}}, :can_use_tool)
-      assert %Allow{updated_input: %{"x" => 1}} = result
+    test "bare :deny" do
+      assert %Deny{} = Output.coerce_permission(:deny)
+    end
+
+    test "allow with opts" do
+      assert %Allow{updated_input: %{"x" => 1}} =
+               Output.coerce_permission({:allow, updated_input: %{"x" => 1}})
+    end
+
+    test "allow with updated_permissions" do
+      perms = [%{"type" => "toolAlwaysAllow", "tool" => "Bash"}]
+
+      assert %Allow{updated_permissions: ^perms} =
+               Output.coerce_permission({:allow, updated_permissions: perms})
     end
 
     test "deny with message" do
-      result = Output.coerce({:deny, message: "Nope"}, :can_use_tool)
-      assert %Deny{message: "Nope"} = result
+      assert %Deny{message: "Nope"} = Output.coerce_permission({:deny, message: "Nope"})
     end
 
-    test "deny with interrupt" do
-      result = Output.coerce({:deny, message: "No", interrupt: true}, :can_use_tool)
-      assert %Deny{message: "No", interrupt: true} = result
+    test "deny with message and interrupt" do
+      assert %Deny{message: "No", interrupt: true} =
+               Output.coerce_permission({:deny, message: "No", interrupt: true})
+    end
+
+    test "Allow struct passes through" do
+      allow = %Allow{updated_input: %{"x" => 1}}
+      assert Output.coerce_permission(allow) == allow
+    end
+
+    test "Deny struct passes through" do
+      deny = %Deny{message: "no"}
+      assert Output.coerce_permission(deny) == deny
+    end
+
+    test ":ok logs warning and returns Deny" do
+      log =
+        capture_log(fn ->
+          assert %Deny{} = Output.coerce_permission(:ok)
+        end)
+
+      assert log =~ "use :allow, :deny"
+    end
+
+    test "{:ok, opts} logs warning and returns Deny" do
+      log =
+        capture_log(fn ->
+          assert %Deny{} = Output.coerce_permission({:ok, updated_input: %{"x" => 1}})
+        end)
+
+      assert log =~ "use :allow, :deny"
+    end
+
+    test "unrecognized value logs warning and returns Deny" do
+      log =
+        capture_log(fn ->
+          assert %Deny{} = Output.coerce_permission(:bogus)
+        end)
+
+      assert log =~ "use :allow, :deny"
     end
   end
 
