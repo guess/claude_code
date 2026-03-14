@@ -1,45 +1,22 @@
-# Tracking Costs and Usage
+# Cost Tracking
 
-Understand and track token usage for billing in the Claude Agent SDK.
+Learn how to track token usage, deduplicate parallel tool calls, and calculate costs with the Claude Agent SDK.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/cost-tracking). Examples are adapted for Elixir.
 
 The Claude Agent SDK provides detailed token usage information for each interaction with Claude. This guide explains how to properly track costs and understand usage reporting, especially when dealing with parallel tool uses and multi-step conversations.
 
-## Understanding Token Usage
+## Understand Token Usage
 
-When Claude processes requests, it reports token usage at the message level. This usage data is essential for tracking costs and billing users appropriately.
+Cost tracking depends on understanding how the SDK scopes usage data:
 
-### Key Concepts
+- **`query()` call:** one invocation of `ClaudeCode.query/2` or `ClaudeCode.stream/3`. A single call can involve multiple steps (Claude responds, uses tools, gets results, responds again). Each call produces one `ClaudeCode.Message.ResultMessage` at the end.
+- **Step:** a single request/response cycle within a `query()` call. Each step produces assistant messages with token usage. When Claude uses multiple tools in one turn, all messages in that turn share the same `id`, so deduplicate by ID to avoid double-counting.
+- **Session:** a series of `query()` calls linked by a session ID (using the `:resume` option). Each `query()` call within a session reports its own cost independently.
 
-1. **Steps**: A step is a single request/response pair between your application and Claude
-2. **Messages**: Individual messages within a step (text, tool uses, tool results)
-3. **Usage**: Token consumption data attached to assistant messages
+### Message Flow
 
-## Usage Reporting Structure
-
-### Single vs Parallel Tool Use
-
-When Claude executes tools, the usage reporting differs based on whether tools are executed sequentially or in parallel:
-
-```elixir
-alias ClaudeCode.Message.AssistantMessage
-
-# Tracking usage in a conversation
-session
-|> ClaudeCode.stream("Analyze this codebase and run tests")
-|> Enum.reduce(%{}, fn
-  %AssistantMessage{message: %{id: id, usage: usage}}, seen ->
-    Map.put_new(seen, id, usage)
-
-  _, seen ->
-    seen
-end)
-```
-
-### Message Flow Example
-
-Here's how messages and usage are reported in a typical multi-step conversation:
+The following shows the message stream from a single `query()` call, with token usage reported at each step and the authoritative total at the end:
 
 ```
 # Step 1: Initial request with parallel tool uses
@@ -53,21 +30,41 @@ user (tool_result)
 
 # Step 2: Follow-up response
 assistant (text)      %{id: "msg_2", usage: %{output_tokens: 98, ...}}
+
+# Final: Result message with authoritative total
+result                %{total_cost_usd: 0.0042, usage: %{...}}
 ```
 
-## Important Usage Rules
+Each step produces one or more assistant messages. Each assistant message contains a nested message with an `id` and `usage` map with token counts (`input_tokens`, `output_tokens`). When Claude uses tools in parallel, multiple messages share the same `id` with identical usage data. Track which IDs you have already counted and skip duplicates to avoid inflated totals.
 
-### 1. Same ID = Same Usage
+When the `query()` call completes, the SDK emits a `ClaudeCode.Message.ResultMessage` with `total_cost_usd` and cumulative `usage`. If you make multiple `query()` calls (for example, in a multi-turn session), each result only reflects the cost of that individual call. If you only need the total cost, you can ignore the per-step usage and read this single value.
 
-**All messages with the same `id` field report identical usage.** When Claude sends multiple messages in the same turn (for example, text + tool uses), they share the same message ID and usage data.
+## Get the Total Cost of a Query
+
+The `ClaudeCode.Message.ResultMessage` is the last message in every `query()` call. It includes `total_cost_usd`, the cumulative cost across all steps in that call. This works for both success and error results. If you use sessions to make multiple `query()` calls, each result only reflects the cost of that individual call.
+
+```elixir
+result =
+  session
+  |> ClaudeCode.stream("Summarize this project")
+  |> ClaudeCode.Stream.final_result()
+
+result.total_cost_usd
+# => 0.0042
+```
+
+## Track Per-Step Usage
+
+Each assistant message contains a nested message with an `id` and `usage` map with token counts. When Claude uses tools in parallel, multiple messages share the same `id` with identical usage data. Track which IDs you have already counted and skip duplicates to avoid inflated totals.
+
+> **Warning:** Parallel tool calls produce multiple assistant messages whose nested message shares the same `id` and identical usage. Always deduplicate by ID to get accurate per-step token counts.
 
 ```elixir
 alias ClaudeCode.Message.AssistantMessage
 
-# All these assistant messages have the same ID and usage.
-# Charge only once per unique message ID.
+# Accumulate input and output tokens, counting each unique message ID only once
 session
-|> ClaudeCode.stream("Complex task")
+|> ClaudeCode.stream("Analyze this codebase and run tests")
 |> Enum.reduce(%{}, fn
   %AssistantMessage{message: %{id: id, usage: usage}}, seen ->
     Map.put_new(seen, id, usage)
@@ -78,30 +75,9 @@ end)
 # Result: %{"msg_1" => %{output_tokens: 100, ...}, "msg_2" => %{output_tokens: 98, ...}}
 ```
 
-### 2. Charge Once Per Step
+## Per-Model Usage Breakdown
 
-**You should only charge users once per step**, not for each individual message. When you see multiple assistant messages with the same ID, use the usage from any one of them.
-
-### 3. Result Message Contains Cumulative Usage
-
-The final `ClaudeCode.Message.ResultMessage` contains the total cumulative usage from all steps in the conversation:
-
-```elixir
-result =
-  session
-  |> ClaudeCode.stream("Multi-step task")
-  |> ClaudeCode.Stream.final_result()
-
-result.total_cost_usd
-# => 0.0042
-
-result.usage
-# => %{input_tokens: 1200, output_tokens: 350, cache_read_input_tokens: 800, ...}
-```
-
-### 4. Per-Model Usage Breakdown
-
-The `model_usage` field on `ClaudeCode.Message.ResultMessage` provides authoritative per-model usage data. Like `total_cost_usd`, this field is accurate and suitable for billing purposes. This is especially useful when using multiple models (for example, Haiku for subagents, Opus for the main agent).
+The `model_usage` field on `ClaudeCode.Message.ResultMessage` provides a map of model name to per-model token counts and cost. This is useful when you run multiple models (for example, Haiku for subagents and Opus for the main agent) and want to see where tokens are going.
 
 ```elixir
 result =
@@ -125,9 +101,35 @@ result.model_usage
 # }
 ```
 
+## Accumulate Costs Across Multiple Calls
+
+Each `query()` call returns its own `total_cost_usd`. The SDK does not provide a session-level total, so if your application makes multiple `query()` calls (for example, in a multi-turn session or across different users), accumulate the totals yourself.
+
+```elixir
+alias ClaudeCode.Message.ResultMessage
+
+# Track cumulative cost across multiple query() calls
+prompts = [
+  "Read the files in lib/ and summarize the architecture",
+  "List all public functions in lib/my_app/auth.ex"
+]
+
+total_spend =
+  Enum.reduce(prompts, 0.0, fn prompt, acc ->
+    %ResultMessage{total_cost_usd: cost} =
+      session
+      |> ClaudeCode.stream(prompt)
+      |> ClaudeCode.Stream.final_result()
+
+    acc + (cost || 0.0)
+  end)
+
+# total_spend now contains the combined cost of both calls
+```
+
 ## Implementation: Cost Tracking System
 
-Here's a complete example of implementing a cost tracking system using an OTP Agent:
+Here is a complete example of implementing a cost tracking system using an OTP Agent:
 
 ```elixir
 defmodule CostTracker do
@@ -224,31 +226,30 @@ If the budget is exceeded, the result will have `subtype: :error_max_budget_usd`
 )
 ```
 
-## Handling Edge Cases
+## Handle Errors, Caching, and Token Discrepancies
 
-### Output Token Discrepancies
+For accurate cost tracking, account for failed conversations, cache token pricing, and occasional reporting inconsistencies.
+
+### Resolve Output Token Discrepancies
 
 In rare cases, you might observe different `output_tokens` values for messages with the same ID. When this occurs:
 
-1. **Use the highest value** - The final message in a group typically contains the accurate total
-2. **Verify against total cost** - The `total_cost_usd` in the result message is authoritative
-3. **Report inconsistencies** - File issues at the [Claude Code GitHub repository](https://github.com/anthropics/claude-code/issues)
+1. **Use the highest value:** the final message in a group typically contains the accurate total.
+2. **Verify against total cost:** the `total_cost_usd` in the result message is authoritative.
+3. **Report inconsistencies:** file issues at the [Claude Code GitHub repository](https://github.com/anthropics/claude-code/issues).
 
-### Cache Token Tracking
+### Track Costs on Failed Conversations
 
-When using prompt caching, track these token types separately:
+Both success and error result messages include `usage` and `total_cost_usd`. If a conversation fails mid-way, you still consumed tokens up to the point of failure. Always read cost data from the result message regardless of its `subtype`.
 
-```elixir
-# From result.usage
-%{
-  cache_creation_input_tokens: integer(),
-  cache_read_input_tokens: integer(),
-  cache_creation: %{
-    ephemeral_5m_input_tokens: integer(),
-    ephemeral_1h_input_tokens: integer()
-  }
-}
-```
+### Track Cache Tokens
+
+The Agent SDK automatically uses [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) to reduce costs on repeated content. You do not need to configure caching yourself. The usage map includes two additional fields for cache tracking:
+
+- `cache_creation_input_tokens`: tokens used to create new cache entries (charged at a higher rate than standard input tokens).
+- `cache_read_input_tokens`: tokens read from existing cache entries (charged at a reduced rate).
+
+Track these separately from `input_tokens` to understand caching savings. These fields appear on the `usage` map of `ClaudeCode.Message.ResultMessage`.
 
 ## Best Practices
 
@@ -289,7 +290,7 @@ Each per-model usage entry in `model_usage` contains:
 
 ## Example: Building a Billing Dashboard
 
-Here's how to aggregate usage data for a billing dashboard across multiple users:
+Here is how to aggregate usage data for a billing dashboard across multiple users:
 
 ```elixir
 defmodule BillingAggregator do
@@ -337,7 +338,7 @@ defmodule BillingAggregator do
 end
 ```
 
-## Next Steps
+## Related Documentation
 
 - [Permissions](permissions.md) - Managing tool permissions
 - [Stop Reasons](stop-reasons.md) - Understanding error subtypes

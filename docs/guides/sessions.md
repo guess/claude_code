@@ -1,102 +1,125 @@
 # Session Management
 
-Understanding how the Claude Agent SDK handles sessions and session resumption.
+How sessions persist agent conversation history, and when to use continue, resume, and fork to return to a prior run.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/sessions). Examples are adapted for Elixir.
 
-The Claude Agent SDK provides session management capabilities for handling conversation state and resumption. Sessions allow you to continue conversations across multiple interactions while maintaining full context.
+A session is the conversation history the SDK accumulates while your agent works. It contains your prompt, every tool call the agent made, every tool result, and every response. The SDK writes it to disk automatically so you can return to it later.
 
-## How Sessions Work
+Returning to a session means the agent has full context from before: files it already read, analysis it already performed, decisions it already made. You can ask a follow-up question, recover from an interruption, or branch off to try a different approach.
 
-When you start a new query, the SDK automatically creates a session and returns a session ID in the initial system message. You can capture this ID to resume the session later.
+> **Note:** Sessions persist the **conversation**, not the filesystem. To snapshot and revert file changes the agent made, use [File Checkpointing](file-checkpointing.md).
+
+This guide covers how to pick the right approach for your app, how sessions are tracked automatically, how to capture session IDs and use resume and fork manually, and what to know about resuming sessions across hosts.
+
+## Choose an approach
+
+How much session handling you need depends on your application's shape. Session management comes into play when you send multiple prompts that should share context. Within a single `ClaudeCode.query/2` call, the agent already takes as many turns as it needs, and permission prompts are handled in-loop (they don't end the call).
+
+| What you're building | What to use |
+|:---|:---|
+| One-shot task: single prompt, no follow-up | Nothing extra. One `ClaudeCode.query/2` call handles it. |
+| Multi-turn chat in one process | [Automatic session management](#automatic-session-management). The SDK tracks the session for you with no ID handling. |
+| Pick up where you left off after a process restart | `continue: true`. Resumes the most recent session in the directory, no ID needed. |
+| Resume a specific past session (not the most recent) | Capture the session ID and pass it to `:resume`. |
+| Try an alternative approach without losing the original | Fork the session. |
+| Stateless task, don't want anything written to disk | Set `no_session_persistence: true`. The session exists only in memory for the duration of the call. |
+
+### Continue, resume, and fork
+
+Continue, resume, and fork are option fields you set on `ClaudeCode.start_link/1`.
+
+**Continue** and **resume** both pick up an existing session and add to it. The difference is how they find that session:
+
+- **Continue** finds the most recent session in the current directory. You don't track anything. Works well when your app runs one conversation at a time.
+- **Resume** takes a specific session ID. You track the ID. Required when you have multiple sessions (for example, one per user in a multi-user app) or want to return to one that isn't the most recent.
+
+**Fork** is different: it creates a new session that starts with a copy of the original's history. The original stays unchanged. Use fork to try a different direction while keeping the option to go back.
+
+## Automatic session management
+
+The Elixir SDK's `ClaudeCode.Session` GenServer tracks session state for you across calls, so you don't pass IDs around manually. Each call to `ClaudeCode.stream/3` or `ClaudeCode.query/2` on the same session process automatically continues the same conversation.
+
+This example runs two queries against the same session. The first asks the agent to analyze a module; the second asks it to refactor that module. Because both calls go through the same session process, the second query has full context from the first without any explicit resume or session ID:
 
 ```elixir
-# Basic - uses ANTHROPIC_API_KEY from environment
-{:ok, session} = ClaudeCode.start_link()
-
-# With options
 {:ok, session} = ClaudeCode.start_link(
-  model: "sonnet",
-  system_prompt: "You are an Elixir expert",
-  timeout: 120_000
+  allowed_tools: ["Read", "Edit", "Glob", "Grep"]
 )
 
-# Always stop when done
+# First query: session captures the session ID internally
+session |> ClaudeCode.stream("Analyze the auth module") |> Stream.run()
+
+# Second query: automatically continues the same session
+response =
+  session
+  |> ClaudeCode.stream("Now refactor it to use JWT")
+  |> ClaudeCode.Stream.final_text()
+
 ClaudeCode.stop(session)
 ```
 
-### Getting the Session ID
+## Capture the session ID
 
-The session ID is available from the system init message or via `ClaudeCode.Session.session_id/1`:
+Resume and fork require a session ID. The session ID is available from the system init message or via `ClaudeCode.Session.session_id/1`:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(model: "claude-opus-4-6")
+{:ok, session} = ClaudeCode.start_link(
+  allowed_tools: ["Read", "Glob", "Grep"]
+)
 
-# Send a query and capture the session ID from the system init message
+# Send a query
 session
-|> ClaudeCode.stream("Help me build a web application")
-|> Enum.each(fn
-  %ClaudeCode.Message.SystemMessage{subtype: :init, session_id: id} ->
-    IO.puts("Session started with ID: #{id}")
-  _ ->
-    :ok
-end)
+|> ClaudeCode.stream("Analyze the auth module and suggest improvements")
+|> ClaudeCode.Stream.final_text()
 
-# Or retrieve it directly from the session GenServer
+# Retrieve the session ID from the session GenServer
 session_id = ClaudeCode.Session.session_id(session)
 # You can save this ID for later resumption
 ```
 
-### Multi-Turn Conversations
-
-Sessions automatically maintain conversation context across multiple queries:
+You can also capture it from the stream by matching on the system init message:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link()
-
-session |> ClaudeCode.stream("My name is Alice") |> Stream.run()
-
-response =
-  session
-  |> ClaudeCode.stream("What's my name?")
-  |> ClaudeCode.Stream.final_text()
-# => "Your name is Alice!"
-
-ClaudeCode.stop(session)
+session
+|> ClaudeCode.stream("Analyze the auth module")
+|> Enum.each(fn
+  %ClaudeCode.Message.SystemMessage{subtype: :init, session_id: id} ->
+    # Store the session ID
+    :ok
+  _ ->
+    :ok
+end)
 ```
 
-## Resuming Sessions
+## Resume by ID
 
-The SDK supports resuming sessions from previous conversation states, enabling continuous development workflows. Use the `:resume` option with a session ID to continue a previous conversation:
+Pass a session ID to `:resume` to return to that specific session. The agent picks up with full context from wherever the session left off. Common reasons to resume:
+
+- **Follow up on a completed task.** The agent already analyzed something; now you want it to act on that analysis without re-reading files.
+- **Recover from a limit.** The first run ended with an `error_max_turns` result; resume with a higher limit.
+- **Restart your process.** You captured the ID before shutdown and want to restore the conversation.
+
+This example resumes a session with a follow-up prompt. Because you're resuming, the agent already has the prior analysis in context:
 
 ```elixir
-# Get the session ID after a conversation
-{:ok, session} = ClaudeCode.start_link()
-session |> ClaudeCode.stream("Remember: the code is 12345") |> Stream.run()
-session_id = ClaudeCode.Session.session_id(session)
-ClaudeCode.stop(session)
-
-# Later: resume with the same context
+# Earlier session analyzed the code; now build on that analysis
 {:ok, session} = ClaudeCode.start_link(
   resume: session_id,
-  model: "claude-opus-4-6",
-  allowed_tools: ["Read", "Edit", "Write", "Glob", "Grep", "Bash"]
+  allowed_tools: ["Read", "Edit", "Write", "Glob", "Grep"]
 )
 
 response =
   session
-  |> ClaudeCode.stream("What was the code?")
+  |> ClaudeCode.stream("Now implement the refactoring you suggested")
   |> ClaudeCode.Stream.final_text()
-# => "The code is 12345"
 ```
 
-The SDK automatically handles loading the conversation history and context when you resume a session, allowing Claude to continue exactly where it left off.
+> **Tip:** If a resume call returns a fresh session instead of the expected history, the most common cause is a mismatched working directory. Sessions are stored under `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl`, where `<encoded-cwd>` is the absolute working directory with every non-alphanumeric character replaced by `-` (so `/Users/me/proj` becomes `-Users-me-proj`). If your resume call runs from a different directory, the SDK looks in the wrong place. The session file also needs to exist on the current machine.
 
-> **Tip:** To track and revert file changes across sessions, see [File Checkpointing](file-checkpointing.md).
+### Continuing the most recent conversation
 
-### Continuing the Most Recent Conversation
-
-Use `:continue` to automatically resume the last conversation in the current directory:
+Use `:continue` to automatically resume the last conversation in the current directory without tracking session IDs:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(continue: true)
@@ -107,63 +130,53 @@ session
 |> Enum.each(&IO.write/1)
 ```
 
-## Forking Sessions
+## Fork to explore alternatives
 
-When resuming a session, you can choose to either continue the original session or fork it into a new branch. By default, resuming continues the original session. Use the `:fork_session` option to create a new session ID that starts from the resumed state.
+Forking creates a new session that starts with a copy of the original's history but diverges from that point. The fork gets its own session ID; the original's ID and history stay unchanged. You end up with two independent sessions you can resume separately.
 
-### When to Fork a Session
+> **Note:** Forking branches the conversation history, not the filesystem. If a forked agent edits files, those changes are real and visible to any session working in the same directory. To branch and revert file changes, use [File Checkpointing](file-checkpointing.md).
 
-Forking is useful when you want to:
-
-- Explore different approaches from the same starting point
-- Create multiple conversation branches without modifying the original
-- Test changes without affecting the original session history
-- Maintain separate conversation paths for different experiments
-
-### Forking vs Continuing
-
-| Behavior | `fork_session: false` (default) | `fork_session: true` |
-|----------|-------------------------------|---------------------|
-| **Session ID** | Same as original | New session ID generated |
-| **History** | Appends to original session | Creates new branch from resume point |
-| **Original Session** | Modified | Preserved unchanged |
-| **Use Case** | Continue linear conversation | Branch to explore alternatives |
-
-### Example: Forking a Session
+This example forks a session to explore an alternative approach while keeping the original intact:
 
 ```elixir
 # First, capture the session ID
 {:ok, session} = ClaudeCode.start_link(model: "claude-opus-4-6")
 session |> ClaudeCode.stream("Help me design a REST API") |> Stream.run()
 session_id = ClaudeCode.Session.session_id(session)
+ClaudeCode.stop(session)
 
-# Fork the session to try a different approach
+# Fork: branch from session_id into a new session
 {:ok, forked} = ClaudeCode.start_link(
   resume: session_id,
-  fork_session: true,  # Creates a new session ID
-  model: "claude-opus-4-6"
+  fork_session: true
 )
 
 forked
-|> ClaudeCode.stream("Now let's redesign this as a GraphQL API instead")
+|> ClaudeCode.stream("Instead of REST, implement OAuth2 for the auth module")
 |> ClaudeCode.Stream.final_text()
 
-# After first query, fork has a new session ID
+# The fork has a new session ID, distinct from session_id
 forked_id = ClaudeCode.Session.session_id(forked)
-forked_id != session_id
-# => true
+ClaudeCode.stop(forked)
 
-# The original session remains unchanged and can still be resumed
-{:ok, continued} = ClaudeCode.start_link(
-  resume: session_id,
-  fork_session: false,  # Continue original session (default)
-  model: "claude-opus-4-6"
-)
+# Original session is untouched; resuming it continues the original thread
+{:ok, continued} = ClaudeCode.start_link(resume: session_id)
 
 continued
-|> ClaudeCode.stream("Add authentication to the REST API")
+|> ClaudeCode.stream("Continue with the REST API design")
 |> ClaudeCode.Stream.final_text()
+
+ClaudeCode.stop(continued)
 ```
+
+## Resume across hosts
+
+Session files are local to the machine that created them. To resume a session on a different host (CI workers, ephemeral containers, serverless), you have two options:
+
+- **Move the session file.** Persist `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` from the first run and restore it to the same path on the new host before calling resume. The working directory must match.
+- **Don't rely on session resume.** Capture the results you need (analysis output, decisions, file diffs) as application state and pass them into a fresh session's prompt. This is often more robust than shipping transcript files around.
+
+The SDK provides `ClaudeCode.Session.conversation/2` for reading session messages from disk. Use it to build custom session pickers, cleanup logic, or transcript viewers.
 
 ## Clearing Context
 
@@ -188,13 +201,15 @@ Access past conversations stored in `~/.claude/projects/`:
 
 Enum.each(messages, fn
   %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
-    IO.puts("User: #{inspect(content)}")
+    Logger.info("User: #{inspect(content)}")
   %ClaudeCode.Message.AssistantMessage{message: %{content: blocks}} ->
     text = Enum.map_join(blocks, "", fn
       %ClaudeCode.Content.TextBlock{text: t} -> t
       _ -> ""
     end)
-    IO.puts("Assistant: #{text}")
+    Logger.info("Assistant: #{text}")
+  _ ->
+    :ok
 end)
 
 # From a running session
@@ -300,8 +315,9 @@ These functions use the bidirectional control protocol to communicate with the C
 | `stop/1`             | Terminates GenServer and CLI subprocess                       |
 | Process crash        | Supervisor restarts if supervised                             |
 
-## Next Steps
+## Related Resources
 
 - [Streaming Output](streaming-output.md) - Real-time character-level streaming
 - [Hosting](hosting.md) - Production deployment with OTP
 - [File Checkpointing](file-checkpointing.md) - Track and revert file changes
+- [Stop Reasons](stop-reasons.md) - Understanding turns, messages, and result handling

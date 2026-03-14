@@ -4,7 +4,7 @@ Intercept and customize agent behavior at key execution points with hooks.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/hooks). Examples are adapted for Elixir.
 
-Hooks let you intercept agent execution at key points to add validation, logging, security controls, or custom logic. With hooks, you can:
+Hooks are callback functions that run your code in response to agent events, like a tool being called, a session starting, or execution stopping. With hooks, you can:
 
 - **Block dangerous operations** before they execute, like destructive shell commands or unauthorized file access
 - **Log and audit** every tool call for compliance, debugging, or analytics
@@ -12,12 +12,17 @@ Hooks let you intercept agent execution at key points to add validation, logging
 - **Require human approval** for sensitive actions like database writes or API calls
 - **Track session lifecycle** to manage state, clean up resources, or send notifications
 
-A hook has two parts:
+This guide covers how hooks work, how to configure them, and provides examples for common patterns like blocking tools, modifying inputs, and forwarding notifications.
 
-1. **The callback function**: the logic that runs when the hook fires
-2. **The hook configuration**: tells the SDK which event to hook into (like `PreToolUse`) and which tools to match
+## How hooks work
 
-The following example blocks the agent from modifying `.env` files. First, define a callback that checks the file path, then pass it via the `:hooks` option:
+1. **An event fires** -- Something happens during agent execution and the SDK fires an event: a tool is about to be called (`PreToolUse`), a tool returned a result (`PostToolUse`), a subagent started or stopped, the agent is idle, or execution finished. See the [full list of events](#available-hooks).
+2. **The SDK collects registered hooks** -- The SDK checks for hooks registered for that event type, including callback hooks you pass in the `:hooks` option and shell command hooks from settings files (loaded via `:setting_sources`).
+3. **Matchers filter which hooks run** -- If a hook has a [matcher](#matchers) pattern (like `"Write|Edit"`), the SDK tests it against the event's target (for example, the tool name). Hooks without a matcher run for every event of that type.
+4. **Callback functions execute** -- Each matching hook's [callback function](#callback-function-inputs) receives input about what's happening: the tool name, its arguments, the session ID, and other event-specific details.
+5. **Your callback returns a decision** -- After performing any operations (logging, API calls, validation), your callback returns an [output](#callback-outputs) that tells the agent what to do: allow the operation, block it, modify the input, or inject context into the conversation.
+
+The following example puts these steps together. It registers a `PreToolUse` hook (step 1) with a `"Write|Edit"` matcher (step 3) so the callback only fires for file-writing tools. When triggered, the callback receives the tool's input (step 4), checks if the file path targets a `.env` file, and returns `{:deny, ...}` to block the operation (step 5):
 
 ```elixir
 defmodule MyApp.ProtectEnvFiles do
@@ -46,7 +51,7 @@ end
 )
 ```
 
-This is a `PreToolUse` hook. It runs before the tool executes and can block or allow operations based on your logic. The rest of this guide covers all available hooks, their configuration options, and patterns for common use cases.
+This is a `PreToolUse` hook. It runs before the tool executes and can block or allow operations based on your logic.
 
 > **MCP tools:** PreToolUse hooks also apply to in-process MCP tool calls. MCP tool names follow the `mcp__<server>__<tool>` pattern (e.g., `mcp__my-tools__get_weather`), so matchers like `"mcp__my-tools__.*"` work as expected.
 
@@ -136,7 +141,7 @@ Use matchers to filter which tools trigger your callbacks:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `:matcher` | `string` | `nil` | Regex pattern to match tool names. Built-in tools include `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`, `Task`, and others. MCP tools use the pattern `mcp__<server>__<action>`. |
+| `:matcher` | `string` | `nil` | Regex pattern to match tool names. Built-in tools include `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`, `Agent`, and others. MCP tools use the pattern `mcp__<server>__<action>`. |
 | `:hooks` | `list` | -- | Required. List of callback modules or 2-arity anonymous functions to execute when the pattern matches |
 | `:timeout` | `integer` | `60` | Timeout in seconds; increase for hooks that make external API calls |
 
@@ -359,6 +364,98 @@ defmodule MyApp.AutoApproveReadOnly do
 end
 ```
 
+### Block and inject context
+
+This example blocks any attempt to write to the `/etc` directory and uses two output mechanisms together: `{:deny, ...}` stops the tool call, while the full `%ClaudeCode.Hook.Output{}` struct injects a `system_message` into the conversation so the agent receives context about why the operation was blocked and avoids retrying it:
+
+```elixir
+defmodule MyApp.BlockEtcWrites do
+  @behaviour ClaudeCode.Hook
+
+  alias ClaudeCode.Hook.Output
+  alias ClaudeCode.Hook.Output.PreToolUse, as: PreToolUseOutput
+
+  @impl true
+  def call(%{hook_event_name: "PreToolUse", tool_input: %{"file_path" => path}}, _tool_use_id) do
+    if String.starts_with?(path, "/etc") do
+      %Output{
+        system_message: "Remember: system directories like /etc are protected.",
+        hook_specific_output: %PreToolUseOutput{
+          permission_decision: "deny",
+          permission_decision_reason: "Writing to /etc is not allowed"
+        }
+      }
+    else
+      :ok
+    end
+  end
+
+  def call(_input, _tool_use_id), do: :ok
+end
+```
+
+### Track subagent activity
+
+Use `SubagentStop` hooks to monitor when subagents finish their work. This example logs a summary each time a subagent completes:
+
+```elixir
+defmodule MyApp.SubagentTracker do
+  @behaviour ClaudeCode.Hook
+  require Logger
+
+  @impl true
+  def call(%{hook_event_name: "SubagentStop"} = input, tool_use_id) do
+    Logger.info("[SUBAGENT] Completed: #{input[:agent_id]}")
+    Logger.info("  Transcript: #{input[:agent_transcript_path]}")
+    Logger.info("  Tool use ID: #{tool_use_id}")
+    Logger.info("  Stop hook active: #{input[:stop_hook_active]}")
+    :ok
+  end
+
+  def call(_input, _tool_use_id), do: :ok
+end
+
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    SubagentStop: [MyApp.SubagentTracker]
+  }
+)
+```
+
+### Forward notifications
+
+Use `Notification` hooks to receive status notifications from the agent and forward them to external services. Notifications fire for specific event types: `permission_prompt` (Claude needs permission), `idle_prompt` (Claude is waiting for input), `auth_success` (authentication completed), and `elicitation_dialog` (Claude is prompting the user). Each notification includes a `:message` field with a human-readable description and optionally a `:title`.
+
+This example forwards every notification to Slack via an incoming webhook:
+
+```elixir
+defmodule MyApp.SlackNotifier do
+  @behaviour ClaudeCode.Hook
+  require Logger
+
+  @impl true
+  def call(%{hook_event_name: "Notification", message: message}, _tool_use_id) do
+    Task.start(fn ->
+      case Req.post("https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+             json: %{text: "Agent status: #{message}"}) do
+        {:ok, _} -> :ok
+        {:error, reason} -> Logger.warning("Slack notification failed: #{inspect(reason)}")
+      end
+    end)
+
+    :ok
+  end
+
+  def call(_input, _tool_use_id), do: :ok
+end
+
+{:ok, session} = ClaudeCode.start_link(
+  hooks: %{
+    Notification: [MyApp.SlackNotifier]
+  }
+)
+```
+
 ### Async operations in hooks
 
 Hooks can perform async operations like HTTP requests. Handle errors gracefully by catching exceptions instead of raising them:
@@ -462,6 +559,15 @@ A `UserPromptSubmit` hook that spawns subagents can create infinite loops if tho
 - Check for a subagent indicator in the hook input before spawning
 - Use the `parent_tool_use_id` field to detect if you are already in a subagent context
 - Scope hooks to only run for the top-level agent session
+
+### systemMessage not appearing in output
+
+The `system_message` field (via the full `%ClaudeCode.Hook.Output{}` struct) adds context to the conversation that the model sees, but it may not appear in all SDK output modes. If you need to surface hook decisions to your application, log them separately or use a dedicated output channel.
+
+## Related resources
+
+- [Claude Code hooks reference](https://code.claude.com/docs/en/hooks) -- Full JSON input/output schemas, event documentation, and matcher patterns
+- [Claude Code hooks guide](https://code.claude.com/docs/en/hooks-guide) -- Shell command hook examples and walkthroughs
 
 ## Next steps
 
