@@ -5,7 +5,7 @@ defmodule ClaudeCode.Hook.Output.PreToolUse do
   Controls whether a tool is allowed, denied, or requires user confirmation.
 
   Shorthand: `{:allow, []}`, `{:deny, permission_decision_reason: "..."}`,
-  or `{:ask, []}`.
+  `{:ask, []}`, or `{:ok, additional_context: "..."}` (no permission decision).
 
   ## Fields
 

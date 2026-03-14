@@ -10,52 +10,44 @@ defmodule ClaudeCode.Hook do
 
   ## Return values
 
-  Hook callbacks support three tiers of return values:
+  All hooks can return `:ok` (no opinion / acknowledge) or a tagged tuple
+  `{action, opts}` where `opts` is a keyword list of struct field names.
 
-  ### Tier 1: Bare atom
+  ### Universal actions
 
-      :ok
+  These work for any hook event. The `opts` correspond to
+  `ClaudeCode.Hook.Output` fields.
 
-  No opinion / acknowledge. Works for every hook event.
+  | Return | Effect |
+  |--------|--------|
+  | `:ok` | No opinion / acknowledge |
+  | `{:halt, opts}` | Stop the agent from continuing (e.g. `stop_reason: "Budget exhausted"`) |
+  | `{:block, opts}` | Block the current action (e.g. `reason: "Rate limited"`) |
 
-  ### Tier 2: Tagged tuple
+  ### Event-specific actions
 
-      {:allow, updated_input: %{"command" => "ls"}}
-      {:deny, permission_decision_reason: "Blocked"}
-      {:ask, permission_decision_reason: "Needs review"}
-      {:halt, stop_reason: "Budget remaining"}
-      {:block, reason: "Rate limited"}
-      {:ok, additional_context: "Logged"}
+  These are only valid for certain events. The `opts` correspond to
+  the event's output struct — see each event below for which actions
+  and fields apply.
 
-  The action atom determines intent. Keyword opts are literal struct field names
-  of the target output struct — no renaming. See the event reference below for
-  which actions and fields apply to each event.
+  | Return | Events |
+  |--------|--------|
+  | `{:ok, opts}` | Most events — acknowledge with event-specific data |
+  | `{:allow, opts}` | `PreToolUse`, `PermissionRequest` |
+  | `{:deny, opts}` | `PreToolUse`, `PermissionRequest` |
+  | `{:ask, opts}` | `PreToolUse` only |
 
-  ### Tier 3: Full struct (escape hatch)
+  ### Full struct (escape hatch)
 
       %Output{suppress_output: true, hook_specific_output: %Output.PreToolUse{...}}
 
   For when you need top-level fields alongside hook-specific data.
+  See `ClaudeCode.Hook.Output` for the wrapper struct fields.
 
-  ## Output modules
+  ### Async responses
 
-  The following modules define the structs used in hook return values:
-
-  | Module | Used by |
-  |--------|---------|
-  | `ClaudeCode.Hook.Output` | Top-level wrapper (all events) |
-  | `ClaudeCode.Hook.Output.Async` | Async hook responses |
-  | `ClaudeCode.Hook.Output.PreToolUse` | `PreToolUse` event-specific fields |
-  | `ClaudeCode.Hook.Output.PostToolUse` | `PostToolUse` event-specific fields |
-  | `ClaudeCode.Hook.Output.PostToolUseFailure` | `PostToolUseFailure` event-specific fields |
-  | `ClaudeCode.Hook.Output.UserPromptSubmit` | `UserPromptSubmit` event-specific fields |
-  | `ClaudeCode.Hook.Output.SessionStart` | `SessionStart` event-specific fields |
-  | `ClaudeCode.Hook.Output.Notification` | `Notification` event-specific fields |
-  | `ClaudeCode.Hook.Output.SubagentStart` | `SubagentStart` event-specific fields |
-  | `ClaudeCode.Hook.Output.PreCompact` | `PreCompact` event-specific fields |
-  | `ClaudeCode.Hook.Output.PermissionRequest` | `PermissionRequest` event-specific fields |
-  | `ClaudeCode.Hook.PermissionDecision.Allow` | Permission allow decision |
-  | `ClaudeCode.Hook.PermissionDecision.Deny` | Permission deny decision |
+  Return `%ClaudeCode.Hook.Output.Async{}` to signal that the hook will
+  respond asynchronously — the CLI proceeds without waiting.
 
   ## Common input fields
 
@@ -82,6 +74,8 @@ defmodule ClaudeCode.Hook do
 
   Fires before a tool executes. Can block, allow, or modify the tool call.
 
+  Output struct: `ClaudeCode.Hook.Output.PreToolUse`
+
   **Input fields** (in addition to common fields):
 
   | Field | Type | Description |
@@ -90,16 +84,8 @@ defmodule ClaudeCode.Hook do
   | `:tool_input` | `map` | Arguments passed to the tool (keys are strings) |
   | `:tool_use_id` | `String.t()` | Unique identifier for this tool call |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | No opinion — continue through permission pipeline |
-  | `{:allow, []}` | Bypass permission system |
-  | `{:allow, updated_input: %{...}}` | Allow with modified input |
-  | `{:allow, permission_decision_reason: "...", additional_context: "..."}` | Allow with context |
-  | `{:deny, permission_decision_reason: "..."}` | Block tool call |
-  | `{:ask, permission_decision_reason: "..."}` | Escalate to user prompt |
+  **Return values:** `:ok`, `{:ok, opts}`, `{:allow, opts}`, `{:deny, opts}`, or `{:ask, opts}`
+  where opts are `ClaudeCode.Hook.Output.PreToolUse` fields.
 
   **Example:**
 
@@ -122,6 +108,8 @@ defmodule ClaudeCode.Hook do
 
   Fires after a tool executes successfully. Observation only.
 
+  Output struct: `ClaudeCode.Hook.Output.PostToolUse`
+
   **Input fields** (in addition to common fields):
 
   | Field | Type | Description |
@@ -131,12 +119,8 @@ defmodule ClaudeCode.Hook do
   | `:tool_response` | `any` | Result returned from tool execution |
   | `:tool_use_id` | `String.t()` | Unique identifier for this tool call |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Acknowledge the event |
-  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
+  **Return values:** `:ok` or `{:ok, opts}` where opts are
+  `ClaudeCode.Hook.Output.PostToolUse` fields.
 
   **Example:**
 
@@ -160,6 +144,8 @@ defmodule ClaudeCode.Hook do
 
   Fires after a tool execution fails. Observation only.
 
+  Output struct: `ClaudeCode.Hook.Output.PostToolUseFailure`
+
   **Input fields** (in addition to common fields):
 
   | Field | Type | Description |
@@ -170,16 +156,14 @@ defmodule ClaudeCode.Hook do
   | `:error` | `String.t()` | Error message from the failure |
   | `:is_interrupt` | `boolean` | Whether the failure was caused by an interrupt |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Acknowledge the event |
-  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
+  **Return values:** `:ok` or `{:ok, opts}` where opts are
+  `ClaudeCode.Hook.Output.PostToolUseFailure` fields.
 
   ### UserPromptSubmit
 
   Fires when a user submits a prompt. Can block the submission.
+
+  Output struct: `ClaudeCode.Hook.Output.UserPromptSubmit`
 
   **Input fields** (in addition to common fields):
 
@@ -187,16 +171,15 @@ defmodule ClaudeCode.Hook do
   |-------|------|-------------|
   | `:prompt` | `String.t()` | The user's prompt text |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Allow the prompt |
-  | `{:block, reason: "..."}` | Block the prompt submission |
+  **Return values:** `:ok` or `{:block, opts}` where opts are
+  `ClaudeCode.Hook.Output` fields (e.g. `reason: "..."`).
+  Also supports `{:ok, opts}` with `ClaudeCode.Hook.Output.UserPromptSubmit` fields.
 
   ### Stop
 
   Fires when the agent is about to stop. Can keep the session running.
+
+  Uses top-level `ClaudeCode.Hook.Output` fields only (no event-specific struct).
 
   **Input fields** (in addition to common fields):
 
@@ -205,12 +188,8 @@ defmodule ClaudeCode.Hook do
   | `:stop_hook_active` | `boolean` | Whether a stop hook is currently processing |
   | `:last_assistant_message` | `String.t()` | Text content of the last assistant message before stopping |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Allow the session to stop |
-  | `{:halt, stop_reason: "..."}` | Keep the session running |
+  **Return values:** `:ok` or `{:halt, opts}` where opts are
+  `ClaudeCode.Hook.Output` fields (e.g. `stop_reason: "..."`).
 
   **Example:**
 
@@ -233,6 +212,8 @@ defmodule ClaudeCode.Hook do
 
   Fires when a subagent is initialized. Observation only.
 
+  Output struct: `ClaudeCode.Hook.Output.SubagentStart`
+
   **Input fields** (in addition to common fields):
 
   | Field | Type | Description |
@@ -240,16 +221,14 @@ defmodule ClaudeCode.Hook do
   | `:agent_id` | `String.t()` | Unique identifier for the subagent |
   | `:agent_type` | `String.t()` | Type/role of the subagent |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Acknowledge the event |
-  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
+  **Return values:** `:ok` or `{:ok, opts}` where opts are
+  `ClaudeCode.Hook.Output.SubagentStart` fields.
 
   ### SubagentStop
 
   Fires when a subagent completes. Can keep the subagent running.
+
+  Uses top-level `ClaudeCode.Hook.Output` fields only (no event-specific struct).
 
   **Input fields** (in addition to common fields):
 
@@ -261,16 +240,14 @@ defmodule ClaudeCode.Hook do
   | `:agent_type` | `String.t()` | Type/role of the subagent |
   | `:last_assistant_message` | `String.t()` | Text content of the last assistant message before stopping |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Allow the subagent to stop |
-  | `{:halt, stop_reason: "..."}` | Keep the subagent running |
+  **Return values:** `:ok` or `{:halt, opts}` where opts are
+  `ClaudeCode.Hook.Output` fields (e.g. `stop_reason: "..."`).
 
   ### PreCompact
 
   Fires before conversation compaction. Can provide custom instructions.
+
+  Output struct: `ClaudeCode.Hook.Output.PreCompact`
 
   **Input fields** (in addition to common fields):
 
@@ -279,16 +256,14 @@ defmodule ClaudeCode.Hook do
   | `:trigger` | `String.t()` | What triggered compaction: `"manual"` or `"auto"` |
   | `:custom_instructions` | `String.t() \\| nil` | Custom instructions already provided for compaction |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Allow compaction normally |
-  | `{:ok, custom_instructions: "..."}` | Provide custom instructions for compaction |
+  **Return values:** `:ok` or `{:ok, opts}` where opts are
+  `ClaudeCode.Hook.Output.PreCompact` fields.
 
   ### Notification
 
   Fires when the agent sends status messages. Observation only.
+
+  Output struct: `ClaudeCode.Hook.Output.Notification`
 
   **Input fields** (in addition to common fields):
 
@@ -298,17 +273,18 @@ defmodule ClaudeCode.Hook do
   | `:notification_type` | `String.t()` | Type of notification: `"permission_prompt"`, `"idle_prompt"`, `"auth_success"`, or `"elicitation_dialog"` |
   | `:title` | `String.t()` | Optional title set by the agent |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | Acknowledge the event |
-  | `{:ok, additional_context: "..."}` | Acknowledge with additional context |
+  **Return values:** `:ok` or `{:ok, opts}` where opts are
+  `ClaudeCode.Hook.Output.Notification` fields.
 
   ### PermissionRequest
 
   Fires when a tool requires permission. Similar to `PreToolUse` but occurs at the
   permission prompt stage rather than the hook stage.
+
+  Output struct: `ClaudeCode.Hook.Output.PermissionRequest`
+
+  Permission decisions use `ClaudeCode.Hook.PermissionDecision.Allow` and
+  `ClaudeCode.Hook.PermissionDecision.Deny`.
 
   **Input fields** (in addition to common fields):
 
@@ -318,16 +294,9 @@ defmodule ClaudeCode.Hook do
   | `:tool_input` | `map` | Arguments passed to the tool |
   | `:permission_suggestions` | `list` | Suggested permission updates to avoid future prompts |
 
-  **Return values:**
-
-  | Return | Effect |
-  |--------|--------|
-  | `:ok` | No opinion |
-  | `{:allow, []}` | Grant permission |
-  | `{:allow, updated_input: %{...}}` | Grant with modified input |
-  | `{:allow, updated_permissions: [...]}` | Grant with permission updates |
-  | `{:deny, message: "..."}` | Deny permission |
-  | `{:deny, message: "...", interrupt: true}` | Deny and interrupt |
+  **Return values:** `:ok`, `{:allow, opts}`, or `{:deny, opts}`
+  where opts are `ClaudeCode.Hook.PermissionDecision.Allow` or
+  `ClaudeCode.Hook.PermissionDecision.Deny` fields respectively.
   """
 
   @type hook_action :: :allow | :deny | :ask | :halt | :block | :ok

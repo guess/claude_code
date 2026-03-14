@@ -14,6 +14,9 @@ defmodule ClaudeCode.Hook.Output do
       {:halt, stop_reason: "done"}
       %Output{continue: false, stop_reason: "done"}
 
+      {:block, reason: "Rate limited"}
+      %Output{decision: "block", reason: "Rate limited"}
+
   See `ClaudeCode.Hook` for the full shorthand reference.
 
   ## Fields
@@ -151,6 +154,7 @@ defmodule ClaudeCode.Hook.Output do
   def coerce({:deny, opts}, :can_use_tool), do: struct(PermissionDecision.Deny, opts)
 
   # {:ok, opts} — event-specific inner struct
+  def coerce({:ok, opts}, "PreToolUse"), do: wrap(struct(PreToolUse, opts))
   def coerce({:ok, opts}, "PostToolUse"), do: wrap(struct(PostToolUse, opts))
   def coerce({:ok, opts}, "PostToolUseFailure"), do: wrap(struct(PostToolUseFailure, opts))
   def coerce({:ok, opts}, "UserPromptSubmit"), do: wrap(struct(UserPromptSubmit, opts))

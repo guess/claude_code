@@ -506,6 +506,20 @@ defmodule ClaudeCode.Hook.OutputTest do
   end
 
   describe "coerce/2 — {:ok, opts} (event-specific inner structs)" do
+    test "PreToolUse with additional_context (no permission decision)" do
+      result = Output.coerce({:ok, additional_context: "Extra info"}, "PreToolUse")
+
+      assert %Output{hook_specific_output: %Output.PreToolUse{additional_context: "Extra info"}} = result
+      assert result.hook_specific_output.permission_decision == nil
+    end
+
+    test "PreToolUse with updated_input (no permission decision)" do
+      result = Output.coerce({:ok, updated_input: %{"command" => "ls"}}, "PreToolUse")
+
+      assert %Output{hook_specific_output: inner} = result
+      assert %Output.PreToolUse{updated_input: %{"command" => "ls"}, permission_decision: nil} = inner
+    end
+
     test "PostToolUse with additional_context" do
       result = Output.coerce({:ok, additional_context: "Logged"}, "PostToolUse")
       assert %Output{hook_specific_output: %Output.PostToolUse{additional_context: "Logged"}} = result
