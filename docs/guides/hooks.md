@@ -28,7 +28,7 @@ defmodule MyApp.ProtectEnvFiles do
     if Path.basename(file_path) == ".env" do
       {:deny, permission_decision_reason: "Cannot modify .env files"}
     else
-      {:allow, []}
+      :allow
     end
   end
 
@@ -186,7 +186,7 @@ When multiple hooks or permission rules apply, the SDK evaluates them in this or
 3. **Allow** rules are checked third.
 4. **Default to Ask** if nothing matches.
 
-If any hook returns `{:deny, permission_decision_reason: reason}`, the operation is blocked -- other hooks returning `{:allow, []}` will not override it.
+If any hook returns `{:deny, permission_decision_reason: reason}`, the operation is blocked -- other hooks returning `:allow` will not override it.
 
 ## can_use_tool
 
@@ -352,7 +352,7 @@ defmodule MyApp.AutoApproveReadOnly do
   @impl true
   def call(%{hook_event_name: "PreToolUse", tool_name: name}, _tool_use_id)
       when name in @read_only_tools do
-    {:allow, []}
+    :allow
   end
 
   def call(_input, _tool_use_id), do: :ok
