@@ -85,8 +85,8 @@ in `captured/anthropic-api-messages.d.ts`.
 | `ClaudeCode.Hook.Output.SubagentStart` | `SubagentStartHookSpecificOutput` | `hookSpecificOutput` | |
 | `ClaudeCode.Hook.Output.PreCompact` | *(not in Python SDK)* | `hookSpecificOutput` | customInstructions |
 | `ClaudeCode.Hook.Output.PermissionRequest` | `PermissionRequestHookSpecificOutput` | `hookSpecificOutput` | Wraps PermissionDecision |
-| `ClaudeCode.Hook.Output.PermissionDecision.Allow` | `PermissionResultAllow` | `behavior: "allow"` | Shared by PermissionRequest + can_use_tool |
-| `ClaudeCode.Hook.Output.PermissionDecision.Deny` | `PermissionResultDeny` | `behavior: "deny"` | Shared by PermissionRequest + can_use_tool |
+| `ClaudeCode.Hook.PermissionDecision.Allow` | `PermissionResultAllow` | `behavior: "allow"` | Shared by PermissionRequest + can_use_tool |
+| `ClaudeCode.Hook.PermissionDecision.Deny` | `PermissionResultDeny` | `behavior: "deny"` | Shared by PermissionRequest + can_use_tool |
 
 ## Union Types
 
@@ -182,8 +182,8 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `ModelUsage` | `ClaudeCode.Model.Usage` |
 | `NotificationHookSpecificOutput` | `ClaudeCode.Hook.Output.Notification` |
 | `PermissionRequestHookSpecificOutput` | `ClaudeCode.Hook.Output.PermissionRequest` |
-| `PermissionResultAllow` | `ClaudeCode.Hook.Output.PermissionDecision.Allow` |
-| `PermissionResultDeny` | `ClaudeCode.Hook.Output.PermissionDecision.Deny` |
+| `PermissionResultAllow` | `ClaudeCode.Hook.PermissionDecision.Allow` |
+| `PermissionResultDeny` | `ClaudeCode.Hook.PermissionDecision.Deny` |
 | `PostToolUseFailureHookSpecificOutput` | `ClaudeCode.Hook.Output.PostToolUseFailure` |
 | `PostToolUseHookSpecificOutput` | `ClaudeCode.Hook.Output.PostToolUse` |
 | `PreToolUseHookSpecificOutput` | `ClaudeCode.Hook.Output.PreToolUse` |
