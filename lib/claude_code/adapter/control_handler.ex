@@ -43,26 +43,27 @@ defmodule ClaudeCode.Adapter.ControlHandler do
     end
   end
 
-  @spec handle_hook_callback(map(), HookRegistry.t()) :: map()
+  @spec handle_hook_callback(map(), HookRegistry.t()) :: {:ok, map()} | {:error, String.t()}
   def handle_hook_callback(request, hook_registry) do
-    callback_id = request["callback_id"]
-    tool_use_id = request["tool_use_id"]
-
     input = ClaudeCode.MapUtils.safe_atomize_keys(request["input"] || %{})
-    hook_event_name = input[:hook_event_name]
 
-    case HookRegistry.lookup(hook_registry, callback_id) do
-      {:ok, callback} ->
-        result = Hook.invoke(callback, input, tool_use_id)
+    with {:ok, callback} <- lookup_callback(hook_registry, request["callback_id"]),
+         {:ok, value} <- invoke_callback(callback, input, request["tool_use_id"]) do
+      {:ok, value |> HookOutput.coerce(input[:hook_event_name]) |> HookOutput.to_wire()}
+    end
+  end
 
-        case result do
-          {:error, _reason} -> %{}
-          value -> value |> HookOutput.coerce(hook_event_name) |> HookOutput.to_wire()
-        end
+  defp lookup_callback(registry, callback_id) do
+    case HookRegistry.lookup(registry, callback_id) do
+      {:ok, _callback} = ok -> ok
+      :error -> {:error, "Unknown hook callback ID: #{callback_id}"}
+    end
+  end
 
-      :error ->
-        Logger.warning("Unknown hook callback ID: #{callback_id}")
-        %{}
+  defp invoke_callback(callback, input, tool_use_id) do
+    case Hook.invoke(callback, input, tool_use_id) do
+      {:error, reason} -> {:error, "Hook callback raised: #{reason}"}
+      value -> {:ok, value}
     end
   end
 end

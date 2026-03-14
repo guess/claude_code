@@ -63,16 +63,16 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert is_map(result)
     end
 
-    test "returns empty map for unknown callback ID" do
+    test "returns error for unknown callback ID" do
       {registry, _wire} = HookRegistry.new(%{})
       request = %{"callback_id" => "hook_999", "input" => %{}, "tool_use_id" => nil}
 
-      result = ControlHandler.handle_hook_callback(request, registry)
-      assert result == %{}
+      assert {:error, message} = ControlHandler.handle_hook_callback(request, registry)
+      assert message =~ "Unknown hook callback ID"
     end
 
     test "map-returning hook produces correct PreToolUse wire format" do
@@ -85,7 +85,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result["hookSpecificOutput"]["permissionDecision"] == "allow"
       assert result["hookSpecificOutput"]["permissionDecisionReason"] == "Policy approved"
     end
@@ -100,7 +100,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result["hookSpecificOutput"]["permissionDecision"] == "allow"
     end
 
@@ -118,7 +118,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result["hookSpecificOutput"]["permissionDecision"] == "deny"
       assert result["hookSpecificOutput"]["permissionDecisionReason"] == "Blocked by shorthand"
     end
@@ -134,7 +134,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result == %{}
     end
 
@@ -149,7 +149,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result["continue"] == false
       assert result["stopReason"] == "Budget left"
     end
@@ -165,7 +165,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result["hookSpecificOutput"]["additionalContext"] == "Noted"
     end
 
@@ -179,7 +179,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_use_id" => nil
       }
 
-      result = ControlHandler.handle_hook_callback(request, registry)
+      assert {:ok, result} = ControlHandler.handle_hook_callback(request, registry)
       assert result["hookSpecificOutput"]["hookEventName"] == "PreToolUse"
     end
   end
