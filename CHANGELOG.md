@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Breaking**: `hermes_mcp` is now a required dependency (was optional). It was already required at compile time for `ClaudeCode.MCP.Server`.
+- **Breaking**: `hermes_mcp` is now a required dependency (was optional). It was already required at compile time for `ClaudeCode.MCP.Server`. If your project does not use MCP features, you will now pull in `hermes_mcp` as a transitive dependency — no code changes are needed.
 - **Breaking**: Removed `ClaudeCode.MCP`.`available?/0` and `ClaudeCode.MCP`.`require_hermes!/0` — no longer needed with `hermes_mcp` required.
 
 ### Fixed
