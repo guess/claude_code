@@ -1,7 +1,7 @@
 ---
 name: sync-docs
 description: This skill should be used when the user asks to "sync docs", "update guides", "check docs against official", "refresh documentation", "compare guides to official docs", "update docs from upstream", or mentions syncing the SDK documentation guides with the official Claude Agent SDK documentation.
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Sync Documentation Guides
@@ -63,21 +63,54 @@ Each guide maps to an official page at `https://platform.claude.com/docs/en/agen
 
 **Note:** `CLAUDE.md` is NOT a guide — it contains guide-writing rules. Do not replace it.
 
+## Official Docs Cache
+
+Fetched official docs are saved to `docs/guides/.official/{slug}.md` with metadata headers (source URL and fetch date). These files are checked into git so upstream changes are visible in diffs.
+
+### Fetching Official Docs
+
+Use the fetch script to download official docs as markdown:
+
+```bash
+# Fetch all official docs
+./scripts/fetch-official-docs.sh
+
+# Fetch specific docs
+./scripts/fetch-official-docs.sh permissions sessions hooks
+
+# List cached docs with fetch dates
+./scripts/fetch-official-docs.sh --list
+
+# Quick diff summary of cached vs local guides
+./scripts/fetch-official-docs.sh --diff-all
+```
+
+The official site serves markdown when the URL ends with `.md`:
+```
+https://platform.claude.com/docs/en/agent-sdk/{slug}.md
+```
+
+**Always run the fetch script first** before comparing or updating guides. This ensures the `.official/` cache is current and creates a git-trackable record of what changed upstream.
+
 ## Workflow
 
-### Step 1: Fetch Official Content
+### Step 1: Refresh Official Docs Cache
 
-For each guide (or a subset specified by the user), fetch the official page:
+Run the fetch script to update the `.official/` cache:
 
+```bash
+./scripts/fetch-official-docs.sh           # all guides
+./scripts/fetch-official-docs.sh {slug}    # specific guide(s)
 ```
-WebFetch: https://platform.claude.com/docs/en/agent-sdk/{slug}
-```
 
-Extract the semantic content: sections, headings, prose, tables, examples, and links.
+Then check what changed since the last fetch:
+```bash
+git diff docs/guides/.official/
+```
 
 ### Step 2: Compare Against Local Guide
 
-Read the corresponding local guide from `docs/guides/`. Compare:
+Read both the cached official doc (`docs/guides/.official/{slug}.md`) and the local guide (`docs/guides/{slug}.md`). Compare:
 
 1. **Structural differences** — New/removed/renamed sections
 2. **Prose changes** — Updated descriptions, new paragraphs, changed wording
@@ -119,15 +152,16 @@ After changes, verify:
 
 ## Parallelization
 
-For bulk syncs across all guides, dispatch parallel subagents — one per guide. Each agent:
+For bulk syncs, first run `./scripts/fetch-official-docs.sh` to update all cached docs in one pass. Then dispatch parallel subagents — one per guide (or group). Each agent:
 
-1. Fetches the official page
-2. Reads the local guide
+1. Reads the cached official doc from `docs/guides/.official/{slug}.md`
+2. Reads the local guide from `docs/guides/{slug}.md`
 3. Compares and applies changes directly
 4. Reports a summary of changes made
 
 ## What NOT to Change
 
+- `docs/guides/.official/*.md` — These are fetched upstream snapshots; only the fetch script should write them
 - `docs/guides/CLAUDE.md` — This is the guide-writing rules file, not a guide
 - Elixir-specific sections that add value (OTP patterns, LiveView, supervision trees, GenServer examples)
 - Elixir code examples — never replace with Python/TypeScript
