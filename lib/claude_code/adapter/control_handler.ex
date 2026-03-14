@@ -46,9 +46,10 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   @spec handle_hook_callback(map(), HookRegistry.t()) :: map()
   def handle_hook_callback(request, hook_registry) do
     callback_id = request["callback_id"]
+    tool_use_id = request["tool_use_id"]
+
     input = ClaudeCode.MapUtils.safe_atomize_keys(request["input"] || %{})
     hook_event_name = input[:hook_event_name]
-    tool_use_id = request["tool_use_id"]
 
     case HookRegistry.lookup(hook_registry, callback_id) do
       {:ok, callback} ->
