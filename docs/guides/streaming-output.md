@@ -271,7 +271,7 @@ Some SDK features are incompatible with streaming:
 
 Now that you can stream text and tool calls in real-time, explore these related topics:
 
-- [Streaming vs Single Mode](streaming-vs-single-mode.md) - Choose between input modes for your use case
+- [Streaming Input](streaming-vs-single-mode.md) - Choose between interactive and one-shot input modes for your use case
 - [Structured Outputs](structured-outputs.md) - Get typed JSON responses from the agent
 - [Permissions](permissions.md) - Control which tools the agent can use
 - [Headless Mode](https://code.claude.com/docs/en/headless) - Stream responses using the Agent SDK via the CLI

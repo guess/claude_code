@@ -102,7 +102,7 @@ Wildcards (`*`) let you allow all tools from a server without listing each one i
 Instead of listing allowed tools, you can change the permission mode to grant broader access:
 
 - `:accept_edits` -- Automatically approves tool usage (still prompts for destructive operations).
-- `:bypass_permissions` -- Skips all safety prompts, including for destructive operations like file deletion or running shell commands. Use with caution, especially in production. Requires `:allow_dangerously_skip_permissions`. This mode propagates to subagents spawned by the Task tool.
+- `:bypass_permissions` -- Skips all safety prompts, including for destructive operations like file deletion or running shell commands. Use with caution, especially in production. Requires `:allow_dangerously_skip_permissions`. This mode propagates to subagents spawned by the Agent tool.
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(

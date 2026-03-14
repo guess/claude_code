@@ -216,7 +216,7 @@ Pass the custom server to a session via the `:mcp_servers` option. Both in-proce
 ### Tool Name Format
 
 When MCP tools are exposed to Claude, their names follow a specific format:
-- Pattern: `mcp__<server-name>__<tool-name>`
+- Pattern: `mcp__{server_name}__{tool_name}`
 - Example: A tool named `get_weather` in server `"my-tools"` becomes `mcp__my-tools__get_weather`
 
 ### Configuring Allowed Tools

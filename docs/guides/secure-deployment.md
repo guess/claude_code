@@ -223,8 +223,8 @@ docker run --runtime=runsc agent-image
 | Workload | Overhead |
 |----------|----------|
 | CPU-bound computation | ~0% (no syscall interception) |
-| Simple syscalls | ~2x slower |
-| File I/O intensive | Up to 10-200x slower for heavy open/close patterns |
+| Simple syscalls | ~2× slower |
+| File I/O intensive | Up to 10-200× slower for heavy open/close patterns |
 
 For multi-tenant environments or when processing untrusted content, the additional isolation is often worth the overhead.
 
@@ -300,7 +300,7 @@ You can build your own proxy or use an existing one:
 
 ### Credentials for Other Services
 
-Beyond sampling from the Claude API, agents often need authenticated access to other services -- git repositories, databases, internal APIs. There are two main approaches:
+Beyond sampling from the Claude API, agents often need authenticated access to other services, such as git repositories, databases, and internal APIs. There are two main approaches:
 
 #### Custom Tools
 

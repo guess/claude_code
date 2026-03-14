@@ -10,11 +10,12 @@ Plugins allow you to extend Claude Code with custom functionality that can be sh
 
 Plugins are packages of Claude Code extensions that can include:
 
-- **Commands** -- Custom slash commands
+- **Skills** -- Model-invoked capabilities that Claude uses autonomously (can also be invoked with `/skill-name`)
 - **Agents** -- Specialized subagents for specific tasks
-- **Skills** -- Model-invoked capabilities that Claude uses autonomously
 - **Hooks** -- Event handlers that respond to tool use and other events
 - **MCP servers** -- External tool integrations via Model Context Protocol
+
+> **Note:** The `commands/` directory is a legacy format. Use `skills/` for new plugins. Claude Code continues to support both formats for backward compatibility.
 
 For complete information on plugin structure and how to create plugins, see [Plugins](https://code.claude.com/docs/en/plugins).
 
@@ -110,14 +111,14 @@ The `ClaudeCode.Message.SystemMessage` struct includes these plugin-related fiel
 | `skills`         | list of strings             | Available skills, including those from plugins                |
 | `tools`          | list of strings             | Available tools, including those from plugin MCP servers      |
 
-## Using plugin commands
+## Using plugin skills
 
-Commands from plugins are automatically namespaced with the plugin name to avoid conflicts. The format is `plugin-name:command-name`.
+Skills from plugins are automatically namespaced with the plugin name to avoid conflicts. When invoked as slash commands, the format is `plugin-name:skill-name`.
 
 ```elixir
 alias ClaudeCode.Message.ResultMessage
 
-# Invoke a plugin command by using the namespaced format
+# Invoke a plugin skill using the namespaced format
 result =
   session
   |> ClaudeCode.stream("/my-plugin:greet",
@@ -128,7 +129,9 @@ result =
 %ResultMessage{result: text} = result
 ```
 
-> **Tip:** To use marketplace plugins, install and enable them with `ClaudeCode.Plugin.install/2` and `ClaudeCode.Plugin.enable/2` before starting a session. See [Managing plugins](#managing-plugins).
+> **Tip:** If you installed a plugin via the CLI (for example, `/plugin install my-plugin@marketplace`), you can still use it in the SDK by providing its installation path. Check `~/.claude/plugins/` for CLI-installed plugins.
+>
+> To use marketplace plugins, install and enable them with `ClaudeCode.Plugin.install/2` and `ClaudeCode.Plugin.enable/2` before starting a session. See [Managing plugins](#managing-plugins).
 
 ## Complete example
 
@@ -167,17 +170,16 @@ A plugin directory must contain a `.claude-plugin/plugin.json` manifest file. It
 my-plugin/
 ├── .claude-plugin/
 │   └── plugin.json          # Required: plugin manifest
-├── commands/                 # Custom slash commands
+├── skills/                   # Agent Skills (invoked autonomously or via /skill-name)
+│   └── my-skill/
+│       └── SKILL.md
+├── commands/                 # Legacy: use skills/ instead
 │   └── custom-cmd.md
 ├── agents/                   # Custom agents
 │   └── specialist.md
-├── skills/                   # Agent Skills
-│   └── my-skill/
-│       └── SKILL.md
 ├── hooks/                    # Event handlers
 │   └── hooks.json
-├── .mcp.json                # MCP server definitions
-└── .lsp.json                # LSP server configurations
+└── .mcp.json                # MCP server definitions
 ```
 
 > **Warning:** Do not put `commands/`, `agents/`, `skills/`, or `hooks/` inside the `.claude-plugin/` directory. Only `plugin.json` goes inside `.claude-plugin/`. All other directories must be at the plugin root level.
@@ -316,13 +318,13 @@ If your plugin does not appear in the init message:
 2. **Validate plugin.json** -- Ensure the manifest file has valid JSON syntax
 3. **Check file permissions** -- Ensure the plugin directory and its contents are readable
 
-### Commands not available
+### Skills not appearing
 
-If plugin commands are not working:
+If plugin skills do not work:
 
-1. **Use the namespace** -- Plugin commands require the `plugin-name:command-name` format
-2. **Check the init message** -- Verify the command appears in `slash_commands` with the correct namespace prefix
-3. **Validate command files** -- Ensure command markdown files are in the `commands/` directory within the plugin
+1. **Use the namespace** -- Plugin skills require the `plugin-name:skill-name` format when invoked as slash commands
+2. **Check the init message** -- Verify the skill appears in `slash_commands` with the correct namespace
+3. **Validate skill files** -- Ensure each skill has a `SKILL.md` file in its own subdirectory under `skills/` (for example, `skills/my-skill/SKILL.md`)
 
 ### Path resolution issues
 

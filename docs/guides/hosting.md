@@ -96,7 +96,7 @@ end
 
 ### Pattern 2: Long-Running Sessions
 
-Maintain persistent container instances for long-running tasks. Often running multiple Claude Agent processes inside the container based on demand.
+Maintain persistent container instances for long-running tasks. Often running _multiple_ Claude Agent processes inside the container based on demand.
 
 Best for proactive agents that take action without user input, agents that serve content, or agents that process high volumes of messages.
 
@@ -311,5 +311,5 @@ An agent session will not timeout, but we recommend setting the `:max_turns` opt
 - [Secure Deployment](secure-deployment.md) - Network controls, credential management, and isolation hardening
 - [Sessions](sessions.md) - Session management details
 - [Permissions](permissions.md) - Configure tool permissions
-- [Cost Tracking](cost-tracking.md) - Monitor API costs
+- [Cost Tracking](cost-tracking.md) - Monitor API usage
 - [MCP Integration](mcp.md) - Extend with custom tools

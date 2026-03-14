@@ -71,11 +71,11 @@ For complete guidance on creating Skills, including SKILL.md structure, multi-fi
 >
 > When using the SDK, control tool access through the main `allowed_tools` option in your query configuration.
 
-To restrict tools for Skills in SDK applications, use the `allowed_tools` option:
+To control tool access for Skills in SDK applications, use `allowed_tools` to pre-approve specific tools. Without a `can_use_tool` callback, anything not in the allowed list is denied:
 
 ```elixir
 {:ok, result} = ClaudeCode.query("Analyze the codebase structure",
-  setting_sources: ["user", "project"],          # Load Skills from filesystem
+  setting_sources: ["user", "project"],            # Load Skills from filesystem
   allowed_tools: ["Skill", "Read", "Grep", "Glob"] # Restricted toolset
 )
 ```
@@ -96,20 +96,17 @@ Claude will list the available Skills based on your current working directory an
 ### Inspecting the system message (Elixir-specific)
 
 ```elixir
-alias ClaudeCode.Message.SystemMessage
+alias ClaudeCode.Message.SystemMessage.Init
 
 session
 |> ClaudeCode.stream("Hello")
 |> Enum.each(fn
-  %SystemMessage{skills: skills} ->
-    IO.puts("Available skills: #{inspect(skills)}")
-
-  _ ->
-    :ok
+  %Init{skills: skills} -> Logger.info("Available skills: #{inspect(skills)}")
+  _ -> :ok
 end)
 ```
 
-The `skills` field on `ClaudeCode.Message.SystemMessage` is a `[String.t()]` list of Skill names discovered from the configured setting sources.
+The `skills` field on `ClaudeCode.Message.SystemMessage.Init` is a `[String.t()]` list of Skill names discovered from the configured setting sources.
 
 ## Testing Skills
 
@@ -130,12 +127,13 @@ To verify a Skill was actually invoked, use `ClaudeCode.Stream.tool_uses/1` to i
 ```elixir
 alias ClaudeCode.Content.ToolUseBlock
 
-session
-|> ClaudeCode.stream("Extract text from invoice.pdf")
-|> ClaudeCode.Stream.tool_uses()
-|> Enum.each(fn %ToolUseBlock{name: name, input: input} ->
-  IO.puts("Tool called: #{name} with input: #{inspect(input)}")
-end)
+tool_calls =
+  session
+  |> ClaudeCode.stream("Extract text from invoice.pdf")
+  |> ClaudeCode.Stream.tool_uses()
+  |> Enum.map(fn %ToolUseBlock{name: name, input: input} -> {name, input} end)
+
+# tool_calls contains tuples like {"Skill", %{"skill_name" => "processing-pdfs", ...}}
 ```
 
 ## Disabling Skills

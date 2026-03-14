@@ -61,6 +61,7 @@ sequenceDiagram
 
 ### Benefits
 
+- **Image Uploads** - Attach images directly to messages for visual analysis and understanding
 - **Queued Messages** - Send multiple messages that process sequentially, with ability to interrupt
 - **Tool Integration** - Full access to all tools and custom MCP servers during the session
 - **Hooks Support** - Use lifecycle hooks to customize behavior at various points
@@ -124,26 +125,18 @@ Single message input mode does **not** support:
 
 ```elixir
 # Simple one-shot query
-result =
+{:ok, %ClaudeCode.Message.ResultMessage{result: text}} =
   ClaudeCode.query("Explain the authentication flow",
+    max_turns: 1,
     allowed_tools: ["Read", "Grep"]
   )
 
-case result do
-  {:ok, response} -> IO.puts(response.result)
-  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
-end
-
 # Continue conversation with session management
-result =
+{:ok, %ClaudeCode.Message.ResultMessage{result: text}} =
   ClaudeCode.query("Now explain the authorization process",
-    continue: true
+    continue: true,
+    max_turns: 1
   )
-
-case result do
-  {:ok, response} -> IO.puts(response.result)
-  {:error, reason} -> IO.puts("Error: #{inspect(reason)}")
-end
 ```
 
 ## Next Steps

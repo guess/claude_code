@@ -69,8 +69,8 @@ schema = %{
 )
 
 # The result message contains structured_output with validated data
-IO.inspect(result.structured_output)
-# %{"company_name" => "Anthropic", "founded_year" => 2021, "headquarters" => "San Francisco, CA"}
+result.structured_output
+# => %{"company_name" => "Anthropic", "founded_year" => 2021, "headquarters" => "San Francisco, CA"}
 ```
 
 ## Defining schemas
@@ -232,9 +232,9 @@ case ClaudeCode.query(
   "Extract contact info from the document",
   output_format: %{type: :json_schema, schema: contact_schema}
 ) do
-  {:ok, result} ->
+  {:ok, %ResultMessage{subtype: :success} = result} ->
     # Use the validated output
-    IO.inspect(result.structured_output)
+    contact_info = result.structured_output
 
   {:error, %ResultMessage{subtype: :error_max_structured_output_retries}} ->
     # Handle the failure - retry with simpler prompt, fall back to unstructured, etc.
@@ -266,11 +266,11 @@ result =
   )
   |> ClaudeCode.Stream.final_result()
 
-IO.inspect(result.structured_output)
+result.structured_output
 ```
 
 ## Related resources
 
-- [JSON Schema documentation](https://json-schema.org/) - learn JSON Schema syntax for defining complex schemas with nested objects, arrays, enums, and validation constraints
-- [API Structured Outputs](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs) - use structured outputs with the Claude API directly for single-turn requests without tool use
-- [Custom Tools](custom-tools.md) - give your agent custom tools to call during execution before returning structured output
+- [JSON Schema documentation](https://json-schema.org/): learn JSON Schema syntax for defining complex schemas with nested objects, arrays, enums, and validation constraints
+- [API Structured Outputs](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs): use structured outputs with the Claude API directly for single-turn requests without tool use
+- [Custom Tools](custom-tools.md): give your agent custom tools to call during execution before returning structured output
