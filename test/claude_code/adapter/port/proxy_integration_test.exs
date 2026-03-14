@@ -30,7 +30,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
   # ============================================================================
 
   defp start_adapter_with_proxy(mock_script, proxy, remote_registry, opts \\ []) do
-    callback_timeout = Keyword.get(opts, :callback_timeout, 5_000)
+    control_timeout = Keyword.get(opts, :control_timeout, 5_000)
     session = self()
 
     {:ok, adapter} =
@@ -39,7 +39,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyIntegrationTest do
         api_key: "test-key",
         callback_proxy: proxy,
         hook_registry: remote_registry,
-        callback_timeout: callback_timeout,
+        control_timeout: control_timeout,
         sdk_mcp_servers: %{}
       )
 

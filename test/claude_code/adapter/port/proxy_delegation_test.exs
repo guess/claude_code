@@ -79,20 +79,10 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
       assert state.callback_proxy == nil
     end
 
-    test "callback_timeout defaults to 30_000" do
-      state = %PortAdapter{}
-      assert state.callback_timeout == 30_000
-    end
-
     test "struct accepts callback_proxy pid" do
       pid = self()
       state = %PortAdapter{callback_proxy: pid}
       assert state.callback_proxy == pid
-    end
-
-    test "struct accepts custom callback_timeout" do
-      state = %PortAdapter{callback_timeout: 60_000}
-      assert state.callback_timeout == 60_000
     end
   end
 
@@ -194,7 +184,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
       # not the proxy. We verify by checking the proxy is NOT called.
       _state = %PortAdapter{
         callback_proxy: proxy,
-        callback_timeout: 5_000,
+        control_timeout: 5_000,
         hook_registry: registry
       }
 
@@ -283,7 +273,7 @@ defmodule ClaudeCode.Adapter.Port.ProxyDelegationTest do
     test "callback_proxy is nilled out when proxy process dies" do
       {:ok, proxy} = MockProxy.start_link()
 
-      state = %PortAdapter{callback_proxy: proxy, callback_timeout: 5_000}
+      state = %PortAdapter{callback_proxy: proxy, control_timeout: 5_000}
       assert state.callback_proxy == proxy
 
       # Simulate what Adapter.Port.init does: monitor the proxy

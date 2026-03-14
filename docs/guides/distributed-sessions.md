@@ -73,7 +73,7 @@ These are consumed by `ClaudeCode.Adapter.Node` and **not** forwarded to the rem
 | `:node` | atom | yes | — | Remote node name (e.g., `:"claude@gpu-server"`) |
 | `:cookie` | atom | no | — | Erlang cookie for the remote node (if not already set globally) |
 | `:connect_timeout` | integer | no | 5000 | Timeout in ms for `Node.connect/1` |
-| `:callback_timeout` | integer | no | 30000 | Timeout in ms for cross-node MCP/hook calls |
+| `:control_timeout` | integer | no | 60000 | Timeout in ms for control requests (including cross-node MCP/hook calls) |
 
 ### Session options
 
@@ -487,19 +487,20 @@ ClaudeCode.start_link(
 The `can_use_tool` callback always runs on the app server — permission decisions
 need access to your application's context (database, config, user session).
 
-### Callback Timeout
+### Control Timeout
 
-Cross-node control request calls use a configurable timeout:
+Control requests (including cross-node MCP/hook calls) use a configurable timeout:
 
 ```elixir
-adapter: {ClaudeCode.Adapter.Node, [
-  node: :"claude@sandbox",
-  callback_timeout: 60_000  # default: 30_000
-]}
+{:ok, session} = ClaudeCode.start_link(
+  control_timeout: 120_000,  # default: 60_000
+  adapter: {ClaudeCode.Adapter.Node, [
+    node: :"claude@sandbox"
+  ]}
+)
 ```
 
-If an MCP tool or hook execution exceeds this timeout, the tool call fails but
-the session stays alive.
+If a control request exceeds this timeout, the call fails but the session stays alive.
 
 ## Security Considerations
 

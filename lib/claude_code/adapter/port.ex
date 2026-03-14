@@ -37,7 +37,6 @@ defmodule ClaudeCode.Adapter.Port do
   # Keys consumed by Adapter.Port that should never reach CLI command building.
   @adapter_internal_keys [
     :callback_proxy,
-    :callback_timeout,
     :control_timeout,
     :hook_registry,
     :sdk_mcp_servers,
@@ -60,8 +59,7 @@ defmodule ClaudeCode.Adapter.Port do
     control_timeout: @default_control_timeout,
     pending_control_requests: %{},
     max_buffer_size: 1_048_576,
-    sdk_mcp_servers: %{},
-    callback_timeout: 60_000
+    sdk_mcp_servers: %{}
   ]
 
   # ============================================================================
@@ -141,8 +139,7 @@ defmodule ClaudeCode.Adapter.Port do
       hook_registry: hook_registry,
       hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
-      callback_proxy: Keyword.get(opts, :callback_proxy),
-      callback_timeout: Keyword.get(opts, :callback_timeout, 60_000)
+      callback_proxy: Keyword.get(opts, :callback_proxy)
     }
 
     Process.link(session)
@@ -626,7 +623,7 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   # Delegate to callback proxy when present
-  defp handle_inbound_control_request(msg, %{callback_proxy: proxy, callback_timeout: timeout} = state)
+  defp handle_inbound_control_request(msg, %{callback_proxy: proxy, control_timeout: timeout} = state)
        when is_pid(proxy) do
     request_id = get_in(msg, ["request_id"])
     request = get_in(msg, ["request"])

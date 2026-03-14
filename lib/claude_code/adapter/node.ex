@@ -20,7 +20,7 @@ defmodule ClaudeCode.Adapter.Node do
   Session-level options (`:model`, `:cwd`, `:system_prompt`, etc.) are passed
   to `start_link/1` as usual. They are merged into the adapter config
   automatically. The adapter tuple only needs Node-specific options (`:node`,
-  `:cookie`, `:connect_timeout`, `:callback_timeout`) which are consumed by
+  `:cookie`, `:connect_timeout`) which are consumed by
   this module and not forwarded to the remote `Adapter.Port`.
 
   ## In-Process MCP Tools and Hooks
@@ -48,7 +48,7 @@ defmodule ClaudeCode.Adapter.Node do
   alias ClaudeCode.Adapter.Port, as: AdapterPort
   alias ClaudeCode.Hook.Registry, as: HookRegistry
 
-  @node_opts [:node, :cookie, :connect_timeout, :callback_timeout]
+  @node_opts [:node, :cookie, :connect_timeout]
 
   @impl ClaudeCode.Adapter
   def start_link(session, config) do
@@ -56,8 +56,6 @@ defmodule ClaudeCode.Adapter.Node do
     cookie = Keyword.get(config, :cookie)
     cwd = Keyword.fetch!(config, :cwd)
     timeout = Keyword.get(config, :connect_timeout, 5_000)
-    callback_timeout = Keyword.get(config, :callback_timeout, 30_000)
-
     if cookie, do: Node.set_cookie(node, cookie)
 
     with :ok <- connect_node(node, timeout),
@@ -103,7 +101,6 @@ defmodule ClaudeCode.Adapter.Node do
         |> Keyword.put(:hook_registry, remote_registry)
         |> Keyword.put(:sdk_mcp_servers, stub_sdk_servers)
         |> Keyword.put(:callback_proxy, proxy)
-        |> Keyword.put(:callback_timeout, callback_timeout)
 
       # Use GenServer.start (not start_link) via RPC to avoid linking the
       # adapter to the ephemeral RPC handler process.  Adapter.Port.init/1
