@@ -419,6 +419,13 @@ defmodule ClaudeCode.Options do
       doc:
         "Max time in ms to wait for the next message on the stream. Resets on each message. Accepts a positive integer or :infinity."
     ],
+    control_timeout: [
+      type: {:custom, __MODULE__, :validate_control_timeout, []},
+      doc:
+        "Max time in ms to wait for CLI control responses (e.g. initialize handshake, MCP server startup). " <>
+          "Useful when MCP servers are slow to start. " <>
+          "Accepts a positive integer up to 120_000. Defaults to 30_000."
+    ],
     cli_path: [
       type: {:or, [{:in, [:bundled, :global]}, :string]},
       doc: """
@@ -901,6 +908,11 @@ defmodule ClaudeCode.Options do
 
   def validate_thinking(other),
     do: {:error, "expected :adaptive, :disabled, or {:enabled, budget_tokens: pos_integer}, got: #{inspect(other)}"}
+
+  @doc false
+  def validate_control_timeout(value) when is_integer(value) and value > 0 and value <= 120_000, do: {:ok, value}
+
+  def validate_control_timeout(value), do: {:error, "expected a positive integer up to 120_000, got: #{inspect(value)}"}
 
   @doc false
   def validate_sandbox(%ClaudeCode.Sandbox{} = sandbox), do: {:ok, sandbox}

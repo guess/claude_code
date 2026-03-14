@@ -32,12 +32,14 @@ defmodule ClaudeCode.Adapter.Port do
   require Logger
 
   @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
-  @control_timeout 30_000
+  # should be slightly higher than the max control_timeout (120s)
+  @client_control_exit_timeout 125_000
 
   # Keys consumed by Adapter.Port that should never reach CLI command building.
   @adapter_internal_keys [
     :callback_proxy,
     :callback_timeout,
+    :control_timeout,
     :hook_registry,
     :sdk_mcp_servers,
     :max_buffer_size
@@ -57,6 +59,7 @@ defmodule ClaudeCode.Adapter.Port do
     status: :provisioning,
     control_counter: 0,
     pending_control_requests: %{},
+    control_timeout: 30_000,
     max_buffer_size: 1_048_576,
     sdk_mcp_servers: %{},
     callback_timeout: 30_000
@@ -88,7 +91,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   @impl ClaudeCode.Adapter
   def send_control_request(adapter, subtype, params) do
-    GenServer.call(adapter, {:control_request, subtype, params}, @control_timeout + 5_000)
+    GenServer.call(adapter, {:control_request, subtype, params}, @client_control_exit_timeout)
   end
 
   @impl ClaudeCode.Adapter
@@ -135,6 +138,7 @@ defmodule ClaudeCode.Adapter.Port do
       buffer: "",
       api_key: Keyword.get(opts, :api_key),
       max_buffer_size: Keyword.get(opts, :max_buffer_size, 1_048_576),
+      control_timeout: Keyword.get(opts, :control_timeout, 30_000),
       hook_registry: hook_registry,
       hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
@@ -210,7 +214,7 @@ defmodule ClaudeCode.Adapter.Port do
             Port.command(port, json <> "\n")
 
             pending = Map.put(state.pending_control_requests, request_id, {subtype, from})
-            schedule_control_timeout(request_id)
+            schedule_control_timeout(state.control_timeout, request_id)
 
             {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
         end
@@ -369,7 +373,7 @@ defmodule ClaudeCode.Adapter.Port do
     Port.command(state.port, json <> "\n")
 
     pending = Map.put(state.pending_control_requests, request_id, {:initialize, state.session})
-    schedule_control_timeout(request_id)
+    schedule_control_timeout(state.control_timeout, request_id)
 
     {:noreply, %{state | control_counter: new_counter, pending_control_requests: pending}}
   end
@@ -840,7 +844,7 @@ defmodule ClaudeCode.Adapter.Port do
     {:error, {:unknown_control_subtype, subtype}}
   end
 
-  defp schedule_control_timeout(request_id) do
-    Process.send_after(self(), {:control_timeout, request_id}, @control_timeout)
+  defp schedule_control_timeout(timeout, request_id) do
+    Process.send_after(self(), {:control_timeout, request_id}, timeout)
   end
 end

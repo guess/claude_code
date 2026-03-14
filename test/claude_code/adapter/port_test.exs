@@ -987,6 +987,44 @@ defmodule ClaudeCode.Adapter.PortTest do
       GenServer.stop(adapter)
     end
 
+    test "respects control_timeout session option for initialize handshake" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        # Never respond to initialize
+        while IFS= read -r line; do
+          true
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Port.start_link(session,
+          api_key: "test-key",
+          cli_path: context[:mock_script],
+          control_timeout: 500
+        )
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+
+      MockCLI.poll_until(
+        fn ->
+          state = :sys.get_state(adapter)
+          if map_size(state.pending_control_requests) > 0, do: {:ok, state}, else: :retry
+        end,
+        timeout: :infinity
+      )
+
+      state = :sys.get_state(adapter)
+      assert state.control_timeout == 500
+
+      assert_receive {:adapter_status, {:error, :initialize_timeout}}, 2000
+
+      GenServer.stop(adapter)
+    end
+
     test "passes agents option through initialize handshake" do
       agents = %{"reviewer" => %{"prompt" => "Review code"}}
 
