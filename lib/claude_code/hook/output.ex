@@ -1,5 +1,31 @@
 defmodule ClaudeCode.Hook.Output do
-  @moduledoc false
+  @moduledoc """
+  Top-level hook output struct returned to the CLI.
+
+  Wraps common fields (`:continue`, `:decision`, `:stop_reason`, etc.) and an
+  optional `:hook_specific_output` carrying event-specific data.
+
+  Most hooks can use shorthand returns instead of building this struct directly:
+
+      # These are equivalent:
+      :ok
+      %Output{}
+
+      {:halt, stop_reason: "done"}
+      %Output{continue: false, stop_reason: "done"}
+
+  See `ClaudeCode.Hook` for the full shorthand reference.
+
+  ## Fields
+
+    * `:continue` - whether the agent should keep running (`false` to halt)
+    * `:suppress_output` - suppress the hook's output from the conversation
+    * `:stop_reason` - reason string when halting
+    * `:decision` - `"block"` to block a user prompt submission
+    * `:system_message` - system message to inject into the conversation
+    * `:reason` - human-readable reason for the decision
+    * `:hook_specific_output` - event-specific output struct (e.g. `PreToolUse`, `PostToolUse`)
+  """
 
   alias ClaudeCode.Hook.Output
   alias ClaudeCode.Hook.PermissionDecision
@@ -14,7 +40,28 @@ defmodule ClaudeCode.Hook.Output do
   alias Output.SubagentStart
   alias Output.UserPromptSubmit
 
-  @type t :: %__MODULE__{}
+  @type decision :: String.t()
+
+  @type hook_specific_output ::
+          Output.PreToolUse.t()
+          | Output.PostToolUse.t()
+          | Output.PostToolUseFailure.t()
+          | Output.UserPromptSubmit.t()
+          | Output.SessionStart.t()
+          | Output.Notification.t()
+          | Output.SubagentStart.t()
+          | Output.PreCompact.t()
+          | Output.PermissionRequest.t()
+
+  @type t :: %__MODULE__{
+          continue: boolean() | nil,
+          suppress_output: boolean() | nil,
+          stop_reason: String.t() | nil,
+          decision: decision() | nil,
+          system_message: String.t() | nil,
+          reason: String.t() | nil,
+          hook_specific_output: hook_specific_output() | nil
+        }
 
   defstruct [
     :continue,
