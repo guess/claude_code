@@ -2,7 +2,7 @@
 
 Detect refusals and other stop reasons directly from result messages in the SDK.
 
-> **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/stop-reasons). Examples are adapted for Elixir.
+> **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/agent-loop#handle-the-result). Examples are adapted for Elixir.
 
 The `stop_reason` field on `ClaudeCode.Message.ResultMessage` tells you why the model stopped generating. This is the recommended way to detect refusals, max-token limits, and other termination conditions (no stream parsing required).
 
@@ -27,26 +27,29 @@ end
 
 ## Available stop reasons
 
-| Stop reason      | Meaning                                                                                                                                           |
-| :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `:end_turn`      | The model finished generating its response normally.                                                                                              |
-| `:max_tokens`    | The response reached the maximum output token limit.                                                                                              |
-| `:stop_sequence` | The model generated a configured stop sequence.                                                                                                   |
-| `:refusal`       | The model declined to fulfill the request.                                                                                                        |
-| `:tool_use`      | The model's final output was a tool call. This is uncommon in SDK results because tool calls are normally executed before the result is returned. |
-| `nil`            | No API response was received; for example, an error occurred before the first request, or the result was replayed from a cached session.          |
+| Stop reason                        | Meaning                                                                                                                                           |
+| :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `:end_turn`                        | The model finished generating its response normally.                                                                                              |
+| `:max_tokens`                      | The response reached the maximum output token limit.                                                                                              |
+| `:stop_sequence`                   | The model generated a configured stop sequence.                                                                                                   |
+| `:refusal`                         | The model declined to fulfill the request.                                                                                                        |
+| `:tool_use`                        | The model's final output was a tool call. This is uncommon in SDK results because tool calls are normally executed before the result is returned.  |
+| `:pause_turn`                      | The model paused mid-turn (for example, when a turn limit applies within a single response).                                                      |
+| `:compaction`                      | The response was truncated due to automatic context compaction.                                                                                   |
+| `:model_context_window_exceeded`   | The conversation exceeded the model's context window limit.                                                                                       |
+| `nil`                              | No API response was received; for example, an error occurred before the first request, or the result was replayed from a cached session.          |
 
 ## Stop reasons on error results
 
-Error results (such as `:error_max_turns` or `:error_during_execution`) also carry `stop_reason`. The value reflects the last assistant message received before the error occurred:
+Error results (such as `:error_max_turns` or `:error_during_execution`) also carry `stop_reason`. The value reflects the last assistant message received before the error occurred. Note that the `result` text field is only present on the `:success` subtype, so always check `subtype` before reading it. All result subtypes carry `total_cost_usd`, `usage`, `num_turns`, and `session_id` so you can track cost and resume even after errors.
 
-| Result subtype                         | `stop_reason` value                                                                |
-| :------------------------------------- | :--------------------------------------------------------------------------------- |
-| `:success`                             | The stop reason from the final assistant message.                                  |
-| `:error_max_turns`                     | The stop reason from the last assistant message before the turn limit was hit.     |
-| `:error_max_budget_usd`                | The stop reason from the last assistant message before the budget was exceeded.    |
-| `:error_max_structured_output_retries` | The stop reason from the last assistant message before the retry limit was hit.    |
-| `:error_during_execution`              | The last stop reason seen, or `nil` if the error occurred before any API response. |
+| Result subtype                         | `stop_reason` value                                                                | `result` field? |
+| :------------------------------------- | :--------------------------------------------------------------------------------- | :-------------- |
+| `:success`                             | The stop reason from the final assistant message.                                  | Yes             |
+| `:error_max_turns`                     | The stop reason from the last assistant message before the turn limit was hit.     | No              |
+| `:error_max_budget_usd`                | The stop reason from the last assistant message before the budget was exceeded.    | No              |
+| `:error_max_structured_output_retries` | The stop reason from the last assistant message before the retry limit was hit.    | No              |
+| `:error_during_execution`              | The last stop reason seen, or `nil` if the error occurred before any API response. | No              |
 
 ```elixir
 session
