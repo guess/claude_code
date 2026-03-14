@@ -25,7 +25,7 @@ Register a `PreToolUse` hook in your session options. The hook fires whenever Cl
   hooks: %{
     PreToolUse: [
       %{hooks: [fn %{tool_name: name} = input, _tool_use_id ->
-        # Prompt user and return :allow or {:deny, reason}
+        # Prompt user and return :allow or {:deny, message: reason}
         :allow
       end]}
     ]
@@ -77,8 +77,8 @@ The following example asks Claude to create and delete a test file. When Claude 
         end
 
         case IO.gets("Allow this action? (y/n): ") |> String.trim() do
-          "y" -> {:allow, input}
-          _ -> {:deny, "User denied this action"}
+          "y" -> {:allow, updated_input: input}
+          _ -> {:deny, message: "User denied this action"}
         end
       end]}
     ]
@@ -100,20 +100,20 @@ Your hook returns one of the following response types:
 | Return | Effect |
 |--------|--------|
 | `:allow` | Permit the tool call |
-| `{:allow, updated_input}` | Permit with modified input |
-| `{:deny, reason}` | Block the tool call with an explanation |
+| `{:allow, updated_input: input}` | Permit with modified input |
+| `{:deny, message: reason}` | Block the tool call with an explanation |
 
-When allowing with input, pass the tool input (original or modified). When denying, provide a message explaining why. Claude sees this message and may adjust its approach.
+When allowing with input, pass the tool input (original or modified) as the `:updated_input` keyword. When denying, provide a `:message` explaining why. Claude sees this message and may adjust its approach.
 
 ```elixir
 # Allow the tool to execute
 :allow
 
 # Allow with original input
-{:allow, input}
+{:allow, updated_input: input}
 
 # Block the tool
-{:deny, "User rejected this action"}
+{:deny, message: "User rejected this action"}
 ```
 
 Beyond allowing or denying, you can modify the tool's input or provide context that helps Claude adjust its approach:
@@ -131,7 +131,7 @@ The user approves the action as-is. Return `:allow` and the tool executes exactl
 ```elixir
 fn %{tool_name: name}, _id ->
   IO.puts("Claude wants to use #{name}")
-  if confirm?("Allow this action?"), do: :allow, else: {:deny, "User declined"}
+  if confirm?("Allow this action?"), do: :allow, else: {:deny, message: "User declined"}
 end
 ```
 
@@ -143,10 +143,10 @@ The user approves but wants to modify the request first. You can change the inpu
 fn %{tool_name: "Bash", tool_input: input}, _id ->
   # Scope all commands to sandbox
   sandboxed = Map.update!(input, "command", &String.replace(&1, "/tmp", "/tmp/sandbox"))
-  {:allow, sandboxed}
+  {:allow, updated_input: sandboxed}
 
 %{tool_input: input}, _id ->
-  {:allow, input}
+  {:allow, updated_input: input}
 end
 ```
 
@@ -157,9 +157,9 @@ The user does not want this action to happen. Block the tool and provide a messa
 ```elixir
 fn %{tool_name: name, tool_input: input}, _id ->
   if confirm?("Allow #{name}?") do
-    {:allow, input}
+    {:allow, updated_input: input}
   else
-    {:deny, "User rejected this action"}
+    {:deny, message: "User rejected this action"}
   end
 end
 ```
@@ -170,10 +170,10 @@ The user does not want this specific action, but has a different idea. Block the
 
 ```elixir
 fn %{tool_name: "Bash", tool_input: %{"command" => cmd}}, _id when cmd =~ "rm" ->
-  {:deny, "User doesn't want to delete files. They asked if you could compress them into an archive instead."}
+  {:deny, message: "User doesn't want to delete files. They asked if you could compress them into an archive instead."}
 
 %{tool_input: input}, _id ->
-  {:allow, input}
+  {:allow, updated_input: input}
 end
 ```
 
@@ -192,8 +192,8 @@ defmodule MyApp.ToolPermissions do
   @impl true
   def call(%{tool_name: "Bash", tool_input: %{"command" => cmd}}, _tool_use_id) do
     cond do
-      String.contains?(cmd, "rm -rf") -> {:deny, "Destructive command blocked"}
-      String.starts_with?(cmd, "sudo") -> {:deny, "No sudo allowed"}
+      String.contains?(cmd, "rm -rf") -> {:deny, message: "Destructive command blocked"}
+      String.starts_with?(cmd, "sudo") -> {:deny, message: "No sudo allowed"}
       true -> :allow
     end
   end
@@ -288,7 +288,7 @@ Build the `"answers"` map where each key is the `"question"` text and each value
 For multi-select questions, join multiple labels with `", "`. If you [support free-text input](#support-free-text-input), use the user's custom text as the value.
 
 ```elixir
-{:allow, %{
+{:allow, updated_input: %{
   "questions" => input.tool_input["questions"],
   "answers" => %{
     "How should I format the output?" => "Summary",
@@ -379,7 +379,7 @@ defmodule MyApp.UserInput do
 
   def call(%{tool_input: input}, _tool_use_id) do
     # Auto-approve other tools for this example
-    {:allow, input}
+    {:allow, updated_input: input}
   end
 
   defp handle_questions(input) do
@@ -406,7 +406,7 @@ defmodule MyApp.UserInput do
         {q["question"], parse_response(response, options)}
       end)
 
-    {:allow, %{"questions" => questions, "answers" => answers}}
+    {:allow, updated_input: %{"questions" => questions, "answers" => answers}}
   end
 
   defp parse_response(response, options) do
@@ -440,7 +440,7 @@ session
 
 ## Limitations
 
-- **Subagents**: `AskUserQuestion` is not currently available in subagents spawned via the Task tool
+- **Subagents**: `AskUserQuestion` is not currently available in subagents spawned via the Agent tool
 - **Question limits**: each `AskUserQuestion` call supports 1-4 questions with 2-4 options each
 
 ## Other ways to get user input

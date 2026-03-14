@@ -6,7 +6,7 @@ Control how your agent uses tools with permission modes, hooks, and declarative 
 
 ---
 
-The Elixir SDK provides permission controls to manage how Claude uses tools. Use permission modes and tool rules to define what is allowed automatically, and the `permission_prompt_tool` option to delegate decisions at runtime.
+The Elixir SDK provides permission controls to manage how Claude uses tools. Use permission modes and tool rules to define what is allowed automatically, and the [`:can_use_tool` callback](hooks.md#can_use_tool) to handle everything else at runtime.
 
 > This page covers permission modes and rules. To build interactive approval flows where users approve or deny tool requests at runtime, see [Handle approvals and user input](user-input.md).
 
@@ -15,15 +15,38 @@ The Elixir SDK provides permission controls to manage how Claude uses tools. Use
 When Claude requests a tool, the SDK checks permissions in this order:
 
 1. **Hooks** -- Run [hooks](hooks.md) first, which can allow, deny, or continue to the next step.
-2. **Permission rules** -- Check rules defined in settings (via the `:settings` option or settings files loaded by `:setting_sources`) in this order: `deny` rules first (block regardless of other rules), then `allow` rules (permit if matched), then `ask` rules (prompt for approval). These declarative rules let you pre-approve, block, or require approval for specific tools without writing code.
-3. **Permission mode** -- Apply the active [permission mode](#permission-modes) (`:default`, `:accept_edits`, `:bypass_permissions`, `:plan`, `:delegate`, `:dont_ask`).
-4. **Permission prompt tool** -- If not resolved by rules or modes, call your `permission_prompt_tool` MCP tool for a decision.
+2. **Deny rules** -- Check `deny` rules (from `:disallowed_tools` and [settings.json](https://code.claude.com/docs/en/settings#permission-settings)). If a deny rule matches, the tool is blocked, even in `:bypass_permissions` mode.
+3. **Permission mode** -- Apply the active [permission mode](#permission-modes). `:bypass_permissions` approves everything that reaches this step. `:accept_edits` approves file operations. Other modes fall through.
+4. **Allow rules** -- Check `allow` rules (from `:allowed_tools` and settings.json). If a rule matches, the tool is approved.
+5. **`can_use_tool` callback** -- If not resolved by any of the above, call your [`:can_use_tool` callback](hooks.md#can_use_tool) for a decision. This can be a module implementing `ClaudeCode.Hook` or a 2-arity function. In `:dont_ask` mode, this step is skipped and the tool is denied.
 
-This page focuses on **permission modes** (step 3), the static configuration that controls default behavior. For the other steps:
+This page focuses on **allow and deny rules** and **permission modes**. For the other steps:
 
 - **Hooks**: run custom code to allow, deny, or modify tool requests. See [Control execution with hooks](hooks.md).
-- **Permission rules**: configure declarative allow/deny rules in settings. See [Secure Deployment](secure-deployment.md) and [Permission settings](https://code.claude.com/docs/en/settings#permission-settings).
-- **Permission prompt tool**: delegate permission decisions to an MCP tool at runtime. See [Handle approvals and user input](user-input.md).
+- **`can_use_tool` callback**: prompt users for approval at runtime or implement programmatic decisions. See [Hooks: can_use_tool](hooks.md#can_use_tool) and [Handle approvals and user input](user-input.md).
+
+## Allow and deny rules
+
+`:allowed_tools` and `:disallowed_tools` add entries to the allow and deny rule lists in the evaluation flow above. They control whether a tool call is approved, not whether the tool is available to Claude.
+
+| Option | Effect |
+| :----- | :----- |
+| `allowed_tools: ["Read", "Grep"]` | `Read` and `Grep` are auto-approved. Tools not listed here still exist and fall through to the permission mode and `can_use_tool`. |
+| `disallowed_tools: ["Bash"]` | `Bash` is always denied. Deny rules are checked first and hold in every permission mode, including `:bypass_permissions`. |
+
+For a locked-down agent, pair `:allowed_tools` with `permission_mode: :dont_ask`. Listed tools are approved; anything else is denied outright instead of prompting:
+
+```elixir
+{:ok, result} = ClaudeCode.query(
+  "Analyze this codebase",
+  allowed_tools: ["Read", "Glob", "Grep"],
+  permission_mode: :dont_ask
+)
+```
+
+> **Warning:** `:allowed_tools` does not constrain `:bypass_permissions`. `:allowed_tools` only pre-approves the tools you list. Unlisted tools are not matched by any allow rule and fall through to the permission mode, where `:bypass_permissions` approves them. Setting `allowed_tools: ["Read"]` alongside `permission_mode: :bypass_permissions` still approves every tool, including `Bash`, `Write`, and `Edit`. If you need `:bypass_permissions` but want specific tools blocked, use `:disallowed_tools`.
+
+You can also configure allow, deny, and ask rules declaratively in `.claude/settings.json`. The SDK does not load filesystem settings by default, so you must set `setting_sources: ["project"]` in your options for these rules to apply. See [Permission settings](https://code.claude.com/docs/en/settings#permission-settings) for the rule syntax.
 
 ## Permission modes
 
@@ -35,11 +58,11 @@ The SDK supports these permission modes:
 
 | Mode                  | Description                  | Tool behavior                                                                         |
 | :-------------------- | :--------------------------- | :------------------------------------------------------------------------------------ |
-| `:default`            | Standard permission behavior | No auto-approvals; unmatched tools trigger your `permission_prompt_tool` or are rejected |
+| `:default`            | Standard permission behavior | No auto-approvals; unmatched tools trigger your `can_use_tool` callback or are rejected |
 | `:accept_edits`       | Auto-accept file edits       | File edits and [filesystem operations](#accept-edits-mode-accept_edits) (`mkdir`, `rm`, `mv`, etc.) are automatically approved |
 | `:bypass_permissions` | Bypass all permission checks | All tools run without permission prompts (use with caution)                            |
 | `:plan`               | Planning mode                | No tool execution; Claude plans without making changes                                 |
-| `:delegate`           | Delegate to permission tool  | All permission decisions are delegated to your `permission_prompt_tool`                |
+| `:delegate`           | Delegate to permission tool  | All permission decisions are delegated to your `can_use_tool` callback                 |
 | `:dont_ask`           | Deny unmatched tools         | Tools not explicitly allowed by rules are denied without prompting                     |
 
 > **Warning:** When using `:bypass_permissions`, all subagents inherit this mode and it cannot be overridden. Subagents may have different system prompts and less constrained behavior than your main agent. Enabling `:bypass_permissions` grants them full, autonomous system access without any approval prompts.
@@ -99,11 +122,27 @@ Auto-approves file operations so Claude can edit code without prompting. Other t
 
 **Use when:** you trust Claude's edits and want faster iteration, such as during prototyping or when working in an isolated directory.
 
+#### Don't ask mode (`:dont_ask`)
+
+Converts any permission prompt into a denial. Tools pre-approved by `:allowed_tools`, settings.json allow rules, or a hook run as normal. Everything else is denied without calling `can_use_tool`.
+
+**Use when:** you want a fixed, explicit tool surface for a headless agent and prefer a hard deny over prompting.
+
+```elixir
+{:ok, result} = ClaudeCode.query(
+  "Summarize the project structure",
+  allowed_tools: ["Read", "Glob", "Grep"],
+  permission_mode: :dont_ask
+)
+```
+
 #### Bypass permissions mode (`:bypass_permissions`)
 
 Auto-approves all tool uses without prompts. Hooks still execute and can block operations if needed.
 
 > **Warning:** Use with extreme caution. Claude has full system access in this mode. Only use in controlled environments where you trust all possible operations.
+>
+> `:allowed_tools` does not constrain this mode. Every tool is approved, not just the ones you listed. Deny rules (`:disallowed_tools`), explicit `ask` rules, and hooks are evaluated before the mode check and can still block a tool.
 
 The Elixir SDK requires `allow_dangerously_skip_permissions: true` to enable this mode:
 
