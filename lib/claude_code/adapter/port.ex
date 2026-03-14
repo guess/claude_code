@@ -694,8 +694,7 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   # Handle locally when callback exists in local registry, otherwise proxy
-  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, _proxy, _msg, _timeout)
-       when cb != nil do
+  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, _proxy, _msg, _timeout) when cb != nil do
     {:ok, ControlHandler.handle_can_use_tool(request, registry)}
   end
 
