@@ -775,7 +775,6 @@ defmodule ClaudeCode.Hook.OutputTest do
       assert log =~ "deprecated"
       assert log =~ "updated_input"
     end
-
   end
 
   describe "coerce_permission/1 — deprecated shorthands" do
