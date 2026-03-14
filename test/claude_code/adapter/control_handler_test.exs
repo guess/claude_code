@@ -189,7 +189,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
     test "invokes callback and returns allow wire format" do
       callback = fn input, _id ->
         assert input.tool_name
-        %ClaudeCode.Hook.Output.PermissionDecision.Allow{}
+        %ClaudeCode.Hook.PermissionDecision.Allow{}
       end
 
       {registry, _wire} = HookRegistry.new(%{}, callback)
@@ -207,7 +207,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
 
     test "invokes callback and returns deny wire format" do
       callback = fn _input, _id ->
-        %ClaudeCode.Hook.Output.PermissionDecision.Deny{message: "Blocked by policy"}
+        %ClaudeCode.Hook.PermissionDecision.Deny{message: "Blocked by policy"}
       end
 
       {registry, _wire} = HookRegistry.new(%{}, callback)

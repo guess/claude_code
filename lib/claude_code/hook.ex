@@ -315,8 +315,8 @@ defmodule ClaudeCode.Hook do
           :ok
           | {hook_action(), keyword()}
           | ClaudeCode.Hook.Output.t()
-          | ClaudeCode.Hook.Output.PermissionDecision.Allow.t()
-          | ClaudeCode.Hook.Output.PermissionDecision.Deny.t()
+          | ClaudeCode.Hook.PermissionDecision.Allow.t()
+          | ClaudeCode.Hook.PermissionDecision.Deny.t()
 
   @callback call(input :: map(), tool_use_id :: String.t() | nil) :: hook_result()
 

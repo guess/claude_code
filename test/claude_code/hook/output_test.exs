@@ -2,8 +2,8 @@ defmodule ClaudeCode.Hook.OutputTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Hook.Output
-  alias ClaudeCode.Hook.Output.PermissionDecision.Allow
-  alias ClaudeCode.Hook.Output.PermissionDecision.Deny
+  alias ClaudeCode.Hook.PermissionDecision.Allow
+  alias ClaudeCode.Hook.PermissionDecision.Deny
 
   describe "Output.to_wire/1 - sync wrapper" do
     test "empty output returns empty map" do
@@ -363,7 +363,7 @@ defmodule ClaudeCode.Hook.OutputTest do
     end
 
     test "bare :ok with :can_use_tool returns Allow struct" do
-      assert %Output.PermissionDecision.Allow{} = Output.coerce(:ok, :can_use_tool)
+      assert %Allow{} = Output.coerce(:ok, :can_use_tool)
     end
   end
 

@@ -7,7 +7,7 @@ defmodule ClaudeCode.Adapter.PortTest do
   # shell_escape/1 Tests
   # ============================================================================
 
-  alias ClaudeCode.Hook.Output.PermissionDecision.Allow
+  alias ClaudeCode.Hook.PermissionDecision.Allow
 
   describe "shell_escape/1" do
     test "returns simple strings unchanged" do
@@ -1442,7 +1442,7 @@ defmodule ClaudeCode.Adapter.PortTest do
 
       can_use_tool_fn = fn input, _tool_use_id ->
         send(test_pid, {:can_use_tool_called, input})
-        %ClaudeCode.Hook.Output.PermissionDecision.Deny{message: "Not allowed"}
+        %ClaudeCode.Hook.PermissionDecision.Deny{message: "Not allowed"}
       end
 
       {:ok, adapter} =

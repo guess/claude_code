@@ -2,7 +2,7 @@ defmodule ClaudeCode.OptionsTest do
   use ExUnit.Case
 
   alias ClaudeCode.Hook.Output
-  alias ClaudeCode.Hook.Output.PermissionDecision.Allow
+  alias ClaudeCode.Hook.PermissionDecision.Allow
   alias ClaudeCode.Options
 
   describe "validate_session_options/1" do

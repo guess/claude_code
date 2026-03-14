@@ -2,7 +2,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.Hook.Output
-  alias ClaudeCode.Hook.Output.PermissionDecision.Allow
+  alias ClaudeCode.Hook.PermissionDecision.Allow
   alias ClaudeCode.Hook.Registry
 
   defmodule AllowAll do
