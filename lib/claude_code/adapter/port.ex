@@ -38,6 +38,7 @@ defmodule ClaudeCode.Adapter.Port do
   @adapter_internal_keys [
     :callback_proxy,
     :callback_timeout,
+    :can_use_tool,
     :hook_registry,
     :sdk_mcp_servers,
     :max_buffer_size
@@ -108,7 +109,8 @@ defmodule ClaudeCode.Adapter.Port do
   @impl GenServer
   def init({session, opts}) do
     hooks_map = Keyword.get(opts, :hooks)
-    {built_registry, hooks_wire} = HookRegistry.new(hooks_map)
+    can_use_tool = Keyword.get(opts, :can_use_tool)
+    {built_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
 
     # Callers may provide a pre-built hook registry (e.g. a partitioned subset).
     hook_registry =
@@ -628,31 +630,26 @@ defmodule ClaudeCode.Adapter.Port do
     request = get_in(msg, ["request"])
     subtype = get_in(request, ["subtype"])
 
-    response_data =
+    result =
       cond do
-        # MCP always goes to proxy (in-process tools are always local)
         subtype == "mcp_message" ->
           proxy_call(proxy, msg, timeout)
 
-        # hook_callback: check local registry first (remote hooks), then proxy (local hooks)
         subtype == "hook_callback" ->
-          callback_id = request["callback_id"]
+          route_hook_callback(request, state.hook_registry, proxy, msg, timeout)
 
-          case HookRegistry.lookup(state.hook_registry, callback_id) do
-            {:ok, _} -> ControlHandler.handle_hook_callback(request, state.hook_registry)
-            :error -> proxy_call(proxy, msg, timeout)
-          end
+        subtype == "can_use_tool" ->
+          route_can_use_tool(request, state.hook_registry, proxy, msg, timeout)
 
         true ->
           Logger.warning("Unhandled control request with proxy: #{subtype}")
-          nil
+          {:error, "Callback unavailable for: #{subtype}"}
       end
 
     response =
-      if response_data do
-        Control.success_response(request_id, response_data)
-      else
-        Control.error_response(request_id, "Callback unavailable for: #{subtype}")
+      case result do
+        {:ok, data} -> Control.success_response(request_id, data)
+        {:error, reason} -> Control.error_response(request_id, reason)
       end
 
     if state.port, do: Port.command(state.port, response <> "\n")
@@ -664,7 +661,7 @@ defmodule ClaudeCode.Adapter.Port do
     request = get_in(msg, ["request"])
     subtype = get_in(request, ["subtype"])
 
-    response_data =
+    result =
       case subtype do
         "hook_callback" ->
           ControlHandler.handle_hook_callback(request, state.hook_registry)
@@ -672,26 +669,45 @@ defmodule ClaudeCode.Adapter.Port do
         "mcp_message" ->
           server_name = request["server_name"]
           jsonrpc = request["message"]
-          ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
+          {:ok, ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)}
+
+        "can_use_tool" ->
+          {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry)}
 
         "elicitation" ->
           Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
-          nil
+          {:error, "Not implemented: #{subtype}"}
 
         _ ->
           Logger.warning("Received unhandled control request: #{subtype}")
-          nil
+          {:error, "Not implemented: #{subtype}"}
       end
 
     response =
-      if response_data do
-        Control.success_response(request_id, response_data)
-      else
-        Control.error_response(request_id, "Not implemented: #{subtype}")
+      case result do
+        {:ok, data} -> Control.success_response(request_id, data)
+        {:error, reason} -> Control.error_response(request_id, reason)
       end
 
     if state.port, do: Port.command(state.port, response <> "\n")
     state
+  end
+
+  # Handle locally when callback exists in local registry, otherwise proxy
+  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, _proxy, _msg, _timeout) when cb != nil do
+    {:ok, ControlHandler.handle_can_use_tool(request, registry)}
+  end
+
+  defp route_can_use_tool(_request, _hook_registry, proxy, msg, timeout) do
+    proxy_call(proxy, msg, timeout)
+  end
+
+  # Check local registry first (remote hooks), then fall back to proxy (local hooks)
+  defp route_hook_callback(request, hook_registry, proxy, msg, timeout) do
+    case HookRegistry.lookup(hook_registry, request["callback_id"]) do
+      {:ok, _} -> ControlHandler.handle_hook_callback(request, hook_registry)
+      :error -> proxy_call(proxy, msg, timeout)
+    end
   end
 
   defp proxy_call(proxy, msg, timeout) do
@@ -699,33 +715,25 @@ defmodule ClaudeCode.Adapter.Port do
   catch
     :exit, _ ->
       Logger.warning("Callback proxy unavailable")
-      nil
+      {:error, "Callback proxy unavailable"}
   end
 
   @doc false
   def extract_sdk_mcp_servers(opts) do
-    case Keyword.get(opts, :mcp_servers) do
-      nil ->
-        %{}
+    opts
+    |> Keyword.get(:mcp_servers)
+    |> Kernel.||(%{})
+    |> Enum.flat_map(fn
+      {name, module} when is_atom(module) ->
+        if MCPServer.sdk_server?(module), do: [{name, {module, %{}}}], else: []
 
-      servers when is_map(servers) ->
-        servers
-        |> Enum.flat_map(fn
-          {name, module} when is_atom(module) ->
-            if MCPServer.sdk_server?(module), do: [{name, {module, %{}}}], else: []
+      {name, %{module: module} = config} when is_atom(module) ->
+        if MCPServer.sdk_server?(module), do: [{name, {module, Map.get(config, :assigns, %{})}}], else: []
 
-          {name, %{module: module} = config} when is_atom(module) ->
-            if MCPServer.sdk_server?(module) do
-              [{name, {module, Map.get(config, :assigns, %{})}}]
-            else
-              []
-            end
-
-          _ ->
-            []
-        end)
-        |> Map.new()
-    end
+      _ ->
+        []
+    end)
+    |> Map.new()
   end
 
   @doc false

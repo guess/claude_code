@@ -37,15 +37,19 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxy do
   defp dispatch("mcp_message", request, state) do
     server_name = request["server_name"]
     jsonrpc = request["message"]
-    ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)
+    {:ok, ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)}
   end
 
   defp dispatch("hook_callback", request, state) do
     ControlHandler.handle_hook_callback(request, state.hook_registry)
   end
 
+  defp dispatch("can_use_tool", request, state) do
+    {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry)}
+  end
+
   defp dispatch(subtype, _request, _state) do
     Logger.warning("CallbackProxy received unhandled control request: #{subtype}")
-    nil
+    {:error, "Unhandled control request: #{subtype}"}
   end
 end

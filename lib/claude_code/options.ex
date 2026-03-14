@@ -662,6 +662,12 @@ defmodule ClaudeCode.Options do
           sandbox: [enabled: true, filesystem: [allow_write: ["/tmp"]]]
       """
     ],
+    can_use_tool: [
+      type: {:custom, ClaudeCode.Options, :validate_can_use_tool, []},
+      type_doc: "module implementing `ClaudeCode.Hook` | `(map(), String.t() | nil -> term())`",
+      doc:
+        "Permission prompt callback. Receives tool info map and tool_use_id, returns a permission decision. Mutually exclusive with :permission_prompt_tool."
+    ],
     enable_file_checkpointing: [
       type: :boolean,
       default: false,
@@ -811,7 +817,7 @@ defmodule ClaudeCode.Options do
       opts |> normalize_agents() |> NimbleOptions.validate!(@session_opts_schema)
 
     warn_deprecated_max_thinking_tokens(validated)
-    {:ok, validated}
+    validate_mutual_exclusions(validated)
   rescue
     e in NimbleOptions.ValidationError ->
       {:error, e}
@@ -909,6 +915,33 @@ defmodule ClaudeCode.Options do
 
   def validate_sandbox(other) do
     {:error, "expected a %ClaudeCode.Sandbox{} struct, keyword list, or map, got: #{inspect(other)}"}
+  end
+
+  @doc false
+  def validate_can_use_tool(callback) when is_function(callback, 2), do: {:ok, callback}
+
+  def validate_can_use_tool(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :call, 2) do
+      {:ok, module}
+    else
+      {:error, "expected a module implementing ClaudeCode.Hook (call/2), got: #{inspect(module)}"}
+    end
+  end
+
+  def validate_can_use_tool(other) do
+    {:error, "expected a module implementing ClaudeCode.Hook or a 2-arity function, got: #{inspect(other)}"}
+  end
+
+  defp validate_mutual_exclusions(opts) do
+    if Keyword.get(opts, :can_use_tool) && Keyword.get(opts, :permission_prompt_tool) do
+      {:error,
+       %NimbleOptions.ValidationError{
+         key: :can_use_tool,
+         message: ":can_use_tool and :permission_prompt_tool are mutually exclusive — use one or the other"
+       }}
+    else
+      {:ok, opts}
+    end
   end
 
   defp warn_deprecated_max_thinking_tokens(opts) do

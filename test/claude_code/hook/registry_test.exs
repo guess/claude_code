@@ -1,6 +1,8 @@
 defmodule ClaudeCode.Hook.RegistryTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.Hook.Output
+  alias ClaudeCode.Hook.PermissionDecision.Allow
   alias ClaudeCode.Hook.Registry
 
   defmodule AllowAll do
@@ -8,7 +10,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
     @behaviour ClaudeCode.Hook
 
     @impl true
-    def call(_input, _tool_use_id), do: :allow
+    def call(_input, _tool_use_id), do: %Output{}
   end
 
   defmodule DenyBash do
@@ -16,8 +18,15 @@ defmodule ClaudeCode.Hook.RegistryTest do
     @behaviour ClaudeCode.Hook
 
     @impl true
-    def call(%{tool_name: "Bash"}, _id), do: {:deny, "No bash"}
-    def call(_input, _id), do: :allow
+    def call(%{tool_name: "Bash"}, _id),
+      do: %Output{
+        hook_specific_output: %ClaudeCode.Hook.Output.PreToolUse{
+          permission_decision: "deny",
+          permission_decision_reason: "No bash"
+        }
+      }
+
+    def call(_input, _id), do: %Output{}
   end
 
   defmodule AuditLogger do
@@ -25,7 +34,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
     @behaviour ClaudeCode.Hook
 
     @impl true
-    def call(_input, _tool_use_id), do: :ok
+    def call(_input, _tool_use_id), do: %Output{}
   end
 
   describe "new/1" do
@@ -65,7 +74,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
     end
 
     test "supports anonymous function callbacks" do
-      hook_fn = fn _input, _id -> :ok end
+      hook_fn = fn _input, _id -> %Output{} end
 
       hooks = %{
         PostToolUse: [
@@ -112,7 +121,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
     end
 
     test "accepts bare 2-arity function as shorthand" do
-      hook_fn = fn _input, _id -> :allow end
+      hook_fn = fn _input, _id -> %Output{} end
 
       hooks = %{
         PreToolUse: [hook_fn]
@@ -126,7 +135,7 @@ defmodule ClaudeCode.Hook.RegistryTest do
     end
 
     test "accepts mixed shorthand and full map configs" do
-      hook_fn = fn _input, _id -> :ok end
+      hook_fn = fn _input, _id -> %Output{} end
 
       hooks = %{
         PreToolUse: [
@@ -242,6 +251,32 @@ defmodule ClaudeCode.Hook.RegistryTest do
     test "returns nil wire format for empty hooks map" do
       {_registry, wire} = Registry.new(%{})
       assert wire == nil
+    end
+  end
+
+  describe "can_use_tool callback" do
+    test "new/2 stores can_use_tool callback" do
+      callback = fn _input, _id -> %Allow{} end
+      {registry, _wire} = Registry.new(%{}, callback)
+      assert registry.can_use_tool == callback
+    end
+
+    test "new/1 defaults can_use_tool to nil" do
+      {registry, _wire} = Registry.new(%{})
+      assert registry.can_use_tool == nil
+    end
+
+    test "new/2 with nil can_use_tool" do
+      {registry, _wire} = Registry.new(%{}, nil)
+      assert registry.can_use_tool == nil
+    end
+
+    test "split/1 retains can_use_tool in local registry" do
+      callback = fn _input, _id -> %Allow{} end
+      {registry, _wire} = Registry.new(%{}, callback)
+      {local, remote} = Registry.split(registry)
+      assert local.can_use_tool == callback
+      assert remote.can_use_tool == nil
     end
   end
 

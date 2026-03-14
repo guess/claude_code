@@ -70,6 +70,24 @@ in `captured/anthropic-api-messages.d.ts`.
 | `ClaudeCode.CLI.Control.Types.rewind_files_result` | `RewindFilesResult` | -- | Type spec only (raw map); returned by `rewindFiles()` |
 | `ClaudeCode.CLI.Control.Types.initialize_response` | `SDKControlInitializeResponse` | -- | Type spec only (raw map); parsed in `Adapter.Port` |
 
+## Hook Output Types
+
+| Elixir Module | Python SDK Type | Wire Key | Notes |
+|---|---|---|---|
+| `ClaudeCode.Hook.Output` | `SyncHookJSONOutput` | *(top-level)* | Wrapper with control/decision fields |
+| `ClaudeCode.Hook.Output.Async` | `AsyncHookJSONOutput` | *(top-level)* | Async deferral |
+| `ClaudeCode.Hook.Output.PreToolUse` | `PreToolUseHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.PostToolUse` | `PostToolUseHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.PostToolUseFailure` | `PostToolUseFailureHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.UserPromptSubmit` | `UserPromptSubmitHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.SessionStart` | `SessionStartHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.Notification` | `NotificationHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.SubagentStart` | `SubagentStartHookSpecificOutput` | `hookSpecificOutput` | |
+| `ClaudeCode.Hook.Output.PreCompact` | *(not in Python SDK)* | `hookSpecificOutput` | customInstructions |
+| `ClaudeCode.Hook.Output.PermissionRequest` | `PermissionRequestHookSpecificOutput` | `hookSpecificOutput` | Wraps PermissionDecision |
+| `ClaudeCode.Hook.PermissionDecision.Allow` | `PermissionResultAllow` | `behavior: "allow"` | Shared by PermissionRequest + can_use_tool |
+| `ClaudeCode.Hook.PermissionDecision.Deny` | `PermissionResultDeny` | `behavior: "deny"` | Shared by PermissionRequest + can_use_tool |
+
 ## Union Types
 
 | Elixir Type | TS SDK Type | Python SDK Type |
@@ -145,6 +163,7 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `AccountInfo` | `ClaudeCode.Session.AccountInfo` |
 | `AgentDefinition` | `ClaudeCode.Agent` |
 | `AgentInfo` | `ClaudeCode.Session.AgentInfo` |
+| `AsyncHookJSONOutput` | `ClaudeCode.Hook.Output.Async` |
 | `BetaCompactionBlock` | `Content.CompactionBlock` |
 | `BetaContainerUploadBlock` | `Content.ContainerUploadBlock` |
 | `BetaDocumentBlock` | `Content.DocumentBlock` |
@@ -161,10 +180,18 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `McpSetServersResult` | `ClaudeCode.CLI.Control.Types.set_servers_result` (type spec) |
 | `ModelInfo` | `ClaudeCode.Model.Info` |
 | `ModelUsage` | `ClaudeCode.Model.Usage` |
+| `NotificationHookSpecificOutput` | `ClaudeCode.Hook.Output.Notification` |
+| `PermissionRequestHookSpecificOutput` | `ClaudeCode.Hook.Output.PermissionRequest` |
+| `PermissionResultAllow` | `ClaudeCode.Hook.PermissionDecision.Allow` |
+| `PermissionResultDeny` | `ClaudeCode.Hook.PermissionDecision.Deny` |
+| `PostToolUseFailureHookSpecificOutput` | `ClaudeCode.Hook.Output.PostToolUseFailure` |
+| `PostToolUseHookSpecificOutput` | `ClaudeCode.Hook.Output.PostToolUse` |
+| `PreToolUseHookSpecificOutput` | `ClaudeCode.Hook.Output.PreToolUse` |
 | `RewindFilesResult` | `ClaudeCode.CLI.Control.Types.rewind_files_result` (type spec) |
 | `SandboxFilesystemConfig` | `ClaudeCode.Sandbox.Filesystem` |
 | `SandboxNetworkConfig` | `ClaudeCode.Sandbox.Network` |
 | `SandboxSettings` | `ClaudeCode.Sandbox` |
+| `SessionStartHookSpecificOutput` | `ClaudeCode.Hook.Output.SessionStart` |
 | `SDKAssistantMessage` | `Message.AssistantMessage` |
 | `SDKAuthStatusMessage` | `Message.AuthStatusMessage` |
 | `SDKCompactBoundaryMessage` | `Message.SystemMessage.CompactBoundary` |
@@ -190,3 +217,6 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKUserMessage` | `Message.UserMessage` |
 | `SDKUserMessageReplay` | `Message.UserMessage` (via `is_replay` field) |
 | `SlashCommand` | `ClaudeCode.Session.SlashCommand` |
+| `SubagentStartHookSpecificOutput` | `ClaudeCode.Hook.Output.SubagentStart` |
+| `SyncHookJSONOutput` | `ClaudeCode.Hook.Output` |
+| `UserPromptSubmitHookSpecificOutput` | `ClaudeCode.Hook.Output.UserPromptSubmit` |

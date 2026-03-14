@@ -1,6 +1,8 @@
 defmodule ClaudeCode.MixProject do
   use Mix.Project
 
+  alias ClaudeCode.Hook.Output
+
   @version "0.31.0"
   @source_url "https://github.com/guess/claude_code"
 
@@ -58,8 +60,7 @@ defmodule ClaudeCode.MixProject do
       {:nimble_options, "~> 1.0"},
       {:nimble_ownership, "~> 1.0"},
       {:telemetry, "~> 1.2"},
-      # Optional dependencies
-      {:hermes_mcp, "~> 0.14", optional: true},
+      {:hermes_mcp, "~> 0.14"},
 
       # Development and test dependencies
       {:styler, "~> 1.0", only: [:dev, :test], runtime: false},
@@ -115,7 +116,9 @@ defmodule ClaudeCode.MixProject do
         ClaudeCode.Message.SystemMessage,
         ClaudeCode.Message,
         ClaudeCode.Content,
-        ClaudeCode.Session
+        ClaudeCode.Session,
+        ClaudeCode.Hook.PermissionDecision,
+        Output
       ],
       extras: [
         "README.md",
@@ -232,7 +235,20 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.Sandbox.Network
         ],
         Hooks: [
-          ClaudeCode.Hook
+          ClaudeCode.Hook,
+          Output,
+          ClaudeCode.Hook.Output.Async,
+          ClaudeCode.Hook.Output.PreToolUse,
+          ClaudeCode.Hook.Output.PostToolUse,
+          ClaudeCode.Hook.Output.PostToolUseFailure,
+          ClaudeCode.Hook.Output.UserPromptSubmit,
+          ClaudeCode.Hook.Output.SessionStart,
+          ClaudeCode.Hook.Output.Notification,
+          ClaudeCode.Hook.Output.SubagentStart,
+          ClaudeCode.Hook.Output.PreCompact,
+          ClaudeCode.Hook.Output.PermissionRequest,
+          ClaudeCode.Hook.PermissionDecision.Allow,
+          ClaudeCode.Hook.PermissionDecision.Deny
         ],
         Plugins: [
           ClaudeCode.Plugin,

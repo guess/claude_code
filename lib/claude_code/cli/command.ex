@@ -96,6 +96,9 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:continue, false), do: nil
 
+  defp convert_option(:can_use_tool, nil), do: nil
+  defp convert_option(:can_use_tool, _value), do: {"--permission-prompt-tool", "stdio"}
+
   defp convert_option(_key, nil), do: nil
 
   # TypeScript SDK aligned options
@@ -351,6 +354,7 @@ defmodule ClaudeCode.CLI.Command do
   # :sandbox is preprocessed into :settings; :thinking is preprocessed into :max_thinking_tokens
   # :enable_file_checkpointing is set via env var
   # :prompt_suggestions and :tool_config are sent via control protocol initialize
+  # :can_use_tool is handled above (maps to --permission-prompt-tool stdio)
   defp convert_option(:sandbox, _value), do: nil
   defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil

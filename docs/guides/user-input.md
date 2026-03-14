@@ -8,7 +8,9 @@ Surface Claude's approval requests and clarifying questions to users, then retur
 
 While working on a task, Claude sometimes needs to check in with users. It might need permission before deleting files, or need to ask which database to use for a new project. Your application needs to surface these requests to users so Claude can continue with their input.
 
-Claude requests user input in two situations: when it needs **permission to use a tool** (like deleting files or running commands), and when it has **clarifying questions** (via the `AskUserQuestion` tool). Both are handled through `PreToolUse` hooks, which pause execution until you return a response. This is different from normal conversation turns where Claude finishes and waits for your next message.
+Claude requests user input in two situations: when it needs **permission to use a tool** (like deleting files or running commands), and when it has **clarifying questions** (via the `AskUserQuestion` tool). Both can be handled through `PreToolUse` hooks or the simpler `:can_use_tool` callback, which pause execution until you return a response. This is different from normal conversation turns where Claude finishes and waits for your next message.
+
+> **Simpler alternative:** If you only need tool approval logic without matchers or other hook features, use the [`:can_use_tool` option](hooks.md#can_use_tool) instead. It provides a single callback for all permission decisions without needing hook configuration.
 
 For clarifying questions, Claude generates the questions and options. Your role is to present them to users and return their selections. You cannot add your own questions to this flow; if you need to ask users something yourself, do that separately in your application logic.
 

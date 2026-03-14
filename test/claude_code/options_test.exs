@@ -1,7 +1,17 @@
 defmodule ClaudeCode.OptionsTest do
   use ExUnit.Case
 
+  alias ClaudeCode.Hook.Output
+  alias ClaudeCode.Hook.PermissionDecision.Allow
   alias ClaudeCode.Options
+
+  defmodule TestHookModule do
+    @moduledoc false
+    @behaviour ClaudeCode.Hook
+
+    @impl true
+    def call(_input, _tool_use_id), do: :allow
+  end
 
   describe "validate_session_options/1" do
     test "validates valid options" do
@@ -462,6 +472,47 @@ defmodule ClaudeCode.OptionsTest do
     end
   end
 
+  describe "can_use_tool option" do
+    test "accepts a 2-arity function" do
+      opts = [can_use_tool: fn _input, _id -> %Allow{} end]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert is_function(validated[:can_use_tool], 2)
+    end
+
+    test "accepts a module implementing ClaudeCode.Hook" do
+      opts = [can_use_tool: TestHookModule]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:can_use_tool] == TestHookModule
+    end
+
+    test "rejects invalid values" do
+      assert {:error, _} = Options.validate_session_options(can_use_tool: "not valid")
+      assert {:error, _} = Options.validate_session_options(can_use_tool: 42)
+    end
+
+    test "rejects module without call/2" do
+      assert {:error, error} = Options.validate_session_options(can_use_tool: String)
+      assert error.message =~ "ClaudeCode.Hook"
+    end
+
+    test "raises when combined with permission_prompt_tool" do
+      opts = [
+        can_use_tool: fn _, _ -> %Allow{} end,
+        permission_prompt_tool: "some-tool"
+      ]
+
+      assert {:error, %NimbleOptions.ValidationError{} = error} =
+               Options.validate_session_options(opts)
+
+      assert error.message =~ "mutually exclusive"
+    end
+
+    test "is not set by default" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      refute Keyword.has_key?(validated, :can_use_tool)
+    end
+  end
+
   describe "hooks validation" do
     test "accepts a map with atom keys and matcher lists" do
       hooks = %{
@@ -474,7 +525,7 @@ defmodule ClaudeCode.OptionsTest do
 
     test "accepts a map with function hooks" do
       hooks = %{
-        PostToolUse: [%{hooks: [fn _input, _id -> :ok end]}]
+        PostToolUse: [%{hooks: [fn _input, _id -> %Output{} end]}]
       }
 
       {:ok, opts} = Options.validate_session_options(hooks: hooks)

@@ -484,6 +484,9 @@ ClaudeCode.start_link(
 )
 ```
 
+The `can_use_tool` callback always runs on the app server — permission decisions
+need access to your application's context (database, config, user session).
+
 ### Callback Timeout
 
 Cross-node control request calls use a configurable timeout:

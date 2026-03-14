@@ -34,7 +34,7 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxyTest do
         }
       }
 
-      response = GenServer.call(proxy, {:control_request, msg})
+      assert {:ok, response} = GenServer.call(proxy, {:control_request, msg})
       assert %{"mcp_response" => %{"result" => result}} = response
       assert result["content"] == [%{"type" => "text", "text" => "8"}]
     end
@@ -54,16 +54,16 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxyTest do
         "request" => %{
           "subtype" => "hook_callback",
           "callback_id" => "hook_0",
-          "input" => %{"tool_name" => "Read"},
+          "input" => %{"hook_event_name" => "PostToolUse", "tool_name" => "Read"},
           "tool_use_id" => nil
         }
       }
 
-      response = GenServer.call(proxy, {:control_request, msg})
+      assert {:ok, response} = GenServer.call(proxy, {:control_request, msg})
       assert is_map(response)
     end
 
-    test "returns nil for unknown control request subtypes" do
+    test "returns error for unknown control request subtypes" do
       {:ok, proxy} =
         CallbackProxy.start_link(
           mcp_servers: nil,
@@ -75,8 +75,7 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxyTest do
         "request" => %{"subtype" => "unknown_type"}
       }
 
-      response = GenServer.call(proxy, {:control_request, msg})
-      assert response == nil
+      assert {:error, _reason} = GenServer.call(proxy, {:control_request, msg})
     end
 
     test "returns mcp error for unknown server name" do
@@ -95,7 +94,7 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxyTest do
         }
       }
 
-      response = GenServer.call(proxy, {:control_request, msg})
+      assert {:ok, response} = GenServer.call(proxy, {:control_request, msg})
       assert %{"mcp_response" => %{"error" => _}} = response
     end
   end

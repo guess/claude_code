@@ -26,7 +26,7 @@ defmodule MyApp.ProtectEnvFiles do
   @impl true
   def call(%{hook_event_name: "PreToolUse", tool_input: %{"file_path" => file_path}}, _tool_use_id) do
     if Path.basename(file_path) == ".env" do
-      {:deny, "Cannot modify .env files"}
+      {:deny, permission_decision_reason: "Cannot modify .env files"}
     else
       :allow
     end
@@ -47,6 +47,8 @@ end
 ```
 
 This is a `PreToolUse` hook. It runs before the tool executes and can block or allow operations based on your logic. The rest of this guide covers all available hooks, their configuration options, and patterns for common use cases.
+
+> **MCP tools:** PreToolUse hooks also apply to in-process MCP tool calls. MCP tool names follow the `mcp__<server>__<tool>` pattern (e.g., `mcp__my-tools__get_weather`), so matchers like `"mcp__my-tools__.*"` work as expected.
 
 ## Available hooks
 
@@ -184,11 +186,79 @@ When multiple hooks or permission rules apply, the SDK evaluates them in this or
 3. **Allow** rules are checked third.
 4. **Default to Ask** if nothing matches.
 
-If any hook returns `{:deny, reason}`, the operation is blocked -- other hooks returning `:allow` will not override it.
+If any hook returns `{:deny, permission_decision_reason: reason}`, the operation is blocked -- other hooks returning `:allow` will not override it.
+
+## can_use_tool
+
+> **Elixir-specific:** The `:can_use_tool` option is an Elixir SDK convenience that provides a simpler API for permission decisions. It registers a single permission callback that the CLI invokes before every tool execution, without needing matcher configuration.
+
+The `:can_use_tool` option registers a permission callback that the CLI invokes before every tool execution. Your callback decides whether to allow, deny, or modify the tool call.
+
+### Module callback
+
+```elixir
+defmodule MyApp.ToolPermissions do
+  @behaviour ClaudeCode.Hook
+
+  @impl true
+  def call(%{tool_name: "Bash", input: %{"command" => cmd}}, _tool_use_id) do
+    cond do
+      String.contains?(cmd, "rm -rf") -> {:deny, message: "Destructive command blocked"}
+      String.starts_with?(cmd, "sudo") -> {:deny, message: "No sudo allowed"}
+      true -> :allow
+    end
+  end
+
+  def call(_input, _tool_use_id), do: :allow
+end
+
+{:ok, session} = ClaudeCode.start_link(can_use_tool: MyApp.ToolPermissions)
+```
+
+### Anonymous function
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  can_use_tool: fn %{tool_name: name}, _id ->
+    if name in ["Read", "Glob", "Grep"], do: :allow, else: {:deny, message: "Read-only mode"}
+  end
+)
+```
+
+### Return values
+
+| Return | Effect |
+|--------|--------|
+| `:allow` | Permit the tool call |
+| `{:allow, updated_input: %{...}}` | Permit with modified input |
+| `{:allow, updated_permissions: [...]}` | Permit with updated permission rules |
+| `:deny` | Block the tool call |
+| `{:deny, message: "reason"}` | Block with an explanation |
+| `{:deny, message: "reason", interrupt: true}` | Block and interrupt the session |
+
+### How it works
+
+When `:can_use_tool` is set, the SDK automatically adds `--permission-prompt-tool stdio` to the CLI flags. The CLI sends a control request before each tool execution, and the adapter invokes your callback synchronously to get a decision.
+
+> **Note:** `:can_use_tool` and `:permission_prompt_tool` cannot be used together. If you need programmatic tool approval, use `:can_use_tool`.
+
+### Using can_use_tool with hooks
+
+`:can_use_tool` handles permission decisions while hooks handle lifecycle observation and other event types:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  can_use_tool: MyApp.ToolPermissions,
+  hooks: %{
+    PostToolUse: [MyApp.AuditLogger],
+    Stop: [MyApp.BudgetGuard]
+  }
+)
+```
 
 ## The Hook behaviour
 
-The `:hooks` option uses the `ClaudeCode.Hook` behaviour:
+Both `:can_use_tool` and `:hooks` use the same `ClaudeCode.Hook` behaviour:
 
 ```elixir
 defmodule MyApp.MyHook do
@@ -260,14 +330,14 @@ defmodule MyApp.RedirectToSandbox do
   @impl true
   def call(%{hook_event_name: "PreToolUse", tool_name: "Write", tool_input: input}, _tool_use_id) do
     original_path = Map.get(input, "file_path", "")
-    {:allow, Map.put(input, "file_path", "/sandbox#{original_path}")}
+    {:allow, updated_input: Map.put(input, "file_path", "/sandbox#{original_path}")}
   end
 
   def call(_input, _tool_use_id), do: :ok
 end
 ```
 
-> When using `{:allow, updated_input}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input}`.
+> When using `{:allow, updated_input: new_map}`, always return a new map rather than mutating the original `tool_input`. The hook response module automatically includes the required `permissionDecision: "allow"` in the wire format when you return `{:allow, updated_input: ...}`.
 
 ### Auto-approve specific tools
 
@@ -325,7 +395,7 @@ You can use anonymous functions instead of modules for simple hooks:
       %{matcher: "Bash", hooks: [
         fn %{tool_input: %{"command" => cmd}}, _id ->
           Logger.info("Bash: #{cmd}")
-          :allow
+          :ok
         end
       ]}
     ]
@@ -353,9 +423,9 @@ Matchers only match **tool names**, not file paths or other arguments. To filter
 def call(%{hook_event_name: "PreToolUse", tool_input: %{"file_path" => path}}, _id) do
   if String.ends_with?(path, ".md") do
     # Process markdown files...
-    :allow
+    :ok
   else
-    :allow
+    :ok
   end
 end
 ```
@@ -367,15 +437,19 @@ end
 
 ### Tool blocked unexpectedly
 
-- Check all `PreToolUse` hooks for `{:deny, reason}` returns
+- Check all `PreToolUse` hooks for `{:deny, permission_decision_reason: reason}` returns
 - Add logging to your hooks to see what reasons they are returning
 - Verify matcher patterns are not too broad (an omitted matcher matches all tools)
 
 ### Modified input not applied
 
-- When using `{:allow, updated_input}`, ensure you are returning a complete input map, not just the changed fields
-- The hook response module translates `{:allow, updated_input}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
+- When using `{:allow, updated_input: new_map}`, ensure you are returning a complete input map, not just the changed fields
+- The hook response module translates `{:allow, updated_input: ...}` to the correct wire format including `hookSpecificOutput` and `permissionDecision`
 - On the wire, `updatedInput` must be inside `hookSpecificOutput` alongside `permissionDecision: "allow"` -- the Elixir SDK handles this automatically
+
+### can_use_tool and permission_prompt_tool conflict
+
+`:can_use_tool` and `:permission_prompt_tool` cannot be used together. If both are set, the SDK will raise an error. Use `:can_use_tool` for programmatic tool approval.
 
 ### Subagent permission prompts multiplying
 
