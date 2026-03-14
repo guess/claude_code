@@ -59,7 +59,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
 
       request = %{
         "callback_id" => "hook_0",
-        "input" => %{"tool_name" => "Read"},
+        "input" => %{"hook_event_name" => "PreToolUse", "tool_name" => "Read"},
         "tool_use_id" => nil
       }
 
@@ -101,8 +101,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
       }
 
       result = ControlHandler.handle_hook_callback(request, registry)
-      # AllowHook returns :allow which via legacy compat → %{} (no opinion)
-      assert result == %{}
+      assert result["hookSpecificOutput"]["permissionDecision"] == "allow"
     end
 
     test "shorthand {:deny, opts} produces correct PreToolUse wire format" do
