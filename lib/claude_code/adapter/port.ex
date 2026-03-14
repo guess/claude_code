@@ -38,7 +38,6 @@ defmodule ClaudeCode.Adapter.Port do
   @adapter_internal_keys [
     :callback_proxy,
     :callback_timeout,
-    :can_use_tool,
     :hook_registry,
     :sdk_mcp_servers,
     :max_buffer_size

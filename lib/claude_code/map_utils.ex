@@ -31,8 +31,9 @@ defmodule ClaudeCode.MapUtils do
     "custom_instructions" => :custom_instructions,
     # Notification
     "notification_type" => :notification_type,
-    # PermissionRequest
+    # PermissionRequest / can_use_tool
     "permission_suggestions" => :permission_suggestions,
+    "blocked_path" => :blocked_path,
     # UserPromptSubmit
     "prompt" => :prompt,
     # SessionStart
