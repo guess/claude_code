@@ -7,10 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ClaudeCode.Hook.DebugLogger` module** — A diagnostic hook that logs every invocation with event name, tool name, and available input keys. Register it for any hook event to observe what the CLI sends. Includes `ClaudeCode.Hook.DebugLogger.Permissive` variant for `:can_use_tool` that returns `:allow`. ([9d75ed8])
+
 ### Changed
 
 - **Breaking**: `hermes_mcp` is now a required dependency (was optional). It was already required at compile time for `ClaudeCode.MCP.Server`. If your project does not use MCP features, you will now pull in `hermes_mcp` as a transitive dependency — no code changes are needed.
 - **Breaking**: Removed `ClaudeCode.MCP`.`available?/0` and `ClaudeCode.MCP`.`require_hermes!/0` — no longer needed with `hermes_mcp` required.
+- Bumped bundled CLI version to 2.1.76. ([15fdff2])
 
 ### Fixed
 
@@ -18,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **MCP PreToolUse hooks** — `PreToolUse` hooks now apply to in-process MCP tool calls, matching the `mcp__<server>__<tool>` naming convention. Previously, MCP tools bypassed the hook system entirely.
 - **`ClaudeCode.Adapter.Port` buffer overflow false positive** — The buffer overflow check now runs after extracting complete lines, not before. Previously, a burst of many small complete JSON messages arriving in a single chunk could trigger a false overflow even though only the remaining incomplete buffer should count against the limit.
 - **`ClaudeCode.MCP.Router` generic notification handling** — Handle all JSONRPC 2.0 notification types (`notifications/*`) instead of only `notifications/initialized`. Previously, other notification types like `notifications/cancelled` would crash with a `FunctionClauseError` because `jsonrpc_error/3` requires an `"id"` field that notifications don't have.
+- **`ClaudeCode.Test.stub/2` shared ownership** — `stub/2` now works correctly when the session name has a shared owner, updating the stub instead of raising. ([95524e0])
 
 ### Added
 
