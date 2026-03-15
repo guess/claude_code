@@ -9,10 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Enhanced session history (Python SDK parity)** — New `ClaudeCode.History.list_sessions/1` returns rich `ClaudeCode.History.SessionInfo` metadata (summary, custom title, first prompt, git branch, cwd) using fast head/tail reads without full JSONL parsing. Supports worktree-aware scanning, deduplication, and `:limit`. ([bf93d7c])
+- **Chain-built message retrieval** — New `ClaudeCode.History.get_messages/2` and `ClaudeCode.Session.get_messages/2` reconstruct conversations via `parentUuid` chain walking, correctly handling branched and compacted conversations. Returns `ClaudeCode.History.SessionMessage` structs with parsed content blocks (`TextBlock`, `ToolUseBlock`, etc.). Supports `:limit` and `:offset` pagination. ([bf93d7c])
+- **`ClaudeCode.History.SessionMessage` struct** — Typed struct for history messages with `:user`/`:assistant` atom types, chain metadata (`uuid`, `session_id`), and parsed message content. ([bf93d7c])
+- **`ClaudeCode.History.SessionInfo` struct** — Rich session metadata including `session_id`, `summary`, `last_modified`, `file_size`, `custom_title`, `first_prompt`, `git_branch`, and `cwd`. ([bf93d7c])
+- **`ClaudeCode.History.sanitize_path/1`** — Python SDK-compatible path sanitization (replaces all non-alphanumeric chars with hyphens, handles long paths with hash suffix). ([bf93d7c])
 - **Configurable `control_timeout` session option** — Max time in ms to wait for CLI control responses (e.g. initialize handshake, MCP server startup). Defaults to 60,000ms to match the Python SDK. Useful when MCP servers are slow to start. ([fb28a46], [6758caa])
 
 ### Changed
 
+- **Breaking**: Removed `ClaudeCode.History.conversation/2`, `ClaudeCode.History.conversation_from_file/1`, and `ClaudeCode.Session.conversation/2` — replaced by `get_messages/2` which properly handles branched/compacted conversations via `parentUuid` chain building. ([bf93d7c])
 - **Breaking**: Removed `:callback_timeout` from `ClaudeCode.Adapter.Node` — proxy delegation for hooks and MCP now uses the unified `:control_timeout` option instead. If you were passing `:callback_timeout` in adapter config, change it to `:control_timeout` as a session option. ([6758caa])
 
 ## [0.32.2] - 2026-03-14 | CC 2.1.76
