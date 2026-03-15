@@ -51,7 +51,8 @@ defmodule ClaudeCode.MCP.Backend.Hermes do
 
   @impl true
   def compatible?(module) when is_atom(module) do
-    Code.ensure_loaded?(module) and
+    Code.ensure_loaded?(Hermes.Server) and
+      Code.ensure_loaded?(module) and
       function_exported?(module, :start_link, 1) and
       not MCPServer.sdk_server?(module)
   end
