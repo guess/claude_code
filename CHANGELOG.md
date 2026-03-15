@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-03-15 | CC 2.1.76
+
 ### Added
 
 - **MCP backend abstraction** — New `ClaudeCode.MCP.Backend` behaviour allows pluggable MCP library backends. Ships with `Backend.Anubis` (new default) and `Backend.Hermes` (legacy). Both backends are optional — only compile when their respective library is loaded. Centralized backend detection via `ClaudeCode.MCP.backend_for/1`. ([4c69cbb])
