@@ -2,6 +2,7 @@ defmodule ClaudeCode.MCP.Backend.Hermes do
   @moduledoc false
   @behaviour ClaudeCode.MCP.Backend
 
+  alias ClaudeCode.MCP.Server, as: MCPServer
   alias Hermes.Server.Component
   alias Hermes.Server.Component.Schema
   alias Hermes.Server.Frame
@@ -52,7 +53,7 @@ defmodule ClaudeCode.MCP.Backend.Hermes do
   def compatible?(module) when is_atom(module) do
     Code.ensure_loaded?(module) and
       function_exported?(module, :start_link, 1) and
-      not ClaudeCode.MCP.Server.sdk_server?(module)
+      not MCPServer.sdk_server?(module)
   end
 
   # -- Private helpers --

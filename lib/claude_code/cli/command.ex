@@ -9,6 +9,7 @@ defmodule ClaudeCode.CLI.Command do
   It is used by `ClaudeCode.Adapter.Port` for local subprocess management.
   """
 
+  alias ClaudeCode.MCP.Backend.Hermes, as: HermesBackend
   alias ClaudeCode.MCP.Server
   alias ClaudeCode.Session.PermissionMode
 
@@ -458,12 +459,12 @@ defmodule ClaudeCode.CLI.Command do
       Server.sdk_server?(module) ->
         %{type: "sdk", name: name}
 
-      ClaudeCode.MCP.Backend.Hermes.compatible?(module) ->
+      HermesBackend.compatible?(module) ->
         expand_hermes_module(module, config)
 
       true ->
         raise ArgumentError,
-          "Module #{inspect(module)} passed to :mcp_servers is not a recognized MCP server module"
+              "Module #{inspect(module)} passed to :mcp_servers is not a recognized MCP server module"
     end
   end
 end
