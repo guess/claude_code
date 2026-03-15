@@ -34,6 +34,9 @@ defmodule ClaudeCode.MapUtils do
     # PermissionRequest / can_use_tool
     "permission_suggestions" => :permission_suggestions,
     "blocked_path" => :blocked_path,
+    "input" => :input,
+    "decision_reason" => :decision_reason,
+    "description" => :description,
     # UserPromptSubmit
     "prompt" => :prompt,
     # SessionStart
