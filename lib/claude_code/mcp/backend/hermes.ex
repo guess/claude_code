@@ -59,7 +59,8 @@ if Code.ensure_loaded?(Hermes.Server) do
     end
 
     defp has_behaviour?(module, behaviour) do
-      module.module_info(:attributes)
+      :attributes
+      |> module.module_info()
       |> Keyword.get_values(:behaviour)
       |> List.flatten()
       |> Enum.member?(behaviour)

@@ -1,6 +1,7 @@
 defmodule MyApp.MCPServer do
   @moduledoc false
   @behaviour Anubis.Server
+
   def start_link(_opts), do: {:ok, self()}
 end
 

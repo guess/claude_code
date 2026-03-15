@@ -12,6 +12,7 @@ defmodule ClaudeCode.MCPTest do
       defmodule FakeAnubisServer do
         @moduledoc false
         @behaviour Anubis.Server
+
         def start_link(_opts), do: {:ok, self()}
       end
 
@@ -22,6 +23,7 @@ defmodule ClaudeCode.MCPTest do
       defmodule FakeHermesServer do
         @moduledoc false
         @behaviour Hermes.Server
+
         def start_link(_opts), do: {:ok, self()}
       end
 

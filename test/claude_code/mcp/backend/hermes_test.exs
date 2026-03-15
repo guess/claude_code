@@ -8,6 +8,7 @@ defmodule ClaudeCode.MCP.Backend.HermesTest do
       defmodule FakeHermesModule do
         @moduledoc false
         @behaviour Hermes.Server
+
         def start_link(_opts), do: {:ok, self()}
       end
 
