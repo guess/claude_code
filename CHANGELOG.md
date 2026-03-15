@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Configurable `control_timeout` session option** — Max time in ms to wait for CLI control responses (e.g. initialize handshake, MCP server startup). Defaults to 60,000ms to match the Python SDK. Useful when MCP servers are slow to start. ([fb28a46], [6758caa])
+
+### Changed
+
+- **Breaking**: Removed `:callback_timeout` from `ClaudeCode.Adapter.Node` — proxy delegation for hooks and MCP now uses the unified `:control_timeout` option instead. If you were passing `:callback_timeout` in adapter config, change it to `:control_timeout` as a session option. ([6758caa])
+
 ## [0.32.2] - 2026-03-14 | CC 2.1.76
 
 ### Fixed
