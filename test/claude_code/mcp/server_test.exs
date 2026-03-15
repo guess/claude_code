@@ -7,7 +7,6 @@ defmodule ClaudeCode.MCP.ServerTest do
   alias ClaudeCode.TestTools.GetTime
   alias ClaudeCode.TestTools.Greet
   alias ClaudeCode.TestTools.ReturnMap
-  alias Hermes.Server.Response
 
   describe "__tool_server__/0" do
     test "returns server metadata with name and tool modules" do
@@ -49,7 +48,6 @@ defmodule ClaudeCode.MCP.ServerTest do
 
     test "tool with no fields has empty object schema" do
       schema = GetTime.input_schema()
-
       assert schema["type"] == "object"
     end
 
@@ -59,43 +57,46 @@ defmodule ClaudeCode.MCP.ServerTest do
     end
   end
 
-  describe "execute/2 wrapping" do
-    setup do
-      %{frame: %Hermes.Server.Frame{assigns: %{}}}
+  describe "execute/2" do
+    test "returns {:ok, value} for text results" do
+      assert {:ok, "7"} = Add.execute(%{x: 3, y: 4}, %{})
     end
 
-    test "wraps {:ok, binary} into {:reply, text_response, frame}", %{frame: frame} do
-      assert {:reply, response, ^frame} =
-               Add.execute(%{x: 3, y: 4}, frame)
-
-      protocol = Response.to_protocol(response)
-      assert protocol["content"] == [%{"type" => "text", "text" => "7"}]
-      assert protocol["isError"] == false
+    test "returns {:ok, map} for map results" do
+      assert {:ok, %{key: "test", value: "data"}} = ReturnMap.execute(%{key: "test"}, %{})
     end
 
-    test "wraps {:ok, map} into {:reply, json_response, frame}", %{frame: frame} do
-      assert {:reply, response, ^frame} =
-               ReturnMap.execute(%{key: "test"}, frame)
-
-      protocol = Response.to_protocol(response)
-      [%{"type" => "text", "text" => json_text}] = protocol["content"]
-      decoded = Jason.decode!(json_text)
-      assert decoded["key"] == "test"
-      assert decoded["value"] == "data"
+    test "returns {:error, message} for failing tools" do
+      assert {:error, "Something went wrong"} = FailingTool.execute(%{}, %{})
     end
 
-    test "wraps {:error, message} into {:error, Error, frame}", %{frame: frame} do
-      assert {:error, %Hermes.MCP.Error{message: "Something went wrong"}, ^frame} =
-               FailingTool.execute(%{}, frame)
-    end
-
-    test "execute/1 tools receive params without frame", %{frame: frame} do
-      assert {:reply, response, ^frame} =
-               GetTime.execute(%{}, frame)
-
-      protocol = Response.to_protocol(response)
-      [%{"type" => "text", "text" => time_str}] = protocol["content"]
+    test "execute/1 tools ignore assigns" do
+      assert {:ok, time_str} = GetTime.execute(%{}, %{})
       assert {:ok, _, _} = DateTime.from_iso8601(time_str)
+    end
+  end
+
+  describe "execute/2 with assigns" do
+    defmodule AssignsTools do
+      @moduledoc false
+      use Server, name: "assigns-test"
+
+      tool :whoami, "Returns user from assigns" do
+        def execute(_params, assigns) do
+          case assigns do
+            %{user: user} -> {:ok, "User: #{user}"}
+            _ -> {:error, "No user"}
+          end
+        end
+      end
+    end
+
+    test "passes assigns to arity-2 execute" do
+      assert {:ok, "User: alice"} = AssignsTools.Whoami.execute(%{}, %{user: "alice"})
+    end
+
+    test "empty assigns when not provided" do
+      assert {:error, "No user"} = AssignsTools.Whoami.execute(%{}, %{})
     end
   end
 

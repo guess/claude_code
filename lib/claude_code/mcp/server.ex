@@ -1,10 +1,9 @@
 defmodule ClaudeCode.MCP.Server do
   @moduledoc """
-  Macro for generating Hermes MCP tool modules from a concise DSL.
+  Macro for generating MCP tool modules from a concise DSL.
 
-  Each `tool` block becomes a nested module that implements
-  Hermes.Server.Component with type `:tool`. The generated modules
-  have proper schema definitions, execute wrappers, and metadata.
+  Each `tool` block becomes a nested module with schema definitions,
+  execute wrappers, and metadata.
 
   ## Usage
 
@@ -31,21 +30,19 @@ defmodule ClaudeCode.MCP.Server do
 
   Each `tool` block generates a nested module (e.g., `MyApp.Tools.Add`) that:
 
-  - Uses `Hermes.Server.Component, type: :tool`
   - Has `__tool_name__/0` returning the string tool name
-  - Has a `schema` block with the user's field declarations
-  - Has `__description__/0` returning the tool description (via `@moduledoc`)
-  - Has `execute/2` implementing the Hermes tool callback
-  - Wraps user return values into proper Hermes responses
+  - Has `__description__/0` returning the tool description
+  - Has `input_schema/0` returning JSON Schema for the tool's parameters
+  - Has `execute/2` accepting `(params, assigns)` and returning `{:ok, value}` or `{:error, message}`
 
   ## Return Value Wrapping
 
   The user's `execute` function can return:
 
-  - `{:ok, binary}` - wrapped into a text response
-  - `{:ok, map | list}` - wrapped into a JSON response
-  - `{:ok, other}` - converted to string and wrapped into text response
-  - `{:error, message}` - wrapped into an MCP execution error
+  - `{:ok, binary}` - returned as text content
+  - `{:ok, map | list}` - returned as JSON content
+  - `{:ok, other}` - converted to string and returned as text content
+  - `{:error, message}` - returned as error content
   """
 
   @doc """
@@ -108,56 +105,36 @@ defmodule ClaudeCode.MCP.Server do
     tool_name_str = Atom.to_string(name)
 
     {field_asts, execute_ast} = split_tool_block(block)
-    schema_block = build_schema_block(field_asts)
-    {execute_wrapper, user_execute_def} = build_execute(execute_ast, tool_name_str)
+    schema_def = build_input_schema(field_asts)
+    {execute_wrapper, user_execute_def} = build_execute(execute_ast)
 
     quote do
       defmodule Module.concat(__MODULE__, unquote(module_name)) do
-        @moduledoc unquote(description)
+        @moduledoc false
 
-        use Hermes.Server.Component, type: :tool
-
-        alias Hermes.MCP.Error
-        alias Hermes.Server.Response
+        import ClaudeCode.MCP.Server, only: [field: 2, field: 3]
 
         @doc false
         def __tool_name__, do: unquote(tool_name_str)
 
-        unquote(schema_block)
+        @doc false
+        def __description__, do: unquote(description)
+
+        unquote(schema_def)
 
         unquote(user_execute_def)
-
-        @doc false
-        def __wrap_result__({:ok, value}, frame) when is_binary(value) do
-          response = Response.text(Response.tool(), value)
-
-          {:reply, response, frame}
-        end
-
-        def __wrap_result__({:ok, value}, frame) when is_map(value) or is_list(value) do
-          response = Response.json(Response.tool(), value)
-
-          {:reply, response, frame}
-        end
-
-        def __wrap_result__({:ok, value}, frame) do
-          response = Response.text(Response.tool(), to_string(value))
-
-          {:reply, response, frame}
-        end
-
-        def __wrap_result__({:error, message}, frame) when is_binary(message) do
-          {:error, Error.execution(message), frame}
-        end
-
-        def __wrap_result__({:error, message}, frame) do
-          {:error, Error.execution(to_string(message)), frame}
-        end
 
         unquote(execute_wrapper)
       end
 
       @_tools Module.concat(__MODULE__, unquote(module_name))
+    end
+  end
+
+  @doc false
+  defmacro field(name, type, opts \\ []) do
+    quote do
+      @_fields {unquote(name), unquote(type), unquote(opts)}
     end
   end
 
@@ -186,31 +163,67 @@ defmodule ClaudeCode.MCP.Server do
   defp execute_def?({:def, _, [{:execute, _, _} | _]}), do: true
   defp execute_def?(_), do: false
 
-  # Wraps field AST nodes in a `schema do ... end` block
-  defp build_schema_block([]) do
+  # Builds the input_schema/0 function from field declarations
+  defp build_input_schema([]) do
     quote do
-      schema do
+      Module.register_attribute(__MODULE__, :_fields, accumulate: true)
+
+      @doc false
+      def input_schema do
+        %{"type" => "object", "properties" => %{}, "required" => []}
       end
     end
   end
 
-  defp build_schema_block(field_asts) do
-    body =
-      case field_asts do
-        [single] -> single
-        multiple -> {:__block__, [], multiple}
+  defp build_input_schema(field_asts) do
+    quote do
+      Module.register_attribute(__MODULE__, :_fields, accumulate: true)
+
+      unquote_splicing(field_asts)
+
+      @before_compile {ClaudeCode.MCP.Server, :__before_compile_schema__}
+    end
+  end
+
+  @doc false
+  defmacro __before_compile_schema__(env) do
+    fields = env.module |> Module.get_attribute(:_fields) |> Enum.reverse()
+
+    properties =
+      for {name, type, _opts} <- fields, into: %{} do
+        {Atom.to_string(name), type_to_json_schema(type)}
       end
 
+    required =
+      for {name, _type, opts} <- fields,
+          Keyword.get(opts, :required, false),
+          do: Atom.to_string(name)
+
     quote do
-      schema do
-        unquote(body)
+      @doc false
+      def input_schema do
+        %{
+          "type" => "object",
+          "properties" => unquote(Macro.escape(properties)),
+          "required" => unquote(required)
+        }
       end
     end
   end
+
+  @doc false
+  def type_to_json_schema(:string), do: %{"type" => "string"}
+  def type_to_json_schema(:integer), do: %{"type" => "integer"}
+  def type_to_json_schema(:float), do: %{"type" => "number"}
+  def type_to_json_schema(:number), do: %{"type" => "number"}
+  def type_to_json_schema(:boolean), do: %{"type" => "boolean"}
+  def type_to_json_schema(:map), do: %{"type" => "object"}
+  def type_to_json_schema(:list), do: %{"type" => "array"}
+  def type_to_json_schema(other), do: %{"type" => to_string(other)}
 
   # Builds the execute/2 wrapper and the renamed user execute function.
   # Detects whether user's execute is arity 1 or 2.
-  defp build_execute(execute_defs, _tool_name) do
+  defp build_execute(execute_defs) do
     # Rename all user `def execute` clauses to `defp __user_execute__`
     user_defs =
       Enum.map(execute_defs, fn {:def, meta, [{:execute, name_meta, args} | body]} ->
@@ -224,19 +237,17 @@ defmodule ClaudeCode.MCP.Server do
       case arity do
         1 ->
           quote do
-            @impl true
-            def execute(params, frame) do
-              result = __user_execute__(params)
-              __wrap_result__(result, frame)
+            @doc false
+            def execute(params, _assigns) do
+              __user_execute__(params)
             end
           end
 
         _2 ->
           quote do
-            @impl true
-            def execute(params, frame) do
-              result = __user_execute__(params, frame)
-              __wrap_result__(result, frame)
+            @doc false
+            def execute(params, assigns) do
+              __user_execute__(params, assigns)
             end
           end
       end
