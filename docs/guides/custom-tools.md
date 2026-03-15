@@ -4,10 +4,7 @@ Build and integrate custom tools to extend Claude Agent SDK functionality.
 
 > **Official Documentation:** This guide is based on the [official Claude Agent SDK documentation](https://platform.claude.com/docs/en/agent-sdk/custom-tools). Examples are adapted for Elixir.
 
-Custom tools allow you to extend Claude Code's capabilities with your own functionality through in-process MCP servers, enabling Claude to interact with external services, APIs, or perform specialized operations. The Elixir SDK supports two approaches:
-
-1. **In-process tools** -- Define tools with `ClaudeCode.MCP.Server` that run in your BEAM VM, with full access to application state (Ecto repos, GenServers, caches)
-2. **Hermes MCP servers** -- Define tools as [Hermes MCP](https://hex.pm/packages/hermes_mcp) components that run as a separate subprocess
+Custom tools allow you to extend Claude Code's capabilities with your own functionality through in-process MCP servers, enabling Claude to interact with external services, APIs, or perform specialized operations. Define tools with `ClaudeCode.MCP.Server` that run in your BEAM VM, with full access to application state (Ecto repos, GenServers, caches).
 
 For connecting to external MCP servers, configuring permissions, and authentication, see the [MCP](mcp.md) guide.
 
@@ -42,13 +39,13 @@ end
 
 #### How it works
 
-The `tool` macro generates [Hermes MCP](https://hexdocs.pm/hermes_mcp) `Server.Component` modules under the hood. Each `tool` block becomes a nested module (e.g., `MyApp.Tools.GetWeather`) with a `schema`, JSON Schema definition, and an `execute/2` Hermes callback -- all derived from the `field` declarations and your `execute` function. You write `execute/1` (params only) and the macro wraps it into the full Hermes callback automatically. Write `execute/2` if you need access to session-specific context via the Hermes frame (see [Passing session context with assigns](#passing-session-context-with-assigns)).
+The `tool` macro generates tool modules under the hood. Each `tool` block becomes a nested module (e.g., `MyApp.Tools.GetWeather`) with an `input_schema/0` function (JSON Schema), and an `execute/2` callback -- all derived from the `field` declarations and your `execute` function. You write `execute/1` (params only) and the macro wraps it automatically. Write `execute/2` if you need access to session-specific context via assigns (see [Passing session context with assigns](#passing-session-context-with-assigns)).
 
 When passed to a session via `:mcp_servers`, the SDK detects in-process tool servers and emits `type: "sdk"` in the MCP configuration. The CLI routes JSONRPC messages through the control protocol instead of spawning a subprocess, and the SDK dispatches them to your tool modules via `ClaudeCode.MCP.Router`.
 
 #### Schema definition
 
-Use the Hermes `field` DSL inside each `tool` block. Hermes handles conversion to JSON Schema automatically:
+Use `field` declarations inside each `tool` block. The SDK handles conversion to JSON Schema automatically:
 
 ```elixir
 tool :search, "Search for items" do
@@ -103,7 +100,7 @@ end
 
 #### Passing session context with assigns
 
-When tools need per-session context (e.g., the current user's scope in a LiveView), pass `:assigns` in the server configuration. Assigns are set on the Hermes frame and available via `execute/2`:
+When tools need per-session context (e.g., the current user's scope in a LiveView), pass `:assigns` in the server configuration. Assigns are passed to `execute/2` as the second argument:
 
 ```elixir
 # LiveView mount -- pass current_scope into the tool's assigns
@@ -147,56 +144,19 @@ end
 
 Tools that don't need session context continue to use `execute/1`. Mix both forms freely in the same server module.
 
-### Hermes MCP servers
+### Subprocess MCP servers
 
-For tools that don't need application state access, or when you want a full [Hermes MCP](https://hexdocs.pm/hermes_mcp) server with resources and prompts, define tools as Hermes server components. Each tool is a module that uses [`Hermes.Server.Component`](https://hexdocs.pm/hermes_mcp/Hermes.Server.Component.html) with a `schema` block and an `execute/2` callback:
-
-```elixir
-defmodule MyApp.WeatherTool do
-  @moduledoc "Get current temperature for a location using coordinates"
-  use Hermes.Server.Component, type: :tool
-
-  alias Hermes.MCP.Error
-  alias Hermes.Server.Response
-
-  schema do
-    field :latitude, :float, required: true, description: "Latitude coordinate"
-    field :longitude, :float, required: true, description: "Longitude coordinate"
-  end
-
-  @impl true
-  def execute(%{latitude: lat, longitude: lon}, frame) do
-    url = "https://api.open-meteo.com/v1/forecast?latitude=#{lat}&longitude=#{lon}&current=temperature_2m&temperature_unit=fahrenheit"
-
-    case Req.get(url) do
-      {:ok, %{body: %{"current" => %{"temperature_2m" => temp}}}} ->
-        {:reply, Response.text(Response.tool(), "Temperature: #{temp}F"), frame}
-
-      {:error, reason} ->
-        {:error, Error.execution("Failed to fetch weather: #{inspect(reason)}"), frame}
-    end
-  end
-end
-```
-
-The `schema` block uses the same `field` DSL as `ClaudeCode.MCP.Server` and auto-generates JSON Schema for the tool's input parameters. The tool description comes from `@moduledoc`.
-
-Register tools on a [`Hermes.Server`](https://hexdocs.pm/hermes_mcp/Hermes.Server.html) module using the `component` macro:
+For full MCP servers with resources and prompts (beyond in-process tools), pass any module that exports `start_link/1`. The SDK auto-detects it and spawns it as a stdio subprocess:
 
 ```elixir
-defmodule MyApp.MCPServer do
-  use Hermes.Server,
-    name: "my-custom-tools",
-    version: "1.0.0",
-    capabilities: [:tools]
-
-  component MyApp.WeatherTool
-end
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    "my-server" => MyApp.MCPServer
+  }
+)
 ```
 
-When passed to `:mcp_servers`, the SDK auto-generates a stdio command configuration that spawns the Hermes server as a subprocess.
-
-Pass custom environment variables to Hermes subprocesses with the `%{module: ..., env: ...}` form:
+Pass custom environment variables with the `%{module: ..., env: ...}` form:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(
@@ -211,7 +171,7 @@ Pass custom environment variables to Hermes subprocesses with the `%{module: ...
 
 ## Using Custom Tools
 
-Pass the custom server to a session via the `:mcp_servers` option. Both in-process and Hermes tools work identically from Claude's perspective.
+Pass the custom server to a session via the `:mcp_servers` option. Both in-process and subprocess tools work identically from Claude's perspective.
 
 ### Tool Name Format
 
@@ -234,12 +194,6 @@ You can control which tools Claude can use via the `:allowed_tools` option:
 {:ok, result} = ClaudeCode.query("Look up alice@example.com",
   mcp_servers: %{"my-tools" => MyApp.Tools},
   allowed_tools: ["mcp__my-tools__query_user"]
-)
-
-# Hermes server works the same way
-{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
-  mcp_servers: %{"weather" => MyApp.MCPServer},
-  allowed_tools: ["mcp__weather__get_weather"]
 )
 ```
 
@@ -306,27 +260,6 @@ tool :fetch_data, "Fetch data from an API endpoint" do
 end
 ```
 
-### Hermes MCP tools
-
-```elixir
-@impl true
-def execute(%{endpoint: endpoint}, frame) do
-  alias Hermes.MCP.Error
-  alias Hermes.Server.Response
-
-  case Req.get(endpoint) do
-    {:ok, %{status: status, body: body}} when status in 200..299 ->
-      {:reply, Response.json(Response.tool(), body), frame}
-
-    {:ok, %{status: status}} ->
-      {:error, Error.execution("API error: HTTP #{status}"), frame}
-
-    {:error, reason} ->
-      {:error, Error.execution("Failed to fetch data: #{inspect(reason)}"), frame}
-  end
-end
-```
-
 Claude sees the error message and can adjust its approach or report the issue to the user. Unhandled exceptions in in-process tools are caught automatically and returned as error content.
 
 For connection-level errors (server failed to start, timeouts), see the [MCP error handling](mcp.md#error-handling) section.
@@ -335,13 +268,12 @@ For connection-level errors (server failed to start, timeouts), see the [MCP err
 
 ### Test in-process tool modules directly
 
-Generated modules are standard Hermes components that can be tested without a running session:
+Generated tool modules can be tested without a running session:
 
 ```elixir
 test "get_weather tool returns temperature" do
-  frame = Hermes.Server.Frame.new()
-  assert {:reply, response, _frame} = MyApp.Tools.GetWeather.execute(%{latitude: 37.7, longitude: -122.4}, frame)
-  # response contains Hermes Response struct with temperature text
+  assert {:ok, text} = MyApp.Tools.GetWeather.execute(%{latitude: 37.7, longitude: -122.4}, %{})
+  assert text =~ "Temperature"
 end
 ```
 

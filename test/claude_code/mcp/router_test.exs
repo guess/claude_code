@@ -222,11 +222,11 @@ defmodule ClaudeCode.MCP.RouterTest do
       @moduledoc false
       use Server, name: "scoped"
 
-      tool :whoami, "Returns the current user from frame assigns" do
-        def execute(_params, frame) do
-          case frame.assigns do
+      tool :whoami, "Returns the current user from assigns" do
+        def execute(_params, assigns) do
+          case assigns do
             %{scope: %{user: user}} -> {:ok, "Current user: #{user}"}
-            _ -> {:error, "No scope in frame"}
+            _ -> {:error, "No scope"}
           end
         end
       end
@@ -259,7 +259,7 @@ defmodule ClaudeCode.MCP.RouterTest do
 
       assert response["result"]["isError"] == true
       [%{"type" => "text", "text" => text}] = response["result"]["content"]
-      assert text =~ "No scope in frame"
+      assert text =~ "No scope"
     end
   end
 end

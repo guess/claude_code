@@ -3,16 +3,13 @@ defmodule ClaudeCode.MCP.Router do
   Dispatches JSONRPC requests to in-process MCP tool server modules.
 
   Handles the MCP protocol methods (`initialize`, `tools/list`, `tools/call`)
-  by routing to the appropriate tool module's `execute/2` callback.
+  by routing to the appropriate tool module via the MCP backend.
 
   This module is called by the adapter when it receives an `mcp_message`
   control request from the CLI for a `type: "sdk"` server.
   """
 
-  alias Hermes.Server.Component
-  alias Hermes.Server.Component.Schema
-  alias Hermes.Server.Frame
-  alias Hermes.Server.Response
+  alias ClaudeCode.MCP.Backend.Anubis, as: Backend
 
   @doc """
   Handles a JSONRPC request for the given tool server module.
@@ -24,7 +21,7 @@ defmodule ClaudeCode.MCP.Router do
     * `server_module` - A module that uses `ClaudeCode.MCP.Server` and
       exports `__tool_server__/0`
     * `message` - A decoded JSONRPC request map with `"method"` key
-    * `assigns` - Optional map of assigns to set on the Hermes frame
+    * `assigns` - Optional map of assigns passed to tools
       (available to tools that define `execute/2`)
 
   ## Supported Methods
@@ -44,14 +41,12 @@ defmodule ClaudeCode.MCP.Router do
   def handle_request(server_module, message, assigns \\ %{})
 
   def handle_request(server_module, %{"method" => method} = message, assigns) do
-    %{tools: tool_modules, name: server_name} = server_module.__tool_server__()
-
     case method do
       "initialize" ->
         jsonrpc_result(message, %{
           "protocolVersion" => "2024-11-05",
           "capabilities" => %{"tools" => %{}},
-          "serverInfo" => %{"name" => server_name, "version" => "1.0.0"}
+          "serverInfo" => Backend.server_info(server_module)
         })
 
       "notifications/" <> _ ->
@@ -59,78 +54,27 @@ defmodule ClaudeCode.MCP.Router do
         %{"jsonrpc" => "2.0", "result" => %{}}
 
       "tools/list" ->
-        tools = Enum.map(tool_modules, &tool_definition/1)
+        tools = Backend.list_tools(server_module)
         jsonrpc_result(message, %{"tools" => tools})
 
       "tools/call" ->
         %{"params" => %{"name" => name, "arguments" => args}} = message
-        call_tool(tool_modules, name, args, message, assigns)
+
+        case Backend.call_tool(server_module, name, args, assigns) do
+          {:ok, result} ->
+            jsonrpc_result(message, result)
+
+          {:error, msg} ->
+            jsonrpc_error(message, -32_601, msg)
+
+          {:validation_error, msg} ->
+            jsonrpc_error(message, -32_602, msg)
+        end
 
       _ ->
         jsonrpc_error(message, -32_601, "Method '#{method}' not supported")
     end
   end
-
-  defp tool_definition(module) do
-    %{
-      "name" => module.__tool_name__(),
-      "description" => module.__description__(),
-      "inputSchema" => module.input_schema()
-    }
-  end
-
-  defp call_tool(tool_modules, name, args, message, assigns) do
-    case Enum.find(tool_modules, &(&1.__tool_name__() == name)) do
-      nil ->
-        jsonrpc_error(message, -32_601, "Tool '#{name}' not found")
-
-      module ->
-        atom_args = atomize_keys(args)
-
-        case validate_params(module, atom_args) do
-          {:ok, validated} ->
-            execute_tool(module, validated, assigns, message)
-
-          {:error, errors} ->
-            error_msg = Schema.format_errors(errors)
-            jsonrpc_error(message, -32_602, "Invalid params: #{error_msg}")
-        end
-    end
-  end
-
-  defp validate_params(module, params) do
-    raw_schema = module.__mcp_raw_schema__()
-    peri_schema = Component.__clean_schema_for_peri__(raw_schema)
-    Peri.validate(peri_schema, params)
-  end
-
-  defp execute_tool(module, params, assigns, message) do
-    frame = Frame.new(assigns)
-
-    try do
-      case module.execute(params, frame) do
-        {:reply, response, _frame} ->
-          jsonrpc_result(message, Response.to_protocol(response))
-
-        {:error, %{message: error_msg}, _frame} ->
-          jsonrpc_result(message, %{
-            "content" => [%{"type" => "text", "text" => to_string(error_msg)}],
-            "isError" => true
-          })
-      end
-    rescue
-      e ->
-        jsonrpc_result(message, %{
-          "content" => [%{"type" => "text", "text" => "Tool error: #{Exception.message(e)}"}],
-          "isError" => true
-        })
-    end
-  end
-
-  # Tool schema `field` declarations create atoms at compile time, so
-  # safe_atomize_keys will convert the top-level parameter keys to atoms.
-  # Nested map values stay as string-keyed (only top-level is converted).
-  defp atomize_keys(map) when is_map(map), do: ClaudeCode.MapUtils.safe_atomize_keys(map)
 
   defp jsonrpc_result(%{"id" => id}, result) do
     %{"jsonrpc" => "2.0", "id" => id, "result" => result}

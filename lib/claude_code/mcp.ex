@@ -1,6 +1,6 @@
 defmodule ClaudeCode.MCP do
   @moduledoc """
-  Integration with Hermes MCP (Model Context Protocol).
+  Integration with the Model Context Protocol (MCP).
 
   This module provides the MCP integration layer. Custom tools are defined
   with `ClaudeCode.MCP.Server` and passed via `:mcp_servers`.
@@ -26,4 +26,29 @@ defmodule ClaudeCode.MCP do
 
   See the [Custom Tools](docs/guides/custom-tools.md) guide for details.
   """
+
+  alias ClaudeCode.MCP.Backend
+  alias ClaudeCode.MCP.Server
+
+  @doc """
+  Determines which backend handles the given MCP module.
+
+  Returns:
+  - `:sdk` — in-process SDK server (handled via Router, no subprocess)
+  - `{:subprocess, backend_module}` — subprocess server, with the backend that can expand it
+  - `:unknown` — unrecognized module
+  """
+  @spec backend_for(module()) :: :sdk | {:subprocess, module()} | :unknown
+  def backend_for(module) when is_atom(module) do
+    cond do
+      Server.sdk_server?(module) -> :sdk
+      backend_compatible?(Backend.Anubis, module) -> {:subprocess, Backend.Anubis}
+      backend_compatible?(Backend.Hermes, module) -> {:subprocess, Backend.Hermes}
+      true -> :unknown
+    end
+  end
+
+  defp backend_compatible?(backend, module) do
+    Code.ensure_loaded?(backend) and backend.compatible?(module)
+  end
 end
