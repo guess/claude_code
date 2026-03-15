@@ -91,9 +91,9 @@ defmodule ClaudeCode.MCP.Backend.HermesTest do
       @moduledoc false
       use Server, name: "assigns-test"
 
-      tool :read_assigns, "Reads from frame assigns" do
-        def execute(_params, frame) do
-          case frame.assigns do
+      tool :read_assigns, "Reads from assigns" do
+        def execute(_params, assigns) do
+          case assigns do
             %{user: user} -> {:ok, "user:#{user}"}
             _ -> {:error, "no user"}
           end

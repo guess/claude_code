@@ -9,7 +9,7 @@ defmodule ClaudeCode.MCP.Router do
   control request from the CLI for a `type: "sdk"` server.
   """
 
-  alias ClaudeCode.MCP.Backend.Hermes, as: Backend
+  alias ClaudeCode.MCP.Backend.Anubis, as: Backend
 
   @doc """
   Handles a JSONRPC request for the given tool server module.
@@ -21,7 +21,7 @@ defmodule ClaudeCode.MCP.Router do
     * `server_module` - A module that uses `ClaudeCode.MCP.Server` and
       exports `__tool_server__/0`
     * `message` - A decoded JSONRPC request map with `"method"` key
-    * `assigns` - Optional map of assigns to set on the Hermes frame
+    * `assigns` - Optional map of assigns passed to tools
       (available to tools that define `execute/2`)
 
   ## Supported Methods

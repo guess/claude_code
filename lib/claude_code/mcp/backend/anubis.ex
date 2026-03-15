@@ -27,7 +27,11 @@ defmodule ClaudeCode.MCP.Backend.Anubis do
 
       module ->
         atom_params = ClaudeCode.MapUtils.safe_atomize_keys(params)
-        execute_tool(module, atom_params, assigns)
+
+        case validate_params(module, atom_params) do
+          :ok -> execute_tool(module, atom_params, assigns)
+          {:error, error_msg} -> {:validation_error, "Invalid params: #{error_msg}"}
+        end
     end
   end
 
@@ -43,6 +47,45 @@ defmodule ClaudeCode.MCP.Backend.Anubis do
       function_exported?(module, :start_link, 1) and
       not MCPServer.sdk_server?(module)
   end
+
+  defp validate_params(module, params) do
+    schema = module.input_schema()
+    properties = schema["properties"] || %{}
+    required = schema["required"] || []
+
+    errors =
+      Enum.flat_map(required, fn field ->
+        key = String.to_existing_atom(field)
+        if Map.has_key?(params, key), do: [], else: ["#{field} is required"]
+      end) ++
+        Enum.flat_map(params, fn {key, value} ->
+          key_str = Atom.to_string(key)
+
+          case Map.get(properties, key_str) do
+            nil -> []
+            prop_schema -> validate_type(key_str, value, prop_schema)
+          end
+        end)
+
+    case errors do
+      [] -> :ok
+      errors -> {:error, Enum.join(errors, ", ")}
+    end
+  end
+
+  defp validate_type(name, value, %{"type" => "integer"}) when not is_integer(value),
+    do: ["#{name}: expected integer, got #{inspect(value)}"]
+
+  defp validate_type(name, value, %{"type" => "string"}) when not is_binary(value),
+    do: ["#{name}: expected string, got #{inspect(value)}"]
+
+  defp validate_type(name, value, %{"type" => "number"}) when not is_number(value),
+    do: ["#{name}: expected number, got #{inspect(value)}"]
+
+  defp validate_type(name, value, %{"type" => "boolean"}) when not is_boolean(value),
+    do: ["#{name}: expected boolean, got #{inspect(value)}"]
+
+  defp validate_type(_name, _value, _schema), do: []
 
   defp execute_tool(module, params, assigns) do
     try do
