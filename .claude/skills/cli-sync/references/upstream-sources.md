@@ -71,8 +71,8 @@ Full source available on GitHub. Fetched by `scripts/capture-cli-data.sh` via `g
 
 | GitHub Path | Captured As | What to Watch For | Elixir Modules Affected |
 |---|---|---|---|
-| `src/claude_agent_sdk/_internal/sessions.py` | *(not captured)* | Session listing/history (not yet in Elixir SDK) | Future feature |
-| `src/claude_agent_sdk/_internal/session_mutations.py` | *(not captured)* | Session rename/tag (not yet in Elixir SDK) | Future feature |
+| `src/claude_agent_sdk/_internal/sessions.py` | `python-sdk-sessions.py` | Session listing/history, conversation chain building | `history.ex`, `history/` |
+| `src/claude_agent_sdk/_internal/session_mutations.py` | `python-sdk-session-mutations.py` | Session rename/tag (not yet in Elixir SDK) | Future feature |
 | `src/claude_agent_sdk/_errors.py` | *(not captured)* | Error type taxonomy | Error tuples |
 
 ## Cross-Reference: What Each Check Agent Needs

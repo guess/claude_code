@@ -99,6 +99,16 @@ if command -v gh &> /dev/null; then
     gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/client.py" --jq '.content' 2>/dev/null | base64 -d \
         > "$OUTPUT_DIR/python-sdk-public-client.py" 2>/dev/null || echo "# FAILED to fetch client.py" > "$OUTPUT_DIR/python-sdk-public-client.py"
     echo "  Done: python-sdk-public-client.py"
+
+    # sessions.py - session listing, conversation chain building, lite reads
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/_internal/sessions.py" --jq '.content' 2>/dev/null | base64 -d \
+        > "$OUTPUT_DIR/python-sdk-sessions.py" 2>/dev/null || echo "# FAILED to fetch sessions.py" > "$OUTPUT_DIR/python-sdk-sessions.py"
+    echo "  Done: python-sdk-sessions.py"
+
+    # session_mutations.py - session rename/tag operations
+    gh api "repos/$PYTHON_REPO/contents/$PYTHON_SRC/_internal/session_mutations.py" --jq '.content' 2>/dev/null | base64 -d \
+        > "$OUTPUT_DIR/python-sdk-session-mutations.py" 2>/dev/null || echo "# FAILED to fetch session_mutations.py" > "$OUTPUT_DIR/python-sdk-session-mutations.py"
+    echo "  Done: python-sdk-session-mutations.py"
 else
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-types.py"
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-subprocess-cli.py"
@@ -106,6 +116,8 @@ else
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-message-parser.py"
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-client.py"
     echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-public-client.py"
+    echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-sessions.py"
+    echo "# gh CLI not found - install with: brew install gh" > "$OUTPUT_DIR/python-sdk-session-mutations.py"
     echo "  WARNING: gh CLI not found, skipping Python SDK fetch"
 fi
 
