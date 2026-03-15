@@ -23,12 +23,7 @@ defmodule ClaudeCode.MCP.Backend.AnubisTest do
     def __tool_name__, do: "return_map"
     def __description__, do: "Return structured data"
 
-    def input_schema,
-      do: %{
-        "type" => "object",
-        "properties" => %{"key" => %{"type" => "string"}},
-        "required" => ["key"]
-      }
+    def input_schema, do: %{"type" => "object", "properties" => %{"key" => %{"type" => "string"}}, "required" => ["key"]}
 
     def execute(%{key: key}, _assigns), do: {:ok, %{key: key, value: "data"}}
   end
@@ -53,10 +48,7 @@ defmodule ClaudeCode.MCP.Backend.AnubisTest do
     @moduledoc false
 
     def __tool_server__,
-      do: %{
-        name: "anubis-test",
-        tools: [AnubisAddTool, AnubisMapTool, AnubisFailTool, AnubisRaiseTool]
-      }
+      do: %{name: "anubis-test", tools: [AnubisAddTool, AnubisMapTool, AnubisFailTool, AnubisRaiseTool]}
   end
 
   describe "list_tools/1" do

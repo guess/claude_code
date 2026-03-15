@@ -88,33 +88,28 @@ defmodule ClaudeCode.MCP.Backend.Anubis do
   defp validate_type(_name, _value, _schema), do: []
 
   defp execute_tool(module, params, assigns) do
-    try do
-      case module.execute(params, assigns) do
-        {:ok, value} when is_binary(value) ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => value}], "isError" => false}}
+    case module.execute(params, assigns) do
+      {:ok, value} when is_binary(value) ->
+        {:ok, %{"content" => [%{"type" => "text", "text" => value}], "isError" => false}}
 
-        {:ok, value} when is_map(value) or is_list(value) ->
-          {:ok,
-           %{"content" => [%{"type" => "text", "text" => Jason.encode!(value)}], "isError" => false}}
+      {:ok, value} when is_map(value) or is_list(value) ->
+        {:ok, %{"content" => [%{"type" => "text", "text" => Jason.encode!(value)}], "isError" => false}}
 
-        {:ok, value} ->
-          {:ok,
-           %{"content" => [%{"type" => "text", "text" => to_string(value)}], "isError" => false}}
+      {:ok, value} ->
+        {:ok, %{"content" => [%{"type" => "text", "text" => to_string(value)}], "isError" => false}}
 
-        {:error, message} when is_binary(message) ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => message}], "isError" => true}}
+      {:error, message} when is_binary(message) ->
+        {:ok, %{"content" => [%{"type" => "text", "text" => message}], "isError" => true}}
 
-        {:error, message} ->
-          {:ok,
-           %{"content" => [%{"type" => "text", "text" => to_string(message)}], "isError" => true}}
-      end
-    rescue
-      e ->
-        {:ok,
-         %{
-           "content" => [%{"type" => "text", "text" => "Tool error: #{Exception.message(e)}"}],
-           "isError" => true
-         }}
+      {:error, message} ->
+        {:ok, %{"content" => [%{"type" => "text", "text" => to_string(message)}], "isError" => true}}
     end
+  rescue
+    e ->
+      {:ok,
+       %{
+         "content" => [%{"type" => "text", "text" => "Tool error: #{Exception.message(e)}"}],
+         "isError" => true
+       }}
   end
 end
