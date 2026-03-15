@@ -9,8 +9,6 @@ defmodule ClaudeCode.CLI.Command do
   It is used by `ClaudeCode.Adapter.Port` for local subprocess management.
   """
 
-  alias ClaudeCode.MCP.Backend.Hermes, as: HermesBackend
-  alias ClaudeCode.MCP.Server
   alias ClaudeCode.Session.PermissionMode
 
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
@@ -436,9 +434,9 @@ defmodule ClaudeCode.CLI.Command do
     end
   end
 
-  # -- Private: Hermes MCP module expansion -----------------------------------
+  # -- Private: MCP module subprocess expansion --------------------------------
 
-  defp expand_hermes_module(module, config) do
+  defp expand_subprocess_module(module, config) do
     # Generate stdio command config for a Hermes MCP server module
     # This allows the CLI to spawn the Elixir app with the MCP server
     startup_code = "#{inspect(module)}.start_link(transport: :stdio)"
@@ -455,14 +453,14 @@ defmodule ClaudeCode.CLI.Command do
   end
 
   defp expand_mcp_module(name, module, config) do
-    cond do
-      Server.sdk_server?(module) ->
+    case ClaudeCode.MCP.backend_for(module) do
+      :sdk ->
         %{type: "sdk", name: name}
 
-      HermesBackend.compatible?(module) ->
-        expand_hermes_module(module, config)
+      {:subprocess, _backend} ->
+        expand_subprocess_module(module, config)
 
-      true ->
+      :unknown ->
         raise ArgumentError,
               "Module #{inspect(module)} passed to :mcp_servers is not a recognized MCP server module"
     end
