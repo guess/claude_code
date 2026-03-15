@@ -16,6 +16,7 @@
 #   - TypeScript SDK sdk.d.ts type definitions (via npm/unpkg)
 #   - Anthropic API types (BetaRawMessageStreamEvent etc. from @anthropic-ai/sdk)
 #   - SDK version tracking files
+#   - Official documentation (CLI reference, hooks, plugins, TS/Python SDK docs)
 #
 # After running, tell Claude:
 #   "Read the captured CLI data in .claude/skills/cli-sync/captured/ and perform a sync analysis"
@@ -158,8 +159,32 @@ else
     echo "  WARNING: gh CLI not found, skipping Python SDK version"
 fi
 
+# --- Official Documentation ---
+echo "[8/9] Fetching official documentation..."
+DOCS_DIR="$OUTPUT_DIR/docs"
+mkdir -p "$DOCS_DIR"
+
+DOC_URLS=(
+    "https://code.claude.com/docs/en/cli-reference.md"
+    "https://code.claude.com/docs/en/hooks.md"
+    "https://code.claude.com/docs/en/plugins-reference.md"
+    "https://platform.claude.com/docs/en/agent-sdk/typescript.md"
+    "https://platform.claude.com/docs/en/agent-sdk/python.md"
+)
+
+for url in "${DOC_URLS[@]}"; do
+    filename=$(basename "$url")
+    curl -sL "$url" > "$DOCS_DIR/$filename" 2>/dev/null || echo "# FAILED to fetch $url" > "$DOCS_DIR/$filename"
+    # Check if we got a meaningful file (not an HTML error page)
+    if head -1 "$DOCS_DIR/$filename" | grep -q '<!DOCTYPE\|<html'; then
+        echo "  WARNING: $filename returned HTML (may be 404)"
+    else
+        echo "  Done: docs/$filename"
+    fi
+done
+
 # --- Summary ---
-echo "[8/8] Capture summary"
+echo "[9/9] Capture summary"
 echo ""
 echo "=== Capture Complete ==="
 echo ""

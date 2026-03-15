@@ -11,6 +11,7 @@ Detect new, removed, or changed CLI flags and SDK options by comparing CLI help 
 ### Captured data
 
 - `captured/cli-help.txt` -- CLI `--help` output listing all available flags.
+- `captured/docs/cli-reference.md` -- Official CLI reference documentation. Often contains flags, environment variables, and option details not fully described in `--help`. Cross-reference with `cli-help.txt` to catch anything missing from either source.
 - `captured/ts-sdk-types.d.ts` -- Search for the `ClaudeAgentOptions` or `Options` type definition. Extract all option names and their types.
 - `captured/python-sdk-subprocess-cli.py` -- The `_build_command()` method showing how the Python SDK maps options to CLI flags.
 - `captured/python-sdk-types.py` -- Python SDK's options type definitions (class fields and their types).
@@ -29,7 +30,7 @@ Detect new, removed, or changed CLI flags and SDK options by comparing CLI help 
 
 ### 1. Extract CLI flags
 
-Read `cli-help.txt` and extract every `--flag-name` entry. Build a list of all CLI flags with their descriptions and value types (boolean, string, list, etc.).
+Read both `cli-help.txt` and `docs/cli-reference.md`. Extract every `--flag-name` entry from both sources. The CLI reference doc may contain flags, environment variables, or option details not present in `--help` output. Build a unified list of all CLI flags with their descriptions and value types (boolean, string, list, etc.).
 
 ### 2. Extract TS SDK options
 

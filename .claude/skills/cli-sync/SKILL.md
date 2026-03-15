@@ -24,7 +24,7 @@ Run the capture script via Bash to fetch the latest CLI version, help output, an
 .claude/skills/cli-sync/scripts/capture-cli-data.sh
 ```
 
-This fetches `claude --version`, `claude --help`, TypeScript/Python SDK types from npm/GitHub, and Anthropic API types. Verify the script completes without errors before proceeding.
+This fetches `claude --version`, `claude --help`, TypeScript/Python SDK types from npm/GitHub, Anthropic API types, and official documentation (CLI reference, hooks, plugins reference, TS SDK docs, Python SDK docs). Verify the script completes without errors before proceeding.
 
 ### Step 2: Dispatch Parallel Agents
 
@@ -94,10 +94,16 @@ After verification, update documentation:
 - **`scripts/capture-cli-data.sh`** -- Main capture script (CLI version, help output, SDK type definitions)
 - **`scripts/compare-versions.sh`** -- Quick version comparison
 
-### SDK Documentation
+### Captured Documentation
 
-For additional context via WebFetch:
+The capture script fetches these official docs into `captured/docs/`:
 
-- **TypeScript SDK**: https://platform.claude.com/docs/en/agent-sdk/typescript#options
-- **Python SDK**: https://platform.claude.com/docs/en/agent-sdk/python#claude-agent-options
+- **CLI Reference**: `cli-reference.md` — CLI flags, options, environment variables
+- **Hooks**: `hooks.md` — Hook events, lifecycle, configuration
+- **Plugins Reference**: `plugins-reference.md` — Plugin structure, manifest, components
+- **TypeScript SDK**: `typescript.md` — TS Agent SDK options, types, usage
+- **Python SDK**: `python.md` — Python Agent SDK options, types, usage
+
+### Additional Resources
+
 - **CLI Changelog**: https://docs.anthropic.com/en/docs/claude-code/changelog
