@@ -87,26 +87,26 @@ defmodule ClaudeCode.Plugin.Marketplace do
 
       {:ok, _} = ClaudeCode.Plugin.Marketplace.remove("my-marketplace")
   """
-  @spec remove(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def remove(name) do
-    PluginCLI.run(["plugin", "marketplace", "remove", name], [], &PluginCLI.ok_trimmed/1)
+  @spec remove(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
+  def remove(name, opts \\ []) do
+    PluginCLI.run(["plugin", "marketplace", "remove", name], opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
   Updates marketplace(s) from their source.
 
-  When called without a name, updates all marketplaces. When called with a name,
+  When called with `nil`, updates all marketplaces. When called with a name,
   updates only that marketplace.
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.Plugin.Marketplace.update()
+      {:ok, _} = ClaudeCode.Plugin.Marketplace.update(nil)
       {:ok, _} = ClaudeCode.Plugin.Marketplace.update("my-marketplace")
   """
-  @spec update(String.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
-  def update(name \\ nil) do
+  @spec update(String.t() | nil, keyword()) :: {:ok, String.t()} | {:error, String.t()}
+  def update(name, opts \\ []) do
     args = ["plugin", "marketplace", "update"] ++ if(name, do: [name], else: [])
-    PluginCLI.run(args, [], &PluginCLI.ok_trimmed/1)
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   # -- Private ----------------------------------------------------------------
