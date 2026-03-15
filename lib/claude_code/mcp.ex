@@ -42,9 +42,13 @@ defmodule ClaudeCode.MCP do
   def backend_for(module) when is_atom(module) do
     cond do
       Server.sdk_server?(module) -> :sdk
-      Backend.Anubis.compatible?(module) -> {:subprocess, Backend.Anubis}
-      Backend.Hermes.compatible?(module) -> {:subprocess, Backend.Hermes}
+      backend_compatible?(Backend.Anubis, module) -> {:subprocess, Backend.Anubis}
+      backend_compatible?(Backend.Hermes, module) -> {:subprocess, Backend.Hermes}
       true -> :unknown
     end
+  end
+
+  defp backend_compatible?(backend, module) do
+    Code.ensure_loaded?(backend) and backend.compatible?(module)
   end
 end
