@@ -9,6 +9,16 @@ defmodule ClaudeCode.System do
   end
 
   defp impl do
-    Application.get_env(:claude_code, ClaudeCode.System, ClaudeCode.System.Default)
+    case Application.get_env(:claude_code, ClaudeCode.System) do
+      nil -> impl_from_adapter()
+      module -> module
+    end
+  end
+
+  defp impl_from_adapter do
+    case Application.get_env(:claude_code, :adapter) do
+      {ClaudeCode.Adapter.Node, _} -> ClaudeCode.System.Remote
+      _ -> ClaudeCode.System.Default
+    end
   end
 end
