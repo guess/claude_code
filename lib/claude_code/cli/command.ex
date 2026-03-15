@@ -454,10 +454,16 @@ defmodule ClaudeCode.CLI.Command do
   end
 
   defp expand_mcp_module(name, module, config) do
-    if Server.sdk_server?(module) do
-      %{type: "sdk", name: name}
-    else
-      expand_hermes_module(module, config)
+    cond do
+      Server.sdk_server?(module) ->
+        %{type: "sdk", name: name}
+
+      ClaudeCode.MCP.Backend.Hermes.compatible?(module) ->
+        expand_hermes_module(module, config)
+
+      true ->
+        raise ArgumentError,
+          "Module #{inspect(module)} passed to :mcp_servers is not a recognized MCP server module"
     end
   end
 end
