@@ -196,24 +196,25 @@ session
 Access past conversations stored in `~/.claude/projects/`:
 
 ```elixir
-# By session ID
-{:ok, messages} = ClaudeCode.Session.conversation("abc123-def456")
+# By session ID — uses parentUuid chain building for proper ordering
+{:ok, messages} = ClaudeCode.Session.get_messages("abc123-def456")
 
 Enum.each(messages, fn
-  %ClaudeCode.Message.UserMessage{message: %{content: content}} ->
+  %{type: :user, message: %{content: content}} ->
     Logger.info("User: #{inspect(content)}")
-  %ClaudeCode.Message.AssistantMessage{message: %{content: blocks}} ->
+  %{type: :assistant, message: %{content: blocks}} ->
     text = Enum.map_join(blocks, "", fn
       %ClaudeCode.Content.TextBlock{text: t} -> t
       _ -> ""
     end)
     Logger.info("Assistant: #{text}")
-  _ ->
-    :ok
 end)
 
 # From a running session
-{:ok, messages} = ClaudeCode.Session.conversation(session)
+{:ok, messages} = ClaudeCode.Session.get_messages(session)
+
+# With pagination
+{:ok, page} = ClaudeCode.Session.get_messages(session, limit: 10, offset: 20)
 ```
 
 ## Named Sessions

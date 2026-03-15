@@ -321,41 +321,46 @@ defmodule ClaudeCode.Session do
   # ============================================================================
 
   @doc """
-  Reads conversation history from a session's JSONL file.
+  Reads conversation messages using `parentUuid` chain building.
 
   Accepts either a session ID string or a running session reference.
-  Returns user and assistant messages parsed into SDK message structs.
+  Returns visible user/assistant messages in chronological order,
+  properly handling branched and compacted conversations.
 
   ## Options
 
-  - `:project_path` - Specific project path to search in (optional)
+  - `:project_path` - Project directory to find the session in
+  - `:limit` - Maximum number of messages to return
+  - `:offset` - Number of messages to skip from the start (default: 0)
   - `:claude_dir` - Override the Claude directory (default: `~/.claude`)
 
   ## Examples
 
-      # Read conversation history by session ID
-      {:ok, messages} = ClaudeCode.Session.conversation("abc123-def456")
+      # Get messages by session ID
+      {:ok, messages} = ClaudeCode.Session.get_messages("abc123-def456")
 
-      # Or from a running session
+      # From a running session
       {:ok, session} = ClaudeCode.start_link()
       ClaudeCode.Session.stream(session, "Hello!") |> Stream.run()
-      {:ok, messages} = ClaudeCode.Session.conversation(session)
+      {:ok, messages} = ClaudeCode.Session.get_messages(session)
 
-  See `ClaudeCode.History` for more options.
+      # With pagination
+      {:ok, page} = ClaudeCode.Session.get_messages(session, limit: 10, offset: 5)
+
+  See `ClaudeCode.History.get_messages/2` for more details.
   """
-  @spec conversation(session() | String.t(), keyword()) ::
-          {:ok, [ClaudeCode.Message.AssistantMessage.t() | ClaudeCode.Message.UserMessage.t()]}
-          | {:error, term()}
-  def conversation(session_or_id, opts \\ [])
+  @spec get_messages(session() | String.t(), keyword()) ::
+          {:ok, [ClaudeCode.History.SessionMessage.t()]} | {:error, term()}
+  def get_messages(session_or_id, opts \\ [])
 
-  def conversation(session_id, opts) when is_binary(session_id) do
-    ClaudeCode.History.conversation(session_id, opts)
+  def get_messages(session_id, opts) when is_binary(session_id) do
+    ClaudeCode.History.get_messages(session_id, opts)
   end
 
-  def conversation(session, opts) do
+  def get_messages(session, opts) do
     case session_id(session) do
       nil -> {:error, :no_session_id}
-      sid -> ClaudeCode.History.conversation(sid, opts)
+      sid -> ClaudeCode.History.get_messages(sid, opts)
     end
   end
 

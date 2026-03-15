@@ -2,8 +2,7 @@ defmodule ClaudeCode.HistoryTest do
   use ExUnit.Case, async: true
 
   alias ClaudeCode.History
-  alias ClaudeCode.Message.AssistantMessage
-  alias ClaudeCode.Message.UserMessage
+  alias ClaudeCode.History.SessionMessage
 
   @moduletag :history
 
@@ -129,64 +128,6 @@ defmodule ClaudeCode.HistoryTest do
     end
   end
 
-  describe "conversation_from_file/1" do
-    setup do
-      tmp_dir = Path.join(System.tmp_dir!(), "claude_conv_test_#{:rand.uniform(1_000_000)}")
-      File.mkdir_p!(tmp_dir)
-
-      on_exit(fn -> File.rm_rf!(tmp_dir) end)
-
-      {:ok, tmp_dir: tmp_dir}
-    end
-
-    test "extracts user and assistant messages", %{tmp_dir: tmp_dir} do
-      session_file = Path.join(tmp_dir, "conversation.jsonl")
-
-      content = """
-      {"type":"summary","summary":"Test"}
-      {"type":"queue-operation","operation":"enqueue"}
-      {"type":"user","message":{"role":"user","content":"What is 2+2?"},"sessionId":"test-123","uuid":"u1"}
-      {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"4"}],"model":"claude-3","id":"msg_1"},"sessionId":"test-123","uuid":"a1"}
-      {"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"t1","content":"done"}]},"sessionId":"test-123","uuid":"u2"}
-      """
-
-      File.write!(session_file, content)
-
-      assert {:ok, messages} = History.conversation_from_file(session_file)
-
-      # Should only have user and assistant messages
-      assert length(messages) == 3
-
-      # First is user message with string content
-      assert %UserMessage{message: %{content: "What is 2+2?"}} = Enum.at(messages, 0)
-
-      # Second is assistant message with text block
-      assert %AssistantMessage{message: %{content: [text_block]}} = Enum.at(messages, 1)
-      assert text_block.text == "4"
-
-      # Third is user message with tool result
-      assert %UserMessage{message: %{content: [tool_result]}} = Enum.at(messages, 2)
-      assert tool_result.tool_use_id == "t1"
-    end
-
-    test "filters out non-conversation messages", %{tmp_dir: tmp_dir} do
-      session_file = Path.join(tmp_dir, "mixed.jsonl")
-
-      content = """
-      {"type":"summary","summary":"Test"}
-      {"type":"system","subtype":"api_error","error":"timeout"}
-      {"type":"file-history-snapshot","snapshot":{}}
-      {"type":"user","message":{"role":"user","content":"Hello"},"sessionId":"test-123","uuid":"u1"}
-      """
-
-      File.write!(session_file, content)
-
-      assert {:ok, messages} = History.conversation_from_file(session_file)
-      assert length(messages) == 1
-      assert %UserMessage{} = hd(messages)
-    end
-  end
-
   describe "find_session_path/2" do
     setup do
       # Create a mock .claude directory structure
@@ -228,16 +169,25 @@ defmodule ClaudeCode.HistoryTest do
     end
   end
 
-  describe "list_sessions/2" do
+  describe "list_sessions/1" do
     setup do
       tmp_dir = Path.join(System.tmp_dir!(), "claude_list_test_#{:rand.uniform(1_000_000)}")
       projects_dir = Path.join(tmp_dir, "projects")
-      project_dir = Path.join(projects_dir, "-test-project")
+      project_dir = Path.join(projects_dir, History.sanitize_path("/test/project"))
       File.mkdir_p!(project_dir)
 
-      # Create multiple session files
-      for id <- ["session-1", "session-2", "session-3"] do
-        File.write!(Path.join(project_dir, "#{id}.jsonl"), "{}")
+      # Create session files with valid UUIDs and content
+      ids = [
+        "550e8400-e29b-41d4-a716-446655440001",
+        "550e8400-e29b-41d4-a716-446655440002",
+        "550e8400-e29b-41d4-a716-446655440003"
+      ]
+
+      for {id, idx} <- Enum.with_index(ids) do
+        content =
+          ~s({"type":"user","message":{"role":"user","content":"Prompt #{idx}"},"sessionId":"#{id}","uuid":"u#{idx}","cwd":"/test/project"}\n{"type":"summary","summary":"Session #{idx}"})
+
+        File.write!(Path.join(project_dir, "#{id}.jsonl"), content)
       end
 
       # Create a non-jsonl file that should be ignored
@@ -245,17 +195,53 @@ defmodule ClaudeCode.HistoryTest do
 
       on_exit(fn -> File.rm_rf!(tmp_dir) end)
 
-      {:ok, claude_dir: tmp_dir}
+      {:ok, claude_dir: tmp_dir, session_ids: ids}
     end
 
-    test "lists all session IDs for a project", %{claude_dir: claude_dir} do
-      assert {:ok, sessions} = History.list_sessions("/test/project", claude_dir: claude_dir)
-      assert sessions == ["session-1", "session-2", "session-3"]
+    test "lists sessions with metadata for a directory", %{claude_dir: claude_dir, session_ids: ids} do
+      assert {:ok, sessions} =
+               History.list_sessions(
+                 project_path: "/test/project",
+                 claude_dir: claude_dir,
+                 include_worktrees: false
+               )
+
+      assert length(sessions) == 3
+      returned_ids = sessions |> Enum.map(& &1.session_id) |> Enum.sort()
+      assert returned_ids == Enum.sort(ids)
+
+      # All sessions should have summaries
+      Enum.each(sessions, fn s ->
+        assert is_binary(s.summary)
+        assert s.file_size > 0
+        assert s.last_modified > 0
+      end)
     end
 
-    test "returns error for non-existent project", %{claude_dir: claude_dir} do
-      assert {:error, {:project_not_found, :enoent, "/nonexistent"}} =
-               History.list_sessions("/nonexistent", claude_dir: claude_dir)
+    test "lists all sessions across all projects", %{claude_dir: claude_dir} do
+      assert {:ok, sessions} = History.list_sessions(claude_dir: claude_dir)
+      assert length(sessions) == 3
+    end
+
+    test "respects limit option", %{claude_dir: claude_dir} do
+      assert {:ok, sessions} =
+               History.list_sessions(
+                 project_path: "/test/project",
+                 claude_dir: claude_dir,
+                 include_worktrees: false,
+                 limit: 2
+               )
+
+      assert length(sessions) == 2
+    end
+
+    test "returns empty list for non-existent project", %{claude_dir: claude_dir} do
+      assert {:ok, []} =
+               History.list_sessions(
+                 project_path: "/nonexistent",
+                 claude_dir: claude_dir,
+                 include_worktrees: false
+               )
     end
   end
 
@@ -316,6 +302,152 @@ defmodule ClaudeCode.HistoryTest do
     end
   end
 
+  describe "sanitize_path/1" do
+    test "replaces non-alphanumeric chars with hyphens" do
+      assert History.sanitize_path("/Users/me/project") == "-Users-me-project"
+    end
+
+    test "handles underscores and dots" do
+      assert History.sanitize_path("/Users/me/my_project.ex") == "-Users-me-my-project-ex"
+    end
+
+    test "truncates and hashes long paths" do
+      long_path = "/" <> String.duplicate("a", 250)
+      result = History.sanitize_path(long_path)
+      # Should be truncated to 200 chars + "-" + hash
+      assert String.length(result) > 200
+      assert String.length(result) < 250
+    end
+  end
+
+  describe "simple_hash/1" do
+    test "returns deterministic hash" do
+      assert History.simple_hash("test") == History.simple_hash("test")
+    end
+
+    test "returns base36 string" do
+      hash = History.simple_hash("test")
+      assert Regex.match?(~r/^[0-9a-z]+$/, hash)
+    end
+  end
+
+  describe "get_messages/2" do
+    setup do
+      tmp_dir = Path.join(System.tmp_dir!(), "claude_getmsg_test_#{:rand.uniform(1_000_000)}")
+      projects_dir = Path.join(tmp_dir, "projects")
+      project_dir = Path.join(projects_dir, History.sanitize_path("/test/project"))
+      File.mkdir_p!(project_dir)
+
+      on_exit(fn -> File.rm_rf!(tmp_dir) end)
+
+      {:ok, claude_dir: tmp_dir, project_dir: project_dir}
+    end
+
+    test "returns chain-built messages in order with parsed content", %{
+      claude_dir: claude_dir,
+      project_dir: project_dir
+    } do
+      session_id = "550e8400-e29b-41d4-a716-446655440010"
+      session_file = Path.join(project_dir, "#{session_id}.jsonl")
+
+      content = """
+      {"type":"user","uuid":"u1","parentUuid":null,"sessionId":"#{session_id}","message":{"role":"user","content":"Hello"}}
+      {"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"#{session_id}","message":{"role":"assistant","content":[{"type":"text","text":"Hi!"}]}}
+      {"type":"user","uuid":"u2","parentUuid":"a1","sessionId":"#{session_id}","message":{"role":"user","content":"How are you?"}}
+      """
+
+      File.write!(session_file, content)
+
+      assert {:ok, messages} =
+               History.get_messages(session_id,
+                 project_path: "/test/project",
+                 claude_dir: claude_dir
+               )
+
+      assert length(messages) == 3
+
+      # All are SessionMessage structs
+      assert [%SessionMessage{}, %SessionMessage{}, %SessionMessage{}] = messages
+
+      # Check ordering and metadata
+      assert Enum.at(messages, 0).uuid == "u1"
+      assert Enum.at(messages, 0).type == :user
+      assert Enum.at(messages, 0).session_id == session_id
+      assert Enum.at(messages, 1).uuid == "a1"
+      assert Enum.at(messages, 1).type == :assistant
+      assert Enum.at(messages, 2).uuid == "u2"
+
+      # User message content is parsed
+      assert %{content: "Hello", role: :user} = Enum.at(messages, 0).message
+
+      # Assistant message content has parsed TextBlock
+      assistant_msg = Enum.at(messages, 1).message
+      assert [%ClaudeCode.Content.TextBlock{text: "Hi!"}] = assistant_msg.content
+    end
+
+    test "supports limit and offset", %{claude_dir: claude_dir, project_dir: project_dir} do
+      session_id = "550e8400-e29b-41d4-a716-446655440011"
+      session_file = Path.join(project_dir, "#{session_id}.jsonl")
+
+      content = """
+      {"type":"user","uuid":"u1","parentUuid":null,"sessionId":"#{session_id}","message":{"role":"user","content":"A"}}
+      {"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"#{session_id}","message":{"content":"B"}}
+      {"type":"user","uuid":"u2","parentUuid":"a1","sessionId":"#{session_id}","message":{"role":"user","content":"C"}}
+      {"type":"assistant","uuid":"a2","parentUuid":"u2","sessionId":"#{session_id}","message":{"content":"D"}}
+      """
+
+      File.write!(session_file, content)
+
+      assert {:ok, page} =
+               History.get_messages(session_id,
+                 project_path: "/test/project",
+                 claude_dir: claude_dir,
+                 limit: 2,
+                 offset: 1
+               )
+
+      assert length(page) == 2
+      assert Enum.at(page, 0).uuid == "a1"
+      assert Enum.at(page, 1).uuid == "u2"
+    end
+
+    test "returns empty list for invalid UUID" do
+      assert {:ok, []} = History.get_messages("not-a-uuid")
+    end
+
+    test "returns empty list for non-existent session", %{claude_dir: claude_dir} do
+      assert {:ok, []} =
+               History.get_messages("550e8400-e29b-41d4-a716-446655440099",
+                 project_path: "/test/project",
+                 claude_dir: claude_dir
+               )
+    end
+
+    test "filters out sidechain and meta messages", %{claude_dir: claude_dir, project_dir: project_dir} do
+      session_id = "550e8400-e29b-41d4-a716-446655440012"
+      session_file = Path.join(project_dir, "#{session_id}.jsonl")
+
+      content = """
+      {"type":"user","uuid":"u1","parentUuid":null,"sessionId":"#{session_id}","message":{"content":"Main"}}
+      {"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"#{session_id}","isMeta":true,"message":{"content":"Meta"}}
+      {"type":"assistant","uuid":"a2","parentUuid":"u1","sessionId":"#{session_id}","message":{"content":"Reply"}}
+      """
+
+      File.write!(session_file, content)
+
+      assert {:ok, messages} =
+               History.get_messages(session_id,
+                 project_path: "/test/project",
+                 claude_dir: claude_dir
+               )
+
+      # a1 is meta so filtered out; chain goes u1 -> a2 (latest non-meta leaf)
+      types = Enum.map(messages, & &1.type)
+      assert :user in types
+      assert :assistant in types
+    end
+  end
+
   describe "integration with real session format" do
     setup do
       tmp_dir = Path.join(System.tmp_dir!(), "claude_real_test_#{:rand.uniform(1_000_000)}")
@@ -333,31 +465,38 @@ defmodule ClaudeCode.HistoryTest do
       project_dir: project_dir
     } do
       # This mimics the actual format from ~/.claude/projects/
-      session_file = Path.join(project_dir, "real-session.jsonl")
+      session_id = "550e8400-e29b-41d4-a716-446655440099"
+      session_file = Path.join(project_dir, "#{session_id}.jsonl")
 
       content = """
-      {"type":"queue-operation","operation":"dequeue","timestamp":"2026-01-06T17:46:07.839Z","sessionId":"real-session"}
-      {"parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test/project","sessionId":"real-session","version":"2.0.76","gitBranch":"main","type":"user","message":{"role":"user","content":"What is Elixir?"},"uuid":"u1","timestamp":"2026-01-06T17:46:07.844Z"}
-      {"parentUuid":"u1","isSidechain":false,"userType":"external","cwd":"/test/project","sessionId":"real-session","version":"2.0.76","gitBranch":"main","message":{"model":"claude-opus-4-5-20251101","id":"msg_01Test","type":"message","role":"assistant","content":[{"type":"text","text":"Elixir is a functional programming language."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":100,"output_tokens":50}},"requestId":"req_test","type":"assistant","uuid":"a1","timestamp":"2026-01-06T17:46:11.406Z"}
+      {"type":"queue-operation","operation":"dequeue","timestamp":"2026-01-06T17:46:07.839Z","sessionId":"#{session_id}"}
+      {"parentUuid":null,"isSidechain":false,"userType":"external","cwd":"/test/project","sessionId":"#{session_id}","version":"2.0.76","gitBranch":"main","type":"user","message":{"role":"user","content":"What is Elixir?"},"uuid":"u1","timestamp":"2026-01-06T17:46:07.844Z"}
+      {"parentUuid":"u1","isSidechain":false,"userType":"external","cwd":"/test/project","sessionId":"#{session_id}","version":"2.0.76","gitBranch":"main","message":{"model":"claude-opus-4-5-20251101","id":"msg_01Test","type":"message","role":"assistant","content":[{"type":"text","text":"Elixir is a functional programming language."}],"stop_reason":"end_turn","stop_sequence":null,"usage":{"input_tokens":100,"output_tokens":50}},"requestId":"req_test","type":"assistant","uuid":"a1","timestamp":"2026-01-06T17:46:11.406Z"}
       """
 
       File.write!(session_file, content)
 
       # Test read_session (returns all raw entries including queue-operation)
-      assert {:ok, entries} = History.read_session("real-session", claude_dir: claude_dir)
+      assert {:ok, entries} = History.read_session(session_id, claude_dir: claude_dir)
       assert length(entries) == 3
       assert %{"type" => "queue-operation"} = Enum.at(entries, 0)
 
-      # Test conversation (parses and filters to user/assistant only)
-      assert {:ok, messages} = History.conversation("real-session", claude_dir: claude_dir)
+      # Test get_messages (chain-built, parsed into SessionMessage structs)
+      assert {:ok, messages} =
+               History.get_messages(session_id,
+                 project_path: "/test/project",
+                 claude_dir: claude_dir
+               )
+
       assert length(messages) == 2
 
       # Verify user message
       [user_msg, assistant_msg] = messages
-      assert %UserMessage{message: %{content: "What is Elixir?"}} = user_msg
+      assert %SessionMessage{type: :user, message: %{content: "What is Elixir?"}} = user_msg
 
-      # Verify assistant message
-      assert %AssistantMessage{message: %{content: [text_block]}} = assistant_msg
+      # Verify assistant message with parsed content block
+      assert %SessionMessage{type: :assistant} = assistant_msg
+      assert [text_block] = assistant_msg.message.content
       assert text_block.text == "Elixir is a functional programming language."
     end
   end
