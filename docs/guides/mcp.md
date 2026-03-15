@@ -135,7 +135,7 @@ MCP servers communicate with your agent using different transport protocols. Che
 
 - If the docs give you a **command to run** (like `npx @modelcontextprotocol/server-github`), use stdio
 - If the docs give you a **URL**, use HTTP or SSE
-- If you're building your own tools **in Elixir**, use an [SDK MCP server](#in-process-and-hermes-mcp-servers) (see the [Custom tools](custom-tools.md) guide for details)
+- If you're building your own tools **in Elixir**, use an [SDK MCP server](#in-process-mcp-servers) (see the [Custom tools](custom-tools.md) guide for details)
 
 ### stdio servers
 
@@ -177,12 +177,11 @@ Use HTTP or SSE for cloud-hosted MCP servers and remote APIs:
 
 For HTTP (non-streaming), use `type: "http"` instead.
 
-### In-process and Hermes MCP servers
+### In-process MCP servers
 
-The Elixir SDK supports two additional transport types for tools defined in your application code:
+The Elixir SDK supports in-process tools defined with `ClaudeCode.MCP.Server`. These run inside your BEAM VM with full access to Ecto repos, GenServers, and caches. The SDK routes messages through the control protocol -- no subprocess needed.
 
-- **In-process tools** (`ClaudeCode.MCP.Server`) -- Run inside your BEAM VM with full access to Ecto repos, GenServers, and caches. The SDK routes messages through the control protocol, no subprocess needed.
-- **Hermes MCP modules** (`Hermes.Server`) -- Run as a stdio subprocess spawned automatically by the SDK. Use this for full [Hermes MCP](https://hexdocs.pm/hermes_mcp) servers with resources and prompts.
+For full MCP servers with resources and prompts, pass any module with `start_link/1` (e.g., an [AnubisMCP](https://hexdocs.pm/anubis_mcp) server). The SDK auto-detects and spawns it as a stdio subprocess.
 
 Both are passed to `:mcp_servers` the same way as external servers. See the [Custom tools](custom-tools.md) guide for implementation details.
 
@@ -193,7 +192,7 @@ Both are passed to `:mcp_servers` the same way as external servers. See the [Cus
   allowed_tools: ["mcp__my-tools__*"]
 )
 
-# Hermes MCP module (spawns as subprocess)
+# MCP module (spawns as subprocess)
 {:ok, result} = ClaudeCode.query("Get the weather",
   mcp_servers: %{"weather" => MyApp.MCPServer},
   allowed_tools: ["mcp__weather__*"]
@@ -211,7 +210,7 @@ db_url = System.get_env("DATABASE_URL")
   mcp_servers: %{
     # In-process (runs in your BEAM VM)
     "app-tools" => MyApp.Tools,
-    # Hermes module (spawns as subprocess)
+    # MCP module (spawns as subprocess)
     "db-tools" => %{module: MyApp.DBServer, env: %{"DATABASE_URL" => db_url}},
     # External Node.js server
     "browser" => %{command: "npx", args: ["@playwright/mcp@latest"]},
@@ -292,7 +291,7 @@ Use the `env` field to pass API keys, tokens, and other credentials to the MCP s
   allowed_tools: ["mcp__github__list_issues"]
 )
 
-# Hermes MCP module with custom env
+# MCP module with custom env
 {:ok, session} = ClaudeCode.start_link(
   mcp_servers: %{
     "db-tools" => %{
