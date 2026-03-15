@@ -60,7 +60,7 @@ defmodule ClaudeCode.MixProject do
       {:nimble_options, "~> 1.0"},
       {:nimble_ownership, "~> 1.0"},
       {:telemetry, "~> 1.2"},
-      {:anubis_mcp, "~> 0.4"},
+      {:anubis_mcp, "~> 0.17.1"},
       {:hermes_mcp, "~> 0.14", optional: true},
 
       # Development and test dependencies
