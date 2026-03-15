@@ -94,6 +94,15 @@ After verification, update documentation:
 - **`scripts/capture-cli-data.sh`** -- Main capture script (CLI version, help output, SDK type definitions)
 - **`scripts/compare-versions.sh`** -- Quick version comparison
 
+### Captured SDK Sources
+
+The capture script also fetches these into `captured/`:
+
+- **`ts-sdk-types.d.ts`** — TypeScript SDK type definitions (SDKMessage, SDKControl*, Options, etc.)
+- **`ts-sdk-cli.js`** — Minified CLI implementation (gitignored, ~12MB). Contains the actual control protocol dispatch, message routing, hook execution, and permission handling. Useful for tracing protocol behavior when the type definitions alone are ambiguous.
+- **`python-sdk-*.py`** — Python SDK sources (types, query, client, message parser, subprocess CLI)
+- **`anthropic-api-messages.d.ts`** — Anthropic API types (BetaContentBlock, streaming events)
+
 ### Captured Documentation
 
 The capture script fetches these official docs into `captured/docs/`:

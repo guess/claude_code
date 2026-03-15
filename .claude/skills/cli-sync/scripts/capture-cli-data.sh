@@ -14,6 +14,7 @@
 #   - CLI --help output
 #   - Python SDK types.py, subprocess_cli.py, query.py, message_parser.py, client.py (via gh)
 #   - TypeScript SDK sdk.d.ts type definitions (via npm/unpkg)
+#   - TypeScript SDK cli.js implementation (via npm/unpkg, gitignored)
 #   - Anthropic API types (BetaRawMessageStreamEvent etc. from @anthropic-ai/sdk)
 #   - SDK version tracking files
 #   - Official documentation (CLI reference, hooks, plugins, TS/Python SDK docs)
@@ -120,9 +121,16 @@ if [ -n "$TS_SDK_VERSION" ]; then
     curl -sL "https://unpkg.com/@anthropic-ai/claude-agent-sdk@$TS_SDK_VERSION/sdk.d.ts" \
         > "$OUTPUT_DIR/ts-sdk-types.d.ts" 2>/dev/null || echo "// FAILED to fetch sdk.d.ts" > "$OUTPUT_DIR/ts-sdk-types.d.ts"
     echo "  Done: ts-sdk-types.d.ts"
+
+    # Download cli.js (minified CLI implementation — control protocol, message handling)
+    # This file is large (~700K tokens) and gitignored, but useful for protocol analysis
+    curl -sL "https://unpkg.com/@anthropic-ai/claude-agent-sdk@$TS_SDK_VERSION/cli.js" \
+        > "$OUTPUT_DIR/ts-sdk-cli.js" 2>/dev/null || echo "// FAILED to fetch cli.js" > "$OUTPUT_DIR/ts-sdk-cli.js"
+    echo "  Done: ts-sdk-cli.js (gitignored)"
 else
     echo "FAILED" > "$OUTPUT_DIR/ts-sdk-version.txt"
     echo "// FAILED to fetch - npm registry unreachable" > "$OUTPUT_DIR/ts-sdk-types.d.ts"
+    echo "// FAILED to fetch - npm registry unreachable" > "$OUTPUT_DIR/ts-sdk-cli.js"
     echo "  WARNING: Could not reach npm registry for TS SDK version"
 fi
 

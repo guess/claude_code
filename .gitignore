@@ -56,6 +56,8 @@ npm-debug.log
 
 # CLI sync captured data — git-tracked for diff-based type discovery
 # (Do NOT add .claude/skills/cli-sync/captured/ back here)
+# Large minified CLI JS — too big to track in git
+.claude/skills/cli-sync/captured/ts-sdk-cli.js
 
 # Mix lock file (you might want to commit this)
 # mix.lock
