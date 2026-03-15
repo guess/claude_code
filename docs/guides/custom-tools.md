@@ -146,20 +146,15 @@ Tools that don't need session context continue to use `execute/1`. Mix both form
 
 ### Subprocess MCP servers
 
-For full MCP servers with resources and prompts (beyond in-process tools), pass any module that implements `start_link/1`. The SDK auto-detects it and spawns it as a stdio subprocess:
+For full MCP servers with resources and prompts (beyond in-process tools), pass any module that exports `start_link/1`. The SDK auto-detects it and spawns it as a stdio subprocess:
 
 ```elixir
-defmodule MyApp.MCPServer do
-  use Anubis.Server,
-    name: "my-custom-tools",
-    version: "1.0.0",
-    capabilities: [:tools]
-
-  component MyApp.WeatherTool
-end
+{:ok, session} = ClaudeCode.start_link(
+  mcp_servers: %{
+    "my-server" => MyApp.MCPServer
+  }
+)
 ```
-
-When passed to `:mcp_servers`, the SDK auto-generates a stdio command configuration that spawns the server as a subprocess.
 
 Pass custom environment variables with the `%{module: ..., env: ...}` form:
 
@@ -199,12 +194,6 @@ You can control which tools Claude can use via the `:allowed_tools` option:
 {:ok, result} = ClaudeCode.query("Look up alice@example.com",
   mcp_servers: %{"my-tools" => MyApp.Tools},
   allowed_tools: ["mcp__my-tools__query_user"]
-)
-
-# Subprocess server works the same way
-{:ok, result} = ClaudeCode.query("What's the weather in San Francisco?",
-  mcp_servers: %{"weather" => MyApp.MCPServer},
-  allowed_tools: ["mcp__weather__get_weather"]
 )
 ```
 
