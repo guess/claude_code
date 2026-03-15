@@ -20,6 +20,19 @@ defmodule ClaudeCode.System.Remote do
     end
   end
 
+  @impl true
+  def find_executable(name) do
+    node = node_from_adapter_config()
+
+    case :rpc.call(node, System, :find_executable, [name]) do
+      {:badrpc, reason} ->
+        raise "Remote find_executable failed on #{node}: #{inspect(reason)}"
+
+      result ->
+        result
+    end
+  end
+
   defp node_from_adapter_config do
     case Application.get_env(:claude_code, :adapter) do
       {ClaudeCode.Adapter.Node, opts} ->

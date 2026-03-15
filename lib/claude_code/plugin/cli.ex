@@ -17,11 +17,17 @@ defmodule ClaudeCode.Plugin.CLI do
         ) :: {:ok, term()} | {:error, term()}
   def run(args, opts, parse_fn) do
     with {:ok, binary} <- Resolver.find_binary(opts) do
-      case ClaudeCode.System.cmd(binary, args, stderr_to_stdout: true) do
+      # Pass node: through to System.cmd for remote execution
+      sys_opts = [stderr_to_stdout: true] ++ Keyword.take(opts, [:node])
+
+      case ClaudeCode.System.cmd(binary, args, sys_opts) do
         {output, 0} -> parse_fn.(output)
         {error_output, _exit_code} -> {:error, String.trim(error_output)}
       end
     end
+  rescue
+    e in RuntimeError ->
+      {:error, {:remote_error, Exception.message(e)}}
   end
 
   @doc """

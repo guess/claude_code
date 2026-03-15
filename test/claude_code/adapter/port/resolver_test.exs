@@ -25,10 +25,13 @@ defmodule ClaudeCode.Adapter.Port.ResolverTest do
 
   describe "find_binary/1 with :global mode" do
     test "returns :not_found when claude is not installed globally" do
-      original = Application.get_env(:claude_code, :cli_path)
+      original_path = Application.get_env(:claude_code, :cli_path)
+      original_system = Application.get_env(:claude_code, ClaudeCode.System)
 
       try do
         Application.delete_env(:claude_code, :cli_path)
+        # Ensure we use the real System.find_executable, not a mock
+        Application.delete_env(:claude_code, ClaudeCode.System)
 
         case Resolver.find_binary(cli_path: :global) do
           {:ok, path} ->
@@ -40,7 +43,8 @@ defmodule ClaudeCode.Adapter.Port.ResolverTest do
             assert true
         end
       after
-        if original, do: Application.put_env(:claude_code, :cli_path, original)
+        if original_path, do: Application.put_env(:claude_code, :cli_path, original_path)
+        if original_system, do: Application.put_env(:claude_code, ClaudeCode.System, original_system)
       end
     end
   end

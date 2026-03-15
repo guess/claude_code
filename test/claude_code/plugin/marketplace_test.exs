@@ -89,6 +89,15 @@ defmodule ClaudeCode.Plugin.MarketplaceTest do
       assert {:error, msg} = Marketplace.list()
       assert msg =~ "Failed to parse marketplace list JSON"
     end
+
+    test "passes node: option through to System.cmd" do
+      expect(Mock, :cmd, fn _binary, ["plugin", "marketplace", "list", "--json"], opts ->
+        assert Keyword.get(opts, :node) == :"test@node"
+        {"[]", 0}
+      end)
+
+      assert {:ok, []} = Marketplace.list(node: :"test@node")
+    end
   end
 
   describe "add/2" do

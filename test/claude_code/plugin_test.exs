@@ -107,6 +107,23 @@ defmodule ClaudeCode.PluginTest do
       assert {:error, "Error: something went wrong"} = Plugin.list()
     end
 
+    test "passes node: option through to System.cmd" do
+      expect(Mock, :cmd, fn _binary, ["plugin", "list", "--json"], opts ->
+        assert Keyword.get(opts, :node) == :"test@node"
+        {"[]", 0}
+      end)
+
+      assert {:ok, []} = Plugin.list(node: :"test@node")
+    end
+
+    test "returns {:error, {:remote_error, reason}} on remote command failure" do
+      expect(Mock, :cmd, fn _binary, _args, _opts ->
+        raise "Remote command failed on test@node: :nodedown"
+      end)
+
+      assert {:error, {:remote_error, _reason}} = Plugin.list(node: :"test@node")
+    end
+
     test "returns error on invalid JSON" do
       expect(Mock, :cmd, fn _binary, _args, _opts -> {"not valid json", 0} end)
 

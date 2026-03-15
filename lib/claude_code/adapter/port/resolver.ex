@@ -93,7 +93,7 @@ defmodule ClaudeCode.Adapter.Port.Resolver do
 
   defp find_global do
     cond do
-      path = System.find_executable("claude") -> {:ok, path}
+      path = ClaudeCode.System.find_executable("claude") -> {:ok, path}
       path = Installer.find_in_common_locations() -> {:ok, path}
       true -> {:error, :not_found}
     end
