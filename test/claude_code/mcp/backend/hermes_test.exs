@@ -7,6 +7,7 @@ defmodule ClaudeCode.MCP.Backend.HermesTest do
     test "returns true for modules with start_link/1 that are not SDK servers" do
       defmodule FakeHermesModule do
         @moduledoc false
+        @behaviour Hermes.Server
         def start_link(_opts), do: {:ok, self()}
       end
 

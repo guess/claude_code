@@ -54,7 +54,15 @@ if Code.ensure_loaded?(Hermes.Server) do
     def compatible?(module) when is_atom(module) do
       Code.ensure_loaded?(module) and
         function_exported?(module, :start_link, 1) and
-        not MCPServer.sdk_server?(module)
+        not MCPServer.sdk_server?(module) and
+        has_behaviour?(module, Hermes.Server)
+    end
+
+    defp has_behaviour?(module, behaviour) do
+      module.module_info(:attributes)
+      |> Keyword.get_values(:behaviour)
+      |> List.flatten()
+      |> Enum.member?(behaviour)
     end
 
     # -- Private helpers --

@@ -8,14 +8,24 @@ defmodule ClaudeCode.MCPTest do
       assert MCP.backend_for(ClaudeCode.TestTools) == :sdk
     end
 
-    test "returns {:subprocess, Backend.Anubis} for subprocess-compatible modules" do
-      defmodule FakeSubprocessServer do
+    test "returns {:subprocess, Backend.Anubis} for Anubis subprocess modules" do
+      defmodule FakeAnubisServer do
         @moduledoc false
+        @behaviour Anubis.Server
         def start_link(_opts), do: {:ok, self()}
       end
 
-      # Anubis is checked first
-      assert MCP.backend_for(FakeSubprocessServer) == {:subprocess, ClaudeCode.MCP.Backend.Anubis}
+      assert MCP.backend_for(FakeAnubisServer) == {:subprocess, ClaudeCode.MCP.Backend.Anubis}
+    end
+
+    test "returns {:subprocess, Backend.Hermes} for Hermes subprocess modules" do
+      defmodule FakeHermesServer do
+        @moduledoc false
+        @behaviour Hermes.Server
+        def start_link(_opts), do: {:ok, self()}
+      end
+
+      assert MCP.backend_for(FakeHermesServer) == {:subprocess, ClaudeCode.MCP.Backend.Hermes}
     end
 
     test "returns :unknown for unrecognized modules" do
