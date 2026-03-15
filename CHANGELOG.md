@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **MCP backend abstraction** — New `ClaudeCode.MCP.Backend` behaviour allows pluggable MCP library backends. Ships with `Backend.Anubis` (new default) and `Backend.Hermes` (legacy). Both backends are optional — only compile when their respective library is loaded. Centralized backend detection via `ClaudeCode.MCP.backend_for/1`. ([4c69cbb])
 - **Enhanced session history (Python SDK parity)** — New `ClaudeCode.History.list_sessions/1` returns rich `ClaudeCode.History.SessionInfo` metadata (summary, custom title, first prompt, git branch, cwd) using fast head/tail reads without full JSONL parsing. Supports worktree-aware scanning, deduplication, and `:limit`. ([bf93d7c])
 - **Chain-built message retrieval** — New `ClaudeCode.History.get_messages/2` and `ClaudeCode.Session.get_messages/2` reconstruct conversations via `parentUuid` chain walking, correctly handling branched and compacted conversations. Returns `ClaudeCode.History.SessionMessage` structs with parsed content blocks (`TextBlock`, `ToolUseBlock`, etc.). Supports `:limit` and `:offset` pagination. ([bf93d7c])
 - **`ClaudeCode.History.SessionMessage` struct** — Typed struct for history messages with `:user`/`:assistant` atom types, chain metadata (`uuid`, `session_id`), and parsed message content. ([bf93d7c])
@@ -18,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **MCP tool macro rewrite** — `ClaudeCode.MCP.Server.tool/3` now generates standalone modules without Hermes dependency. Tools use `execute/2` with `(params, assigns)` instead of Hermes frames. ([4c69cbb])
+- **MCP Router decoupled from Hermes** — Router delegates all tool operations to the configured backend instead of importing Hermes modules directly. ([4c69cbb])
 - **Breaking**: Removed `ClaudeCode.History.conversation/2`, `ClaudeCode.History.conversation_from_file/1`, and `ClaudeCode.Session.conversation/2` — replaced by `get_messages/2` which properly handles branched/compacted conversations via `parentUuid` chain building. ([bf93d7c])
 - **Breaking**: Removed `:callback_timeout` from `ClaudeCode.Adapter.Node` — proxy delegation for hooks and MCP now uses the unified `:control_timeout` option instead. If you were passing `:callback_timeout` in adapter config, change it to `:control_timeout` as a session option. ([6758caa])
 
