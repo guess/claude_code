@@ -221,16 +221,21 @@ defmodule ClaudeCode.CLI.Command do
     if value == [] do
       nil
     else
-      # Extract path from each plugin config (string path or map with type: :local)
+      # After preprocess_plugins, plugins are already normalized maps.
+      # Also handle non-preprocessed calls (direct to_cli_args).
       Enum.flat_map(value, fn
-        path when is_binary(path) ->
-          ["--plugin-dir", path]
-
         %{type: :local, path: path} ->
           ["--plugin-dir", to_string(path)]
 
-        _other ->
+        %{type: :marketplace} ->
+          # Marketplace plugins are handled via settings injection, not CLI flags
           []
+
+        other ->
+          case normalize_plugin(other) do
+            %{type: :local, path: path} -> ["--plugin-dir", to_string(path)]
+            %{type: :marketplace} -> []
+          end
       end)
     end
   end
@@ -432,6 +437,30 @@ defmodule ClaudeCode.CLI.Command do
       {:ok, decoded} -> Map.put(decoded, "sandbox", sandbox_map)
       {:error, _} -> %{"sandbox" => sandbox_map}
     end
+  end
+
+  # -- Private: plugin normalization --------------------------------------------
+
+  defp normalize_plugin(path) when is_binary(path) do
+    # Paths containing "/" or starting with "." are always local,
+    # even if they contain "@" (e.g., ./plugins/@scope/my-plugin)
+    if String.contains?(path, "/") or String.starts_with?(path, ".") do
+      %{type: :local, path: path}
+    else
+      if String.contains?(path, "@") do
+        %{type: :marketplace, id: path}
+      else
+        %{type: :local, path: path}
+      end
+    end
+  end
+
+  defp normalize_plugin(%{type: _} = map), do: map
+
+  defp normalize_plugin(other) do
+    raise ArgumentError,
+          "Invalid plugin config: #{inspect(other)}. " <>
+            "Expected a string path, %{type: :local, path: ...}, or %{type: :marketplace, id: ...}"
   end
 
   # -- Private: MCP module subprocess expansion --------------------------------

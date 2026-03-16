@@ -925,6 +925,50 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert plugin_count == 2
     end
 
+    # -- Plugin normalization (marketplace vs local) --------------------------
+
+    test "normalizes marketplace plugin strings (with @) and excludes from CLI flags" do
+      args = Command.to_cli_args(plugins: ["formatter@acme-tools", "./local-plugin"])
+
+      assert "--plugin-dir" in args
+      assert "./local-plugin" in args
+      # Marketplace plugins should NOT produce --plugin-dir flags
+      refute "formatter@acme-tools" in args
+    end
+
+    test "handles mixed local and marketplace plugin maps" do
+      plugins = [
+        %{type: :local, path: "./my-plugin"},
+        %{type: :marketplace, id: "linter@security"}
+      ]
+
+      args = Command.to_cli_args(plugins: plugins)
+
+      assert "--plugin-dir" in args
+      assert "./my-plugin" in args
+      refute "linter@security" in args
+    end
+
+    test "paths containing / are always treated as local even with @" do
+      args = Command.to_cli_args(plugins: ["./plugins/@scope/my-plugin"])
+
+      assert "--plugin-dir" in args
+      assert "./plugins/@scope/my-plugin" in args
+    end
+
+    test "paths starting with . are always treated as local even with @" do
+      args = Command.to_cli_args(plugins: ["./@scoped-plugin"])
+
+      assert "--plugin-dir" in args
+      assert "./@scoped-plugin" in args
+    end
+
+    test "raises ArgumentError on invalid plugin config" do
+      assert_raise ArgumentError, ~r/Invalid plugin config/, fn ->
+        Command.to_cli_args(plugins: [42])
+      end
+    end
+
     # -- File options --------------------------------------------------------
 
     test "converts file list to multiple --file flags" do
