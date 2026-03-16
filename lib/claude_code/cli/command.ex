@@ -11,6 +11,8 @@ defmodule ClaudeCode.CLI.Command do
 
   alias ClaudeCode.Session.PermissionMode
 
+  require Logger
+
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
   @doc """
@@ -58,6 +60,8 @@ defmodule ClaudeCode.CLI.Command do
   def to_cli_args(opts) do
     opts
     |> preprocess_sandbox()
+    |> preprocess_marketplaces()
+    |> preprocess_plugins()
     |> preprocess_thinking()
     |> ensure_setting_sources()
     |> Enum.reduce([], fn {key, value}, acc ->
@@ -360,6 +364,7 @@ defmodule ClaudeCode.CLI.Command do
   # :prompt_suggestions and :tool_config are sent via control protocol initialize
   # :can_use_tool is handled above (maps to --permission-prompt-tool stdio)
   defp convert_option(:sandbox, _value), do: nil
+  defp convert_option(:marketplaces, _value), do: nil
   defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil
   defp convert_option(:callers, _value), do: nil
@@ -436,6 +441,100 @@ defmodule ClaudeCode.CLI.Command do
     case Jason.decode(json_string) do
       {:ok, decoded} -> Map.put(decoded, "sandbox", sandbox_map)
       {:error, _} -> %{"sandbox" => sandbox_map}
+    end
+  end
+
+  # -- Private: shared settings injection helper --------------------------------
+
+  # Injects a key-value pair into settings. Returns {:ok, merged_settings} for
+  # nil and map settings, :skip for string settings (file paths).
+  defp inject_into_settings(nil, key, value) do
+    {:ok, %{key => value}}
+  end
+
+  defp inject_into_settings(settings, key, value) when is_map(settings) do
+    {:ok, Map.update(settings, key, value, &Map.merge(&1, value))}
+  end
+
+  defp inject_into_settings(_string_settings, _key, _value) do
+    :skip
+  end
+
+  # -- Private: marketplace preprocessing --------------------------------------
+
+  defp preprocess_marketplaces(opts) do
+    case Keyword.get(opts, :marketplaces) do
+      nil ->
+        opts
+
+      [] ->
+        opts
+
+      marketplaces ->
+        extra =
+          Map.new(marketplaces, fn
+            %{name: name} = m ->
+              {name, Map.delete(m, :name)}
+
+            other ->
+              raise ArgumentError,
+                    "Invalid marketplace config: missing required :name key in #{inspect(other)}"
+          end)
+
+        settings = Keyword.get(opts, :settings)
+
+        case inject_into_settings(settings, "extraKnownMarketplaces", extra) do
+          {:ok, merged} ->
+            opts
+            |> Keyword.delete(:marketplaces)
+            |> Keyword.put(:settings, merged)
+
+          :skip ->
+            Logger.warning(
+              "Cannot inject marketplaces into string settings. " <>
+                "Use a map for :settings or configure marketplaces separately."
+            )
+
+            Keyword.delete(opts, :marketplaces)
+        end
+    end
+  end
+
+  # -- Private: plugin preprocessing -------------------------------------------
+
+  defp preprocess_plugins(opts) do
+    case Keyword.get(opts, :plugins) do
+      nil ->
+        opts
+
+      [] ->
+        opts
+
+      plugins ->
+        normalized = Enum.map(plugins, &normalize_plugin/1)
+        {local, marketplace} = Enum.split_with(normalized, &(&1.type == :local))
+
+        if marketplace == [] do
+          Keyword.put(opts, :plugins, local)
+        else
+          enabled = Map.new(marketplace, fn %{id: id} -> {id, true} end)
+          settings = Keyword.get(opts, :settings)
+
+          case inject_into_settings(settings, "enabledPlugins", enabled) do
+            {:ok, merged} ->
+              opts
+              |> Keyword.put(:plugins, local)
+              |> Keyword.put(:settings, merged)
+
+            :skip ->
+              Logger.warning(
+                "Cannot inject marketplace plugins into string settings. " <>
+                  "Use a map for :settings or configure marketplace plugins separately."
+              )
+
+              Keyword.put(opts, :plugins, local)
+          end
+        end
     end
   end
 

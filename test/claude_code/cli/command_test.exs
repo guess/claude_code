@@ -969,6 +969,150 @@ defmodule ClaudeCode.CLI.CommandTest do
       end
     end
 
+    # -- Marketplace plugin settings injection --------------------------------
+
+    test "marketplace plugins are injected into settings as enabledPlugins" do
+      args = Command.to_cli_args(
+        plugins: ["formatter@acme-tools", "linter@security", "./local"]
+      )
+
+      settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+      assert settings_idx != nil
+
+      settings_json = Enum.at(args, settings_idx + 1)
+      settings = Jason.decode!(settings_json)
+      assert settings["enabledPlugins"] == %{
+        "formatter@acme-tools" => true,
+        "linter@security" => true
+      }
+
+      assert "--plugin-dir" in args
+      assert "./local" in args
+    end
+
+    test "marketplace plugins merge with existing settings map" do
+      args = Command.to_cli_args(
+        plugins: ["formatter@acme"],
+        settings: %{"model" => "opus"}
+      )
+
+      settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+      settings_json = Enum.at(args, settings_idx + 1)
+      settings = Jason.decode!(settings_json)
+
+      assert settings["enabledPlugins"] == %{"formatter@acme" => true}
+      assert settings["model"] == "opus"
+    end
+
+    test "no settings injection when only local plugins" do
+      args = Command.to_cli_args(plugins: ["./local-only"])
+
+      case Enum.find_index(args, &(&1 == "--settings")) do
+        nil -> :ok
+        idx ->
+          settings_json = Enum.at(args, idx + 1)
+          settings = Jason.decode!(settings_json)
+          refute Map.has_key?(settings, "enabledPlugins")
+      end
+    end
+
+    test "string settings are preserved when marketplace plugins present" do
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn ->
+        args = Command.to_cli_args(
+          plugins: ["formatter@acme"],
+          settings: "/path/to/settings.json"
+        )
+
+        settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+        assert settings_idx != nil
+        assert Enum.at(args, settings_idx + 1) == "/path/to/settings.json"
+      end)
+
+      assert log =~ "Cannot inject marketplace plugins"
+    end
+
+    # -- Marketplace settings injection ----------------------------------------
+
+    test "marketplaces are injected into settings as extraKnownMarketplaces" do
+      args = Command.to_cli_args(
+        marketplaces: [
+          %{name: "acme", source: %{source: "github", repo: "acme/plugins"}}
+        ]
+      )
+
+      settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+      assert settings_idx != nil
+
+      settings_json = Enum.at(args, settings_idx + 1)
+      settings = Jason.decode!(settings_json)
+      assert settings["extraKnownMarketplaces"]["acme"] == %{
+        "source" => %{"source" => "github", "repo" => "acme/plugins"}
+      }
+    end
+
+    test "marketplaces merge with existing settings" do
+      args = Command.to_cli_args(
+        marketplaces: [
+          %{name: "acme", source: %{source: "github", repo: "acme/plugins"}}
+        ],
+        settings: %{"model" => "opus"}
+      )
+
+      settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+      settings_json = Enum.at(args, settings_idx + 1)
+      settings = Jason.decode!(settings_json)
+
+      assert settings["extraKnownMarketplaces"]["acme"] != nil
+      assert settings["model"] == "opus"
+    end
+
+    test "combined marketplaces and plugins inject both settings keys" do
+      args = Command.to_cli_args(
+        marketplaces: [
+          %{name: "acme", source: %{source: "github", repo: "acme/plugins"}}
+        ],
+        plugins: ["formatter@acme", "./local"]
+      )
+
+      settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+      settings_json = Enum.at(args, settings_idx + 1)
+      settings = Jason.decode!(settings_json)
+
+      assert settings["extraKnownMarketplaces"]["acme"] != nil
+      assert settings["enabledPlugins"] == %{"formatter@acme" => true}
+      assert "--plugin-dir" in args
+      assert "./local" in args
+    end
+
+    test "string settings are preserved when marketplaces present" do
+      import ExUnit.CaptureLog
+
+      log = capture_log(fn ->
+        args = Command.to_cli_args(
+          marketplaces: [
+            %{name: "acme", source: %{source: "github", repo: "acme/plugins"}}
+          ],
+          settings: "/path/to/settings.json"
+        )
+
+        settings_idx = Enum.find_index(args, &(&1 == "--settings"))
+        assert settings_idx != nil
+        assert Enum.at(args, settings_idx + 1) == "/path/to/settings.json"
+      end)
+
+      assert log =~ "Cannot inject marketplaces"
+    end
+
+    test "raises ArgumentError when marketplace map is missing :name" do
+      assert_raise ArgumentError, ~r/missing required :name key/, fn ->
+        Command.to_cli_args(
+          marketplaces: [%{source: %{source: "github", repo: "acme/plugins"}}]
+        )
+      end
+    end
+
     # -- File options --------------------------------------------------------
 
     test "converts file list to multiple --file flags" do
