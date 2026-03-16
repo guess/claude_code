@@ -9,7 +9,7 @@ defmodule ClaudeCode.MCP.Router do
   control request from the CLI for a `type: "sdk"` server.
   """
 
-  alias ClaudeCode.MCP.Backend.Anubis, as: Backend
+  alias ClaudeCode.MCP.Backend
 
   @doc """
   Handles a JSONRPC request for the given tool server module.

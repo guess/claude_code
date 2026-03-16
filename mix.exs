@@ -258,7 +258,9 @@ defmodule ClaudeCode.MixProject do
         "MCP Integration": ~r/ClaudeCode\.MCP/,
         Testing: [
           ClaudeCode.Test,
-          ClaudeCode.Test.Factory
+          ClaudeCode.Test.Factory,
+          ClaudeCode.Hook.DebugLogger,
+          ClaudeCode.Hook.DebugLogger.Permissive
         ],
         Installation: [
           ClaudeCode.Adapter.Port.Installer,
