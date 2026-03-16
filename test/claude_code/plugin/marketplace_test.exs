@@ -1,24 +1,12 @@
 defmodule ClaudeCode.Plugin.MarketplaceTest do
-  use ExUnit.Case
-
-  import Mox
+  use ClaudeCode.Case
 
   alias ClaudeCode.Plugin.Marketplace
   alias ClaudeCode.System.Mock
 
+  @moduletag :mock_system
+
   setup :verify_on_exit!
-
-  @cli_path System.find_executable("true")
-
-  setup do
-    Application.put_env(:claude_code, ClaudeCode.System, Mock)
-    Application.put_env(:claude_code, :cli_path, @cli_path)
-
-    on_exit(fn ->
-      Application.delete_env(:claude_code, ClaudeCode.System)
-      Application.put_env(:claude_code, :cli_path, "/nonexistent/test/claude")
-    end)
-  end
 
   describe "struct" do
     test "has expected fields" do
