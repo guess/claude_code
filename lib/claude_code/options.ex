@@ -83,7 +83,8 @@ defmodule ClaudeCode.Options do
   | `setting_sources`          | list       | -           | Setting source priority                                         |
   | `include_partial_messages` | boolean    | false       | Enable character-level streaming                                |
   | `output_format`            | map        | -           | Structured output format (see Structured Outputs section)       |
-  | `plugins`                  | list       | -           | Plugin configurations to load (paths or maps with type: :local) |
+  | `plugins`                  | list       | -           | Plugin configurations (local paths or marketplace IDs)          |
+  | `marketplaces`             | list       | -           | Marketplace configurations (injected into settings)             |
 
   ## Query Options
 
@@ -354,24 +355,37 @@ defmodule ClaudeCode.Options do
         setting_sources: ["user", "project", "local"]
       )
 
-  ## Plugins
+  ## Plugins and Marketplaces
 
-  Load custom plugins to extend Claude's capabilities:
+  Load plugins to extend Claude's capabilities:
 
-      # From a directory path
+      # Local directory plugins
       {:ok, session} = ClaudeCode.start_link(
         plugins: ["./my-plugin"]
       )
 
-      # With explicit type (currently only :local is supported)
+      # Marketplace plugins (strings with @)
       {:ok, session} = ClaudeCode.start_link(
+        plugins: ["formatter@acme-tools", "linter@security"]
+      )
+
+      # Declarative marketplace + plugin configuration
+      {:ok, session} = ClaudeCode.start_link(
+        marketplaces: [
+          %{name: "acme-tools", source: %{source: "github", repo: "acme/claude-plugins"}}
+        ],
         plugins: [
-          %{type: :local, path: "./my-plugin"},
-          "./another-plugin"
+          "./my-local-plugin",
+          "code-formatter@acme-tools",
+          %{type: :marketplace, id: "linter@security"}
         ]
       )
 
-  For marketplace plugin management (install, enable, disable), see
+  Marketplace plugin IDs are injected into `enabledPlugins` in the CLI settings.
+  Marketplace sources are injected into `extraKnownMarketplaces`.
+  Local paths are passed as `--plugin-dir` flags.
+
+  For imperative marketplace plugin management (install, enable, disable), see
   `ClaudeCode.Plugin` and `ClaudeCode.Plugin.Marketplace`.
 
   ## Runtime Control
@@ -593,7 +607,29 @@ defmodule ClaudeCode.Options do
     ],
     plugins: [
       type: {:list, {:or, [:string, :map]}},
-      doc: "Plugin configurations - list of paths or maps with type: :local and path keys"
+      doc: """
+      Plugin configurations. Accepts a list of:
+      - Local directory paths: `"./my-plugin"` or `%{type: :local, path: "./my-plugin"}`
+      - Marketplace plugins: `"name@marketplace"` or `%{type: :marketplace, id: "name@marketplace"}`
+
+      Strings containing `/` or starting with `.` are always treated as local paths.
+      Other strings containing `@` are treated as marketplace plugin IDs and injected into
+      `enabledPlugins` in the CLI settings. All plugins are enabled by default.
+      """
+    ],
+    marketplaces: [
+      type: {:list, :map},
+      doc: """
+      Marketplace configurations to make available. Each entry is a map with:
+      - `name` - Marketplace identifier (string)
+      - `source` - Source config map matching the CLI schema:
+        - `%{source: "github", repo: "owner/repo"}` — GitHub repository
+        - `%{source: "url", url: "https://..."}` — Direct URL
+        - `%{source: "git", url: "https://..."}` — Git repository
+
+      Injected into `extraKnownMarketplaces` in settings. Use with `:plugins` to
+      declaratively configure both marketplace sources and enabled plugins.
+      """
     ],
     include_partial_messages: [
       type: :boolean,
@@ -774,7 +810,11 @@ defmodule ClaudeCode.Options do
     ],
     plugins: [
       type: {:list, {:or, [:string, :map]}},
-      doc: "Override plugin configurations for this query"
+      doc: "Override plugin configurations for this query (local paths or marketplace IDs)"
+    ],
+    marketplaces: [
+      type: {:list, :map},
+      doc: "Override marketplace configurations for this query"
     ],
     include_partial_messages: [
       type: :boolean,
