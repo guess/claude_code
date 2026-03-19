@@ -45,7 +45,7 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxy do
   end
 
   defp dispatch("can_use_tool", request, state) do
-    {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry)}
+    {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry, %{})}
   end
 
   defp dispatch(subtype, _request, _state) do

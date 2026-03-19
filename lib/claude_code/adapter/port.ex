@@ -54,6 +54,8 @@ defmodule ClaudeCode.Adapter.Port do
     :hook_registry,
     :hooks_wire,
     :callback_proxy,
+    :session_id,
+    :cwd,
     status: :provisioning,
     control_counter: 0,
     control_timeout: @default_control_timeout,
@@ -139,7 +141,8 @@ defmodule ClaudeCode.Adapter.Port do
       hook_registry: hook_registry,
       hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
-      callback_proxy: Keyword.get(opts, :callback_proxy)
+      callback_proxy: Keyword.get(opts, :callback_proxy),
+      cwd: Keyword.get(opts, :cwd) || File.cwd!()
     }
 
     Process.link(session)
@@ -551,10 +554,14 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  defp handle_sdk_message(_json, %{current_request: nil} = state), do: state
+  defp handle_sdk_message(json, %{current_request: nil} = state) do
+    maybe_capture_session_id(json, state)
+  end
 
   defp handle_sdk_message(json, state) do
     Adapter.notify_message(state.session, state.current_request, json)
+
+    state = maybe_capture_session_id(json, state)
 
     if json["type"] == "result" do
       %{state | current_request: nil}
@@ -563,46 +570,43 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
+  defp maybe_capture_session_id(%{"type" => "system", "session_id" => sid}, %{session_id: current} = state)
+       when is_binary(sid) and sid != current do
+    %{state | session_id: sid}
+  end
+
+  defp maybe_capture_session_id(_, state), do: state
+
   defp handle_control_response(msg, state) do
-    case Control.parse_control_response(msg) do
-      {:ok, request_id, response} ->
-        response = Parser.normalize_keys(response)
+    {request_id, result} =
+      case Control.parse_control_response(msg) do
+        {:ok, id, response} -> {id, {:ok, Parser.normalize_keys(response)}}
+        {:error, id, error_msg} -> {id, {:error, error_msg}}
+      end
 
-        case Map.pop(state.pending_control_requests, request_id) do
-          {nil, _} ->
-            Logger.warning("Received control response for unknown request: #{request_id}")
-            state
+    case Map.pop(state.pending_control_requests, request_id) do
+      {nil, _} ->
+        Logger.warning("Received control response for unknown request: #{request_id}")
+        state
 
-          {{:initialize, session}, remaining} ->
-            Adapter.notify_status(session, :ready)
+      {{:initialize, session}, remaining} ->
+        complete_initialize(result, session, %{state | pending_control_requests: remaining})
 
-            %{
-              state
-              | pending_control_requests: remaining,
-                server_info: parse_initialize_response(response),
-                status: :ready
-            }
-
-          {{subtype, from}, remaining} ->
-            GenServer.reply(from, {:ok, parse_control_result(subtype, response)})
-            %{state | pending_control_requests: remaining}
-        end
-
-      {:error, request_id, error_msg} ->
-        case Map.pop(state.pending_control_requests, request_id) do
-          {nil, _} ->
-            Logger.warning("Received control error for unknown request: #{request_id}")
-            state
-
-          {{:initialize, session}, remaining} ->
-            Adapter.notify_status(session, {:error, {:initialize_failed, error_msg}})
-            %{state | pending_control_requests: remaining, status: :disconnected}
-
-          {{_subtype, from}, remaining} ->
-            GenServer.reply(from, {:error, error_msg})
-            %{state | pending_control_requests: remaining}
-        end
+      {{subtype, from}, remaining} ->
+        reply = with {:ok, response} <- result, do: {:ok, parse_control_result(subtype, response)}
+        GenServer.reply(from, reply)
+        %{state | pending_control_requests: remaining}
     end
+  end
+
+  defp complete_initialize({:ok, response}, session, state) do
+    Adapter.notify_status(session, :ready)
+    %{state | server_info: parse_initialize_response(response), status: :ready}
+  end
+
+  defp complete_initialize({:error, error_msg}, session, state) do
+    Adapter.notify_status(session, {:error, {:initialize_failed, error_msg}})
+    %{state | status: :disconnected}
   end
 
   defp handle_control_cancel(%{"request_id" => cancel_id}, state) do
@@ -622,66 +626,39 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  # Delegate to callback proxy when present
-  defp handle_inbound_control_request(msg, %{callback_proxy: proxy, control_timeout: timeout} = state)
-       when is_pid(proxy) do
-    request_id = get_in(msg, ["request_id"])
-    request = get_in(msg, ["request"])
-    subtype = get_in(request, ["subtype"])
-
-    result =
-      cond do
-        subtype == "mcp_message" ->
-          proxy_call(proxy, msg, timeout)
-
-        subtype == "hook_callback" ->
-          route_hook_callback(request, state.hook_registry, proxy, msg, timeout)
-
-        subtype == "can_use_tool" ->
-          route_can_use_tool(request, state.hook_registry, proxy, msg, timeout)
-
-        true ->
-          Logger.warning("Unhandled control request with proxy: #{subtype}")
-          {:error, "Callback unavailable for: #{subtype}"}
-      end
-
-    response =
-      case result do
-        {:ok, data} -> Control.success_response(request_id, data)
-        {:error, reason} -> Control.error_response(request_id, reason)
-      end
-
-    if state.port, do: Port.command(state.port, response <> "\n")
-    state
-  end
-
   defp handle_inbound_control_request(msg, state) do
     request_id = get_in(msg, ["request_id"])
     request = get_in(msg, ["request"])
     subtype = get_in(request, ["subtype"])
 
-    result =
-      case subtype do
-        "hook_callback" ->
-          ControlHandler.handle_hook_callback(request, state.hook_registry)
+    result = dispatch_control_request(subtype, request, msg, state)
 
-        "mcp_message" ->
-          server_name = request["server_name"]
-          jsonrpc = request["message"]
-          {:ok, ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)}
+    send_control_result(request_id, result, state)
+  end
 
-        "can_use_tool" ->
-          {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry)}
+  defp dispatch_control_request("hook_callback", request, msg, state) do
+    route_hook_callback(request, state.hook_registry, msg, state)
+  end
 
-        "elicitation" ->
-          Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
-          {:error, "Not implemented: #{subtype}"}
+  defp dispatch_control_request("mcp_message", _request, msg, state) do
+    route_mcp_message(msg, state)
+  end
 
-        _ ->
-          Logger.warning("Received unhandled control request: #{subtype}")
-          {:error, "Not implemented: #{subtype}"}
-      end
+  defp dispatch_control_request("can_use_tool", request, msg, state) do
+    route_can_use_tool(request, msg, state)
+  end
 
+  defp dispatch_control_request("elicitation", request, _msg, _state) do
+    Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
+    {:error, "Not implemented: elicitation"}
+  end
+
+  defp dispatch_control_request(subtype, _request, _msg, _state) do
+    Logger.warning("Received unhandled control request: #{subtype}")
+    {:error, "Not implemented: #{subtype}"}
+  end
+
+  defp send_control_result(request_id, result, state) do
     response =
       case result do
         {:ok, data} -> Control.success_response(request_id, data)
@@ -692,20 +669,50 @@ defmodule ClaudeCode.Adapter.Port do
     state
   end
 
-  # Handle locally when callback exists in local registry, otherwise proxy
-  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, _proxy, _msg, _timeout) when cb != nil do
-    {:ok, ControlHandler.handle_can_use_tool(request, registry)}
-  end
-
-  defp route_can_use_tool(_request, _hook_registry, proxy, msg, timeout) do
+  defp route_mcp_message(msg, %{callback_proxy: proxy, control_timeout: timeout}) when is_pid(proxy) do
     proxy_call(proxy, msg, timeout)
   end
 
+  defp route_mcp_message(msg, state) do
+    request = get_in(msg, ["request"])
+    server_name = request["server_name"]
+    jsonrpc = request["message"]
+    {:ok, ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)}
+  end
+
+  # Handle locally when callback exists in local registry, otherwise proxy
+  defp route_can_use_tool(request, _msg, %{hook_registry: %HookRegistry{can_use_tool: cb} = registry} = state)
+       when cb != nil do
+    {:ok, ControlHandler.handle_can_use_tool(request, registry, session_context(state))}
+  end
+
+  defp route_can_use_tool(_request, msg, %{callback_proxy: proxy, control_timeout: timeout}) when is_pid(proxy) do
+    proxy_call(proxy, msg, timeout)
+  end
+
+  # No local callback and no proxy — ControlHandler will default to "allow"
+  defp route_can_use_tool(request, _msg, state) do
+    {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry, session_context(state))}
+  end
+
+  defp session_context(state) do
+    %{cwd: state.cwd, session_id: state.session_id}
+  end
+
   # Check local registry first (remote hooks), then fall back to proxy (local hooks)
-  defp route_hook_callback(request, hook_registry, proxy, msg, timeout) do
+  defp route_hook_callback(request, hook_registry, msg, state) do
     case HookRegistry.lookup(hook_registry, request["callback_id"]) do
-      {:ok, _} -> ControlHandler.handle_hook_callback(request, hook_registry)
-      :error -> proxy_call(proxy, msg, timeout)
+      {:ok, _} ->
+        ControlHandler.handle_hook_callback(request, hook_registry)
+
+      :error ->
+        case state do
+          %{callback_proxy: proxy, control_timeout: timeout} when is_pid(proxy) ->
+            proxy_call(proxy, msg, timeout)
+
+          _ ->
+            ControlHandler.handle_hook_callback(request, hook_registry)
+        end
     end
   end
 
