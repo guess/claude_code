@@ -638,6 +638,7 @@ defmodule ClaudeCode.Adapter.Port do
           route_hook_callback(request, state.hook_registry, proxy, msg, timeout)
 
         subtype == "can_use_tool" ->
+          request = Map.put(request, "session_id", ClaudeCode.Session.session_id(state.session))
           route_can_use_tool(request, state.hook_registry, proxy, msg, timeout)
 
         true ->
@@ -671,6 +672,7 @@ defmodule ClaudeCode.Adapter.Port do
           {:ok, ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)}
 
         "can_use_tool" ->
+          request = Map.put(request, "session_id", ClaudeCode.Session.session_id(state.session))
           {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry)}
 
         "elicitation" ->
