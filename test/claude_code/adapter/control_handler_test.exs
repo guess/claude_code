@@ -184,7 +184,7 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
     end
   end
 
-  describe "handle_can_use_tool/2" do
+  describe "handle_can_use_tool/3" do
     test "invokes callback and returns allow wire format" do
       callback = fn input, _id ->
         assert input.tool_name
@@ -197,11 +197,66 @@ defmodule ClaudeCode.Adapter.ControlHandlerTest do
         "tool_name" => "Bash",
         "input" => %{"command" => "ls"},
         "permission_suggestions" => [],
-        "blocked_path" => nil
+        "blocked_path" => nil,
+        "tool_use_id" => "toolu_123"
       }
 
       result = ControlHandler.handle_can_use_tool(request, registry)
       assert result["behavior"] == "allow"
+    end
+
+    test "enriches input with cwd and session_id from context" do
+      test_pid = self()
+
+      callback = fn input, tool_use_id ->
+        send(test_pid, {:callback, input, tool_use_id})
+        :allow
+      end
+
+      {registry, _wire} = HookRegistry.new(%{}, callback)
+
+      request = %{
+        "tool_name" => "Write",
+        "input" => %{"file_path" => "/tmp/test.txt"},
+        "permission_suggestions" => [],
+        "blocked_path" => nil,
+        "tool_use_id" => "toolu_456"
+      }
+
+      context = %{cwd: "/home/user/project", session_id: "abc-123"}
+      ControlHandler.handle_can_use_tool(request, registry, context)
+
+      assert_received {:callback, input, "toolu_456"}
+      assert input.cwd == "/home/user/project"
+      assert input.session_id == "abc-123"
+      assert input.tool_use_id == "toolu_456"
+      assert input.tool_name == "Write"
+    end
+
+    test "omits nil context values" do
+      test_pid = self()
+
+      callback = fn input, _id ->
+        send(test_pid, {:callback, input})
+        :allow
+      end
+
+      {registry, _wire} = HookRegistry.new(%{}, callback)
+
+      request = %{
+        "tool_name" => "Bash",
+        "input" => %{"command" => "ls"},
+        "permission_suggestions" => [],
+        "blocked_path" => nil,
+        "tool_use_id" => "toolu_789"
+      }
+
+      context = %{cwd: nil, session_id: nil}
+      ControlHandler.handle_can_use_tool(request, registry, context)
+
+      assert_received {:callback, input}
+      refute Map.has_key?(input, :cwd)
+      refute Map.has_key?(input, :session_id)
     end
 
     test "invokes callback and returns deny wire format" do

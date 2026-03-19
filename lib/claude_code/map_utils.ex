@@ -33,6 +33,8 @@ defmodule ClaudeCode.MapUtils do
     "notification_type" => :notification_type,
     # PermissionRequest / can_use_tool
     "permission_suggestions" => :permission_suggestions,
+    "suggestions" => :suggestions,
+    "signal" => :signal,
     "blocked_path" => :blocked_path,
     "input" => :input,
     "decision_reason" => :decision_reason,

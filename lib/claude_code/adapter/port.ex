@@ -54,6 +54,8 @@ defmodule ClaudeCode.Adapter.Port do
     :hook_registry,
     :hooks_wire,
     :callback_proxy,
+    :session_id,
+    :cwd,
     status: :provisioning,
     control_counter: 0,
     control_timeout: @default_control_timeout,
@@ -139,7 +141,8 @@ defmodule ClaudeCode.Adapter.Port do
       hook_registry: hook_registry,
       hooks_wire: hooks_wire,
       sdk_mcp_servers: sdk_mcp_servers,
-      callback_proxy: Keyword.get(opts, :callback_proxy)
+      callback_proxy: Keyword.get(opts, :callback_proxy),
+      cwd: Keyword.get(opts, :cwd) || File.cwd!()
     }
 
     Process.link(session)
@@ -551,10 +554,14 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
-  defp handle_sdk_message(_json, %{current_request: nil} = state), do: state
+  defp handle_sdk_message(json, %{current_request: nil} = state) do
+    maybe_capture_session_id(json, state)
+  end
 
   defp handle_sdk_message(json, state) do
     Adapter.notify_message(state.session, state.current_request, json)
+
+    state = maybe_capture_session_id(json, state)
 
     if json["type"] == "result" do
       %{state | current_request: nil}
@@ -562,6 +569,13 @@ defmodule ClaudeCode.Adapter.Port do
       state
     end
   end
+
+  defp maybe_capture_session_id(%{"type" => "system", "session_id" => sid}, state)
+       when is_binary(sid) do
+    %{state | session_id: sid}
+  end
+
+  defp maybe_capture_session_id(_, state), do: state
 
   defp handle_control_response(msg, state) do
     case Control.parse_control_response(msg) do
@@ -638,7 +652,8 @@ defmodule ClaudeCode.Adapter.Port do
           route_hook_callback(request, state.hook_registry, proxy, msg, timeout)
 
         subtype == "can_use_tool" ->
-          route_can_use_tool(request, state.hook_registry, proxy, msg, timeout)
+          context = session_context(state)
+          route_can_use_tool(request, state.hook_registry, context, proxy, msg, timeout)
 
         true ->
           Logger.warning("Unhandled control request with proxy: #{subtype}")
@@ -671,7 +686,8 @@ defmodule ClaudeCode.Adapter.Port do
           {:ok, ControlHandler.handle_mcp_message(server_name, jsonrpc, state.sdk_mcp_servers)}
 
         "can_use_tool" ->
-          {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry)}
+          context = session_context(state)
+          {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry, context)}
 
         "elicitation" ->
           Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
@@ -692,12 +708,16 @@ defmodule ClaudeCode.Adapter.Port do
     state
   end
 
-  # Handle locally when callback exists in local registry, otherwise proxy
-  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, _proxy, _msg, _timeout) when cb != nil do
-    {:ok, ControlHandler.handle_can_use_tool(request, registry)}
+  defp session_context(state) do
+    %{cwd: state.cwd, session_id: state.session_id}
   end
 
-  defp route_can_use_tool(_request, _hook_registry, proxy, msg, timeout) do
+  # Handle locally when callback exists in local registry, otherwise proxy
+  defp route_can_use_tool(request, %HookRegistry{can_use_tool: cb} = registry, context, _proxy, _msg, _timeout) when cb != nil do
+    {:ok, ControlHandler.handle_can_use_tool(request, registry, context)}
+  end
+
+  defp route_can_use_tool(_request, _hook_registry, _context, proxy, msg, timeout) do
     proxy_call(proxy, msg, timeout)
   end
 

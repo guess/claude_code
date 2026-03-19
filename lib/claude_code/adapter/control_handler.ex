@@ -26,21 +26,35 @@ defmodule ClaudeCode.Adapter.ControlHandler do
     %{"mcp_response" => mcp_response}
   end
 
-  @spec handle_can_use_tool(map(), HookRegistry.t()) :: map()
-  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}), do: %{"behavior" => "allow"}
+  @spec handle_can_use_tool(map(), HookRegistry.t(), map()) :: map()
+  def handle_can_use_tool(request, registry, context \\ %{})
 
-  def handle_can_use_tool(request, %HookRegistry{can_use_tool: callback}) do
+  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}, _context),
+    do: %{"behavior" => "allow"}
+
+  def handle_can_use_tool(request, %HookRegistry{can_use_tool: callback}, context) do
     input =
       request
-      |> Map.take(["tool_name", "input", "permission_suggestions", "blocked_path"])
+      |> Map.delete("subtype")
       |> ClaudeCode.MapUtils.safe_atomize_keys()
+      |> enrich_with_context(context)
 
-    result = Hook.invoke(callback, input, nil)
+    tool_use_id = input[:tool_use_id]
+    result = Hook.invoke(callback, input, tool_use_id)
 
     case result do
       {:error, reason} -> %{"behavior" => "deny", "message" => "Hook error: #{reason}"}
       value -> value |> HookOutput.coerce_permission() |> HookOutput.to_wire()
     end
+  end
+
+  # Merge adapter-level context (cwd, session_id) into the callback input.
+  # Only adds keys that have non-nil values and aren't already present
+  # (CLI-provided values take precedence).
+  defp enrich_with_context(input, context) do
+    context
+    |> Map.reject(fn {_k, v} -> is_nil(v) end)
+    |> Map.merge(input)
   end
 
   @spec handle_hook_callback(map(), HookRegistry.t()) :: {:ok, map()} | {:error, String.t()}
