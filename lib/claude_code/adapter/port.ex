@@ -691,6 +691,7 @@ defmodule ClaudeCode.Adapter.Port do
     proxy_call(proxy, msg, timeout)
   end
 
+  # No local callback and no proxy — ControlHandler will default to "allow"
   defp route_can_use_tool(request, _msg, state) do
     {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry, session_context(state))}
   end
