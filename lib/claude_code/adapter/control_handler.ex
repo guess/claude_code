@@ -29,8 +29,7 @@ defmodule ClaudeCode.Adapter.ControlHandler do
   @spec handle_can_use_tool(map(), HookRegistry.t(), map()) :: map()
   def handle_can_use_tool(request, registry, context \\ %{})
 
-  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}, _context),
-    do: %{"behavior" => "allow"}
+  def handle_can_use_tool(_request, %HookRegistry{can_use_tool: nil}, _context), do: %{"behavior" => "allow"}
 
   def handle_can_use_tool(request, %HookRegistry{can_use_tool: callback}, context) do
     input =

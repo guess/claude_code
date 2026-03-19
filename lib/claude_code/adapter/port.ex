@@ -686,8 +686,7 @@ defmodule ClaudeCode.Adapter.Port do
     {:ok, ControlHandler.handle_can_use_tool(request, registry, session_context(state))}
   end
 
-  defp route_can_use_tool(_request, msg, %{callback_proxy: proxy, control_timeout: timeout})
-       when is_pid(proxy) do
+  defp route_can_use_tool(_request, msg, %{callback_proxy: proxy, control_timeout: timeout}) when is_pid(proxy) do
     proxy_call(proxy, msg, timeout)
   end
 
