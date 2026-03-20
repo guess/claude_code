@@ -1,10 +1,9 @@
+# Git worktree discovery for session history scanning.
+#
+# Discovers all git worktree paths for a directory, enabling session listing
+# that spans worktree boundaries.
 defmodule ClaudeCode.History.Worktree do
-  @moduledoc """
-  Git worktree discovery for session history scanning.
-
-  Discovers all git worktree paths for a directory, enabling session listing
-  that spans worktree boundaries.
-  """
+  @moduledoc false
 
   @doc """
   Lists git worktree paths for the repository containing `directory`.

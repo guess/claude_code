@@ -1,28 +1,5 @@
 defmodule ClaudeCode.Hook.DebugLogger do
-  @moduledoc """
-  A diagnostic hook that logs every invocation with event name, tool name,
-  and available input keys. Returns `:ok` so it never interferes with
-  normal execution.
-
-  ## Usage
-
-  Register it for any event types you want to observe:
-
-      {:ok, session} = ClaudeCode.start_link(
-        hooks: %{
-          PreToolUse: [ClaudeCode.Hook.DebugLogger],
-          PostToolUse: [ClaudeCode.Hook.DebugLogger],
-          Stop: [ClaudeCode.Hook.DebugLogger]
-        }
-      )
-
-  For `can_use_tool`, use `ClaudeCode.Hook.DebugLogger.Permissive` which
-  returns `:allow` instead of `:ok`:
-
-      {:ok, session} = ClaudeCode.start_link(
-        can_use_tool: ClaudeCode.Hook.DebugLogger.Permissive
-      )
-  """
+  @moduledoc false
 
   @behaviour ClaudeCode.Hook
 
@@ -41,10 +18,7 @@ defmodule ClaudeCode.Hook.DebugLogger do
   end
 
   defmodule Permissive do
-    @moduledoc """
-    Like `ClaudeCode.Hook.DebugLogger` but returns `:allow` — suitable for
-    `can_use_tool` callbacks.
-    """
+    @moduledoc false
 
     @behaviour ClaudeCode.Hook
 

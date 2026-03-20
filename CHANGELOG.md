@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **MCP backend abstraction** — New `ClaudeCode.MCP.Backend` behaviour allows pluggable MCP library backends. Ships with `Backend.Anubis` (new default) and `Backend.Hermes` (legacy). Both backends are optional — only compile when their respective library is loaded. Centralized backend detection via `ClaudeCode.MCP.backend_for/1`. ([4c69cbb])
+- **MCP backend abstraction** — New ClaudeCode.MCP.Backend behaviour allows pluggable MCP library backends. Ships with `Backend.Anubis` (new default) and `Backend.Hermes` (legacy). Both backends are optional — only compile when their respective library is loaded. Centralized backend detection via `ClaudeCode.MCP.backend_for/1`. ([4c69cbb])
 - **Enhanced session history (Python SDK parity)** — New `ClaudeCode.History.list_sessions/1` returns rich `ClaudeCode.History.SessionInfo` metadata (summary, custom title, first prompt, git branch, cwd) using fast head/tail reads without full JSONL parsing. Supports worktree-aware scanning, deduplication, and `:limit`. ([bf93d7c])
 - **Chain-built message retrieval** — New `ClaudeCode.History.get_messages/2` and `ClaudeCode.Session.get_messages/2` reconstruct conversations via `parentUuid` chain walking, correctly handling branched and compacted conversations. Returns `ClaudeCode.History.SessionMessage` structs with parsed content blocks (`TextBlock`, `ToolUseBlock`, etc.). Supports `:limit` and `:offset` pagination. ([bf93d7c])
 - **`ClaudeCode.History.SessionMessage` struct** — Typed struct for history messages with `:user`/`:assistant` atom types, chain metadata (`uuid`, `session_id`), and parsed message content. ([bf93d7c])
@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **MCP tool macro rewrite** — `ClaudeCode.MCP.Server.tool/3` now generates standalone modules without Hermes dependency. Tools use `execute/2` with `(params, assigns)` instead of Hermes frames. ([4c69cbb])
 - **MCP Router decoupled from Hermes** — Router delegates all tool operations to the configured backend instead of importing Hermes modules directly. ([4c69cbb])
-- **Breaking**: Removed `ClaudeCode.History.conversation/2`, `ClaudeCode.History.conversation_from_file/1`, and `ClaudeCode.Session.conversation/2` — replaced by `get_messages/2` which properly handles branched/compacted conversations via `parentUuid` chain building. ([bf93d7c])
+- **Breaking**: Removed ClaudeCode.History.conversation/2, ClaudeCode.History.conversation_from_file/1, and ClaudeCode.Session.conversation/2 — replaced by `get_messages/2` which properly handles branched/compacted conversations via `parentUuid` chain building. ([bf93d7c])
 - **Breaking**: Removed `:callback_timeout` from `ClaudeCode.Adapter.Node` — proxy delegation for hooks and MCP now uses the unified `:control_timeout` option instead. If you were passing `:callback_timeout` in adapter config, change it to `:control_timeout` as a session option. ([6758caa])
 
 ## [0.32.2] - 2026-03-14 | CC 2.1.76
@@ -48,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`ClaudeCode.Hook.DebugLogger` module** — A diagnostic hook that logs every invocation with event name, tool name, and available input keys. Register it for any hook event to observe what the CLI sends. Includes `ClaudeCode.Hook.DebugLogger.Permissive` variant for `:can_use_tool` that returns `:allow`. ([9d75ed8])
+- **ClaudeCode.Hook.DebugLogger module** — A diagnostic hook that logs every invocation with event name, tool name, and available input keys. Register it for any hook event to observe what the CLI sends. Includes ClaudeCode.Hook.DebugLogger.Permissive variant for `:can_use_tool` that returns `:allow`. ([9d75ed8])
 
 ### Changed
 
@@ -438,7 +438,7 @@ Swappable backends for different execution environments.
 - **Session history reading** - Read and parse conversation history from session files ([ad737ea])
   - ClaudeCode.conversation/2 - Read conversation (user/assistant messages) by session ID
   - `ClaudeCode.History.list_projects/1` - List all projects with session history
-  - `ClaudeCode.History.list_sessions/2` - List all sessions for a project
+  - `ClaudeCode.History.list_sessions/1` - List all sessions for a project
   - `ClaudeCode.History.read_session/2` - Read all raw entries from a session (low-level)
 - **JSON encoding for all structs** - Implement `Jason.Encoder` and `JSON.Encoder` protocols ([a511d5c])
   - All message types: SystemMessage, AssistantMessage, UserMessage, ResultMessage, PartialAssistantMessage, CompactBoundaryMessage

@@ -1,11 +1,10 @@
+# Reads session file metadata using only head/tail reads for fast extraction.
+#
+# Matches the Python SDK's `_read_session_lite` + `_extract_first_prompt_from_head`
+# approach: reads the first and last 64KB of a session file to extract metadata
+# without parsing the full JSONL content.
 defmodule ClaudeCode.History.LiteReader do
-  @moduledoc """
-  Reads session file metadata using only head/tail reads for fast extraction.
-
-  Matches the Python SDK's `_read_session_lite` + `_extract_first_prompt_from_head`
-  approach: reads the first and last 64KB of a session file to extract metadata
-  without parsing the full JSONL content.
-  """
+  @moduledoc false
 
   alias ClaudeCode.History.SessionInfo
 

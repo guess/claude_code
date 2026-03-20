@@ -1,15 +1,15 @@
+# Builds conversation chains from JSONL transcript entries using `parentUuid` links.
+#
+# Ports the Python SDK's `_build_conversation_chain` algorithm:
+# 1. Index all entries by `uuid`
+# 2. Find leaf nodes (entries whose uuid appears in no other entry's parentUuid)
+# 3. Among leaves, prefer main chain (not sidechain/team/meta), pick highest file position
+# 4. Walk from leaf to root via `parentUuid`
+# 5. Reverse for chronological order
+# 6. Filter to visible messages (user/assistant, not meta/sidechain/team)
 defmodule ClaudeCode.History.ConversationChain do
-  @moduledoc """
-  Builds conversation chains from JSONL transcript entries using `parentUuid` links.
+  @moduledoc false
 
-  Ports the Python SDK's `_build_conversation_chain` algorithm:
-  1. Index all entries by `uuid`
-  2. Find leaf nodes (entries whose uuid appears in no other entry's parentUuid)
-  3. Among leaves, prefer main chain (not sidechain/team/meta), pick highest file position
-  4. Walk from leaf to root via `parentUuid`
-  5. Reverse for chronological order
-  6. Filter to visible messages (user/assistant, not meta/sidechain/team)
-  """
   alias ClaudeCode.History.SessionMessage
 
   # Transcript entry types that carry uuid + parentUuid chain links.

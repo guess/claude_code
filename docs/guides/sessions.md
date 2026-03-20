@@ -176,7 +176,7 @@ Session files are local to the machine that created them. To resume a session on
 - **Move the session file.** Persist `~/.claude/projects/<encoded-cwd>/<session-id>.jsonl` from the first run and restore it to the same path on the new host before calling resume. The working directory must match.
 - **Don't rely on session resume.** Capture the results you need (analysis output, decisions, file diffs) as application state and pass them into a fresh session's prompt. This is often more robust than shipping transcript files around.
 
-The SDK provides `ClaudeCode.Session.conversation/2` for reading session messages from disk. Use it to build custom session pickers, cleanup logic, or transcript viewers.
+The SDK provides `ClaudeCode.Session.get_messages/2` for reading session messages from disk. Use it to build custom session pickers, cleanup logic, or transcript viewers.
 
 ## Clearing Context
 

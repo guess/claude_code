@@ -119,6 +119,8 @@ defmodule ClaudeCode.MixProject do
         ClaudeCode.Content,
         ClaudeCode.Session,
         ClaudeCode.Hook.PermissionDecision,
+        ClaudeCode.Hook.Output,
+        ClaudeCode.History,
         Output
       ],
       extras: [
@@ -267,6 +269,11 @@ defmodule ClaudeCode.MixProject do
           Mix.Tasks.ClaudeCode.Uninstall,
           Mix.Tasks.ClaudeCode.Path
         ],
+        "Session History": [
+          ClaudeCode.History,
+          ClaudeCode.History.SessionInfo,
+          ClaudeCode.History.SessionMessage
+        ],
         Internal: [
           ClaudeCode.Adapter,
           ClaudeCode.Adapter.Port,
@@ -277,7 +284,6 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.CLI.Control.Types,
           ClaudeCode.CLI.Input,
           ClaudeCode.CLI.Parser,
-          ClaudeCode.History,
           ClaudeCode.JSONEncoder
         ]
       ]
