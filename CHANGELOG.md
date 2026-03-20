@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.33.1] - 2026-03-20 | CC 2.1.76
+
+### Changed
+
+- **Enhanced `can_use_tool` callback context** — The `:can_use_tool` hook callback now receives additional context fields: `cwd`, `session_id`, and `permission_suggestions`, enabling more informed permission decisions. ([59ea547])
+
 ## [0.33.0] - 2026-03-15 | CC 2.1.76
 
 ### Added
