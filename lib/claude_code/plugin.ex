@@ -8,8 +8,9 @@ defmodule ClaudeCode.Plugin do
   All functions resolve the CLI binary via `ClaudeCode.Adapter.Port.Resolver` and execute
   commands synchronously via the system command abstraction.
 
-  > **Note:** Remote node support is not yet implemented — these commands run on
-  > the local machine only.
+  > **Note:** Remote node support is available via the `node:` option.
+  > When `config :claude_code, adapter: {ClaudeCode.Adapter.Node, node: ...}` is set,
+  > commands automatically execute on the remote node.
 
   ## Examples
 

@@ -1,26 +1,12 @@
 defmodule ClaudeCode.PluginTest do
-  use ExUnit.Case
-
-  import Mox
+  use ClaudeCode.Case
 
   alias ClaudeCode.Plugin
   alias ClaudeCode.System.Mock
 
+  @moduletag :mock_system
+
   setup :verify_on_exit!
-
-  # Point cli_path at a real executable so the resolver's File.exists? check
-  # passes. The System.cmd mock intercepts the actual command execution.
-  @cli_path System.find_executable("true")
-
-  setup do
-    Application.put_env(:claude_code, ClaudeCode.System, Mock)
-    Application.put_env(:claude_code, :cli_path, @cli_path)
-
-    on_exit(fn ->
-      Application.delete_env(:claude_code, ClaudeCode.System)
-      Application.put_env(:claude_code, :cli_path, "/nonexistent/test/claude")
-    end)
-  end
 
   describe "struct" do
     test "has expected fields" do
@@ -105,6 +91,23 @@ defmodule ClaudeCode.PluginTest do
       end)
 
       assert {:error, "Error: something went wrong"} = Plugin.list()
+    end
+
+    test "passes node: option through to System.cmd" do
+      expect(Mock, :cmd, fn _binary, ["plugin", "list", "--json"], opts ->
+        assert Keyword.get(opts, :node) == :"test@node"
+        {"[]", 0}
+      end)
+
+      assert {:ok, []} = Plugin.list(node: :"test@node")
+    end
+
+    test "returns {:error, {:remote_error, reason}} on remote command failure" do
+      expect(Mock, :cmd, fn _binary, _args, _opts ->
+        raise "Remote command failed on test@node: :nodedown"
+      end)
+
+      assert {:error, {:remote_error, _reason}} = Plugin.list(node: :"test@node")
     end
 
     test "returns error on invalid JSON" do

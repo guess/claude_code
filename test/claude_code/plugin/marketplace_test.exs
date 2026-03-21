@@ -1,24 +1,12 @@
 defmodule ClaudeCode.Plugin.MarketplaceTest do
-  use ExUnit.Case
-
-  import Mox
+  use ClaudeCode.Case
 
   alias ClaudeCode.Plugin.Marketplace
   alias ClaudeCode.System.Mock
 
+  @moduletag :mock_system
+
   setup :verify_on_exit!
-
-  @cli_path System.find_executable("true")
-
-  setup do
-    Application.put_env(:claude_code, ClaudeCode.System, Mock)
-    Application.put_env(:claude_code, :cli_path, @cli_path)
-
-    on_exit(fn ->
-      Application.delete_env(:claude_code, ClaudeCode.System)
-      Application.put_env(:claude_code, :cli_path, "/nonexistent/test/claude")
-    end)
-  end
 
   describe "struct" do
     test "has expected fields" do
@@ -89,6 +77,15 @@ defmodule ClaudeCode.Plugin.MarketplaceTest do
       assert {:error, msg} = Marketplace.list()
       assert msg =~ "Failed to parse marketplace list JSON"
     end
+
+    test "passes node: option through to System.cmd" do
+      expect(Mock, :cmd, fn _binary, ["plugin", "marketplace", "list", "--json"], opts ->
+        assert Keyword.get(opts, :node) == :"test@node"
+        {"[]", 0}
+      end)
+
+      assert {:ok, []} = Marketplace.list(node: :"test@node")
+    end
   end
 
   describe "add/2" do
@@ -132,7 +129,7 @@ defmodule ClaudeCode.Plugin.MarketplaceTest do
     end
   end
 
-  describe "remove/1" do
+  describe "remove/2" do
     test "removes a marketplace by name" do
       expect(Mock, :cmd, fn _binary, args, _opts ->
         assert args == ["plugin", "marketplace", "remove", "my-marketplace"]
@@ -149,16 +146,25 @@ defmodule ClaudeCode.Plugin.MarketplaceTest do
 
       assert {:error, "Error: Marketplace not found"} = Marketplace.remove("nonexistent")
     end
+
+    test "passes node: through to System.cmd" do
+      expect(Mock, :cmd, fn _binary, ["plugin", "marketplace", "remove", "my-marketplace"], opts ->
+        assert Keyword.get(opts, :node) == :"test@node"
+        {"Removed", 0}
+      end)
+
+      assert {:ok, "Removed"} = Marketplace.remove("my-marketplace", node: :"test@node")
+    end
   end
 
-  describe "update/1" do
-    test "updates all marketplaces when no name given" do
+  describe "update/2" do
+    test "updates all marketplaces when nil name given" do
       expect(Mock, :cmd, fn _binary, args, _opts ->
         assert args == ["plugin", "marketplace", "update"]
         {"✔ Updated all\n", 0}
       end)
 
-      assert {:ok, _} = Marketplace.update()
+      assert {:ok, _} = Marketplace.update(nil)
     end
 
     test "updates a specific marketplace" do
@@ -168,6 +174,15 @@ defmodule ClaudeCode.Plugin.MarketplaceTest do
       end)
 
       assert {:ok, _} = Marketplace.update("my-marketplace")
+    end
+
+    test "passes node: through to System.cmd" do
+      expect(Mock, :cmd, fn _binary, ["plugin", "marketplace", "update", "my-marketplace"], opts ->
+        assert Keyword.get(opts, :node) == :"test@node"
+        {"Updated", 0}
+      end)
+
+      assert {:ok, "Updated"} = Marketplace.update("my-marketplace", node: :"test@node")
     end
   end
 end

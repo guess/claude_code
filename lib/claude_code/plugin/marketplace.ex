@@ -8,8 +8,9 @@ defmodule ClaudeCode.Plugin.Marketplace do
   All functions resolve the CLI binary via `ClaudeCode.Adapter.Port.Resolver` and execute
   commands synchronously via the system command abstraction.
 
-  > **Note:** Remote node support is not yet implemented — these commands run on
-  > the local machine only.
+  > **Note:** Remote node support is available via the `node:` option.
+  > When `config :claude_code, adapter: {ClaudeCode.Adapter.Node, node: ...}` is set,
+  > commands automatically execute on the remote node.
 
   ## Examples
 
@@ -87,26 +88,26 @@ defmodule ClaudeCode.Plugin.Marketplace do
 
       {:ok, _} = ClaudeCode.Plugin.Marketplace.remove("my-marketplace")
   """
-  @spec remove(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def remove(name) do
-    PluginCLI.run(["plugin", "marketplace", "remove", name], [], &PluginCLI.ok_trimmed/1)
+  @spec remove(String.t(), keyword()) :: {:ok, String.t()} | {:error, String.t()}
+  def remove(name, opts \\ []) do
+    PluginCLI.run(["plugin", "marketplace", "remove", name], opts, &PluginCLI.ok_trimmed/1)
   end
 
   @doc """
   Updates marketplace(s) from their source.
 
-  When called without a name, updates all marketplaces. When called with a name,
+  When called with `nil`, updates all marketplaces. When called with a name,
   updates only that marketplace.
 
   ## Examples
 
-      {:ok, _} = ClaudeCode.Plugin.Marketplace.update()
+      {:ok, _} = ClaudeCode.Plugin.Marketplace.update(nil)
       {:ok, _} = ClaudeCode.Plugin.Marketplace.update("my-marketplace")
   """
-  @spec update(String.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
-  def update(name \\ nil) do
+  @spec update(String.t() | nil, keyword()) :: {:ok, String.t()} | {:error, String.t()}
+  def update(name, opts \\ []) do
     args = ["plugin", "marketplace", "update"] ++ if(name, do: [name], else: [])
-    PluginCLI.run(args, [], &PluginCLI.ok_trimmed/1)
+    PluginCLI.run(args, opts, &PluginCLI.ok_trimmed/1)
   end
 
   # -- Private ----------------------------------------------------------------

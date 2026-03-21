@@ -1,5 +1,5 @@
 defmodule ClaudeCode.Adapter.Port.ResolverTest do
-  use ExUnit.Case, async: true
+  use ClaudeCode.Case, async: true
 
   alias ClaudeCode.Adapter.Port.Resolver
 
@@ -24,8 +24,9 @@ defmodule ClaudeCode.Adapter.Port.ResolverTest do
   end
 
   describe "find_binary/1 with :global mode" do
+    @tag :real_system
     test "returns :not_found when claude is not installed globally" do
-      original = Application.get_env(:claude_code, :cli_path)
+      original_path = Application.get_env(:claude_code, :cli_path)
 
       try do
         Application.delete_env(:claude_code, :cli_path)
@@ -40,7 +41,7 @@ defmodule ClaudeCode.Adapter.Port.ResolverTest do
             assert true
         end
       after
-        if original, do: Application.put_env(:claude_code, :cli_path, original)
+        if original_path, do: Application.put_env(:claude_code, :cli_path, original_path)
       end
     end
   end
