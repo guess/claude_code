@@ -2,7 +2,9 @@ defmodule ClaudeCode.TestTools do
   @moduledoc false
   use ClaudeCode.MCP.Server, name: "test-tools"
 
-  tool :add, "Add two numbers" do
+  tool :add do
+    description "Add two numbers"
+
     field(:x, :integer, required: true)
     field(:y, :integer, required: true)
 
@@ -11,7 +13,9 @@ defmodule ClaudeCode.TestTools do
     end
   end
 
-  tool :greet, "Greet a user" do
+  tool :greet do
+    description "Greet a user"
+
     field(:name, :string, required: true)
 
     def execute(%{name: name}) do
@@ -19,13 +23,17 @@ defmodule ClaudeCode.TestTools do
     end
   end
 
-  tool :get_time, "Get current UTC time" do
+  tool :get_time do
+    description "Get current UTC time"
+
     def execute(_params) do
       {:ok, to_string(DateTime.utc_now())}
     end
   end
 
-  tool :return_map, "Return structured data" do
+  tool :return_map do
+    description "Return structured data"
+
     field(:key, :string, required: true)
 
     def execute(%{key: key}) do
@@ -33,7 +41,9 @@ defmodule ClaudeCode.TestTools do
     end
   end
 
-  tool :failing_tool, "Always fails" do
+  tool :failing_tool do
+    description "Always fails"
+
     def execute(_params) do
       {:error, "Something went wrong"}
     end

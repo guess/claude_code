@@ -18,7 +18,9 @@ Use `ClaudeCode.MCP.Server` to define tools that run in the same BEAM process as
 defmodule MyApp.Tools do
   use ClaudeCode.MCP.Server, name: "my-tools"
 
-  tool :get_weather, "Get current temperature for a location using coordinates" do
+  tool :get_weather do
+    description "Get current temperature for a location using coordinates"
+
     field :latitude, :float, required: true
     field :longitude, :float, required: true
 
@@ -48,7 +50,9 @@ When passed to a session via `:mcp_servers`, the SDK detects in-process tool ser
 Use `field` declarations inside each `tool` block. The SDK handles conversion to JSON Schema automatically:
 
 ```elixir
-tool :search, "Search for items" do
+tool :search do
+  description "Search for items"
+
   field :query, :string, required: true
   field :limit, :integer, default: 10
   field :category, :string
@@ -78,7 +82,9 @@ In-process tools can call into your application directly -- Ecto repos, GenServe
 defmodule MyApp.Tools do
   use ClaudeCode.MCP.Server, name: "app-tools"
 
-  tool :query_user, "Look up a user by email" do
+  tool :query_user do
+    description "Look up a user by email"
+
     field :email, :string, required: true
 
     def execute(%{email: email}) do
@@ -89,7 +95,9 @@ defmodule MyApp.Tools do
     end
   end
 
-  tool :cache_stats, "Get cache statistics" do
+  tool :cache_stats do
+    description "Get cache statistics"
+
     def execute(_params) do
       stats = MyApp.Cache.stats()
       {:ok, stats}
@@ -122,7 +130,9 @@ end
 defmodule MyApp.Tools do
   use ClaudeCode.MCP.Server, name: "my-tools"
 
-  tool :my_projects, "List the current user's projects" do
+  tool :my_projects do
+    description "List the current user's projects"
+
     def execute(_params, frame) do
       scope = frame.assigns.scope
       projects = MyApp.Projects.list_projects(scope)
@@ -130,7 +140,9 @@ defmodule MyApp.Tools do
     end
   end
 
-  tool :search_docs, "Search documentation" do
+  tool :search_docs do
+    description "Search documentation"
+
     field :query, :string, required: true
 
     def execute(%{query: query}) do
@@ -205,18 +217,24 @@ When your MCP server has multiple tools, you can selectively allow them:
 defmodule MyApp.Utilities do
   use ClaudeCode.MCP.Server, name: "utilities"
 
-  tool :calculate, "Perform calculations" do
+  tool :calculate do
+    description "Perform calculations"
+
     field :expression, :string, required: true
     def execute(%{expression: expr}), do: {:ok, "#{Code.eval_string(expr) |> elem(0)}"}
   end
 
-  tool :translate, "Translate text" do
+  tool :translate do
+    description "Translate text"
+
     field :text, :string, required: true
     field :target_lang, :string, required: true
     def execute(%{text: text, target_lang: lang}), do: {:ok, "Translated #{text} to #{lang}"}
   end
 
-  tool :search_web, "Search the web" do
+  tool :search_web do
+    description "Search the web"
+
     field :query, :string, required: true
     def execute(%{query: query}), do: {:ok, "Results for: #{query}"}
   end
@@ -242,7 +260,9 @@ Handle errors gracefully to provide meaningful feedback to Claude. Return `{:err
 ### In-process tools
 
 ```elixir
-tool :fetch_data, "Fetch data from an API endpoint" do
+tool :fetch_data do
+  description "Fetch data from an API endpoint"
+
   field :endpoint, :string, required: true
 
   def execute(%{endpoint: endpoint}) do
@@ -300,7 +320,9 @@ end
 defmodule MyApp.DBTools do
   use ClaudeCode.MCP.Server, name: "database-tools"
 
-  tool :query_users, "Search users by name or email" do
+  tool :query_users do
+    description "Search users by name or email"
+
     field :search, :string, required: true
 
     def execute(%{search: search}) do
@@ -326,7 +348,9 @@ end
 defmodule MyApp.APITools do
   use ClaudeCode.MCP.Server, name: "api-gateway"
 
-  tool :api_request, "Make authenticated API requests to external services" do
+  tool :api_request do
+    description "Make authenticated API requests to external services"
+
     field :service, :string, required: true
     field :endpoint, :string, required: true
     field :method, :string, required: true
@@ -362,7 +386,9 @@ end
 defmodule MyApp.Calculator do
   use ClaudeCode.MCP.Server, name: "calculator"
 
-  tool :calculate, "Perform mathematical calculations" do
+  tool :calculate do
+    description "Perform mathematical calculations"
+
     field :expression, :string, required: true
     field :precision, :integer
 
@@ -379,7 +405,9 @@ defmodule MyApp.Calculator do
     end
   end
 
-  tool :compound_interest, "Calculate compound interest for an investment" do
+  tool :compound_interest do
+    description "Calculate compound interest for an investment"
+
     field :principal, :float, required: true
     field :rate, :float, required: true
     field :time, :float, required: true

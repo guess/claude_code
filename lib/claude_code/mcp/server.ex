@@ -10,7 +10,9 @@ defmodule ClaudeCode.MCP.Server do
       defmodule MyApp.Tools do
         use ClaudeCode.MCP.Server, name: "my-tools"
 
-        tool :add, "Add two numbers" do
+        tool :add do
+          description "Add two numbers"
+
           field :x, :integer, required: true
           field :y, :integer, required: true
 
@@ -19,7 +21,9 @@ defmodule ClaudeCode.MCP.Server do
           end
         end
 
-        tool :get_time, "Get current UTC time" do
+        tool :get_time do
+          description "Get current UTC time"
+
           def execute(_params) do
             {:ok, DateTime.utc_now() |> to_string()}
           end
@@ -95,7 +99,7 @@ defmodule ClaudeCode.MCP.Server do
     name = Keyword.fetch!(opts, :name)
 
     quote do
-      import ClaudeCode.MCP.Server, only: [tool: 3]
+      import ClaudeCode.MCP.Server, only: [tool: 2, description: 1]
 
       Module.register_attribute(__MODULE__, :_tools, accumulate: true)
       Module.put_attribute(__MODULE__, :_server_name, unquote(name))
@@ -117,17 +121,43 @@ defmodule ClaudeCode.MCP.Server do
   end
 
   @doc """
+  Sets the description for a tool. Must be used inside a `tool` block.
+
+  The description is extracted at compile time from the AST — this macro
+  exists so that `import` makes `description/1` available in tool blocks.
+
+  ## Example
+
+      tool :add do
+        description "Add two numbers"
+
+        field :x, :integer, required: true
+
+        def execute(%{x: x, y: y}) do
+          {:ok, "\#{x + y}"}
+        end
+      end
+  """
+  defmacro description(_text) do
+    # Intentionally empty — the description string is extracted from the AST
+    # by split_tool_block/1 at compile time, not via macro expansion.
+    :ok
+  end
+
+  @doc """
   Defines a tool within a `ClaudeCode.MCP.Server` module.
 
   ## Parameters
 
   - `name` - atom name for the tool (e.g., `:add`)
-  - `description` - string description of what the tool does
-  - `block` - the tool body containing optional `field` declarations and a `def execute` function
+  - `block` - the tool body containing a `description`, optional `field` declarations,
+    and a `def execute` function
 
   ## Examples
 
-      tool :add, "Add two numbers" do
+      tool :add do
+        description "Add two numbers"
+
         field :x, :integer, required: true
         field :y, :integer, required: true
 
@@ -136,23 +166,26 @@ defmodule ClaudeCode.MCP.Server do
         end
       end
   """
-  defmacro tool(name, description, do: block) do
+  defmacro tool(name, do: block) do
     module_name = name |> Atom.to_string() |> Macro.camelize() |> String.to_atom()
     tool_name_str = Atom.to_string(name)
 
-    {field_asts, execute_ast} = split_tool_block(block)
+    {description_text, field_asts, execute_ast} = split_tool_block(block)
     schema_def = build_schema(field_asts)
     {execute_wrapper, user_execute_def} = build_execute(execute_ast)
 
     quote do
       defmodule Module.concat(__MODULE__, unquote(module_name)) do
-        @moduledoc unquote(description)
+        @moduledoc unquote(description_text)
         use Anubis.Server.Component, type: :tool
 
         unquote(schema_def)
 
         @doc false
         def __tool_name__, do: unquote(tool_name_str)
+
+        @impl true
+        def description, do: unquote(description_text)
 
         unquote(user_execute_def)
 
@@ -165,24 +198,34 @@ defmodule ClaudeCode.MCP.Server do
 
   # -- Private helpers for AST manipulation --
 
-  # Splits the tool block AST into field declarations and execute def(s).
+  # Splits the tool block AST into {description_text, field_asts, execute_asts}.
+  # The description text is extracted at compile time from the `description "..."` call.
   defp split_tool_block({:__block__, _, statements}) do
-    {fields, executes} =
-      Enum.split_with(statements, fn stmt ->
-        not execute_def?(stmt)
-      end)
+    {descriptions, rest} = Enum.split_with(statements, &description_call?/1)
+    {fields, executes} = Enum.split_with(rest, &(not execute_def?(&1)))
 
-    {fields, executes}
+    description_text =
+      case descriptions do
+        [{:description, _, [text]}] when is_binary(text) -> text
+        [] -> raise ArgumentError, "tool block must include a `description`"
+        _ -> raise ArgumentError, "tool block must include exactly one `description` with a string literal"
+      end
+
+    {description_text, fields, executes}
   end
 
   # Single statement block (just a def execute, no fields)
   defp split_tool_block(single) do
-    if execute_def?(single) do
-      {[], [single]}
-    else
-      {[single], []}
+    cond do
+      execute_def?(single) -> raise ArgumentError, "tool block must include a `description`"
+      description_call?(single) -> raise ArgumentError, "tool block must include a `def execute`"
+      true -> raise ArgumentError, "tool block must include a `description` and `def execute`"
     end
   end
+
+  # Checks if an AST node is a `description "..."` call
+  defp description_call?({:description, _, [_]}), do: true
+  defp description_call?(_), do: false
 
   # Checks if an AST node is a `def execute(...)` definition
   defp execute_def?({:def, _, [{:execute, _, _} | _]}), do: true

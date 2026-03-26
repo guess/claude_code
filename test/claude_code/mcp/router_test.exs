@@ -147,7 +147,9 @@ defmodule ClaudeCode.MCP.RouterTest do
         @moduledoc false
         use Server, name: "raising"
 
-        tool :boom, "Raises an error" do
+        tool :boom do
+          description "Raises an error"
+
           def execute(_params) do
             raise "kaboom"
           end
@@ -167,7 +169,9 @@ defmodule ClaudeCode.MCP.RouterTest do
       @moduledoc false
       use Server, name: "scoped"
 
-      tool :whoami, "Returns the current user from assigns" do
+      tool :whoami do
+        description "Returns the current user from assigns"
+
         def execute(_params, frame) do
           case frame.assigns do
             %{scope: %{user: user}} -> {:ok, "Current user: #{user}"}

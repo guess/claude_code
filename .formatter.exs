@@ -3,9 +3,14 @@
   plugins: [Styler],
   inputs: ["{mix,.formatter}.exs", "{config,lib,test}/**/*.{ex,exs}"],
   subdirectories: ["test/support"],
+  locals_without_parens: [
+    description: 1,
+    tool: 2
+  ],
   export: [
     locals_without_parens: [
-      # Add any custom DSL functions here
+      description: 1,
+      tool: 2
     ]
   ]
 ]

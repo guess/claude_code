@@ -102,7 +102,9 @@ defmodule ClaudeCode.MCP.ServerTest do
       @moduledoc false
       use Server, name: "frame-test"
 
-      tool :whoami, "Returns user from frame assigns" do
+      tool :whoami do
+        description "Returns user from frame assigns"
+
         def execute(_params, frame) do
           case frame.assigns do
             %{user: user} -> {:ok, "User: #{user}"}
@@ -131,31 +133,41 @@ defmodule ClaudeCode.MCP.ServerTest do
       @moduledoc false
       use Server, name: "return-variants"
 
-      tool :ok_with_frame, "Returns ok with updated frame" do
+      tool :ok_with_frame do
+        description "Returns ok with updated frame"
+
         def execute(_params, frame) do
           {:ok, "updated", Frame.assign(frame, :touched, true)}
         end
       end
 
-      tool :error_with_frame, "Returns error with updated frame" do
+      tool :error_with_frame do
+        description "Returns error with updated frame"
+
         def execute(_params, frame) do
           {:error, "failed", Frame.assign(frame, :failed, true)}
         end
       end
 
-      tool :noreply, "Returns noreply with updated frame" do
+      tool :noreply do
+        description "Returns noreply with updated frame"
+
         def execute(_params, frame) do
           {:noreply, Frame.assign(frame, :silent, true)}
         end
       end
 
-      tool :native_reply, "Returns native Anubis response" do
+      tool :native_reply do
+        description "Returns native Anubis response"
+
         def execute(_params, frame) do
           {:reply, Response.text(Response.tool(), "native"), frame}
         end
       end
 
-      tool :native_error, "Returns native Anubis error" do
+      tool :native_error do
+        description "Returns native Anubis error"
+
         def execute(_params, frame) do
           {:error, Error.execution("native error"), frame}
         end

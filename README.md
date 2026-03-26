@@ -90,7 +90,9 @@ Define tools that run inside your BEAM VM. They have direct access to your Ecto 
 defmodule MyApp.Tools do
   use ClaudeCode.MCP.Server, name: "app-tools"
 
-  tool :query_user, "Look up a user by email" do
+  tool :query_user do
+    description "Look up a user by email"
+
     field :email, :string, required: true
 
     def execute(%{email: email}) do

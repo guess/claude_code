@@ -10,7 +10,9 @@ defmodule ClaudeCode.MCP.Backend.AnubisTest do
     @moduledoc false
     use Server, name: "anubis-test"
 
-    tool :add, "Add two numbers" do
+    tool :add do
+      description "Add two numbers"
+
       field(:x, :integer, required: true)
       field(:y, :integer, required: true)
 
@@ -19,7 +21,9 @@ defmodule ClaudeCode.MCP.Backend.AnubisTest do
       end
     end
 
-    tool :return_map, "Return structured data" do
+    tool :return_map do
+      description "Return structured data"
+
       field(:key, :string, required: true)
 
       def execute(%{key: key}) do
@@ -27,13 +31,17 @@ defmodule ClaudeCode.MCP.Backend.AnubisTest do
       end
     end
 
-    tool :failing_tool, "Always fails" do
+    tool :failing_tool do
+      description "Always fails"
+
       def execute(_params) do
         {:error, "Something went wrong"}
       end
     end
 
-    tool :raise_tool, "Raises" do
+    tool :raise_tool do
+      description "Raises"
+
       field(:should_raise, :boolean, required: true)
 
       def execute(%{should_raise: should_raise}) do
@@ -104,7 +112,9 @@ defmodule ClaudeCode.MCP.Backend.AnubisTest do
         @moduledoc false
         use Server, name: "assigns-test"
 
-        tool :whoami, "Returns user" do
+        tool :whoami do
+          description "Returns user"
+
           def execute(_params, frame) do
             case frame.assigns do
               %{user: user} -> {:ok, "User: #{user}"}

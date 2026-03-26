@@ -12,7 +12,9 @@ defmodule ClaudeCode.MCP do
       defmodule MyApp.Tools do
         use ClaudeCode.MCP.Server, name: "my-tools"
 
-        tool :add, "Add two numbers" do
+        tool :add do
+          description "Add two numbers"
+
           field :x, :integer, required: true
           field :y, :integer, required: true
           def execute(%{x: x, y: y}), do: {:ok, "\#{x + y}"}
