@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **MCP test helpers** — New `ClaudeCode.Test.mcp_list_tools/1`, `ClaudeCode.Test.mcp_call_tool/3,4`, and `ClaudeCode.Test.mcp_request/2,3` for testing MCP tool servers without JSONRPC boilerplate. ([5d920e0])
+- **`ClaudeCode.Session.execute/4`** — New optional `execute/4` callback on the Adapter behaviour for running arbitrary MFA calls through the adapter layer, enabling transparent local/remote execution. `ClaudeCode.Session.get_messages/2` and `ClaudeCode.Session.list_sessions/2` now route through the Server for node-aware operation. ([aa3b54b])
+
+### Fixed
+
+- **Shell escape safety** — `shell_escape` now quotes all non-safe characters instead of allowlisting known dangerous ones, preventing shell interpretation of `!`, `#`, `<`, `>`, `?`, `[`, `]`, `{`, `}`, `*`, `~`, tab, etc. ([0882139])
+
+### Changed
+
+- **MCP backend migrated from hermes to anubis** — Internal MCP backend replaced `hermes_mcp` with `anubis_mcp`. No breaking changes to the public API. ([967216d])
+
 ## [0.34.0] - 2026-03-26 | CC 2.1.76
 
 ### Changed
