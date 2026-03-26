@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **MCP tool DSL** — Tool descriptions moved from a positional argument into the block. This is a **breaking change**. ([44573a7])
+
+  ```ex
+  # Before
+  tool :add, "Add two numbers" do
+    ...
+  end
+
+  # After
+  tool :add do
+    description "Add two numbers"
+    ...
+  end
+  ```
+
 ## [0.35.0] - 2026-03-26 | CC 2.1.76
 
 ### Added
