@@ -9,6 +9,7 @@ defmodule ClaudeCode.MCP.Router do
   control request from the CLI for a `type: "sdk"` server.
   """
 
+  alias Anubis.MCP.Error
   alias ClaudeCode.MCP.Backend.Anubis, as: Backend
 
   @doc """
@@ -22,7 +23,7 @@ defmodule ClaudeCode.MCP.Router do
       exports `__tool_server__/0`
     * `message` - A decoded JSONRPC request map with `"method"` key
     * `assigns` - Optional map of assigns passed to tools
-      (available to tools that define `execute/2`)
+      (available to tools that define `execute/2` via `frame.assigns`)
 
   ## Supported Methods
 
@@ -64,23 +65,19 @@ defmodule ClaudeCode.MCP.Router do
           {:ok, result} ->
             jsonrpc_result(message, result)
 
-          {:error, msg} ->
-            jsonrpc_error(message, -32_601, msg)
-
-          {:validation_error, msg} ->
-            jsonrpc_error(message, -32_602, msg)
+          {:error, %Error{} = error} ->
+            Error.build_json_rpc(error, message["id"])
         end
 
       _ ->
-        jsonrpc_error(message, -32_601, "Method '#{method}' not supported")
+        Error.build_json_rpc(
+          Error.protocol(:method_not_found, %{method: method}),
+          message["id"]
+        )
     end
   end
 
   defp jsonrpc_result(%{"id" => id}, result) do
     %{"jsonrpc" => "2.0", "id" => id, "result" => result}
-  end
-
-  defp jsonrpc_error(%{"id" => id}, code, message) do
-    %{"jsonrpc" => "2.0", "id" => id, "error" => %{"code" => code, "message" => message}}
   end
 end

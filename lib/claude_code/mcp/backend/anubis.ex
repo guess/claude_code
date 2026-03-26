@@ -3,6 +3,11 @@ if Code.ensure_loaded?(Anubis.Server) do
     @moduledoc false
     @behaviour ClaudeCode.MCP.Backend
 
+    alias Anubis.MCP.Error
+    alias Anubis.Server.Component
+    alias Anubis.Server.Component.Schema
+    alias Anubis.Server.Frame
+    alias Anubis.Server.Response
     alias ClaudeCode.MCP.Server, as: MCPServer
 
     @impl true
@@ -12,7 +17,7 @@ if Code.ensure_loaded?(Anubis.Server) do
       Enum.map(tool_modules, fn module ->
         %{
           "name" => module.__tool_name__(),
-          "description" => module.__description__(),
+          "description" => Component.get_description(module),
           "inputSchema" => module.input_schema()
         }
       end)
@@ -24,14 +29,14 @@ if Code.ensure_loaded?(Anubis.Server) do
 
       case Enum.find(tool_modules, &(&1.__tool_name__() == tool_name)) do
         nil ->
-          {:error, "Tool '#{tool_name}' not found"}
+          {:error, Error.protocol(:method_not_found, %{message: "Tool '#{tool_name}' not found"})}
 
         module ->
           atom_params = ClaudeCode.MapUtils.safe_atomize_keys(params)
+          frame = Frame.new(assigns)
 
-          case validate_params(module, atom_params) do
-            :ok -> execute_tool(module, atom_params, assigns)
-            {:error, error_msg} -> {:validation_error, "Invalid params: #{error_msg}"}
+          with :ok <- validate_with_peri(module, atom_params) do
+            execute_tool(module, atom_params, frame)
           end
       end
     end
@@ -58,61 +63,31 @@ if Code.ensure_loaded?(Anubis.Server) do
       |> Enum.member?(behaviour)
     end
 
-    defp validate_params(module, params) do
-      schema = module.input_schema()
-      properties = schema["properties"] || %{}
-      required = schema["required"] || []
+    defp validate_with_peri(module, params) do
+      if function_exported?(module, :mcp_schema, 1) do
+        case module.mcp_schema(params) do
+          {:ok, _validated} ->
+            :ok
 
-      errors =
-        Enum.flat_map(required, fn field ->
-          key = String.to_existing_atom(field)
-          if Map.has_key?(params, key), do: [], else: ["#{field} is required"]
-        end) ++
-          Enum.flat_map(params, fn {key, value} ->
-            key_str = Atom.to_string(key)
-
-            case Map.get(properties, key_str) do
-              nil -> []
-              prop_schema -> validate_type(key_str, value, prop_schema)
-            end
-          end)
-
-      case errors do
-        [] -> :ok
-        errors -> {:error, Enum.join(errors, ", ")}
+          {:error, errors} ->
+            message = Schema.format_errors(errors)
+            {:error, Error.protocol(:invalid_params, %{message: message})}
+        end
+      else
+        :ok
       end
     end
 
-    defp validate_type(name, value, %{"type" => "integer"}) when not is_integer(value),
-      do: ["#{name}: expected integer, got #{inspect(value)}"]
+    defp execute_tool(module, params, frame) do
+      case module.execute(params, frame) do
+        {:reply, %Response{} = response, _frame} ->
+          {:ok, Response.to_protocol(response)}
 
-    defp validate_type(name, value, %{"type" => "string"}) when not is_binary(value),
-      do: ["#{name}: expected string, got #{inspect(value)}"]
+        {:noreply, _frame} ->
+          {:ok, %{"content" => [], "isError" => false}}
 
-    defp validate_type(name, value, %{"type" => "number"}) when not is_number(value),
-      do: ["#{name}: expected number, got #{inspect(value)}"]
-
-    defp validate_type(name, value, %{"type" => "boolean"}) when not is_boolean(value),
-      do: ["#{name}: expected boolean, got #{inspect(value)}"]
-
-    defp validate_type(_name, _value, _schema), do: []
-
-    defp execute_tool(module, params, assigns) do
-      case module.execute(params, assigns) do
-        {:ok, value} when is_binary(value) ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => value}], "isError" => false}}
-
-        {:ok, value} when is_map(value) or is_list(value) ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => Jason.encode!(value)}], "isError" => false}}
-
-        {:ok, value} ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => to_string(value)}], "isError" => false}}
-
-        {:error, message} when is_binary(message) ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => message}], "isError" => true}}
-
-        {:error, message} ->
-          {:ok, %{"content" => [%{"type" => "text", "text" => to_string(message)}], "isError" => true}}
+        {:error, %Error{} = error, _frame} ->
+          {:error, error}
       end
     rescue
       e ->

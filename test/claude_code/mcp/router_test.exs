@@ -116,7 +116,7 @@ defmodule ClaudeCode.MCP.RouterTest do
       response = Router.handle_request(ClaudeCode.TestTools, message)
 
       assert response["error"]["code"] == -32_601
-      assert response["error"]["message"] =~ "nonexistent"
+      assert response["error"]["message"] =~ "Method not found"
     end
   end
 
@@ -132,8 +132,6 @@ defmodule ClaudeCode.MCP.RouterTest do
       response = Router.handle_request(ClaudeCode.TestTools, message)
 
       assert response["error"]["code"] == -32_602
-      assert response["error"]["message"] =~ "Invalid params"
-      assert response["error"]["message"] =~ "x"
     end
 
     test "rejects missing required parameters with -32602 error" do
@@ -147,8 +145,6 @@ defmodule ClaudeCode.MCP.RouterTest do
       response = Router.handle_request(ClaudeCode.TestTools, message)
 
       assert response["error"]["code"] == -32_602
-      assert response["error"]["message"] =~ "Invalid params"
-      assert response["error"]["message"] =~ "y"
     end
 
     test "allows valid params through to execution" do
@@ -185,7 +181,7 @@ defmodule ClaudeCode.MCP.RouterTest do
       response = Router.handle_request(ClaudeCode.TestTools, message)
 
       assert response["error"]["code"] == -32_601
-      assert response["error"]["message"] =~ "unknown/method"
+      assert response["error"]["message"] =~ "Method not found"
     end
   end
 
@@ -223,8 +219,8 @@ defmodule ClaudeCode.MCP.RouterTest do
       use Server, name: "scoped"
 
       tool :whoami, "Returns the current user from assigns" do
-        def execute(_params, assigns) do
-          case assigns do
+        def execute(_params, frame) do
+          case frame.assigns do
             %{scope: %{user: user}} -> {:ok, "Current user: #{user}"}
             _ -> {:error, "No scope"}
           end

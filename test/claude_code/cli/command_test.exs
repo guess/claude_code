@@ -614,7 +614,7 @@ defmodule ClaudeCode.CLI.CommandTest do
       # SDK module
       assert decoded["mcpServers"]["calc"]["type"] == "sdk"
 
-      # Hermes module (no __tool_server__)
+      # Anubis module (no __tool_server__)
       assert decoded["mcpServers"]["other"]["command"] == "mix"
 
       # External command

@@ -437,7 +437,7 @@ defmodule ClaudeCode.CLI.Command do
   # -- Private: MCP module subprocess expansion --------------------------------
 
   defp expand_subprocess_module(module, config) do
-    # Generate stdio command config for a Hermes MCP server module
+    # Generate stdio command config for an MCP server module
     # This allows the CLI to spawn the Elixir app with the MCP server
     startup_code = "#{inspect(module)}.start_link(transport: :stdio)"
 

@@ -6,7 +6,7 @@ For specific topics, see the dedicated guides:
 - [Streaming Output](../guides/streaming-output.md) - Real-time response streaming
 - [Sessions](../guides/sessions.md) - Multi-turn conversations
 - [Phoenix](../integration/phoenix.md) - LiveView and controller integration
-- [MCP](../integration/mcp.md) - Custom tools with Hermes MCP
+- [MCP](../integration/mcp.md) - Custom in-process MCP tools
 - [Hooks](../guides/hooks.md) - Monitoring and auditing tool executions
 
 ## CLI Applications

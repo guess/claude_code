@@ -29,7 +29,7 @@ Welcome to the ClaudeCode Elixir SDK documentation.
 
 ### Tools and Extensions
 - **[MCP](guides/mcp.md)** - Model Context Protocol server integration
-- **[Custom Tools](guides/custom-tools.md)** - Building tools with Hermes MCP
+- **[Custom Tools](guides/custom-tools.md)** - Building in-process MCP tools
 - **[Subagents](guides/subagents.md)** - Custom agent definitions
 - **[Slash Commands](guides/slash-commands.md)** - Predefined prompt commands
 - **[Skills](guides/skills.md)** - Project-level skills
