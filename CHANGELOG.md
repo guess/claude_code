@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-03-26 | CC 2.1.76
+
 ### Added
 
 - **MCP test helpers** — New `ClaudeCode.Test.mcp_list_tools/1`, `ClaudeCode.Test.mcp_call_tool/3,4`, and `ClaudeCode.Test.mcp_request/2,3` for testing MCP tool servers without JSONRPC boilerplate. ([5d920e0])
