@@ -105,6 +105,11 @@ defmodule ClaudeCode.Adapter.Port do
     GenServer.call(adapter, :interrupt)
   end
 
+  @impl ClaudeCode.Adapter
+  def execute(adapter, m, f, a) do
+    GenServer.call(adapter, {:execute, m, f, a})
+  end
+
   # ============================================================================
   # Server Callbacks
   # ============================================================================
@@ -236,6 +241,10 @@ defmodule ClaudeCode.Adapter.Port do
     json = Control.interrupt_request(request_id)
     Port.command(state.port, json <> "\n")
     {:reply, :ok, %{state | control_counter: new_counter}}
+  end
+
+  def handle_call({:execute, m, f, a}, _from, state) do
+    {:reply, apply(m, f, a), state}
   end
 
   @impl GenServer

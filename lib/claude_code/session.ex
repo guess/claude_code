@@ -321,11 +321,14 @@ defmodule ClaudeCode.Session do
   # ============================================================================
 
   @doc """
-  Reads conversation messages using `parentUuid` chain building.
+  Reads conversation messages for the current session.
 
-  Accepts either a session ID string or a running session reference.
-  Returns visible user/assistant messages in chronological order,
-  properly handling branched and compacted conversations.
+  Routes through the session server so History reads execute on the
+  correct node (local for Port, remote for Node adapter). Returns
+  `{:ok, []}` if no session ID has been captured yet (no queries made).
+
+  For local-only access by session ID string, use
+  `ClaudeCode.History.get_messages/2` directly.
 
   ## Options
 
@@ -336,10 +339,6 @@ defmodule ClaudeCode.Session do
 
   ## Examples
 
-      # Get messages by session ID
-      {:ok, messages} = ClaudeCode.Session.get_messages("abc123-def456")
-
-      # From a running session
       {:ok, session} = ClaudeCode.start_link()
       ClaudeCode.Session.stream(session, "Hello!") |> Stream.run()
       {:ok, messages} = ClaudeCode.Session.get_messages(session)
@@ -349,19 +348,65 @@ defmodule ClaudeCode.Session do
 
   See `ClaudeCode.History.get_messages/2` for more details.
   """
-  @spec get_messages(session() | String.t(), keyword()) ::
+  @spec get_messages(session(), keyword()) ::
           {:ok, [ClaudeCode.History.SessionMessage.t()]} | {:error, term()}
-  def get_messages(session_or_id, opts \\ [])
-
-  def get_messages(session_id, opts) when is_binary(session_id) do
-    ClaudeCode.History.get_messages(session_id, opts)
+  def get_messages(session, opts \\ []) do
+    GenServer.call(session, {:history_call, :get_messages, opts})
   end
 
-  def get_messages(session, opts) do
-    case session_id(session) do
-      nil -> {:error, :no_session_id}
-      sid -> ClaudeCode.History.get_messages(sid, opts)
-    end
+  @doc """
+  Lists sessions with rich metadata from the adapter's node.
+
+  Automatically injects `:project_path` from the session's `:cwd` option
+  if not provided. When `:project_path` is set, returns sessions for that
+  project directory. When omitted, returns sessions across all projects.
+
+  For local-only access, use `ClaudeCode.History.list_sessions/1` directly.
+
+  ## Options
+
+  - `:project_path` - Project directory to list sessions for (default: session cwd)
+  - `:limit` - Maximum number of sessions to return
+  - `:include_worktrees` - Scan git worktrees (default: `true`)
+  - `:claude_dir` - Override `~/.claude` (for testing)
+
+  ## Examples
+
+      {:ok, sessions} = ClaudeCode.Session.list_sessions(session)
+      {:ok, recent} = ClaudeCode.Session.list_sessions(session, limit: 10)
+
+  See `ClaudeCode.History.list_sessions/1` for more details.
+  """
+  @spec list_sessions(session(), keyword()) :: {:ok, [ClaudeCode.History.SessionInfo.t()]}
+  def list_sessions(session, opts \\ []) do
+    GenServer.call(session, {:history_list, opts})
+  end
+
+  # ============================================================================
+  # Remote Execution
+  # ============================================================================
+
+  @doc """
+  Executes an arbitrary function call on the adapter's node.
+
+  Runs `apply(module, function, args)` on whatever node the adapter lives on.
+  For local adapters (Port), this is equivalent to a direct `apply`. For
+  distributed adapters (Node), this dispatches via `:rpc.call`.
+
+  ## Examples
+
+      # Read a file on the adapter's node
+      {:ok, contents} = ClaudeCode.Session.execute(session, File, :read, ["/workspace/config.json"])
+
+      # List directory on the adapter's node
+      {:ok, files} = ClaudeCode.Session.execute(session, File, :ls, ["/workspace"])
+
+      # Run a custom module function
+      result = ClaudeCode.Session.execute(session, MyApp.Sandbox, :cleanup, [workspace_id])
+  """
+  @spec execute(session(), module(), atom(), [term()]) :: term()
+  def execute(session, module, function, args) do
+    GenServer.call(session, {:adapter_call, module, function, args})
   end
 
   # ============================================================================

@@ -206,4 +206,58 @@ defmodule ClaudeCode.Adapter.NodeTest do
       NodeAdapter.stop(adapter_pid)
     end
   end
+
+  describe "execute/4" do
+    @describetag :distributed
+
+    setup do
+      args = Enum.flat_map(:code.get_path(), fn path -> [~c"-pa", to_charlist(path)] end)
+
+      {:ok, peer, node} =
+        :peer.start(%{
+          name: :"execute_test_peer_#{System.unique_integer([:positive])}",
+          args: args
+        })
+
+      on_exit(fn ->
+        try do
+          :peer.stop(peer)
+        catch
+          :exit, _ -> :ok
+        end
+      end)
+
+      {:ok, node: node, peer: peer}
+    end
+
+    test "runs MFA on remote node via GenServer.call", %{node: node} do
+      workspace = Path.join(System.tmp_dir!(), "execute_test_#{System.unique_integer([:positive])}")
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      {:ok, adapter_pid} = ClaudeCode.Adapter.Node.start_link(self(), node: node, cwd: workspace)
+      assert_receive {:adapter_status, :provisioning}, 1000
+
+      # :erlang.node/0 returns the node of the calling process — via RPC this is the remote node
+      result = ClaudeCode.Adapter.Node.execute(adapter_pid, :erlang, :node, [])
+      assert result == node
+
+      ClaudeCode.Adapter.Node.stop(adapter_pid)
+    end
+
+    test "exits when remote node disconnects", %{node: node, peer: peer} do
+      workspace =
+        Path.join(System.tmp_dir!(), "execute_rpc_fail_#{System.unique_integer([:positive])}")
+
+      on_exit(fn -> File.rm_rf!(workspace) end)
+
+      {:ok, adapter_pid} = ClaudeCode.Adapter.Node.start_link(self(), node: node, cwd: workspace)
+      assert_receive {:adapter_status, :provisioning}, 1000
+
+      # Stop the peer to simulate node disconnect
+      :peer.stop(peer)
+      Process.sleep(100)
+
+      assert catch_exit(ClaudeCode.Adapter.Node.execute(adapter_pid, :erlang, :node, []))
+    end
+  end
 end
