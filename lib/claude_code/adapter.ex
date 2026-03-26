@@ -37,7 +37,7 @@ defmodule ClaudeCode.Adapter do
         model: "opus"
       )
 
-  The default adapter is `ClaudeCode.Adapter.Port`.
+  The default adapter is the built-in Port adapter (local CLI subprocess).
   """
 
   @type adapter_config :: keyword()

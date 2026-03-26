@@ -5,7 +5,7 @@ defmodule ClaudeCode.Plugin do
   Provides functions to install, uninstall, enable, disable, update, list,
   and validate plugins from configured marketplaces.
 
-  All functions resolve the CLI binary via `ClaudeCode.Adapter.Port.Resolver` and execute
+  All functions resolve the CLI binary via the internal Adapter.Port.Resolver and execute
   commands synchronously via the system command abstraction.
 
   > **Note:** Remote node support is not yet implemented — these commands run on

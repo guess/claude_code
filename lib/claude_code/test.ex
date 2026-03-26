@@ -208,7 +208,7 @@ defmodule ClaudeCode.Test do
   @doc """
   Returns a list of messages from the registered stub.
 
-  Called by `ClaudeCode.Adapter.Test` to retrieve stub messages.
+  Called by the internal test adapter to retrieve stub messages.
   The optional `callers` argument allows passing the caller chain from
   a different process (used by the test adapter).
   """
@@ -462,6 +462,83 @@ defmodule ClaudeCode.Test do
   @spec system(keyword()) :: SystemMessage.Init.t()
   def system(opts \\ []) do
     Factory.system_message(opts)
+  end
+
+  # ============================================================================
+  # MCP Testing
+  # ============================================================================
+
+  @doc """
+  Lists all tools registered on an MCP tool server module.
+
+  Returns the list of tool definitions from a `ClaudeCode.MCP.Server` module,
+  useful for asserting that tools are correctly registered.
+
+  ## Examples
+
+      tools = ClaudeCode.Test.mcp_list_tools(MyApp.Tools)
+      assert [%{"name" => "get_weather", "inputSchema" => %{}} | _] = tools
+  """
+  @spec mcp_list_tools(module()) :: [map()]
+  def mcp_list_tools(server_module) do
+    message = %{"jsonrpc" => "2.0", "id" => 1, "method" => "tools/list"}
+    %{"result" => %{"tools" => tools}} = ClaudeCode.MCP.Router.handle_request(server_module, message)
+    tools
+  end
+
+  @doc """
+  Calls a tool on an MCP tool server module by name and returns the result.
+
+  Builds the JSONRPC message internally so tests only need to provide
+  the tool name and arguments.
+
+  ## Parameters
+
+    * `server_module` - A module that uses `ClaudeCode.MCP.Server`
+    * `tool_name` - The name of the tool to call
+    * `arguments` - A map of arguments to pass to the tool (string keys)
+    * `opts` - Optional keyword list:
+      * `:assigns` - Map of assigns passed to the tool via `frame.assigns`
+
+  ## Examples
+
+      result = ClaudeCode.Test.mcp_call_tool(MyApp.Tools, "get_weather", %{"latitude" => 37.7, "longitude" => -122.4})
+      assert %{"content" => [%{"type" => "text", "text" => text}]} = result
+      assert text =~ "Temperature"
+
+      # With assigns
+      result = ClaudeCode.Test.mcp_call_tool(MyApp.Tools, "get_db_record", %{"id" => "123"}, assigns: %{repo: MyApp.Repo})
+  """
+  @spec mcp_call_tool(module(), String.t(), map(), keyword()) :: map()
+  def mcp_call_tool(server_module, tool_name, arguments, opts \\ []) do
+    assigns = Keyword.get(opts, :assigns, %{})
+
+    message = %{
+      "jsonrpc" => "2.0",
+      "id" => 1,
+      "method" => "tools/call",
+      "params" => %{"name" => tool_name, "arguments" => arguments}
+    }
+
+    %{"result" => result} = ClaudeCode.MCP.Router.handle_request(server_module, message, assigns)
+    result
+  end
+
+  @doc """
+  Sends a raw JSONRPC request to an MCP tool server module.
+
+  This is the escape hatch for testing MCP protocol details like
+  initialization or notifications that aren't covered by the focused helpers.
+
+  ## Examples
+
+      message = %{"jsonrpc" => "2.0", "id" => 1, "method" => "initialize", "params" => %{}}
+      response = ClaudeCode.Test.mcp_request(MyApp.Tools, message)
+      assert %{"result" => %{"protocolVersion" => "2024-11-05"}} = response
+  """
+  @spec mcp_request(module(), map(), map()) :: map()
+  def mcp_request(server_module, message, assigns \\ %{}) do
+    ClaudeCode.MCP.Router.handle_request(server_module, message, assigns)
   end
 
   # ============================================================================

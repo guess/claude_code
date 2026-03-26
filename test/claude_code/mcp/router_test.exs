@@ -1,13 +1,12 @@
 defmodule ClaudeCode.MCP.RouterTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.MCP.Router
   alias ClaudeCode.MCP.Server
+  alias ClaudeCode.Test, as: T
 
   describe "handle_request/2 - initialize" do
     test "returns protocol version and server info" do
-      message = %{"jsonrpc" => "2.0", "id" => 1, "method" => "initialize", "params" => %{}}
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      response = T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "id" => 1, "method" => "initialize", "params" => %{}})
 
       assert response["jsonrpc"] == "2.0"
       assert response["id"] == 1
@@ -20,36 +19,31 @@ defmodule ClaudeCode.MCP.RouterTest do
 
   describe "handle_request/2 - notifications" do
     test "returns empty result for notifications/initialized" do
-      message = %{"jsonrpc" => "2.0", "method" => "notifications/initialized"}
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      response = T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "method" => "notifications/initialized"})
 
       assert response["result"] == %{}
       refute Map.has_key?(response, "id")
     end
 
     test "returns empty result for notifications/cancelled" do
-      message = %{"jsonrpc" => "2.0", "method" => "notifications/cancelled"}
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      response = T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "method" => "notifications/cancelled"})
 
       assert response["result"] == %{}
       refute Map.has_key?(response, "id")
     end
 
     test "returns empty result for any notification type" do
-      message = %{"jsonrpc" => "2.0", "method" => "notifications/progress"}
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      response = T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "method" => "notifications/progress"})
 
       assert response["result"] == %{}
       refute Map.has_key?(response, "id")
     end
   end
 
-  describe "handle_request/2 - tools/list" do
+  describe "mcp_list_tools/1" do
     test "returns all registered tools with schemas" do
-      message = %{"jsonrpc" => "2.0", "id" => 3, "method" => "tools/list"}
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      tools = T.mcp_list_tools(ClaudeCode.TestTools)
 
-      tools = response["result"]["tools"]
       assert length(tools) == 5
 
       add_tool = Enum.find(tools, &(&1["name"] == "add"))
@@ -59,126 +53,84 @@ defmodule ClaudeCode.MCP.RouterTest do
     end
   end
 
-  describe "handle_request/2 - tools/call" do
+  describe "mcp_call_tool/3" do
     test "dispatches to the correct tool and returns result" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 4,
-        "method" => "tools/call",
-        "params" => %{"name" => "add", "arguments" => %{"x" => 5, "y" => 3}}
-      }
+      result = T.mcp_call_tool(ClaudeCode.TestTools, "add", %{"x" => 5, "y" => 3})
 
-      response = Router.handle_request(ClaudeCode.TestTools, message)
-
-      assert response["result"]["content"] == [%{"type" => "text", "text" => "8"}]
-      assert response["result"]["isError"] == false
+      assert result["content"] == [%{"type" => "text", "text" => "8"}]
+      assert result["isError"] == false
     end
 
     test "returns JSON content for map results" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 5,
-        "method" => "tools/call",
-        "params" => %{"name" => "return_map", "arguments" => %{"key" => "hello"}}
-      }
+      result = T.mcp_call_tool(ClaudeCode.TestTools, "return_map", %{"key" => "hello"})
 
-      response = Router.handle_request(ClaudeCode.TestTools, message)
-
-      [%{"type" => "text", "text" => json}] = response["result"]["content"]
+      [%{"type" => "text", "text" => json}] = result["content"]
       decoded = Jason.decode!(json)
       assert decoded["key"] == "hello"
       assert decoded["value"] == "data"
     end
 
     test "returns error content for failing tools" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 6,
-        "method" => "tools/call",
-        "params" => %{"name" => "failing_tool", "arguments" => %{}}
-      }
+      result = T.mcp_call_tool(ClaudeCode.TestTools, "failing_tool", %{})
 
-      response = Router.handle_request(ClaudeCode.TestTools, message)
-
-      assert response["result"]["isError"] == true
-      [%{"type" => "text", "text" => error_text}] = response["result"]["content"]
+      assert result["isError"] == true
+      [%{"type" => "text", "text" => error_text}] = result["content"]
       assert error_text =~ "Something went wrong"
     end
 
     test "returns error for unknown tool name" do
-      message = %{
+      response = T.mcp_request(ClaudeCode.TestTools, %{
         "jsonrpc" => "2.0",
-        "id" => 7,
+        "id" => 1,
         "method" => "tools/call",
         "params" => %{"name" => "nonexistent", "arguments" => %{}}
-      }
-
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      })
 
       assert response["error"]["code"] == -32_601
       assert response["error"]["message"] =~ "Method not found"
     end
   end
 
-  describe "handle_request/2 - tools/call parameter validation" do
+  describe "mcp_call_tool/3 - parameter validation" do
     test "rejects invalid parameter types with -32602 error" do
-      message = %{
+      response = T.mcp_request(ClaudeCode.TestTools, %{
         "jsonrpc" => "2.0",
-        "id" => 20,
+        "id" => 1,
         "method" => "tools/call",
         "params" => %{"name" => "add", "arguments" => %{"x" => "not_a_number", "y" => 3}}
-      }
-
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      })
 
       assert response["error"]["code"] == -32_602
     end
 
     test "rejects missing required parameters with -32602 error" do
-      message = %{
+      response = T.mcp_request(ClaudeCode.TestTools, %{
         "jsonrpc" => "2.0",
-        "id" => 21,
+        "id" => 1,
         "method" => "tools/call",
         "params" => %{"name" => "add", "arguments" => %{"x" => 5}}
-      }
-
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      })
 
       assert response["error"]["code"] == -32_602
     end
 
     test "allows valid params through to execution" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 22,
-        "method" => "tools/call",
-        "params" => %{"name" => "add", "arguments" => %{"x" => 5, "y" => 3}}
-      }
+      result = T.mcp_call_tool(ClaudeCode.TestTools, "add", %{"x" => 5, "y" => 3})
 
-      response = Router.handle_request(ClaudeCode.TestTools, message)
-
-      assert response["result"]["content"] == [%{"type" => "text", "text" => "8"}]
+      assert result["content"] == [%{"type" => "text", "text" => "8"}]
     end
 
     test "allows tools with no schema (empty params)" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 23,
-        "method" => "tools/call",
-        "params" => %{"name" => "get_time", "arguments" => %{}}
-      }
+      result = T.mcp_call_tool(ClaudeCode.TestTools, "get_time", %{})
 
-      response = Router.handle_request(ClaudeCode.TestTools, message)
-
-      assert response["result"]["content"]
-      refute response["result"]["isError"]
+      assert result["content"]
+      refute result["isError"]
     end
   end
 
   describe "handle_request/2 - unknown method" do
     test "returns method not found error" do
-      message = %{"jsonrpc" => "2.0", "id" => 8, "method" => "unknown/method"}
-      response = Router.handle_request(ClaudeCode.TestTools, message)
+      response = T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "id" => 1, "method" => "unknown/method"})
 
       assert response["error"]["code"] == -32_601
       assert response["error"]["message"] =~ "Method not found"
@@ -198,22 +150,15 @@ defmodule ClaudeCode.MCP.RouterTest do
         end
       end
 
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 9,
-        "method" => "tools/call",
-        "params" => %{"name" => "boom", "arguments" => %{}}
-      }
+      result = T.mcp_call_tool(RaisingTools, "boom", %{})
 
-      response = Router.handle_request(RaisingTools, message)
-
-      assert response["result"]["isError"] == true
-      [%{"type" => "text", "text" => error_text}] = response["result"]["content"]
+      assert result["isError"] == true
+      [%{"type" => "text", "text" => error_text}] = result["content"]
       assert error_text =~ "kaboom"
     end
   end
 
-  describe "handle_request/3 - assigns" do
+  describe "mcp_call_tool/4 - assigns" do
     defmodule ScopedTools do
       @moduledoc false
       use Server, name: "scoped"
@@ -229,32 +174,17 @@ defmodule ClaudeCode.MCP.RouterTest do
     end
 
     test "passes assigns through to the frame" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 10,
-        "method" => "tools/call",
-        "params" => %{"name" => "whoami", "arguments" => %{}}
-      }
+      result = T.mcp_call_tool(ScopedTools, "whoami", %{}, assigns: %{scope: %{user: "alice"}})
 
-      assigns = %{scope: %{user: "alice"}}
-      response = Router.handle_request(ScopedTools, message, assigns)
-
-      assert response["result"]["isError"] == false
-      assert response["result"]["content"] == [%{"type" => "text", "text" => "Current user: alice"}]
+      assert result["isError"] == false
+      assert result["content"] == [%{"type" => "text", "text" => "Current user: alice"}]
     end
 
     test "defaults to empty assigns when not provided" do
-      message = %{
-        "jsonrpc" => "2.0",
-        "id" => 11,
-        "method" => "tools/call",
-        "params" => %{"name" => "whoami", "arguments" => %{}}
-      }
+      result = T.mcp_call_tool(ScopedTools, "whoami", %{})
 
-      response = Router.handle_request(ScopedTools, message)
-
-      assert response["result"]["isError"] == true
-      [%{"type" => "text", "text" => text}] = response["result"]["content"]
+      assert result["isError"] == true
+      [%{"type" => "text", "text" => text}] = result["content"]
       assert text =~ "No scope"
     end
   end

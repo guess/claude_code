@@ -112,6 +112,21 @@ defmodule ClaudeCode.MixProject do
       source_ref: "v#{@version}",
       source_url: @source_url,
       before_closing_body_tag: &before_closing_body_tag/1,
+      filter_modules: fn module, _metadata ->
+        module not in [
+          ClaudeCode.Adapter.Port,
+          ClaudeCode.Adapter.Port.Installer,
+          ClaudeCode.Adapter.Port.Resolver,
+          ClaudeCode.Adapter.Test,
+          ClaudeCode.CLI.Command,
+          ClaudeCode.CLI.Control,
+          ClaudeCode.CLI.Input,
+          ClaudeCode.CLI.Parser,
+          ClaudeCode.JSONEncoder,
+          ClaudeCode.MCP.Router,
+          ClaudeCode.Test.Factory
+        ]
+      end,
       nest_modules_by_prefix: [
         ClaudeCode.Message.SystemMessage,
         ClaudeCode.Message,
@@ -258,12 +273,9 @@ defmodule ClaudeCode.MixProject do
         ],
         "MCP Integration": ~r/ClaudeCode\.MCP/,
         Testing: [
-          ClaudeCode.Test,
-          ClaudeCode.Test.Factory
+          ClaudeCode.Test
         ],
         Installation: [
-          ClaudeCode.Adapter.Port.Installer,
-          ClaudeCode.Adapter.Port.Resolver,
           Mix.Tasks.ClaudeCode.Install,
           Mix.Tasks.ClaudeCode.Uninstall,
           Mix.Tasks.ClaudeCode.Path
@@ -273,17 +285,9 @@ defmodule ClaudeCode.MixProject do
           ClaudeCode.History.SessionInfo,
           ClaudeCode.History.SessionMessage
         ],
-        Internal: [
+        Adapters: [
           ClaudeCode.Adapter,
-          ClaudeCode.Adapter.Port,
-          ClaudeCode.Adapter.Node,
-          ClaudeCode.Adapter.Test,
-          ClaudeCode.CLI.Command,
-          ClaudeCode.CLI.Control,
-          ClaudeCode.CLI.Control.Types,
-          ClaudeCode.CLI.Input,
-          ClaudeCode.CLI.Parser,
-          ClaudeCode.JSONEncoder
+          ClaudeCode.Adapter.Node
         ]
       ]
     ]

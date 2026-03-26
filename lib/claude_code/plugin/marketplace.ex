@@ -5,7 +5,7 @@ defmodule ClaudeCode.Plugin.Marketplace do
   Marketplaces are catalogs that define where plugins can be discovered and installed from.
   They can reference plugins from GitHub repos, git URLs, npm packages, and more.
 
-  All functions resolve the CLI binary via `ClaudeCode.Adapter.Port.Resolver` and execute
+  All functions resolve the CLI binary via the internal Adapter.Port.Resolver and execute
   commands synchronously via the system command abstraction.
 
   > **Note:** Remote node support is not yet implemented — these commands run on

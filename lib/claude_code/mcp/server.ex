@@ -2,7 +2,7 @@ defmodule ClaudeCode.MCP.Server do
   @moduledoc """
   Macro for generating MCP tool modules from a concise DSL.
 
-  Each `tool` block becomes a nested module that uses `Anubis.Server.Component`
+  Each `tool` block becomes a nested module that uses Anubis.Server.Component
   with schema definitions, execute wrappers, and metadata.
 
   ## Usage
@@ -30,7 +30,7 @@ defmodule ClaudeCode.MCP.Server do
 
   Each `tool` block generates a nested module (e.g., `MyApp.Tools.Add`) that:
 
-  - Uses `Anubis.Server.Component` with `type: :tool`
+  - Uses Anubis.Server.Component with `type: :tool`
   - Has a `schema` block for Peri-validated input parameters
   - Has `input_schema/0` returning JSON Schema (via Anubis Component)
   - Has `execute/2` accepting `(params, frame)` and delegating to the user's execute function

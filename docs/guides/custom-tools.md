@@ -281,22 +281,13 @@ end
 
 ```elixir
 test "tools/list returns all registered tools" do
-  message = %{"jsonrpc" => "2.0", "id" => 1, "method" => "tools/list"}
-  response = ClaudeCode.MCP.Router.handle_request(MyApp.Tools, message)
-
-  assert %{"result" => %{"tools" => tools}} = response
+  tools = ClaudeCode.Test.mcp_list_tools(MyApp.Tools)
   assert Enum.any?(tools, &(&1["name"] == "get_weather"))
 end
 
 test "tools/call dispatches to the right tool" do
-  message = %{
-    "jsonrpc" => "2.0", "id" => 2,
-    "method" => "tools/call",
-    "params" => %{"name" => "get_weather", "arguments" => %{"latitude" => 37.7, "longitude" => -122.4}}
-  }
-
-  response = ClaudeCode.MCP.Router.handle_request(MyApp.Tools, message)
-  assert %{"result" => %{"content" => [%{"type" => "text", "text" => text}]}} = response
+  result = ClaudeCode.Test.mcp_call_tool(MyApp.Tools, "get_weather", %{"latitude" => 37.7, "longitude" => -122.4})
+  assert %{"content" => [%{"type" => "text", "text" => text}]} = result
   assert text =~ "Temperature"
 end
 ```
