@@ -6,7 +6,8 @@ defmodule ClaudeCode.MCP.RouterTest do
 
   describe "handle_request/2 - initialize" do
     test "returns protocol version and server info" do
-      response = T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "id" => 1, "method" => "initialize", "params" => %{}})
+      response =
+        T.mcp_request(ClaudeCode.TestTools, %{"jsonrpc" => "2.0", "id" => 1, "method" => "initialize", "params" => %{}})
 
       assert response["jsonrpc"] == "2.0"
       assert response["id"] == 1
@@ -79,12 +80,13 @@ defmodule ClaudeCode.MCP.RouterTest do
     end
 
     test "returns error for unknown tool name" do
-      response = T.mcp_request(ClaudeCode.TestTools, %{
-        "jsonrpc" => "2.0",
-        "id" => 1,
-        "method" => "tools/call",
-        "params" => %{"name" => "nonexistent", "arguments" => %{}}
-      })
+      response =
+        T.mcp_request(ClaudeCode.TestTools, %{
+          "jsonrpc" => "2.0",
+          "id" => 1,
+          "method" => "tools/call",
+          "params" => %{"name" => "nonexistent", "arguments" => %{}}
+        })
 
       assert response["error"]["code"] == -32_601
       assert response["error"]["message"] =~ "Method not found"
@@ -93,23 +95,25 @@ defmodule ClaudeCode.MCP.RouterTest do
 
   describe "mcp_call_tool/3 - parameter validation" do
     test "rejects invalid parameter types with -32602 error" do
-      response = T.mcp_request(ClaudeCode.TestTools, %{
-        "jsonrpc" => "2.0",
-        "id" => 1,
-        "method" => "tools/call",
-        "params" => %{"name" => "add", "arguments" => %{"x" => "not_a_number", "y" => 3}}
-      })
+      response =
+        T.mcp_request(ClaudeCode.TestTools, %{
+          "jsonrpc" => "2.0",
+          "id" => 1,
+          "method" => "tools/call",
+          "params" => %{"name" => "add", "arguments" => %{"x" => "not_a_number", "y" => 3}}
+        })
 
       assert response["error"]["code"] == -32_602
     end
 
     test "rejects missing required parameters with -32602 error" do
-      response = T.mcp_request(ClaudeCode.TestTools, %{
-        "jsonrpc" => "2.0",
-        "id" => 1,
-        "method" => "tools/call",
-        "params" => %{"name" => "add", "arguments" => %{"x" => 5}}
-      })
+      response =
+        T.mcp_request(ClaudeCode.TestTools, %{
+          "jsonrpc" => "2.0",
+          "id" => 1,
+          "method" => "tools/call",
+          "params" => %{"name" => "add", "arguments" => %{"x" => 5}}
+        })
 
       assert response["error"]["code"] == -32_602
     end

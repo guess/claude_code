@@ -80,6 +80,7 @@ defmodule ClaudeCode.Test do
   alias ClaudeCode.Content.TextBlock
   alias ClaudeCode.Content.ToolResultBlock
   alias ClaudeCode.Content.ToolUseBlock
+  alias ClaudeCode.MCP.Router
   alias ClaudeCode.Message.AssistantMessage
   alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Message.SystemMessage
@@ -482,7 +483,7 @@ defmodule ClaudeCode.Test do
   @spec mcp_list_tools(module()) :: [map()]
   def mcp_list_tools(server_module) do
     message = %{"jsonrpc" => "2.0", "id" => 1, "method" => "tools/list"}
-    %{"result" => %{"tools" => tools}} = ClaudeCode.MCP.Router.handle_request(server_module, message)
+    %{"result" => %{"tools" => tools}} = Router.handle_request(server_module, message)
     tools
   end
 
@@ -520,7 +521,7 @@ defmodule ClaudeCode.Test do
       "params" => %{"name" => tool_name, "arguments" => arguments}
     }
 
-    %{"result" => result} = ClaudeCode.MCP.Router.handle_request(server_module, message, assigns)
+    %{"result" => result} = Router.handle_request(server_module, message, assigns)
     result
   end
 
@@ -538,7 +539,7 @@ defmodule ClaudeCode.Test do
   """
   @spec mcp_request(module(), map(), map()) :: map()
   def mcp_request(server_module, message, assigns \\ %{}) do
-    ClaudeCode.MCP.Router.handle_request(server_module, message, assigns)
+    Router.handle_request(server_module, message, assigns)
   end
 
   # ============================================================================
