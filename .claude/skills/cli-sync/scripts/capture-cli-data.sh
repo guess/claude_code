@@ -185,6 +185,7 @@ DOCS_DIR="$OUTPUT_DIR/docs"
 mkdir -p "$DOCS_DIR"
 
 DOC_URLS=(
+    "https://code.claude.com/docs/en/changelog.md"
     "https://code.claude.com/docs/en/cli-reference.md"
     "https://code.claude.com/docs/en/hooks.md"
     "https://code.claude.com/docs/en/plugins-reference.md"

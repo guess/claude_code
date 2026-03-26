@@ -16,7 +16,25 @@ The Claude CLI evolves independently of this SDK. This skill dispatches five par
 
 ## Workflow
 
-### Step 1: Refresh Captured Data
+### Step 1: Check the Changelog
+
+Before doing anything else, fetch and review the CLI changelog to understand what has changed since the last sync:
+
+```bash
+# Fetch the changelog
+curl -sL "https://code.claude.com/docs/en/changelog.md" > .claude/skills/cli-sync/captured/docs/changelog.md
+```
+
+Read the fetched changelog and identify:
+- New CLI features, options, or flags added
+- Message type or content block changes
+- Control protocol changes
+- Breaking changes or deprecations
+- SDK-relevant behavioral changes
+
+This gives you a high-level roadmap of what to look for in the detailed sync analysis that follows. Note the specific changes that are relevant to the SDK so you can prioritize them in the subsequent steps.
+
+### Step 2: Refresh Captured Data
 
 Run the capture script via Bash to fetch the latest CLI version, help output, and SDK type definitions:
 
@@ -26,7 +44,7 @@ Run the capture script via Bash to fetch the latest CLI version, help output, an
 
 This fetches `claude --version`, `claude --help`, TypeScript/Python SDK types from npm/GitHub, Anthropic API types, and official documentation (CLI reference, hooks, plugins reference, TS SDK docs, Python SDK docs). Verify the script completes without errors before proceeding.
 
-### Step 2: Dispatch Parallel Agents
+### Step 3: Dispatch Parallel Agents
 
 Read the corresponding `references/check-*.md` file for each agent's full instructions, then dispatch all five in parallel.
 
@@ -40,7 +58,7 @@ Read the corresponding `references/check-*.md` file for each agent's full instru
 
 Each agent produces a structured report with coverage tables and summary counts.
 
-### Step 3: Summarize Findings
+### Step 4: Summarize Findings
 
 Collect all five agent reports into a unified summary:
 
@@ -52,7 +70,7 @@ Collect all five agent reports into a unified summary:
 
 Recommend next steps for any gaps found.
 
-### Step 4: Implement Changes
+### Step 5: Implement Changes
 
 For each change identified, consult the appropriate reference file for patterns:
 
@@ -67,14 +85,14 @@ When adding new message or content types, also add a factory function in `lib/cl
 
 When adding new options, prefer Elixir-native syntax: atoms for enumerations, tagged tuples for variants with data, preprocessing in `command.ex` over direct mapping.
 
-### Step 5: Update Reference Files
+### Step 6: Update Reference Files
 
 After implementing changes, update the data reference files to reflect the new state:
 
 - **`references/type-mapping.md`** -- Add new rows to the appropriate table (message types, content blocks, control protocol, or other structs)
 - **`references/cli-flags.md`** -- Add new flag mappings to the implemented flags table
 
-### Step 6: Verify
+### Step 7: Verify
 
 ```bash
 mix quality    # Compile, format, credo, dialyzer
@@ -107,12 +125,9 @@ The capture script also fetches these into `captured/`:
 
 The capture script fetches these official docs into `captured/docs/`:
 
+- **Changelog**: `changelog.md` — CLI release notes, new features, breaking changes
 - **CLI Reference**: `cli-reference.md` — CLI flags, options, environment variables
 - **Hooks**: `hooks.md` — Hook events, lifecycle, configuration
 - **Plugins Reference**: `plugins-reference.md` — Plugin structure, manifest, components
 - **TypeScript SDK**: `typescript.md` — TS Agent SDK options, types, usage
 - **Python SDK**: `python.md` — Python Agent SDK options, types, usage
-
-### Additional Resources
-
-- **CLI Changelog**: https://docs.anthropic.com/en/docs/claude-code/changelog
