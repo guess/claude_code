@@ -31,7 +31,9 @@ defmodule ClaudeCode.Adapter.Port do
 
   require Logger
 
-  @shell_special_chars ["'", " ", "\"", "$", "`", "\\", "\n", ";", "&", "|", "(", ")"]
+  # Regex matching strings composed entirely of shell-safe characters.
+  # Anything not matching gets single-quoted for safety.
+  @shell_safe_pattern ~r/\A[a-zA-Z0-9_\-\.\/\:\=\+\@\%\,]+\z/
   @default_control_timeout 60_000
 
   # Keys consumed by Adapter.Port that should never reach CLI command building.
@@ -505,10 +507,8 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   @doc false
-  # Semicolons must be escaped because they are command separators in shell.
-  # This is critical for system env vars like LS_COLORS that contain semicolons.
   def shell_escape(str) when is_binary(str) do
-    if str == "" or String.contains?(str, @shell_special_chars) do
+    if str == "" or not Regex.match?(@shell_safe_pattern, str) do
       "'" <> String.replace(str, "'", "'\\''") <> "'"
     else
       str

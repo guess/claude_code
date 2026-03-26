@@ -81,6 +81,48 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert Port.shell_escape(123) == "123"
       assert Port.shell_escape(:atom) == "atom"
     end
+
+    test "escapes strings with angle brackets (redirection)" do
+      assert Port.shell_escape("value<with>redirects") == "'value<with>redirects'"
+    end
+
+    test "escapes strings with square brackets (glob pattern)" do
+      assert Port.shell_escape("value[0]") == "'value[0]'"
+    end
+
+    test "escapes strings with curly braces (brace expansion)" do
+      assert Port.shell_escape("value{a,b}") == "'value{a,b}'"
+    end
+
+    test "escapes strings with exclamation mark (history expansion)" do
+      assert Port.shell_escape("password!123") == "'password!123'"
+    end
+
+    test "escapes strings with hash (comment)" do
+      assert Port.shell_escape("value#comment") == "'value#comment'"
+    end
+
+    test "escapes strings with question mark (glob)" do
+      assert Port.shell_escape("file?.txt") == "'file?.txt'"
+    end
+
+    test "escapes strings with asterisk (glob)" do
+      assert Port.shell_escape("file*.txt") == "'file*.txt'"
+    end
+
+    test "escapes strings with tilde (home expansion)" do
+      assert Port.shell_escape("~user") == "'~user'"
+    end
+
+    test "escapes strings with tab character" do
+      assert Port.shell_escape("val\there") == "'val\there'"
+    end
+
+    test "escapes complex strings with multiple previously-unescaped characters" do
+      # Simulates a generated password/token with many special chars
+      input = "Nk>m]R62!bu#s45#G3?6R<vw]"
+      assert Port.shell_escape(input) == "'Nk>m]R62!bu#s45#G3?6R<vw]'"
+    end
   end
 
   # ============================================================================
