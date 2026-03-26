@@ -293,9 +293,9 @@ defmodule ClaudeCode.Options do
         }
       )
 
-  ### Using Hermes MCP Modules
+  ### Using Anubis MCP Modules
 
-  You can use Elixir-based MCP servers built with Hermes MCP:
+  You can use Elixir-based MCP servers built with Anubis MCP as subprocess servers:
 
       {:ok, session} = ClaudeCode.start_link(
         strict_mcp_config: true,
@@ -565,7 +565,7 @@ defmodule ClaudeCode.Options do
     mcp_servers: [
       type: {:map, :string, {:or, [:atom, :map]}},
       doc:
-        ~s(MCP server configurations. Values can be a Hermes module atom or a config map. Example: %{"my-tools" => MyApp.MCPServer, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}})
+        ~s(MCP server configurations. Values can be an Anubis server module atom or a config map. Example: %{"my-tools" => MyApp.MCPServer, "playwright" => %{command: "npx", args: ["@playwright/mcp@latest"]}})
     ],
     strict_mcp_config: [
       type: :boolean,

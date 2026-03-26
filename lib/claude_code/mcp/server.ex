@@ -2,8 +2,8 @@ defmodule ClaudeCode.MCP.Server do
   @moduledoc """
   Macro for generating MCP tool modules from a concise DSL.
 
-  Each `tool` block becomes a nested module with schema definitions,
-  execute wrappers, and metadata.
+  Each `tool` block becomes a nested module that uses `Anubis.Server.Component`
+  with schema definitions, execute wrappers, and metadata.
 
   ## Usage
 
@@ -30,20 +30,37 @@ defmodule ClaudeCode.MCP.Server do
 
   Each `tool` block generates a nested module (e.g., `MyApp.Tools.Add`) that:
 
-  - Has `__tool_name__/0` returning the string tool name
-  - Has `__description__/0` returning the tool description
-  - Has `input_schema/0` returning JSON Schema for the tool's parameters
-  - Has `execute/2` accepting `(params, assigns)` and returning `{:ok, value}` or `{:error, message}`
+  - Uses `Anubis.Server.Component` with `type: :tool`
+  - Has a `schema` block for Peri-validated input parameters
+  - Has `input_schema/0` returning JSON Schema (via Anubis Component)
+  - Has `execute/2` accepting `(params, frame)` and delegating to the user's execute function
 
-  ## Return Value Wrapping
+  ## Execute Function
+
+  The user's `execute` function can be arity 1 or 2:
+
+  - `def execute(params)` — receives validated params only
+  - `def execute(params, frame)` — receives params and `Anubis.Server.Frame.t()`
+    (access assigns via `frame.assigns`)
+
+  ## Return Values
 
   The user's `execute` function can return:
 
-  - `{:ok, binary}` - returned as text content
-  - `{:ok, map | list}` - returned as JSON content
-  - `{:ok, other}` - converted to string and returned as text content
-  - `{:error, message}` - returned as error content
+  - `{:ok, binary}` — returned as text content
+  - `{:ok, map | list}` — returned as JSON content
+  - `{:ok, other}` — converted to string and returned as text content
+  - `{:error, message}` — returned as error content
+  - `{:ok, value, frame}` — text/JSON content with updated frame
+  - `{:error, message, frame}` — error content with updated frame
+  - `{:noreply, frame}` — no content, updated frame
+  - `{:reply, %Response{}, frame}` — native Anubis response (passthrough)
+  - `{:error, %Error{}, frame}` — native Anubis error (passthrough)
   """
+
+  alias Anubis.MCP.Error
+  alias Anubis.Server.Frame
+  alias Anubis.Server.Response
 
   @doc """
   Checks if the given module was defined using `ClaudeCode.MCP.Server`.
@@ -54,6 +71,25 @@ defmodule ClaudeCode.MCP.Server do
   def sdk_server?(module) when is_atom(module) do
     Code.ensure_loaded?(module) and function_exported?(module, :__tool_server__, 0)
   end
+
+  @doc """
+  Converts a value to an `Anubis.Server.Response` for a tool result.
+
+  Used by generated execute wrappers to translate SDK return values.
+  """
+  @spec to_response(term()) :: Response.t()
+  def to_response(v) when is_binary(v), do: Response.text(Response.tool(), v)
+  def to_response(v) when is_map(v) or is_list(v), do: Response.json(Response.tool(), v)
+  def to_response(v), do: Response.text(Response.tool(), to_string(v))
+
+  @doc """
+  Converts an error message to an `Anubis.Server.Response` with `isError: true`.
+
+  Used by generated execute wrappers to translate SDK error return values.
+  """
+  @spec to_error_response(term()) :: Response.t()
+  def to_error_response(msg) when is_binary(msg), do: Response.error(Response.tool(), msg)
+  def to_error_response(msg), do: Response.error(Response.tool(), to_string(msg))
 
   defmacro __using__(opts) do
     name = Keyword.fetch!(opts, :name)
@@ -105,22 +141,18 @@ defmodule ClaudeCode.MCP.Server do
     tool_name_str = Atom.to_string(name)
 
     {field_asts, execute_ast} = split_tool_block(block)
-    schema_def = build_input_schema(field_asts)
+    schema_def = build_schema(field_asts)
     {execute_wrapper, user_execute_def} = build_execute(execute_ast)
 
     quote do
       defmodule Module.concat(__MODULE__, unquote(module_name)) do
-        @moduledoc false
+        @moduledoc unquote(description)
+        use Anubis.Server.Component, type: :tool
 
-        import ClaudeCode.MCP.Server, only: [field: 2, field: 3]
+        unquote(schema_def)
 
         @doc false
         def __tool_name__, do: unquote(tool_name_str)
-
-        @doc false
-        def __description__, do: unquote(description)
-
-        unquote(schema_def)
 
         unquote(user_execute_def)
 
@@ -128,13 +160,6 @@ defmodule ClaudeCode.MCP.Server do
       end
 
       @_tools Module.concat(__MODULE__, unquote(module_name))
-    end
-  end
-
-  @doc false
-  defmacro field(name, type, opts \\ []) do
-    quote do
-      @_fields {unquote(name), unquote(type), unquote(opts)}
     end
   end
 
@@ -163,63 +188,46 @@ defmodule ClaudeCode.MCP.Server do
   defp execute_def?({:def, _, [{:execute, _, _} | _]}), do: true
   defp execute_def?(_), do: false
 
-  # Builds the input_schema/0 function from field declarations
-  defp build_input_schema([]) do
-    quote do
-      Module.register_attribute(__MODULE__, :_fields, accumulate: true)
-
-      @doc false
-      def input_schema do
-        %{"type" => "object", "properties" => %{}, "required" => []}
-      end
-    end
-  end
-
-  defp build_input_schema(field_asts) do
-    quote do
-      Module.register_attribute(__MODULE__, :_fields, accumulate: true)
-
-      unquote_splicing(field_asts)
-
-      @before_compile {ClaudeCode.MCP.Server, :__before_compile_schema__}
-    end
-  end
-
-  @doc false
-  defmacro __before_compile_schema__(env) do
-    fields = env.module |> Module.get_attribute(:_fields) |> Enum.reverse()
-
-    properties =
-      for {name, type, _opts} <- fields, into: %{} do
-        {Atom.to_string(name), type_to_json_schema(type)}
-      end
-
-    required =
-      for {name, _type, opts} <- fields,
-          Keyword.get(opts, :required, false),
-          do: Atom.to_string(name)
-
+  # Builds the schema block from field declarations.
+  # When there are fields, emits a `schema do ... end` block using Anubis Component's macros.
+  # When there are no fields, defines __mcp_raw_schema__/0 directly for input_schema/0.
+  defp build_schema([]) do
     quote do
       @doc false
-      def input_schema do
-        %{
-          "type" => "object",
-          "properties" => unquote(Macro.escape(properties)),
-          "required" => unquote(required)
-        }
+      def __mcp_raw_schema__, do: %{}
+    end
+  end
+
+  defp build_schema(field_asts) do
+    quote do
+      schema do
+        (unquote_splicing(field_asts))
       end
     end
   end
 
-  @doc false
-  def type_to_json_schema(:string), do: %{"type" => "string"}
-  def type_to_json_schema(:integer), do: %{"type" => "integer"}
-  def type_to_json_schema(:float), do: %{"type" => "number"}
-  def type_to_json_schema(:number), do: %{"type" => "number"}
-  def type_to_json_schema(:boolean), do: %{"type" => "boolean"}
-  def type_to_json_schema(:map), do: %{"type" => "object"}
-  def type_to_json_schema(:list), do: %{"type" => "array"}
-  def type_to_json_schema(other), do: %{"type" => to_string(other)}
+  @doc """
+  Translates a user's execute return value into a native Anubis response tuple.
+
+  This is called by the generated `execute/2` wrapper in each tool module.
+  """
+  @spec wrap_result(term(), Frame.t()) ::
+          {:reply, Response.t(), Frame.t()}
+          | {:noreply, Frame.t()}
+          | {:error, Error.t(), Frame.t()}
+  def wrap_result(result, frame) do
+    case result do
+      # Native Anubis passthrough (matched first — no guards needed below)
+      {:reply, %Response{} = resp, updated_frame} -> {:reply, resp, updated_frame}
+      {:error, %Error{} = error, updated_frame} -> {:error, error, updated_frame}
+      {:noreply, updated_frame} -> {:noreply, updated_frame}
+      # SDK returns
+      {:ok, v} -> {:reply, to_response(v), frame}
+      {:ok, v, updated_frame} -> {:reply, to_response(v), updated_frame}
+      {:error, msg} -> {:reply, to_error_response(msg), frame}
+      {:error, msg, updated_frame} -> {:reply, to_error_response(msg), updated_frame}
+    end
+  end
 
   # Builds the execute/2 wrapper and the renamed user execute function.
   # Detects whether user's execute is arity 1 or 2.
@@ -233,23 +241,21 @@ defmodule ClaudeCode.MCP.Server do
     # Detect arity from the first clause
     arity = detect_execute_arity(execute_defs)
 
-    wrapper =
+    call_ast =
       case arity do
-        1 ->
-          quote do
-            @doc false
-            def execute(params, _assigns) do
-              __user_execute__(params)
-            end
-          end
+        1 -> quote(do: __user_execute__(params))
+        _2 -> quote(do: __user_execute__(params, frame))
+      end
 
-        _2 ->
-          quote do
-            @doc false
-            def execute(params, assigns) do
-              __user_execute__(params, assigns)
-            end
-          end
+    wrapper =
+      quote do
+        @impl true
+        def execute(params, frame) do
+          unquote(__MODULE__).wrap_result(unquote(call_ast), frame)
+        rescue
+          e ->
+            {:reply, unquote(__MODULE__).to_error_response("Tool error: #{Exception.message(e)}"), frame}
+        end
       end
 
     combined_user_defs =

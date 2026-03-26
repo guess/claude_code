@@ -43,7 +43,6 @@ defmodule ClaudeCode.MCP do
     cond do
       Server.sdk_server?(module) -> :sdk
       backend_compatible?(Backend.Anubis, module) -> {:subprocess, Backend.Anubis}
-      backend_compatible?(Backend.Hermes, module) -> {:subprocess, Backend.Hermes}
       true -> :unknown
     end
   end

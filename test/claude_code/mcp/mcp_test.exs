@@ -19,17 +19,6 @@ defmodule ClaudeCode.MCPTest do
       assert MCP.backend_for(FakeAnubisServer) == {:subprocess, ClaudeCode.MCP.Backend.Anubis}
     end
 
-    test "returns {:subprocess, Backend.Hermes} for Hermes subprocess modules" do
-      defmodule FakeHermesServer do
-        @moduledoc false
-        @behaviour Hermes.Server
-
-        def start_link(_opts), do: {:ok, self()}
-      end
-
-      assert MCP.backend_for(FakeHermesServer) == {:subprocess, ClaudeCode.MCP.Backend.Hermes}
-    end
-
     test "returns :unknown for unrecognized modules" do
       assert MCP.backend_for(String) == :unknown
     end

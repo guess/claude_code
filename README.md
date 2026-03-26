@@ -324,7 +324,7 @@ ClaudeCode.Session.rewind_files(session, checkpoint_id)
 
 ### MCP Integration
 
-Connect to any MCP server – stdio, HTTP, SSE, in-process, or Hermes modules. Mix all transport types in a single session:
+Connect to any MCP server – stdio, HTTP, SSE, or in-process. Mix all transport types in a single session:
 
 ```elixir
 {:ok, session} = ClaudeCode.start_link(

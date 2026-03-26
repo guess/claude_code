@@ -390,6 +390,6 @@ On Windows, subagents with very long prompts may fail due to command line length
 
 - [Claude Code subagents](https://code.claude.com/docs/en/sub-agents) - comprehensive subagent documentation including filesystem-based definitions
 - [SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview) - getting started with the Claude Agent SDK
-- [Custom Tools](custom-tools.md) - Build tools with Hermes MCP
+- [Custom Tools](custom-tools.md) - Build in-process MCP tools
 - [Modifying System Prompts](modifying-system-prompts.md) - Customize agent behavior
 - [Permissions](permissions.md) - Control tool access per agent
