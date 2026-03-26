@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-03-26 | CC 2.1.76
+
+### Changed
+
+- **`anubis_mcp` upgraded to 1.0 and made a required dependency** — `anubis_mcp` has been bumped from `~> 0.17` (optional) to `~> 1.0` (required). Users who depend on MCP functionality no longer need to explicitly add `anubis_mcp` to their deps. ([47a9afd])
+
 ## [0.33.1] - 2026-03-20 | CC 2.1.76
 
 ### Changed
