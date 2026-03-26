@@ -113,7 +113,17 @@ defmodule ClaudeCode.Adapter do
   """
   @callback interrupt(adapter :: pid()) :: :ok | {:error, term()}
 
-  @optional_callbacks [send_control_request: 3, get_server_info: 1, interrupt: 1]
+  @doc """
+  Executes an arbitrary `{Module, function, args}` on the adapter's node.
+
+  Local adapters call `apply(m, f, a)` directly. Distributed adapters
+  dispatch via `:rpc.call/4`. This lets Session run filesystem operations
+  (History, Plugin, etc.) on the correct node without per-function wiring.
+  """
+  @callback execute(adapter :: pid(), module(), atom(), [term()]) ::
+              term() | {:error, {:rpc_failed, term()}}
+
+  @optional_callbacks [send_control_request: 3, get_server_info: 1, interrupt: 1, execute: 4]
 
   # ============================================================================
   # Notification Helpers

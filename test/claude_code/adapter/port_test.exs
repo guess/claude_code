@@ -1,12 +1,11 @@
 defmodule ClaudeCode.Adapter.PortTest do
   use ExUnit.Case, async: true
 
-  alias ClaudeCode.Adapter.Port
-
   # ============================================================================
   # shell_escape/1 Tests
   # ============================================================================
 
+  alias ClaudeCode.Adapter.Port
   alias ClaudeCode.Hook.PermissionDecision.Allow
 
   describe "shell_escape/1" do
@@ -216,7 +215,7 @@ defmodule ClaudeCode.Adapter.PortTest do
       callbacks = ClaudeCode.Adapter.behaviour_info(:callbacks)
 
       Enum.each(callbacks, fn {fun, arity} ->
-        assert function_exported?(ClaudeCode.Adapter.Port, fun, arity),
+        assert function_exported?(Port, fun, arity),
                "Missing callback: #{fun}/#{arity}"
       end)
     end
@@ -224,11 +223,11 @@ defmodule ClaudeCode.Adapter.PortTest do
 
   describe "control adapter callbacks" do
     test "Adapter.Port exports send_control_request/3" do
-      assert function_exported?(ClaudeCode.Adapter.Port, :send_control_request, 3)
+      assert function_exported?(Port, :send_control_request, 3)
     end
 
     test "Adapter.Port exports get_server_info/1" do
-      assert function_exported?(ClaudeCode.Adapter.Port, :get_server_info, 1)
+      assert function_exported?(Port, :get_server_info, 1)
     end
   end
 
@@ -700,7 +699,7 @@ defmodule ClaudeCode.Adapter.PortTest do
 
   describe "interrupt" do
     test "Adapter.Port exports interrupt/1" do
-      assert function_exported?(ClaudeCode.Adapter.Port, :interrupt, 1)
+      assert function_exported?(Port, :interrupt, 1)
     end
 
     test "interrupt sends control message and returns :ok" do
@@ -1700,6 +1699,35 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert_receive {:hook_called, hook_input, tool_use_id}, 2000
       assert hook_input == %{hook_event_name: "PreToolUse", tool_name: "Read"}
       assert tool_use_id == "tool_456"
+
+      GenServer.stop(adapter)
+    end
+  end
+
+  describe "execute/4" do
+    test "runs MFA via GenServer call to adapter" do
+      {:ok, context} =
+        MockCLI.setup_with_script("""
+        #!/bin/bash
+        while IFS= read -r line; do
+          if echo "$line" | grep -q '"type":"control_request"'; then
+            REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+            echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+          fi
+        done
+        exit 0
+        """)
+
+      session = self()
+
+      {:ok, adapter} =
+        Port.start_link(session, api_key: "test-key", cli_path: context[:mock_script])
+
+      assert_receive {:adapter_status, :provisioning}, 1000
+      assert_receive {:adapter_status, :ready}, 5000
+
+      assert Port.execute(adapter, String, :upcase, ["hello"]) == "HELLO"
+      assert {:error, :enoent} = Port.execute(adapter, File, :read, ["/nonexistent/path"])
 
       GenServer.stop(adapter)
     end

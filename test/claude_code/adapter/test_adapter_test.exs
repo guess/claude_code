@@ -14,4 +14,11 @@ defmodule ClaudeCode.Adapter.TestAdapterTest do
              "Missing callback: #{fun}/#{arity}"
     end)
   end
+
+  describe "execute/4" do
+    test "runs MFA locally and returns the result" do
+      result = Test.execute(self(), String, :upcase, ["hello"])
+      assert result == "HELLO"
+    end
+  end
 end

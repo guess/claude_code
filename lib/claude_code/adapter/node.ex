@@ -131,6 +131,9 @@ defmodule ClaudeCode.Adapter.Node do
   @impl ClaudeCode.Adapter
   defdelegate get_server_info(adapter), to: ClaudeCode.Adapter.Port
 
+  @impl ClaudeCode.Adapter
+  defdelegate execute(adapter, m, f, a), to: ClaudeCode.Adapter.Port
+
   # ---------------------------------------------------------------------------
   # Private Helpers
   # ---------------------------------------------------------------------------

@@ -1037,4 +1037,83 @@ defmodule ClaudeCode.SessionTest do
       GenServer.stop(session)
     end
   end
+
+  describe "get_messages/2" do
+    @adapter {ClaudeCode.Test, ClaudeCode}
+
+    test "routes through server and returns messages" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [
+          ClaudeCode.Test.text("ok"),
+          ClaudeCode.Test.result("ok", session_id: "get-messages-test-id")
+        ]
+      end)
+
+      {:ok, session} = ClaudeCode.Session.start_link(adapter: @adapter)
+      on_exit(fn -> if Process.alive?(session), do: ClaudeCode.stop(session) end)
+
+      # Before any query — no session_id, returns {:ok, []}
+      assert {:ok, []} = ClaudeCode.Session.get_messages(session)
+
+      # Make a query to capture session_id
+      session |> ClaudeCode.stream("hi") |> Stream.run()
+
+      # After query — session_id set, routes through server
+      assert {:ok, []} = ClaudeCode.Session.get_messages(session)
+    end
+  end
+
+  describe "execute/4" do
+    @adapter {ClaudeCode.Test, ClaudeCode}
+
+    test "executes MFA on adapter's node and returns result" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [ClaudeCode.Test.text("ok"), ClaudeCode.Test.result("ok")]
+      end)
+
+      {:ok, session} = ClaudeCode.Session.start_link(adapter: @adapter)
+      on_exit(fn -> if Process.alive?(session), do: ClaudeCode.stop(session) end)
+
+      assert "HELLO" = ClaudeCode.Session.execute(session, String, :upcase, ["hello"])
+    end
+
+    test "returns error tuples unchanged" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [ClaudeCode.Test.text("ok"), ClaudeCode.Test.result("ok")]
+      end)
+
+      {:ok, session} = ClaudeCode.Session.start_link(adapter: @adapter)
+      on_exit(fn -> if Process.alive?(session), do: ClaudeCode.stop(session) end)
+
+      assert {:error, :enoent} = ClaudeCode.Session.execute(session, File, :read, ["/nonexistent"])
+    end
+  end
+
+  describe "list_sessions/2" do
+    @adapter {ClaudeCode.Test, ClaudeCode}
+
+    test "returns sessions list" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [ClaudeCode.Test.text("ok"), ClaudeCode.Test.result("ok")]
+      end)
+
+      {:ok, session} = ClaudeCode.Session.start_link(adapter: @adapter)
+      on_exit(fn -> if Process.alive?(session), do: ClaudeCode.stop(session) end)
+
+      assert {:ok, sessions} = ClaudeCode.Session.list_sessions(session)
+      assert is_list(sessions)
+    end
+
+    test "accepts options" do
+      ClaudeCode.Test.stub(ClaudeCode, fn _query, _opts ->
+        [ClaudeCode.Test.text("ok"), ClaudeCode.Test.result("ok")]
+      end)
+
+      {:ok, session} = ClaudeCode.Session.start_link(adapter: @adapter)
+      on_exit(fn -> if Process.alive?(session), do: ClaudeCode.stop(session) end)
+
+      assert {:ok, sessions} = ClaudeCode.Session.list_sessions(session, limit: 5)
+      assert is_list(sessions)
+    end
+  end
 end

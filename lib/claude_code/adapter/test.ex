@@ -37,6 +37,9 @@ defmodule ClaudeCode.Adapter.Test do
     GenServer.stop(adapter, :normal)
   end
 
+  @impl ClaudeCode.Adapter
+  def execute(_adapter, m, f, a), do: apply(m, f, a)
+
   # ============================================================================
   # Server Callbacks
   # ============================================================================

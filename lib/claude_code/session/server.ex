@@ -185,6 +185,31 @@ defmodule ClaudeCode.Session.Server do
     end
   end
 
+  def handle_call({:adapter_call, m, f, a}, _from, state) do
+    result = adapter_execute(m, f, a, state)
+    {:reply, result, state}
+  end
+
+  def handle_call({:history_call, function, opts}, _from, state) do
+    result =
+      case state.session_id do
+        nil ->
+          {:ok, []}
+
+        sid ->
+          opts = inject_history_defaults(opts, state)
+          adapter_execute(ClaudeCode.History, function, [sid, opts], state)
+      end
+
+    {:reply, result, state}
+  end
+
+  def handle_call({:history_list, opts}, _from, state) do
+    opts = inject_history_defaults(opts, state)
+    result = adapter_execute(ClaudeCode.History, :list_sessions, [opts], state)
+    {:reply, result, state}
+  end
+
   @impl true
   def handle_cast({:stream_cleanup, request_ref}, state) do
     new_requests = Map.delete(state.requests, request_ref)
@@ -469,5 +494,22 @@ defmodule ClaudeCode.Session.Server do
 
   defp supports_control?(adapter_module) do
     function_exported?(adapter_module, :send_control_request, 3)
+  end
+
+  # ============================================================================
+  # Private Functions - Adapter Execute
+  # ============================================================================
+
+  defp adapter_execute(m, f, a, state) do
+    if function_exported?(state.adapter_module, :execute, 4) do
+      state.adapter_module.execute(state.adapter_pid, m, f, a)
+    else
+      apply(m, f, a)
+    end
+  end
+
+  defp inject_history_defaults(opts, state) do
+    cwd = Keyword.get(state.session_options, :cwd)
+    if cwd, do: Keyword.put_new(opts, :project_path, cwd), else: opts
   end
 end
