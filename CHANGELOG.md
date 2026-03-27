@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 
 - **Port spawning refactored to direct `spawn_executable`** — `ClaudeCode.Adapter.Port` now spawns the CLI binary directly via Erlang's native `:spawn_executable` with `:args`, `:env`, and `:cd` port options, replacing the previous `/bin/sh -c` approach that required hand-rolled shell escaping. This eliminates `ClaudeCode.Adapter.Port.shell_escape/1`, `build_shell_command/4`, and the `@shell_safe_pattern` module attribute entirely. Environment variables, arguments, and paths with special characters (e.g. `!`, `#`, `<`, `>`, `[`, `]`) are now handled natively by the Erlang runtime without shell interpretation.
+- **System environment variables filtered before passing to CLI** — `ClaudeCode.Adapter.Port.build_env/2` now filters `System.get_env()` to only include variables the CLI recognizes (by prefix: `ANTHROPIC_`, `CLAUDE_CODE_`, `CLAUDE_`, `VERTEX_REGION_`, `LC_`; by explicit allowlist for non-namespaced CLI vars; and system essentials like `PATH`, `HOME`, `SHELL`). Previously, the entire host environment was forwarded, which could leak sensitive values such as SSH keys or database credentials. User-provided `:env` option values bypass the filter and are always passed through.
 
 ### Fixed
 
