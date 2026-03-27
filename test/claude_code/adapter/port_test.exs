@@ -1,126 +1,26 @@
 defmodule ClaudeCode.Adapter.PortTest do
   use ExUnit.Case, async: true
 
-  # ============================================================================
-  # shell_escape/1 Tests
-  # ============================================================================
-
   alias ClaudeCode.Adapter.Port
   alias ClaudeCode.Hook.PermissionDecision.Allow
 
-  describe "shell_escape/1" do
-    test "returns simple strings unchanged" do
-      assert Port.shell_escape("hello") == "hello"
-      assert Port.shell_escape("foo123") == "foo123"
-      assert Port.shell_escape("path/to/file") == "path/to/file"
+  # ============================================================================
+  # Environment Variables with Special Characters Tests
+  # ============================================================================
+
+  describe "environment variables with special characters" do
+    test "build_env preserves special characters in values" do
+      # Special chars that previously needed shell escaping are now passed through
+      # since we use Port's native :env option instead of sh -c
+      opts = [env: %{"TEST_VAR" => "value<with>special!chars#here"}]
+      env = Port.build_env(opts, nil)
+      assert env["TEST_VAR"] == "value<with>special!chars#here"
     end
 
-    test "escapes empty strings" do
-      assert Port.shell_escape("") == "''"
-    end
-
-    test "escapes strings with spaces" do
-      assert Port.shell_escape("hello world") == "'hello world'"
-      assert Port.shell_escape("path with spaces") == "'path with spaces'"
-    end
-
-    test "escapes strings with single quotes" do
-      assert Port.shell_escape("it's") == "'it'\\''s'"
-      assert Port.shell_escape("don't") == "'don'\\''t'"
-    end
-
-    test "escapes strings with double quotes" do
-      assert Port.shell_escape("say \"hello\"") == "'say \"hello\"'"
-    end
-
-    test "escapes strings with dollar signs" do
-      assert Port.shell_escape("$HOME") == "'$HOME'"
-      assert Port.shell_escape("cost: $100") == "'cost: $100'"
-    end
-
-    test "escapes strings with backticks" do
-      assert Port.shell_escape("`command`") == "'`command`'"
-    end
-
-    test "escapes strings with backslashes" do
-      assert Port.shell_escape("path\\to\\file") == "'path\\to\\file'"
-    end
-
-    test "escapes strings with newlines" do
-      assert Port.shell_escape("line1\nline2") == "'line1\nline2'"
-    end
-
-    test "escapes strings with multiple special characters" do
-      assert Port.shell_escape("it's $100") == "'it'\\''s $100'"
-      assert Port.shell_escape("say \"hi\" to '$USER'") == "'say \"hi\" to '\\''$USER'\\'''"
-    end
-
-    test "escapes strings with semicolons (command separator)" do
-      # Critical for env vars like LS_COLORS which contain semicolons
-      assert Port.shell_escape("rs=0:di=01;34") == "'rs=0:di=01;34'"
-      assert Port.shell_escape("cmd1;cmd2") == "'cmd1;cmd2'"
-    end
-
-    test "escapes strings with ampersands (background/and operator)" do
-      assert Port.shell_escape("cmd1&cmd2") == "'cmd1&cmd2'"
-      assert Port.shell_escape("cmd1 && cmd2") == "'cmd1 && cmd2'"
-    end
-
-    test "escapes strings with pipes (command chaining)" do
-      assert Port.shell_escape("cmd1|cmd2") == "'cmd1|cmd2'"
-      assert Port.shell_escape("cmd1 | cmd2") == "'cmd1 | cmd2'"
-    end
-
-    test "escapes strings with parentheses (subshell)" do
-      assert Port.shell_escape("(cmd)") == "'(cmd)'"
-      assert Port.shell_escape("$(cmd)") == "'$(cmd)'"
-    end
-
-    test "converts non-strings to strings" do
-      assert Port.shell_escape(123) == "123"
-      assert Port.shell_escape(:atom) == "atom"
-    end
-
-    test "escapes strings with angle brackets (redirection)" do
-      assert Port.shell_escape("value<with>redirects") == "'value<with>redirects'"
-    end
-
-    test "escapes strings with square brackets (glob pattern)" do
-      assert Port.shell_escape("value[0]") == "'value[0]'"
-    end
-
-    test "escapes strings with curly braces (brace expansion)" do
-      assert Port.shell_escape("value{a,b}") == "'value{a,b}'"
-    end
-
-    test "escapes strings with exclamation mark (history expansion)" do
-      assert Port.shell_escape("password!123") == "'password!123'"
-    end
-
-    test "escapes strings with hash (comment)" do
-      assert Port.shell_escape("value#comment") == "'value#comment'"
-    end
-
-    test "escapes strings with question mark (glob)" do
-      assert Port.shell_escape("file?.txt") == "'file?.txt'"
-    end
-
-    test "escapes strings with asterisk (glob)" do
-      assert Port.shell_escape("file*.txt") == "'file*.txt'"
-    end
-
-    test "escapes strings with tilde (home expansion)" do
-      assert Port.shell_escape("~user") == "'~user'"
-    end
-
-    test "escapes strings with tab character" do
-      assert Port.shell_escape("val\there") == "'val\there'"
-    end
-
-    test "escapes complex strings with multiple previously-unescaped characters" do
-      # Simulates a generated password/token with many special chars
-      input = "Nk>m]R62!bu#s45#G3?6R<vw]"
-      assert Port.shell_escape(input) == "'Nk>m]R62!bu#s45#G3?6R<vw]'"
+    test "build_env preserves API keys with special characters" do
+      api_key = "sk-ant-key!with@special#chars$here"
+      env = Port.build_env([], api_key)
+      assert env["ANTHROPIC_API_KEY"] == api_key
     end
   end
 

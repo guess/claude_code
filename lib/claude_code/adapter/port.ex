@@ -31,9 +31,6 @@ defmodule ClaudeCode.Adapter.Port do
 
   require Logger
 
-  # Regex matching strings composed entirely of shell-safe characters.
-  # Anything not matching gets single-quoted for safety.
-  @shell_safe_pattern ~r/\A[a-zA-Z0-9_\-\.\/\:\=\+\@\%\,]+\z/
   @default_control_timeout 60_000
 
   # Keys consumed by Adapter.Port that should never reach CLI command building.
@@ -437,45 +434,36 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   defp open_cli_port(executable, args, state, opts) do
-    shell_path = :os.find_executable(~c"sh") || raise "sh not found"
-    cmd_string = build_shell_command(executable, args, state, opts)
+    exe_path = executable |> String.to_charlist() |> :os.find_executable()
 
-    port =
-      Port.open({:spawn_executable, shell_path}, [
-        {:args, ["-c", cmd_string]},
-        :binary,
-        :exit_status,
-        :stderr_to_stdout
-      ])
+    if !exe_path do
+      raise "CLI executable not found: #{executable}"
+    end
+
+    env_list = prepare_env(state)
+
+    port_opts = maybe_add_cd([{:args, args}, {:env, env_list}, :binary, :exit_status, :stderr_to_stdout], opts)
+
+    port = Port.open({:spawn_executable, exe_path}, port_opts)
 
     {:ok, port}
   rescue
     e -> {:error, {:port_open_failed, e}}
   end
 
-  defp build_shell_command(executable, args, state, opts) do
-    env_prefix =
-      state
-      |> prepare_env()
-      |> Enum.map_join(" ", fn {key, value} ->
-        "#{key}=#{shell_escape(to_string(value))}"
-      end)
-
-    cwd_prefix =
-      case Keyword.get(opts, :cwd) do
-        nil -> ""
-        cwd_path -> "cd #{shell_escape(cwd_path)} && "
-      end
-
-    cmd_string = Enum.map_join([executable | args], " ", &shell_escape/1)
-
-    "#{cwd_prefix}#{env_prefix}exec #{cmd_string}"
+  defp maybe_add_cd(port_opts, opts) do
+    case Keyword.get(opts, :cwd) do
+      nil -> port_opts
+      cwd_path -> [{:cd, String.to_charlist(cwd_path)} | port_opts]
+    end
   end
 
   defp prepare_env(state) do
     state.session_options
     |> build_env(state.api_key)
-    |> Map.to_list()
+    |> Enum.map(fn {key, value} ->
+      {String.to_charlist(key), String.to_charlist(to_string(value))}
+    end)
   end
 
   # ============================================================================
@@ -514,17 +502,6 @@ defmodule ClaudeCode.Adapter.Port do
       env
     end
   end
-
-  @doc false
-  def shell_escape(str) when is_binary(str) do
-    if str == "" or not Regex.match?(@shell_safe_pattern, str) do
-      "'" <> String.replace(str, "'", "'\\''") <> "'"
-    else
-      str
-    end
-  end
-
-  def shell_escape(str), do: shell_escape(to_string(str))
 
   @doc false
   def extract_lines(buffer) do
