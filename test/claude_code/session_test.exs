@@ -414,7 +414,12 @@ defmodule ClaudeCode.SessionTest do
         |> Enum.to_list()
         |> catch_throw()
 
-      assert {:stream_error, {:provisioning_failed, {:cli_not_found, message}}} = thrown
+      # The error may surface as :stream_init_error (if adapter fails before
+      # query_stream returns) or :stream_error (if it fails after the request
+      # is queued). Direct spawn_executable resolves faster than sh -c, making
+      # :stream_init_error more likely on fast systems.
+      assert {error_type, {:provisioning_failed, {:cli_not_found, message}}} = thrown
+      assert error_type in [:stream_init_error, :stream_error]
       assert message =~ "Claude CLI not found"
 
       GenServer.stop(session)

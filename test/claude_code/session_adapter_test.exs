@@ -313,7 +313,10 @@ defmodule ClaudeCode.SessionAdapterTest do
         |> Enum.to_list()
         |> catch_throw()
 
-      assert {:stream_error, {:provisioning_failed, :sandbox_unavailable}} = thrown
+      # The error may surface as :stream_init_error or :stream_error depending
+      # on whether the adapter fails before or after the stream request is queued.
+      assert {error_type, {:provisioning_failed, :sandbox_unavailable}} = thrown
+      assert error_type in [:stream_init_error, :stream_error]
 
       GenServer.stop(session)
     end
