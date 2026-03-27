@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hardened timing-sensitive tests** — Replaced `Process.sleep` calls across `ClaudeCode.SessionTest`, `ClaudeCodeTest`, and `ClaudeCode.SupervisorTest` with deterministic synchronization (`MockCLI.poll_until/2`, `Process.monitor` + `assert_receive`, synchronous `:sys.get_state` calls). Corrected two supervisor tests that assumed empty config would crash the child — `api_key` is now optional (defaults to `ANTHROPIC_API_KEY` env var), so the child starts successfully; tests now assert `count == 1` to reflect current behavior.
+
 ### Changed
 
 - **MCP tool DSL** — Tool descriptions moved from a positional argument into the block. This is a **breaking change**. ([44573a7])
