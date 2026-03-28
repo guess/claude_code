@@ -520,6 +520,26 @@ defmodule ClaudeCode.Options do
           }
       """
     ],
+
+    allowed_env: [
+      type: {:list, :string},
+      default: [],
+      doc: """
+      Additional environment variable names to pass through to the CLI.
+
+      By default, the SDK filters system environment variables to a curated
+      allowlist (ANTHROPIC_*, CLAUDE_*, PATH, HOME, etc.). Use this option
+      to pass additional env vars from the system environment without needing
+      to specify their values explicitly via `:env`.
+
+      Unlike `:env` (which takes key-value pairs), `:allowed_env` takes only
+      keys — values are read from the current system environment at spawn time.
+
+      Example:
+          allowed_env: ["DATABASE_URL", "MY_API_ENDPOINT", "CUSTOM_CONFIG"]
+      """
+    ],
+
     # CLI options (aligned with TypeScript SDK)
     model: [type: :string, doc: "Model to use"],
     fallback_model: [type: :string, doc: "Fallback model to use if primary model fails"],

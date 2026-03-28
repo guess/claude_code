@@ -538,8 +538,9 @@ defmodule ClaudeCode.Adapter.Port do
   @doc false
   def build_env(session_options, api_key) do
     user_env = Keyword.get(session_options, :env, %{})
+    allowed_env = Keyword.get(session_options, :allowed_env, [])
 
-    filter_system_env()
+    filter_system_env(allowed_env)
     |> Map.merge(sdk_env_vars())
     |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)
@@ -547,16 +548,19 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   @doc false
-  def filter_system_env do
+  def filter_system_env(extra_keys \\ []) do
+    extra_set = MapSet.new(extra_keys)
+
     System.get_env()
-    |> Enum.filter(fn {key, _value} -> cli_env_var?(key) end)
+    |> Enum.filter(fn {key, _value} -> cli_env_var?(key, extra_set) end)
     |> Map.new()
   end
 
-  defp cli_env_var?(key) do
+  defp cli_env_var?(key, extra_set) do
     String.starts_with?(key, @cli_env_prefixes) or
       MapSet.member?(@cli_env_allowlist, key) or
-      MapSet.member?(@system_env_allowlist, key)
+      MapSet.member?(@system_env_allowlist, key) or
+      MapSet.member?(extra_set, key)
   end
 
   defp maybe_put_api_key(env, api_key) when is_binary(api_key) do
