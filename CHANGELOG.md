@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`allowed_env` session option** — List of additional environment variable names to pass through from the system environment to the CLI, beyond the built-in allowlist. Unlike `:env` (which takes key-value pairs), `:allowed_env` takes only keys — values are read from `System.get_env()` at spawn time. Useful for passing application-specific env vars without hardcoding values.
+
+  ```ex
+  ClaudeCode.start_link(
+    env: %{"EXPLICIT" => "value"},                 # key+value overrides
+    allowed_env: ["DATABASE_URL", "MY_CUSTOM_VAR"]  # keys inherited from system
+  )
+  ```
+
 ### Changed
 
 - **MCP tool DSL** — Tool descriptions moved from a positional argument into the block. This is a **breaking change**. ([44573a7])
@@ -25,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 
 - **Port spawning refactored to direct `spawn_executable`** — `ClaudeCode.Adapter.Port` now spawns the CLI binary directly via Erlang's native `:spawn_executable` with `:args`, `:env`, and `:cd` port options, replacing the previous `/bin/sh -c` approach that required hand-rolled shell escaping. This eliminates `ClaudeCode.Adapter.Port.shell_escape/1`, `build_shell_command/4`, and the `@shell_safe_pattern` module attribute entirely. Environment variables, arguments, and paths with special characters (e.g. `!`, `#`, `<`, `>`, `[`, `]`) are now handled natively by the Erlang runtime without shell interpretation.
-- **System environment variables filtered before passing to CLI** — `ClaudeCode.Adapter.Port.build_env/2` now filters `System.get_env()` to only include variables the CLI recognizes (by prefix: `ANTHROPIC_`, `CLAUDE_CODE_`, `CLAUDE_`, `VERTEX_REGION_`, `LC_`; by explicit allowlist for non-namespaced CLI vars; and system essentials like `PATH`, `HOME`, `SHELL`). Previously, the entire host environment was forwarded, which could leak sensitive values such as SSH keys or database credentials. User-provided `:env` option values bypass the filter and are always passed through.
+- **System environment variables filtered before passing to CLI** — `ClaudeCode.Adapter.Port.build_env/2` now filters `System.get_env()` to only include variables the CLI recognizes (by prefix: `ANTHROPIC_`, `CLAUDE_CODE_`, `CLAUDE_`, `VERTEX_REGION_`, `LC_`; by explicit allowlist for non-namespaced CLI vars; and system essentials like `PATH`, `HOME`, `SHELL`). Previously, the entire host environment was forwarded, which could leak sensitive values such as SSH keys or database credentials. User-provided `:env` and `:allowed_env` option values bypass the filter and are always passed through.
 
 ### Fixed
 
