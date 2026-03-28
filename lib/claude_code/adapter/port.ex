@@ -561,8 +561,9 @@ defmodule ClaudeCode.Adapter.Port do
     deny_set = MapSet.new(disallowed_env)
 
     System.get_env()
-    |> Enum.filter(fn {key, _} -> cli_env_var?(key, allow_set) end)
-    |> Enum.reject(fn {key, _} -> MapSet.member?(deny_set, key) end)
+    |> Enum.filter(fn {key, _} ->
+      cli_env_var?(key, allow_set) and not MapSet.member?(deny_set, key)
+    end)
     |> Map.new()
   end
 
