@@ -540,7 +540,8 @@ defmodule ClaudeCode.Adapter.Port do
     user_env = Keyword.get(session_options, :env, %{})
     allowed_env = Keyword.get(session_options, :allowed_env, [])
 
-    filter_system_env(allowed_env)
+    allowed_env
+    |> filter_system_env()
     |> Map.merge(sdk_env_vars())
     |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)

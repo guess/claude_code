@@ -520,7 +520,6 @@ defmodule ClaudeCode.Options do
           }
       """
     ],
-
     allowed_env: [
       type: {:list, :string},
       default: [],
