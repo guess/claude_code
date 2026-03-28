@@ -520,7 +520,6 @@ defmodule ClaudeCode.Options do
           }
       """
     ],
-
     # CLI options (aligned with TypeScript SDK)
     model: [type: :string, doc: "Model to use"],
     fallback_model: [type: :string, doc: "Fallback model to use if primary model fails"],

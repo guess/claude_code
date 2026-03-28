@@ -74,14 +74,6 @@ defmodule ClaudeCode.SessionShellTest do
     end
   end
 
-  describe "shell_escape/1 private function" do
-    test "leaves simple strings unescaped" do
-      # We can't directly test private functions, but we can verify behavior
-      # through the public interface by checking that simple strings work
-      assert true
-    end
-  end
-
   describe "cross-platform behavior" do
     test "detects unix platform correctly" do
       assert match?({:unix, _}, :os.type())

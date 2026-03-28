@@ -8,11 +8,16 @@ defmodule ClaudeCode.Adapter.PortIntegrationTest do
   # ============================================================================
 
   describe "health/1 during provisioning" do
-    test "returns {:unhealthy, :provisioning} while adapter is starting up" do
+    test "returns unhealthy while adapter is starting up" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
 
       health = ClaudeCode.Session.health(session)
-      assert {:unhealthy, :provisioning} = health
+
+      # The adapter may still be in :provisioning or may have already moved to
+      # :not_connected (if CLI resolution completed before this assertion).
+      # Both are valid unhealthy states during startup without a real CLI.
+      assert {:unhealthy, status} = health
+      assert status in [:provisioning, :not_connected]
 
       GenServer.stop(session)
     end
