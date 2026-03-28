@@ -9,13 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`allowed_env` session option** — List of additional environment variable names to pass through from the system environment to the CLI, beyond the built-in allowlist. Unlike `:env` (which takes key-value pairs), `:allowed_env` takes only keys — values are read from `System.get_env()` at spawn time. Useful for passing application-specific env vars without hardcoding values.
+- **Environment variable control options** — Three new session options for fine-grained control over which system env vars reach the CLI, following the SDK's `allowed_tools`/`disallowed_tools` naming convention:
+  - **`filter_env`** (boolean, default `true`) — When `true`, applies the built-in allowlist. When `false`, passes all system env vars through (matching pre-filter behavior).
+  - **`allowed_env`** (list of strings) — Additional env var names to pass through, additive to the built-in allowlist. Only meaningful when `filter_env: true`.
+  - **`disallowed_env`** (list of strings) — Env var names to exclude. Works in both filtered and unfiltered modes.
+
+  Explicit `:env` key-value overrides always take highest priority regardless of filtering mode.
 
   ```ex
-  ClaudeCode.start_link(
-    env: %{"EXPLICIT" => "value"},                 # key+value overrides
-    allowed_env: ["DATABASE_URL", "MY_CUSTOM_VAR"]  # keys inherited from system
-  )
+  # Filtered (default): secure minimum + extras
+  ClaudeCode.start_link(allowed_env: ["DATABASE_URL"])
+
+  # Unfiltered: everything minus exclusions (matches pre-filter behavior)
+  ClaudeCode.start_link(filter_env: false, disallowed_env: ["RELEASE_COOKIE"])
+
+  # Explicit overrides always win
+  ClaudeCode.start_link(env: %{"FORCED" => "value"}, disallowed_env: ["FORCED"])
+  # ^ FORCED is still set because :env takes priority over disallowed_env
   ```
 
 ### Changed
