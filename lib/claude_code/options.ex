@@ -520,65 +520,6 @@ defmodule ClaudeCode.Options do
           }
       """
     ],
-    filter_env: [
-      type: :boolean,
-      default: true,
-      doc: """
-      Whether to apply built-in environment variable filtering.
-
-      When `true` (default), only env vars matching the SDK's curated allowlist
-      (ANTHROPIC_*, CLAUDE_*, PATH, HOME, etc.) are passed to the CLI. Use
-      `:allowed_env` to add specific vars to the allowlist.
-
-      When `false`, all system environment variables are passed through. Use
-      `:disallowed_env` to exclude specific vars you don't want forwarded.
-
-      In both modes, `:env` overrides always apply on top, and `:disallowed_env`
-      always excludes.
-
-      Example:
-          # Filtered (default): minimum + extras
-          filter_env: true, allowed_env: ["DATABASE_URL"]
-
-          # Unfiltered: everything minus exclusions
-          filter_env: false, disallowed_env: ["RELEASE_COOKIE", "SECRET_KEY"]
-      """
-    ],
-    allowed_env: [
-      type: {:list, :string},
-      default: [],
-      doc: """
-      Additional environment variable names to pass through to the CLI.
-
-      Only meaningful when `filter_env: true` (the default). Adds the listed
-      keys to the built-in allowlist. Values are read from `System.get_env()`
-      at spawn time.
-
-      Unlike `:env` (which takes key-value pairs), `:allowed_env` takes only
-      keys — no need to hardcode values.
-
-      Example:
-          allowed_env: ["DATABASE_URL", "MY_API_ENDPOINT"]
-      """
-    ],
-    disallowed_env: [
-      type: {:list, :string},
-      default: [],
-      doc: """
-      Environment variable names to exclude from the CLI environment.
-
-      Works in both `filter_env: true` and `filter_env: false` modes.
-      Any key listed here is removed after all other filtering and merging,
-      except for explicit `:env` overrides which always take precedence.
-
-      Useful for excluding sensitive vars that match the built-in allowlist
-      prefixes (e.g., a `CLAUDE_`-prefixed internal var you don't want forwarded).
-
-      Example:
-          disallowed_env: ["RELEASE_COOKIE", "GITHUB_SSH_KEY"]
-      """
-    ],
-
     # CLI options (aligned with TypeScript SDK)
     model: [type: :string, doc: "Model to use"],
     fallback_model: [type: :string, doc: "Fallback model to use if primary model fails"],

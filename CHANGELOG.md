@@ -7,27 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-
-- **Environment variable control options** — Three new session options for fine-grained control over which system env vars reach the CLI, following the SDK's `allowed_tools`/`disallowed_tools` naming convention:
-  - **`filter_env`** (boolean, default `true`) — When `true`, applies the built-in allowlist. When `false`, passes all system env vars through (matching pre-filter behavior).
-  - **`allowed_env`** (list of strings) — Additional env var names to pass through, additive to the built-in allowlist. Only meaningful when `filter_env: true`.
-  - **`disallowed_env`** (list of strings) — Env var names to exclude. Works in both filtered and unfiltered modes.
-
-  Explicit `:env` key-value overrides always take highest priority regardless of filtering mode.
-
-  ```ex
-  # Filtered (default): secure minimum + extras
-  ClaudeCode.start_link(allowed_env: ["DATABASE_URL"])
-
-  # Unfiltered: everything minus exclusions (matches pre-filter behavior)
-  ClaudeCode.start_link(filter_env: false, disallowed_env: ["RELEASE_COOKIE"])
-
-  # Explicit overrides always win
-  ClaudeCode.start_link(env: %{"FORCED" => "value"}, disallowed_env: ["FORCED"])
-  # ^ FORCED is still set because :env takes priority over disallowed_env
-  ```
-
 ### Changed
 
 - **MCP tool DSL** — Tool descriptions moved from a positional argument into the block. This is a **breaking change**. ([44573a7])
@@ -46,7 +25,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 
 - **Port spawning refactored to direct `spawn_executable`** — `ClaudeCode.Adapter.Port` now spawns the CLI binary directly via Erlang's native `:spawn_executable` with `:args`, `:env`, and `:cd` port options, replacing the previous `/bin/sh -c` approach that required hand-rolled shell escaping. This eliminates `ClaudeCode.Adapter.Port.shell_escape/1`, `build_shell_command/4`, and the `@shell_safe_pattern` module attribute entirely. Environment variables, arguments, and paths with special characters (e.g. `!`, `#`, `<`, `>`, `[`, `]`) are now handled natively by the Erlang runtime without shell interpretation.
-- **System environment variables filtered before passing to CLI** — `ClaudeCode.Adapter.Port.build_env/2` now filters `System.get_env()` to only include variables the CLI recognizes (by prefix: `ANTHROPIC_`, `CLAUDE_CODE_`, `CLAUDE_`, `VERTEX_REGION_`, `LC_`; by explicit allowlist for non-namespaced CLI vars; and system essentials like `PATH`, `HOME`, `SHELL`). Previously, the entire host environment was forwarded, which could leak sensitive values such as SSH keys or database credentials. User-provided `:env` and `:allowed_env` option values bypass the filter and are always passed through.
 
 ### Fixed
 

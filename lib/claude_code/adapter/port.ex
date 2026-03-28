@@ -33,63 +33,6 @@ defmodule ClaudeCode.Adapter.Port do
 
   @default_control_timeout 60_000
 
-  # Prefixes for env vars the CLI recognizes (matched with String.starts_with?/2).
-  # LC_ is not documented by the CLI but is included because the CLI is a Node.js
-  # process that may respect locale settings (LC_ALL, LC_CTYPE, etc.).
-  @cli_env_prefixes ["ANTHROPIC_", "CLAUDE_CODE_", "CLAUDE_", "VERTEX_REGION_", "LC_"]
-
-  # Non-namespaced env vars the CLI uses, per https://code.claude.com/docs/en/env-vars
-  @cli_env_allowlist MapSet.new([
-                       "AWS_BEARER_TOKEN_BEDROCK",
-                       "BASH_DEFAULT_TIMEOUT_MS",
-                       "BASH_MAX_OUTPUT_LENGTH",
-                       "BASH_MAX_TIMEOUT_MS",
-                       "CLAUDECODE",
-                       "DISABLE_AUTOUPDATER",
-                       "DISABLE_COST_WARNINGS",
-                       "DISABLE_ERROR_REPORTING",
-                       "DISABLE_FEEDBACK_COMMAND",
-                       "DISABLE_INSTALLATION_CHECKS",
-                       "DISABLE_PROMPT_CACHING",
-                       "DISABLE_PROMPT_CACHING_HAIKU",
-                       "DISABLE_PROMPT_CACHING_OPUS",
-                       "DISABLE_PROMPT_CACHING_SONNET",
-                       "DISABLE_TELEMETRY",
-                       "ENABLE_CLAUDEAI_MCP_SERVERS",
-                       "ENABLE_TOOL_SEARCH",
-                       "FORCE_AUTOUPDATE_PLUGINS",
-                       "HTTP_PROXY",
-                       "HTTPS_PROXY",
-                       "IS_DEMO",
-                       "MAX_MCP_OUTPUT_TOKENS",
-                       "MAX_THINKING_TOKENS",
-                       "MCP_CLIENT_SECRET",
-                       "MCP_OAUTH_CALLBACK_PORT",
-                       "MCP_TIMEOUT",
-                       "MCP_TOOL_TIMEOUT",
-                       "NO_PROXY",
-                       "SLASH_COMMAND_TOOL_CHAR_BUDGET",
-                       "USE_BUILTIN_RIPGREP"
-                     ])
-
-  # System vars the CLI needs to function (tool resolution, config, locale, TLS).
-  @system_env_allowlist MapSet.new([
-                          "HOME",
-                          "LANG",
-                          "LOGNAME",
-                          "NODE_EXTRA_CA_CERTS",
-                          "NODE_TLS_REJECT_UNAUTHORIZED",
-                          "PATH",
-                          "SHELL",
-                          "TERM",
-                          "TMP",
-                          "TEMP",
-                          "TMPDIR",
-                          "USER",
-                          "XDG_CONFIG_HOME",
-                          "XDG_DATA_HOME"
-                        ])
-
   # Keys consumed by Adapter.Port that should never reach CLI command building.
   @adapter_internal_keys [
     :callback_proxy,
@@ -538,49 +481,12 @@ defmodule ClaudeCode.Adapter.Port do
   @doc false
   def build_env(session_options, api_key) do
     user_env = Keyword.get(session_options, :env, %{})
-    filter_env = Keyword.get(session_options, :filter_env, true)
-    allowed_env = Keyword.get(session_options, :allowed_env, [])
-    disallowed_env = Keyword.get(session_options, :disallowed_env, [])
 
-    filter_env
-    |> collect_system_env(allowed_env, disallowed_env)
+    System.get_env()
     |> Map.merge(sdk_env_vars())
     |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)
     |> maybe_put_file_checkpointing(session_options)
-  end
-
-  @doc false
-  def filter_system_env(extra_keys \\ []) do
-    collect_system_env(true, extra_keys, [])
-  end
-
-  # filter_env: true — built-in allowlist + allowed_env, minus disallowed_env
-  defp collect_system_env(true, allowed_env, disallowed_env) do
-    allow_set = MapSet.new(allowed_env)
-    deny_set = MapSet.new(disallowed_env)
-
-    System.get_env()
-    |> Enum.filter(fn {key, _} ->
-      cli_env_var?(key, allow_set) and not MapSet.member?(deny_set, key)
-    end)
-    |> Map.new()
-  end
-
-  # filter_env: false — all system env, minus disallowed_env
-  defp collect_system_env(false, _allowed_env, disallowed_env) do
-    deny_set = MapSet.new(disallowed_env)
-
-    System.get_env()
-    |> Enum.reject(fn {key, _} -> MapSet.member?(deny_set, key) end)
-    |> Map.new()
-  end
-
-  defp cli_env_var?(key, extra_set) do
-    String.starts_with?(key, @cli_env_prefixes) or
-      MapSet.member?(@cli_env_allowlist, key) or
-      MapSet.member?(@system_env_allowlist, key) or
-      MapSet.member?(extra_set, key)
   end
 
   defp maybe_put_api_key(env, api_key) when is_binary(api_key) do
