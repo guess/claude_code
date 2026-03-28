@@ -538,10 +538,12 @@ defmodule ClaudeCode.Adapter.Port do
   @doc false
   def build_env(session_options, api_key) do
     user_env = Keyword.get(session_options, :env, %{})
+    filter_env = Keyword.get(session_options, :filter_env, true)
     allowed_env = Keyword.get(session_options, :allowed_env, [])
+    disallowed_env = Keyword.get(session_options, :disallowed_env, [])
 
-    allowed_env
-    |> filter_system_env()
+    filter_env
+    |> collect_system_env(allowed_env, disallowed_env)
     |> Map.merge(sdk_env_vars())
     |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)
@@ -550,10 +552,26 @@ defmodule ClaudeCode.Adapter.Port do
 
   @doc false
   def filter_system_env(extra_keys \\ []) do
-    extra_set = MapSet.new(extra_keys)
+    collect_system_env(true, extra_keys, [])
+  end
+
+  # filter_env: true — built-in allowlist + allowed_env, minus disallowed_env
+  defp collect_system_env(true, allowed_env, disallowed_env) do
+    allow_set = MapSet.new(allowed_env)
+    deny_set = MapSet.new(disallowed_env)
 
     System.get_env()
-    |> Enum.filter(fn {key, _value} -> cli_env_var?(key, extra_set) end)
+    |> Enum.filter(fn {key, _} -> cli_env_var?(key, allow_set) end)
+    |> Enum.reject(fn {key, _} -> MapSet.member?(deny_set, key) end)
+    |> Map.new()
+  end
+
+  # filter_env: false — all system env, minus disallowed_env
+  defp collect_system_env(false, _allowed_env, disallowed_env) do
+    deny_set = MapSet.new(disallowed_env)
+
+    System.get_env()
+    |> Enum.reject(fn {key, _} -> MapSet.member?(deny_set, key) end)
     |> Map.new()
   end
 
