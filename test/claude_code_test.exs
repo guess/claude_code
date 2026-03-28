@@ -191,10 +191,9 @@ defmodule ClaudeCodeTest do
 
     test "returns false for stopped session" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+      ref = Process.monitor(session)
       ClaudeCode.stop(session)
-
-      # Give it a moment to stop
-      Process.sleep(100)
+      assert_receive {:DOWN, ^ref, :process, ^session, _reason}, 5000
 
       refute ClaudeCode.Session.alive?(session)
     end
@@ -207,10 +206,9 @@ defmodule ClaudeCodeTest do
   describe "stop/1" do
     test "stops a running session" do
       {:ok, session} = ClaudeCode.start_link(api_key: "test-key")
+      ref = Process.monitor(session)
       assert :ok = ClaudeCode.stop(session)
-
-      # Give it a moment to stop
-      Process.sleep(100)
+      assert_receive {:DOWN, ^ref, :process, ^session, _reason}, 5000
 
       refute Process.alive?(session)
     end

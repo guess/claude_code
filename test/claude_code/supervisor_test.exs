@@ -53,20 +53,14 @@ defmodule ClaudeCode.SupervisorTest do
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
     end
 
-    test "handles session startup errors gracefully" do
-      # Invalid session config (missing required api_key)
+    test "handles session startup with empty config" do
+      # Empty config is valid — api_key defaults to ANTHROPIC_API_KEY env var.
+      # The child starts successfully and stays alive.
       sessions = [[]]
 
-      # Supervisor should start but child should fail
       assert {:ok, supervisor} = ClaudeSupervisor.start_link(sessions)
       assert Process.alive?(supervisor)
-
-      # Give time for child startup to fail
-      Process.sleep(100)
-
-      # Child should have failed and supervisor should handle it
-      children = ClaudeSupervisor.list_sessions(supervisor)
-      assert length(children) <= 1
+      assert ClaudeSupervisor.count_sessions(supervisor) == 1
     end
   end
 
@@ -107,15 +101,12 @@ defmodule ClaudeCode.SupervisorTest do
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
     end
 
-    test "handles invalid session config", %{supervisor: supervisor} do
-      # Missing required api_key - child will crash during init
-      assert {:ok, _pid} = ClaudeSupervisor.start_session(supervisor, [])
-
-      # Give time for child to crash due to invalid config
-      Process.sleep(50)
-
-      # Count may be 0 or 1 depending on timing of restart attempts
-      assert ClaudeSupervisor.count_sessions(supervisor) >= 0
+    test "starts session with empty config", %{supervisor: supervisor} do
+      # Empty config is valid — api_key defaults to ANTHROPIC_API_KEY env var.
+      # The child starts successfully.
+      assert {:ok, pid} = ClaudeSupervisor.start_session(supervisor, [])
+      assert Process.alive?(pid)
+      assert ClaudeSupervisor.count_sessions(supervisor) == 1
     end
   end
 
@@ -208,7 +199,15 @@ defmodule ClaudeCode.SupervisorTest do
 
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
 
-      Process.sleep(50)
+      MockCLI.poll_until(
+        fn ->
+          case ClaudeSupervisor.list_sessions(supervisor) do
+            [{^child_id, new_pid, :worker, [Server]}] when new_pid != original_pid -> {:ok, new_pid}
+            _ -> :retry
+          end
+        end,
+        timeout: 2000
+      )
 
       [{^child_id, new_pid, :worker, [Server]}] =
         ClaudeSupervisor.list_sessions(supervisor)
@@ -234,7 +233,16 @@ defmodule ClaudeCode.SupervisorTest do
         ClaudeSupervisor.list_sessions(supervisor)
 
       Process.exit(original_pid, :kill)
-      Process.sleep(100)
+
+      MockCLI.poll_until(
+        fn ->
+          case ClaudeSupervisor.list_sessions(supervisor) do
+            [{^child_id, new_pid, :worker, [Server]}] when new_pid != original_pid -> {:ok, new_pid}
+            _ -> :retry
+          end
+        end,
+        timeout: 2000
+      )
 
       assert ClaudeSupervisor.count_sessions(supervisor) == 1
 
@@ -261,7 +269,18 @@ defmodule ClaudeCode.SupervisorTest do
       [first_pid | other_pids] = pids
       Process.exit(first_pid, :kill)
 
-      Process.sleep(100)
+      MockCLI.poll_until(
+        fn ->
+          if ClaudeSupervisor.count_sessions(supervisor) == 3 do
+            children = ClaudeSupervisor.list_sessions(supervisor)
+            child_pids = Enum.map(children, fn {_id, pid, _type, _modules} -> pid end)
+            if first_pid in child_pids, do: :retry, else: {:ok, child_pids}
+          else
+            :retry
+          end
+        end,
+        timeout: 2000
+      )
 
       assert ClaudeSupervisor.count_sessions(supervisor) == 3
 

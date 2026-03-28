@@ -106,20 +106,17 @@ defmodule ClaudeCode.SessionTest do
 
       {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
 
-      # Allow async delivery
-      Process.sleep(50)
-
-      # Check that request exists
-      state = :sys.get_state(session)
-      assert map_size(state.requests) > 0
+      # query_stream is a synchronous call — request is already in state
+      assert map_size(:sys.get_state(session).requests) > 0
 
       # Send cleanup
       GenServer.cast(session, {:stream_cleanup, ref})
-      Process.sleep(50)
 
-      # Check that request is removed
-      state = :sys.get_state(session)
-      assert map_size(state.requests) == 0
+      # Poll until cleanup cast is processed
+      MockCLI.poll_until(fn ->
+        state = :sys.get_state(session)
+        if map_size(state.requests) == 0, do: {:ok, state}, else: :retry
+      end)
 
       ClaudeCode.stop(session)
     end
@@ -307,8 +304,8 @@ defmodule ClaudeCode.SessionTest do
       bogus_ref = make_ref()
       send(session, {:adapter_message, bogus_ref, raw_result_map()})
 
-      # Give Session time to process (it should discard silently)
-      Process.sleep(50)
+      # A synchronous call confirms the process is alive and has processed the message
+      _ = :sys.get_state(session)
       assert Process.alive?(session)
     end
 
@@ -321,7 +318,8 @@ defmodule ClaudeCode.SessionTest do
       # Send invalid binary — Session should log and discard
       send(session, {:adapter_message, request_id, "not valid json"})
 
-      Process.sleep(50)
+      # A synchronous call confirms the process is alive and has processed the message
+      _ = :sys.get_state(session)
       assert Process.alive?(session)
     end
   end
@@ -455,19 +453,18 @@ defmodule ClaudeCode.SessionTest do
 
       # Wait for provisioning + initialize handshake + query execution
       MockCLI.wait_until_ready(session)
-      Process.sleep(100)
 
-      # Check that request exists
-      state = :sys.get_state(session)
-      assert map_size(state.requests) > 0
+      # query_stream is a synchronous call — request is already in state
+      assert map_size(:sys.get_state(session).requests) > 0
 
       # Send cleanup
       GenServer.cast(session, {:stream_cleanup, ref})
-      Process.sleep(50)
 
-      # Check that request is removed
-      state = :sys.get_state(session)
-      assert map_size(state.requests) == 0
+      # Poll until cleanup cast is processed
+      MockCLI.poll_until(fn ->
+        state = :sys.get_state(session)
+        if map_size(state.requests) == 0, do: {:ok, state}, else: :retry
+      end)
 
       GenServer.stop(session)
     end
@@ -813,9 +810,10 @@ defmodule ClaudeCode.SessionTest do
       assert "Response 3" in result_texts
 
       # Verify all requests are cleaned up
-      Process.sleep(100)
-      state = :sys.get_state(session)
-      assert map_size(state.requests) == 0
+      MockCLI.poll_until(fn ->
+        state = :sys.get_state(session)
+        if map_size(state.requests) == 0, do: {:ok, state}, else: :retry
+      end)
 
       GenServer.stop(session)
     end
@@ -853,9 +851,10 @@ defmodule ClaudeCode.SessionTest do
       assert result3.result == "Response 3"
 
       # Verify cleanup
-      Process.sleep(100)
-      state = :sys.get_state(session)
-      assert map_size(state.requests) == 0
+      MockCLI.poll_until(fn ->
+        state = :sys.get_state(session)
+        if map_size(state.requests) == 0, do: {:ok, state}, else: :retry
+      end)
 
       GenServer.stop(session)
     end
