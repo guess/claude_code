@@ -354,7 +354,7 @@ defmodule ClaudeCode.Session.Server do
            state.adapter_pid,
            request.id,
            prompt,
-           session_id: state.session_id
+           build_query_opts(state)
          ) do
       :ok ->
         {:ok, %{state | requests: Map.put(state.requests, request.id, request)}}
@@ -363,6 +363,9 @@ defmodule ClaudeCode.Session.Server do
         {:error, reason, state}
     end
   end
+
+  defp build_query_opts(%{session_id: session_id}) when is_binary(session_id), do: [session_id: session_id]
+  defp build_query_opts(_), do: []
 
   defp process_next_in_queue(state) do
     case :queue.out(state.query_queue) do

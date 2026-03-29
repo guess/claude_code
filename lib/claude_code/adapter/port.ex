@@ -175,7 +175,7 @@ defmodule ClaudeCode.Adapter.Port do
 
   @impl GenServer
   def handle_call({:query, request_id, prompt, opts}, _from, state) do
-    session_id = Keyword.get(opts, :session_id) || "default"
+    session_id = Keyword.get(opts, :session_id, "default")
 
     case ensure_connected(state) do
       {:ok, connected_state} ->
