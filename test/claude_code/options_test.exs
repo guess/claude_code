@@ -637,7 +637,6 @@ defmodule ClaudeCode.OptionsTest do
       assert {:error, %NimbleOptions.ValidationError{}} =
                Options.validate_session_options(inherit_env: [{:prefix, 123}])
     end
-
   end
 
   describe "env option with false values" do
