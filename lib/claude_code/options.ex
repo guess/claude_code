@@ -26,7 +26,8 @@ defmodule ClaudeCode.Options do
 
   ## Session Options
 
-  All options for `ClaudeCode.start_link/1`:
+  Options for `ClaudeCode.start_link/1` and `ClaudeCode.query/2`. These are set once
+  when the CLI subprocess is launched and apply to the entire session.
 
   ### Authentication
 
@@ -37,19 +38,19 @@ defmodule ClaudeCode.Options do
 
   ### Model Configuration
 
-  | Option                 | Type    | Default  | Description                                 |
-  | ---------------------- | ------- | -------- | ------------------------------------------- |
-  | `model`                | string  | "sonnet" | Claude model to use                         |
-  | `fallback_model`       | string  | -        | Fallback if primary model fails             |
-  | `system_prompt`        | string  | -        | Override system prompt                      |
-  | `append_system_prompt` | string  | -        | Append to default system prompt             |
-  | `max_turns`            | integer | -        | Limit conversation turns                    |
-  | `max_budget_usd`       | number  | -        | Maximum dollar amount to spend on API calls |
-  | `agent`                | string  | -        | Agent name for the session                  |
-  | `betas`                | list    | -        | Beta headers for API requests               |
-  | `max_thinking_tokens`  | integer | -        | Deprecated: use `thinking` instead          |
-  | `thinking`             | atom/tuple | -     | Thinking config: `:adaptive`, `:disabled`, `{:enabled, budget_tokens: N}` |
-  | `effort`               | atom    | -        | Effort level: `:low`, `:medium`, `:high`, `:max` |
+  | Option                 | Type       | Default  | Description                                                       |
+  | ---------------------- | ---------- | -------- | ----------------------------------------------------------------- |
+  | `model`                | string     | "sonnet" | Claude model to use                                               |
+  | `fallback_model`       | string     | -        | Fallback if primary model fails                                   |
+  | `system_prompt`        | string     | -        | Override system prompt                                            |
+  | `append_system_prompt` | string     | -        | Append to default system prompt                                   |
+  | `max_turns`            | integer    | -        | Limit conversation turns                                         |
+  | `max_budget_usd`       | number     | -        | Maximum dollar amount to spend on API calls                       |
+  | `agent`                | string     | -        | Agent name for the session                                        |
+  | `betas`                | list       | -        | Beta headers for API requests                                     |
+  | `max_thinking_tokens`  | integer    | -        | Deprecated: use `thinking` instead                                |
+  | `thinking`             | atom/tuple | -        | Thinking config: `:adaptive`, `:disabled`, `{:enabled, budget_tokens: N}` |
+  | `effort`               | atom       | -        | Effort level: `:low`, `:medium`, `:high`, `:max`                 |
 
   ### Timeouts
 
@@ -84,31 +85,16 @@ defmodule ClaudeCode.Options do
   | `include_partial_messages` | boolean    | false       | Enable character-level streaming                                |
   | `output_format`            | map        | -           | Structured output format (see Structured Outputs section)       |
   | `plugins`                  | list       | -           | Plugin configurations to load (paths or maps with type: :local) |
+  | `env`                      | map        | `%{}`       | Extra env vars for CLI subprocess (`false` to unset)            |
+  | `inherit_env`              | atom/list  | `:all`      | System env inheritance: `:all`, `[]`, or list of names/prefixes |
 
-  ## Query Options
+  ## Stream Options
 
-  Options that can be passed to `stream/3`:
+  Options that can be passed per-call to `stream/3`:
 
-  | Option                     | Type    | Description                             |
-  | -------------------------- | ------- | --------------------------------------- |
-  | `timeout`                  | timeout | Override stream timeout                 |
-  | `system_prompt`            | string  | Override system prompt for this query   |
-  | `append_system_prompt`     | string  | Append to system prompt                 |
-  | `max_turns`                | integer | Limit turns for this query              |
-  | `max_budget_usd`           | number  | Maximum dollar amount for this query    |
-  | `agent`                    | string  | Agent to use for this query             |
-  | `betas`                    | list    | Beta headers for this query             |
-  | `max_thinking_tokens`      | integer    | Deprecated: use `thinking` instead        |
-  | `thinking`                 | atom/tuple | Override thinking config for this query   |
-  | `effort`                   | atom       | Override effort level for this query      |
-  | `tools`                    | list       | Available tools for this query            |
-  | `allowed_tools`            | list    | Allowed tools for this query            |
-  | `disallowed_tools`         | list    | Disallowed tools for this query         |
-  | `output_format`            | map     | Structured output format for this query |
-  | `plugins`                  | list    | Plugin configurations for this query    |
-  | `include_partial_messages` | boolean | Enable deltas for this query            |
-
-  Note: `api_key` and `name` cannot be overridden at query time.
+  | Option    | Type    | Default   | Description                                       |
+  | --------- | ------- | --------- | ------------------------------------------------- |
+  | `timeout` | timeout | :infinity | Override max wait for next message on this stream  |
 
   ## Application Configuration
 
@@ -397,6 +383,31 @@ defmodule ClaudeCode.Options do
       {:ok, session} = ClaudeCode.start_link(timeout: "not a number")
       # => ** (NimbleOptions.ValidationError) invalid value for :timeout option:
       #       expected positive integer, got: "not a number"
+
+  ## Environment
+
+  Control which environment variables the CLI subprocess inherits and set additional ones:
+
+      # Add custom env vars
+      {:ok, session} = ClaudeCode.start_link(
+        env: %{"MY_API_KEY" => "secret", "DEBUG" => "1"}
+      )
+
+      # Unset a sensitive inherited var
+      {:ok, session} = ClaudeCode.start_link(
+        env: %{"RELEASE_COOKIE" => false}
+      )
+
+      # Only inherit specific vars (lock down for production)
+      {:ok, session} = ClaudeCode.start_link(
+        inherit_env: ["PATH", "HOME", {:prefix, "CLAUDE_"}]
+      )
+
+      # Inherit nothing — only SDK vars, :env, and :api_key
+      {:ok, session} = ClaudeCode.start_link(inherit_env: [])
+
+  Merge precedence (lowest to highest): system env (filtered by `:inherit_env`)
+  → `:env` option → SDK-required vars → `:api_key`.
 
   ## Security Considerations
 
