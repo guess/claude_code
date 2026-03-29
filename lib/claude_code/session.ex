@@ -457,6 +457,30 @@ defmodule ClaudeCode.Session do
     session |> GenServer.call({:control, :stop_task, %{task_id: task_id}}) |> to_ok()
   end
 
+  @doc """
+  Seeds the CLI's file read state cache.
+
+  Use after a Read result has been compacted out of context to prevent
+  Edit validation failures. The `mtime` lets the CLI detect if the file
+  changed since the seeded Read.
+
+  ## Parameters
+
+    * `session` - Session reference
+    * `path` - File path to seed
+    * `mtime` - File modification time (Unix timestamp)
+
+  ## Examples
+
+      :ok = ClaudeCode.Session.seed_read_state(session, "/path/to/file.ex", 1_711_700_000)
+  """
+  @spec seed_read_state(session(), String.t(), integer()) :: :ok | {:error, term()}
+  def seed_read_state(session, path, mtime) do
+    session
+    |> GenServer.call({:control, :seed_read_state, %{path: path, mtime: mtime}})
+    |> to_ok()
+  end
+
   # ============================================================================
   # File Checkpointing
   # ============================================================================
