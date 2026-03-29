@@ -521,9 +521,12 @@ defmodule ClaudeCode.Adapter.Port do
 
   @doc false
   def build_env(session_options, api_key) do
+    inherit_env = Keyword.get(session_options, :inherit_env, :all)
     user_env = Keyword.get(session_options, :env, %{})
+    debug = Keyword.get(session_options, :debug, false)
 
     System.get_env()
+    |> filter_system_env(inherit_env, debug: debug != false)
     |> Map.merge(sdk_env_vars())
     |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)
