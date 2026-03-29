@@ -19,7 +19,7 @@ Detect new, removed, or changed CLI flags and SDK options by comparing CLI help 
 
 ### Elixir implementation
 
-- `lib/claude_code/options.ex` -- `@session_opts_schema` and `@query_opts_schema` define all user-configurable options with NimbleOptions validation.
+- `lib/claude_code/options.ex` -- `@session_opts_schema` defines all user-configurable options with NimbleOptions validation.
 - `lib/claude_code/cli/command.ex` -- `convert_option_to_cli_flag/2` clauses map Elixir options to CLI flag strings.
 
 ### Current tracking
@@ -44,7 +44,7 @@ Also read `python-sdk-types.py` to confirm option names and types from the Pytho
 
 ### 4. Extract Elixir schema keys
 
-Read `options.ex` and extract all keys from `@session_opts_schema` and `@query_opts_schema`. Note each key's NimbleOptions type and documentation.
+Read `options.ex` and extract all keys from `@session_opts_schema`. Note each key's NimbleOptions type and documentation.
 
 ### 5. Extract Elixir flag conversion clauses
 
