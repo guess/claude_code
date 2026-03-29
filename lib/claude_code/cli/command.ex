@@ -65,7 +65,7 @@ defmodule ClaudeCode.CLI.Command do
         {flag, flag_value} -> [flag_value, flag | acc]
         # Acc is built in reverse (flipped by Enum.reverse at the end),
         # so multi-entry lists must also be reversed before prepending.
-        flag_entries when is_list(flag_entries) -> Enum.reverse(flag_entries) ++ acc
+        flag_entries when is_list(flag_entries) -> Enum.reverse(flag_entries, acc)
         nil -> acc
       end
     end)
