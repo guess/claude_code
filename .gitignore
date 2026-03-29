@@ -59,5 +59,8 @@ npm-debug.log
 # Large minified CLI JS — too big to track in git
 .claude/skills/cli-sync/captured/ts-sdk-cli.js
 
+# Git worktrees
+.worktrees/
+
 # Mix lock file (you might want to commit this)
 # mix.lock

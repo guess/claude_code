@@ -479,6 +479,47 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   @doc false
+  def filter_system_env(sys_env, inherit_env, opts \\ [])
+
+  def filter_system_env(sys_env, :all, _opts) do
+    Map.delete(sys_env, "CLAUDECODE")
+  end
+
+  def filter_system_env(sys_env, inherit_list, opts) when is_list(inherit_list) do
+    result =
+      sys_env
+      |> Enum.filter(fn {key, _value} ->
+        matches_inherit_list?(key, inherit_list)
+      end)
+      |> Map.new()
+
+    if opts[:debug], do: log_unmatched_entries(inherit_list, sys_env)
+
+    result
+  end
+
+  defp matches_inherit_list?(key, inherit_list) do
+    Enum.any?(inherit_list, fn
+      {:prefix, prefix} -> String.starts_with?(key, prefix)
+      exact when is_binary(exact) -> key == exact
+    end)
+  end
+
+  defp log_unmatched_entries(inherit_list, sys_env) do
+    Enum.each(inherit_list, fn
+      {:prefix, prefix} ->
+        if !Enum.any?(sys_env, fn {key, _} -> String.starts_with?(key, prefix) end) do
+          Logger.debug("inherit_env: {:prefix, #{inspect(prefix)}} — no matching system env vars")
+        end
+
+      exact when is_binary(exact) ->
+        if !Map.has_key?(sys_env, exact) do
+          Logger.debug("inherit_env: #{inspect(exact)} — no matching system env var")
+        end
+    end)
+  end
+
+  @doc false
   def build_env(session_options, api_key) do
     user_env = Keyword.get(session_options, :env, %{})
 
