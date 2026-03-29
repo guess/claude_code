@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`:inherit_env` option** — Controls which system environment variables are inherited by the CLI subprocess. Defaults to `:all` (inherit everything except `CLAUDECODE`, matching Python SDK behavior). Set to a list of exact strings or `{:prefix, "..."}` tuples for selective inheritance, or `[]` to inherit nothing. See [Secure Deployment](docs/guides/secure-deployment.md#environment-variable-control).
+
+- **`:env` now accepts `false` values** — Setting a key to `false` in the `:env` option unsets that variable in the CLI subprocess, leveraging Erlang Port's native env unsetting. Useful for removing sensitive inherited vars: `env: %{"RELEASE_COOKIE" => false}`.
+
 ### Fixed
 
 - **Hardened timing-sensitive tests** — Replaced `Process.sleep` calls across `ClaudeCode.SessionTest`, `ClaudeCodeTest`, and `ClaudeCode.SupervisorTest` with deterministic synchronization (`MockCLI.poll_until/2`, `Process.monitor` + `assert_receive`, synchronous `:sys.get_state` calls). Corrected two supervisor tests that assumed empty config would crash the child — `api_key` is now optional (defaults to `ANTHROPIC_API_KEY` env var), so the child starts successfully; tests now assert `count == 1` to reflect current behavior.

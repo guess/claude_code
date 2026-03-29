@@ -133,7 +133,7 @@ Core capabilities:
   - `system.ex` - System command abstraction (formerly system_cmd.ex)
   - `adapter.ex` - Adapter behaviour definition + notification helpers
   - `adapter/`
-    - `port.ex` - Port-based CLI adapter GenServer (Port, shell, env, reconnect)
+    - `port.ex` - Port-based CLI adapter GenServer (Port, shell, env, reconnect, filter_system_env)
     - `port/`
       - `installer.ex` - CLI binary download and installation
       - `resolver.ex` - CLI binary resolution and validation
@@ -196,6 +196,8 @@ Key options:
 - `:include_partial_messages` - Enable character-level streaming
 - `:cli_path` - CLI binary resolution mode: `:bundled` (default), `:global`, or explicit path string
 - `:sandbox` - Sandbox settings for bash command isolation (map, merged into --settings)
+- `:inherit_env` - Controls system env inheritance: `:all` (default), `[]`, or list of strings/`{:prefix, "..."}` tuples
+- `:env` - Additional environment variables (map of string keys to string values or `false` to unset)
 - `:enable_file_checkpointing` - Enable file checkpointing (boolean, set via env var)
 - `:can_use_tool` - Permission prompt callback (maps to `--permission-prompt-tool stdio`)
 - `:mcp_servers` - Inline MCP server config (module shorthand or full config maps)
