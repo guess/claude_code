@@ -117,8 +117,11 @@ defmodule ClaudeCode.Stream do
 
   ## Examples
 
+      # Start session with partial messages enabled
+      {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
       # Real-time character streaming for LiveView
-      ClaudeCode.stream(session, "Tell a story", include_partial_messages: true)
+      ClaudeCode.stream(session, "Tell a story")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:123", {:text_chunk, chunk})
@@ -126,7 +129,7 @@ defmodule ClaudeCode.Stream do
 
       # Simple console output
       session
-      |> ClaudeCode.stream("Hello", include_partial_messages: true)
+      |> ClaudeCode.stream("Hello")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&IO.write/1)
   """
@@ -175,7 +178,8 @@ defmodule ClaudeCode.Stream do
 
   ## Examples
 
-      ClaudeCode.stream(session, "Create a file", include_partial_messages: true)
+      # Requires session started with include_partial_messages: true
+      ClaudeCode.stream(session, "Create a file")
       |> ClaudeCode.Stream.content_deltas()
       |> Enum.each(fn delta ->
         case delta.type do
