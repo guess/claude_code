@@ -775,4 +775,57 @@ defmodule ClaudeCode.OptionsTest do
       assert result[:model] == "sonnet"
     end
   end
+
+  describe "inherit_env option" do
+    test "accepts :all" do
+      assert {:ok, opts} = Options.validate_session_options(inherit_env: :all)
+      assert opts[:inherit_env] == :all
+    end
+
+    test "accepts list of strings" do
+      assert {:ok, opts} = Options.validate_session_options(inherit_env: ["PATH", "HOME"])
+      assert opts[:inherit_env] == ["PATH", "HOME"]
+    end
+
+    test "accepts list with prefix tuples" do
+      assert {:ok, opts} =
+               Options.validate_session_options(inherit_env: ["PATH", {:prefix, "CLAUDE_"}])
+
+      assert opts[:inherit_env] == ["PATH", {:prefix, "CLAUDE_"}]
+    end
+
+    test "accepts empty list" do
+      assert {:ok, opts} = Options.validate_session_options(inherit_env: [])
+      assert opts[:inherit_env] == []
+    end
+
+    test "rejects invalid types" do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Options.validate_session_options(inherit_env: "PATH")
+    end
+
+    test "rejects invalid list elements" do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Options.validate_session_options(inherit_env: [123])
+    end
+
+    test "rejects invalid prefix tuple format" do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Options.validate_session_options(inherit_env: [{:prefix, 123}])
+    end
+
+    test "is not accepted as a query option" do
+      assert {:error, %NimbleOptions.ValidationError{}} =
+               Options.validate_query_options(inherit_env: :all)
+    end
+  end
+
+  describe "env option with false values" do
+    test "accepts false values to unset vars" do
+      assert {:ok, opts} =
+               Options.validate_session_options(env: %{"REMOVE" => false, "KEEP" => "value"})
+
+      assert opts[:env] == %{"REMOVE" => false, "KEEP" => "value"}
+    end
+  end
 end

@@ -493,17 +493,20 @@ defmodule ClaudeCode.Options do
       """
     ],
     env: [
-      type: {:map, :string, :string},
+      type: {:custom, __MODULE__, :validate_env, []},
       default: %{},
       doc: """
       Environment variables to merge with system environment when spawning CLI.
+
+      String values set the variable. A value of `false` unsets the variable,
+      leveraging Erlang Port's native env unsetting behavior.
 
       These variables override system environment variables but are overridden by
       SDK-required variables (CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_SDK_VERSION) and
       the `:api_key` option (which sets ANTHROPIC_API_KEY).
 
       Merge precedence (lowest to highest):
-      1. System environment variables
+      1. System environment variables (filtered by `:inherit_env`)
       2. User `:env` option (these values)
       3. SDK-required variables
       4. `:api_key` option
@@ -512,12 +515,33 @@ defmodule ClaudeCode.Options do
       - MCP tools that need specific env vars
       - Providing PATH or other tool-specific configuration
       - Testing with custom environment
+      - Unsetting sensitive vars: `env: %{"SECRET" => false}`
 
       Example:
           env: %{
             "MY_CUSTOM_VAR" => "value",
-            "PATH" => "/custom/bin:" <> System.get_env("PATH")
+            "PATH" => "/custom/bin:" <> System.get_env("PATH"),
+            "RELEASE_COOKIE" => false
           }
+      """
+    ],
+    inherit_env: [
+      type: {:custom, __MODULE__, :validate_inherit_env, []},
+      default: :all,
+      doc: """
+      Controls which system environment variables are inherited by the CLI subprocess.
+
+      - `:all` (default) — inherit all system env vars, minus `CLAUDECODE`
+      - `[]` — inherit nothing from system env (only SDK vars, `:env`, and `:api_key`)
+      - List of exact strings and/or `{:prefix, "..."}` tuples — only inherit matching vars
+
+      `CLAUDECODE` is always stripped from inherited env when using `:all`.
+      With an explicit list, `CLAUDECODE` is included if matched.
+
+      Examples:
+          inherit_env: :all
+          inherit_env: []
+          inherit_env: ["PATH", "HOME", {:prefix, "CLAUDE_"}, {:prefix, "HTTP_"}]
       """
     ],
     # CLI options (aligned with TypeScript SDK)
@@ -887,6 +911,44 @@ defmodule ClaudeCode.Options do
 
     # Apply app config first, then session opts
     Keyword.merge(app_config, session_opts)
+  end
+
+  @doc false
+  def validate_inherit_env(:all), do: {:ok, :all}
+
+  def validate_inherit_env(list) when is_list(list) do
+    Enum.each(list, fn
+      item when is_binary(item) -> :ok
+      {:prefix, prefix} when is_binary(prefix) -> :ok
+      other -> throw({:invalid_inherit_env_item, other})
+    end)
+
+    {:ok, list}
+  catch
+    {:invalid_inherit_env_item, item} ->
+      {:error, "expected a string or {:prefix, string} tuple in :inherit_env list, got: #{inspect(item)}"}
+  end
+
+  def validate_inherit_env(other) do
+    {:error, "expected :all or a list of strings/{:prefix, string} tuples, got: #{inspect(other)}"}
+  end
+
+  @doc false
+  def validate_env(env) when is_map(env) do
+    Enum.each(env, fn
+      {key, value} when is_binary(key) and is_binary(value) -> :ok
+      {key, false} when is_binary(key) -> :ok
+      {key, value} -> throw({:invalid_env_entry, key, value})
+    end)
+
+    {:ok, env}
+  catch
+    {:invalid_env_entry, key, value} ->
+      {:error, "expected string keys with string or false values in :env, got: #{inspect(key)} => #{inspect(value)}"}
+  end
+
+  def validate_env(other) do
+    {:error, "expected a map for :env, got: #{inspect(other)}"}
   end
 
   @doc false

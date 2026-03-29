@@ -361,6 +361,7 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:callers, _value), do: nil
   defp convert_option(:stub_name, _value), do: nil
   defp convert_option(:env, _value), do: nil
+  defp convert_option(:inherit_env, _value), do: nil
   defp convert_option(:max_buffer_size, _value), do: nil
   defp convert_option(:extra_args, _value), do: nil
   defp convert_option(:prompt_suggestions, _value), do: nil
