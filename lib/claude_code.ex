@@ -201,8 +201,13 @@ defmodule ClaudeCode do
 
   ## Options
 
-  Query-level options override session-level options. See `ClaudeCode.Options.query_schema/0`
-  for all available query options.
+  Stream-level options control local stream behavior only:
+
+  - `:timeout` — Max wait for next message (default: `:infinity`)
+  - `:filter` — Message type filter: `:all`, `:assistant`, `:tool_use`, `:result` (default: `:all`)
+
+  All other configuration is set at session creation via `ClaudeCode.start_link/1`
+  or `ClaudeCode.query/2`.
 
   ## Examples
 
@@ -211,11 +216,9 @@ defmodule ClaudeCode do
       |> ClaudeCode.stream("Write a hello world program")
       |> Enum.each(&IO.inspect/1)
 
-      # Stream with option overrides
+      # Stream with a timeout
       session
-      |> ClaudeCode.stream("Explain quantum computing",
-           system_prompt: "Focus on practical applications",
-           allowed_tools: ["View"])
+      |> ClaudeCode.stream("Explain quantum computing", timeout: 30_000)
       |> ClaudeCode.Stream.text_content()
       |> Enum.each(&IO.write/1)
 
