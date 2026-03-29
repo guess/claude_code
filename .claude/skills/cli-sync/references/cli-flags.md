@@ -40,6 +40,10 @@ Mapping between CLI flags, Elixir options, and implementation details.
 | `--from-pr` | `:from_pr` | string/integer | Resume session linked to PR |
 | `--debug` | `:debug` | boolean/string | Debug mode with optional filter |
 | `--debug-file` | `:debug_file` | string | Debug log file path |
+| `--system-prompt-file` | `:system_prompt_file` | string | System prompt from file |
+| `--append-system-prompt-file` | `:append_system_prompt_file` | string | Append system prompt from file |
+| `--bare` | `:bare` | boolean | Skip hooks/LSP/plugins for fast scripted sessions |
+| `--worktree` | `:worktree` | boolean/string | Git worktree support |
 
 ## Always-Enabled Flags
 

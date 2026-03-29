@@ -61,12 +61,7 @@ defmodule ClaudeCode.Message.SystemMessage.SessionStateChanged do
   """
   @spec new(map()) :: {:ok, t()} | {:error, atom()}
   def new(
-        %{
-          "type" => "system",
-          "subtype" => "session_state_changed",
-          "state" => state,
-          "session_id" => session_id
-        } = json
+        %{"type" => "system", "subtype" => "session_state_changed", "state" => state, "session_id" => session_id} = json
       ) do
     {:ok,
      %__MODULE__{
@@ -78,8 +73,7 @@ defmodule ClaudeCode.Message.SystemMessage.SessionStateChanged do
      }}
   end
 
-  def new(%{"type" => "system", "subtype" => "session_state_changed"}),
-    do: {:error, :missing_required_fields}
+  def new(%{"type" => "system", "subtype" => "session_state_changed"}), do: {:error, :missing_required_fields}
 
   def new(_), do: {:error, :invalid_message_type}
 

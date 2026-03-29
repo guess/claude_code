@@ -28,6 +28,8 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 | `Message.SystemMessage.TaskStarted` | `SDKTaskStartedMessage` | `TaskStartedMessage` | |
 | `Message.SystemMessage.TaskProgress` | `SDKTaskProgressMessage` | `TaskProgressMessage` | |
 | `Message.SystemMessage.TaskNotification` | `SDKTaskNotificationMessage` | `TaskNotificationMessage` | |
+| `Message.SystemMessage.ApiRetry` | `SDKAPIRetryMessage` | -- | TS only; added in CLI 2.1.87 |
+| `Message.SystemMessage.SessionStateChanged` | `SDKSessionStateChangedMessage` | -- | TS only; added in CLI 2.1.87 |
 
 ## Content Block Types
 
@@ -116,6 +118,10 @@ The control protocol uses bidirectional JSON messages over stdin/stdout. The CLI
 | `SDKControlMcpToggleRequest` | `Query.toggleMcpServer()` | `Control.mcp_toggle_request/3` | `ClaudeCode.Session.mcp_toggle/3` | Implemented |
 | `SDKControlStopTaskRequest` | `Query.stopTask()` | `Control.stop_task_request/2` | `ClaudeCode.Session.stop_task/2` | Implemented |
 | `SDKControlMcpSetServersRequest` | `Query.setMcpServers()` | `Control.mcp_set_servers_request/2` | `ClaudeCode.Session.set_mcp_servers/2` | Implemented |
+| `SDKControlGetContextUsageRequest` | `Query.getContextUsage()` | `Control.get_context_usage_request/1` | `ClaudeCode.Session.get_context_usage/1` | Implemented |
+| `SDKControlReloadPluginsRequest` | `Query.reloadPlugins()` | `Control.reload_plugins_request/1` | `ClaudeCode.Session.reload_plugins/1` | Implemented |
+| `SDKControlSeedReadStateRequest` | `Query.seedReadState()` | `Control.seed_read_state_request/3` | `ClaudeCode.Session.seed_read_state/3` | Implemented |
+| `SDKControlCancelAsyncMessageRequest` | *(no public method)* | -- | -- | **Skipped** — internal async queue management |
 | `SDKControlMcpMessageRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal SDK MCP transport |
 | `SDKControlApplyFlagSettingsRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal settings plumbing |
 | `SDKControlGetSettingsRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal settings plumbing |
@@ -125,6 +131,13 @@ The control protocol uses bidirectional JSON messages over stdin/stdout. The CLI
 | `SDKControlMcpOAuthCallbackUrlRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
 | `SDKControlRemoteControlRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
 | `SDKControlSetProactiveRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlChannelEnableRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlEndSessionRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlGenerateSessionTitleRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlClaudeAuthenticateRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlClaudeOAuthCallbackRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlClaudeOAuthWaitForCompletionRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
+| `SDKControlSideQuestionRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
 
 ### CLI → SDK Requests (inbound)
 
@@ -153,6 +166,9 @@ The TS SDK exposes convenience methods on `Query` that read from the cached `SDK
 | `Query.supportedAgents()` | `ClaudeCode.Session.supported_agents/1` | Implemented |
 | `Query.supportedCommands()` | `ClaudeCode.supported_commands/1` | Implemented |
 | `Query.accountInfo()` | `ClaudeCode.account_info/1` | Implemented |
+| `Query.getContextUsage()` | `ClaudeCode.Session.get_context_usage/1` | Implemented |
+| `Query.reloadPlugins()` | `ClaudeCode.Session.reload_plugins/1` | Implemented |
+| `Query.seedReadState()` | `ClaudeCode.Session.seed_read_state/3` | Implemented |
 
 ## Lookup by TS SDK Name
 
@@ -192,6 +208,7 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SandboxNetworkConfig` | `ClaudeCode.Sandbox.Network` |
 | `SandboxSettings` | `ClaudeCode.Sandbox` |
 | `SessionStartHookSpecificOutput` | `ClaudeCode.Hook.Output.SessionStart` |
+| `SDKAPIRetryMessage` | `Message.SystemMessage.ApiRetry` |
 | `SDKAssistantMessage` | `Message.AssistantMessage` |
 | `SDKAuthStatusMessage` | `Message.AuthStatusMessage` |
 | `SDKCompactBoundaryMessage` | `Message.SystemMessage.CompactBoundary` |
@@ -207,6 +224,7 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKPromptSuggestionMessage` | `Message.PromptSuggestionMessage` |
 | `SDKRateLimitEvent` | `Message.RateLimitEvent` |
 | `SDKResultMessage` | `Message.ResultMessage` |
+| `SDKSessionStateChangedMessage` | `Message.SystemMessage.SessionStateChanged` |
 | `SDKStatusMessage` | `Message.SystemMessage.Status` |
 | `SDKSystemMessage` | `Message.SystemMessage.Init` |
 | `SDKTaskNotificationMessage` | `Message.SystemMessage.TaskNotification` |

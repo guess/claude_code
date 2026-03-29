@@ -119,7 +119,7 @@ Core capabilities:
   - `message.ex` - Message type union + helpers + stop_reason parsing; `parse` delegates to CLI.Parser
   - `content.ex` - Content type union + helpers; `parse` delegates to CLI.Parser
   - `message/` - Message type modules (system, assistant, user, result, partial, tool_progress, etc.)
-  - `message/system_message/` - System message subtypes (init, status, hook_*, task_*, compact_boundary, etc.)
+  - `message/system_message/` - System message subtypes (init, status, hook_*, task_*, compact_boundary, api_retry, session_state_changed, etc.)
   - `content/` - Content block modules (text, tool_use, tool_result, thinking, server_tool_use, mcp_tool_use, etc.)
   - `plugin.ex` - Plugin management (list, install, uninstall, enable, disable, update, validate)
   - `plugin/`
@@ -184,6 +184,8 @@ Key options:
 - `:plugins` - Plugin configurations (list of paths or maps with type: :local)
 - `:allowed_tools` / `:disallowed_tools` - Tool access control
 - `:system_prompt` / `:append_system_prompt` - Custom system instructions
+- `:system_prompt_file` / `:append_system_prompt_file` - System prompts from file paths
+- `:bare` - Skip hooks, LSP, plugins for fast scripted sessions
 - `:model` - Claude model selection
 - `:fallback_model` - Fallback model if primary fails
 - `:max_turns` - Conversation turn limiting
