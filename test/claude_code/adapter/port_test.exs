@@ -1632,4 +1632,125 @@ defmodule ClaudeCode.Adapter.PortTest do
       GenServer.stop(adapter)
     end
   end
+
+  # ============================================================================
+  # filter_system_env/2 Tests
+  # ============================================================================
+
+  describe "filter_system_env/2" do
+    test "with :all returns all system env except CLAUDECODE" do
+      sys_env = %{"PATH" => "/usr/bin", "CLAUDECODE" => "1", "HOME" => "/root"}
+      result = Port.filter_system_env(sys_env, :all)
+
+      refute Map.has_key?(result, "CLAUDECODE")
+      assert result["PATH"] == "/usr/bin"
+      assert result["HOME"] == "/root"
+    end
+
+    test "with empty list returns empty map" do
+      result = Port.filter_system_env(%{"PATH" => "/usr/bin", "HOME" => "/root"}, [])
+      assert result == %{}
+    end
+
+    test "with exact string list returns only matching keys" do
+      sys_env = %{"PATH" => "/usr/bin", "HOME" => "/root", "SECRET" => "abc"}
+      result = Port.filter_system_env(sys_env, ["PATH", "HOME"])
+      assert result == %{"PATH" => "/usr/bin", "HOME" => "/root"}
+    end
+
+    test "with prefix tuples returns matching keys" do
+      sys_env = %{
+        "CLAUDE_CODE_FOO" => "1",
+        "CLAUDE_CODE_BAR" => "2",
+        "HTTP_PROXY" => "proxy",
+        "HOME" => "/root"
+      }
+
+      result = Port.filter_system_env(sys_env, [{:prefix, "CLAUDE_CODE_"}])
+      assert result == %{"CLAUDE_CODE_FOO" => "1", "CLAUDE_CODE_BAR" => "2"}
+    end
+
+    test "with mixed list (strings + prefixes) returns all matches" do
+      sys_env = %{
+        "PATH" => "/usr/bin",
+        "HTTP_PROXY" => "proxy",
+        "HTTPS_PROXY" => "proxy2",
+        "SECRET" => "abc"
+      }
+
+      result = Port.filter_system_env(sys_env, ["PATH", {:prefix, "HTTP"}])
+      assert result == %{"PATH" => "/usr/bin", "HTTP_PROXY" => "proxy", "HTTPS_PROXY" => "proxy2"}
+    end
+
+    test "explicit list allows CLAUDECODE if listed" do
+      sys_env = %{"CLAUDECODE" => "1", "PATH" => "/usr/bin"}
+      result = Port.filter_system_env(sys_env, ["CLAUDECODE", "PATH"])
+      assert result == %{"CLAUDECODE" => "1", "PATH" => "/usr/bin"}
+    end
+
+    test "unmatched entries are silently ignored" do
+      sys_env = %{"PATH" => "/usr/bin"}
+      result = Port.filter_system_env(sys_env, ["PATH", "NONEXISTENT_VAR"])
+      assert result == %{"PATH" => "/usr/bin"}
+    end
+  end
+
+  # ============================================================================
+  # env with false values Tests
+  # ============================================================================
+
+  describe "env with false values" do
+    test "build_env passes through false values from user env" do
+      env = Port.build_env([env: %{"REMOVE_ME" => false, "KEEP_ME" => "yes"}], nil)
+
+      assert env["REMOVE_ME"] == false
+      assert env["KEEP_ME"] == "yes"
+    end
+  end
+
+  # ============================================================================
+  # filter_system_env/3 debug logging Tests
+  # ============================================================================
+
+  describe "filter_system_env/3 debug logging" do
+    import ExUnit.CaptureLog
+
+    test "logs warning for unmatched exact entries when debug enabled" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, ["PATH", "NONEXISTENT_VAR"], debug: true)
+        end)
+
+      assert log =~ "NONEXISTENT_VAR"
+      assert log =~ "no matching system env"
+    end
+
+    test "logs warning for unmatched prefix entries when debug enabled" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, [{:prefix, "ZZZZZ_"}], debug: true)
+        end)
+
+      assert log =~ "ZZZZZ_"
+      assert log =~ "no matching system env"
+    end
+
+    test "no logging when debug not enabled" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, ["NONEXISTENT_VAR"])
+        end)
+
+      assert log == ""
+    end
+
+    test "no logging for :all mode even with debug" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, :all, debug: true)
+        end)
+
+      assert log == ""
+    end
+  end
 end

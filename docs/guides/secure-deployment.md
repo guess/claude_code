@@ -352,6 +352,32 @@ Or pass via the `api_key` option for per-session keys:
 
 For production deployments, prefer the proxy pattern described above so that API keys never enter the agent's environment at all.
 
+## Environment Variable Control
+
+By default, the SDK passes all system environment variables from the parent BEAM process to the CLI subprocess (minus `CLAUDECODE`). In production BEAM releases, this can leak dozens of internal variables (`RELEASE_COOKIE`, framework vars, etc.).
+
+Use `:inherit_env` to control which system vars are inherited:
+
+```elixir
+# Inherit only what the CLI needs
+{:ok, session} = ClaudeCode.start_link(
+  inherit_env: ["PATH", "HOME", "LANG", {:prefix, "ANTHROPIC_"}, {:prefix, "HTTP_"}]
+)
+
+# Inherit nothing from system (only SDK vars + explicit :env)
+{:ok, session} = ClaudeCode.start_link(inherit_env: [])
+```
+
+Use `:env` with `false` values to unset specific vars while inheriting everything else:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  env: %{"RELEASE_COOKIE" => false, "MY_CONFIG" => "value"}
+)
+```
+
+The `:env` option sets explicit key-value pairs (highest priority after SDK internals). The two options compose: `:inherit_env` filters what comes from the system, `:env` adds or removes on top.
+
 ## Filesystem Configuration
 
 Filesystem controls determine what files the agent can read and write.
@@ -428,6 +454,7 @@ Choose the least-privileged permission mode for your use case:
 - [ ] Store API keys in environment variables (or use the proxy pattern)
 - [ ] Use `cwd` and `add_dir` to limit file access
 - [ ] Consider `sandbox` for bash isolation (see `ClaudeCode.Sandbox` and [sandboxing docs](https://code.claude.com/docs/en/sandboxing))
+- [ ] Use `inherit_env` to limit environment variable leakage from the BEAM process
 - [ ] Use per-user or per-request sessions for multi-user workloads (see [Hosting](hosting.md))
 - [ ] Consider container or VM isolation for high-security deployments
 - [ ] Use a proxy for credential injection in production

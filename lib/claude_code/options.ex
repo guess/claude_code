@@ -493,17 +493,20 @@ defmodule ClaudeCode.Options do
       """
     ],
     env: [
-      type: {:map, :string, :string},
+      type: {:map, :string, {:or, [:string, {:in, [false]}]}},
       default: %{},
       doc: """
       Environment variables to merge with system environment when spawning CLI.
+
+      String values set the variable. A value of `false` unsets the variable,
+      leveraging Erlang Port's native env unsetting behavior.
 
       These variables override system environment variables but are overridden by
       SDK-required variables (CLAUDE_CODE_ENTRYPOINT, CLAUDE_CODE_SDK_VERSION) and
       the `:api_key` option (which sets ANTHROPIC_API_KEY).
 
       Merge precedence (lowest to highest):
-      1. System environment variables
+      1. System environment variables (filtered by `:inherit_env`)
       2. User `:env` option (these values)
       3. SDK-required variables
       4. `:api_key` option
@@ -512,12 +515,33 @@ defmodule ClaudeCode.Options do
       - MCP tools that need specific env vars
       - Providing PATH or other tool-specific configuration
       - Testing with custom environment
+      - Unsetting sensitive vars: `env: %{"SECRET" => false}`
 
       Example:
           env: %{
             "MY_CUSTOM_VAR" => "value",
-            "PATH" => "/custom/bin:" <> System.get_env("PATH")
+            "PATH" => "/custom/bin:" <> System.get_env("PATH"),
+            "RELEASE_COOKIE" => false
           }
+      """
+    ],
+    inherit_env: [
+      type: {:or, [{:in, [:all]}, {:list, {:or, [:string, {:tuple, [{:in, [:prefix]}, :string]}]}}]},
+      default: :all,
+      doc: """
+      Controls which system environment variables are inherited by the CLI subprocess.
+
+      - `:all` (default) — inherit all system env vars, minus `CLAUDECODE`
+      - `[]` — inherit nothing from system env (only SDK vars, `:env`, and `:api_key`)
+      - List of exact strings and/or `{:prefix, "..."}` tuples — only inherit matching vars
+
+      `CLAUDECODE` is always stripped from inherited env when using `:all`.
+      With an explicit list, `CLAUDECODE` is included if matched.
+
+      Examples:
+          inherit_env: :all
+          inherit_env: []
+          inherit_env: ["PATH", "HOME", {:prefix, "CLAUDE_"}, {:prefix, "HTTP_"}]
       """
     ],
     # CLI options (aligned with TypeScript SDK)

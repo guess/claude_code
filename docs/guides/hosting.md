@@ -245,6 +245,15 @@ mix claude_code.install
 
 For alternative setups, see the CLI Configuration section of `ClaudeCode.Options`.
 
+In BEAM releases, the runtime injects many internal environment variables (`RELEASE_*`, `BINDIR`, `EMU`, etc.). Use `:inherit_env` to prevent these from leaking to the CLI subprocess:
+
+```elixir
+{:ok, session} = ClaudeCode.start_link(
+  inherit_env: ["PATH", "HOME", "LANG", {:prefix, "ANTHROPIC_"}, {:prefix, "HTTP_"}],
+  api_key: System.get_env("ANTHROPIC_API_KEY")
+)
+```
+
 ## Elixir-Specific: Resource Considerations
 
 Each ClaudeCode session runs a separate CLI subprocess:
