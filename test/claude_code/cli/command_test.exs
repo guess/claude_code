@@ -925,6 +925,21 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert plugin_count == 2
     end
 
+    test "plugin-dir flags appear immediately before their paths" do
+      opts = [plugins: ["./plugin-a", "./plugin-b"], max_turns: 5]
+
+      args = Command.to_cli_args(opts)
+
+      # Each --plugin-dir must be immediately followed by its path
+      args
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.filter(fn [flag, _] -> flag == "--plugin-dir" end)
+      |> Enum.each(fn [_flag, path] ->
+        assert path in ["./plugin-a", "./plugin-b"],
+               "Expected --plugin-dir to be followed by a plugin path, got: #{path}"
+      end)
+    end
+
     # -- File options --------------------------------------------------------
 
     test "converts file list to multiple --file flags" do

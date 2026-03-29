@@ -32,6 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CLI arg ordering for `:plugins`, `:add_dir`, and `:file`** — Flag/value pairs were reversed (e.g., `/path --plugin-dir` instead of `--plugin-dir /path`), causing the CLI to misinterpret arguments.
+
 - **Flaky `health/1` provisioning test** — `ClaudeCode.Adapter.PortIntegrationTest` now accepts both `{:unhealthy, :provisioning}` and `{:unhealthy, :not_connected}` during startup, fixing a race condition where fast CI runners could resolve the CLI before the assertion.
 
 ## [0.35.0] - 2026-03-26 | CC 2.1.76
