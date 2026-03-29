@@ -526,7 +526,7 @@ defmodule ClaudeCode.Options do
       """
     ],
     inherit_env: [
-      type: {:custom, __MODULE__, :validate_inherit_env, []},
+      type: {:or, [{:in, [:all]}, {:list, {:or, [:string, {:tuple, [{:in, [:prefix]}, :string]}]}}]},
       default: :all,
       doc: """
       Controls which system environment variables are inherited by the CLI subprocess.
@@ -912,24 +912,6 @@ defmodule ClaudeCode.Options do
     # Apply app config first, then session opts
     Keyword.merge(app_config, session_opts)
   end
-
-  @doc false
-  def validate_inherit_env(:all), do: {:ok, :all}
-
-  def validate_inherit_env(list) when is_list(list) do
-    case Enum.reject(list, &valid_inherit_env_entry?/1) do
-      [] -> {:ok, list}
-      [bad | _] -> {:error, "expected a string or {:prefix, string} tuple in :inherit_env list, got: #{inspect(bad)}"}
-    end
-  end
-
-  def validate_inherit_env(other) do
-    {:error, "expected :all or a list of strings/{:prefix, string} tuples, got: #{inspect(other)}"}
-  end
-
-  defp valid_inherit_env_entry?(item) when is_binary(item), do: true
-  defp valid_inherit_env_entry?({:prefix, prefix}) when is_binary(prefix), do: true
-  defp valid_inherit_env_entry?(_), do: false
 
   @doc false
   def validate_thinking(:adaptive), do: {:ok, :adaptive}
