@@ -180,7 +180,7 @@ end)
 # Invoke a custom command
 result =
   session
-  |> ClaudeCode.stream("/security-check", max_turns: 5)
+  |> ClaudeCode.stream("/security-check")
   |> ClaudeCode.Stream.final_result()
 
 IO.puts(result)
@@ -210,7 +210,7 @@ Send arguments after the command name:
 # $1 = "123", $2 = "high"
 result =
   session
-  |> ClaudeCode.stream("/fix-issue 123 high", max_turns: 5)
+  |> ClaudeCode.stream("/fix-issue 123 high")
   |> ClaudeCode.Stream.final_result()
 
 IO.puts(result)
@@ -330,16 +330,17 @@ Run tests matching pattern: $ARGUMENTS
 Use these commands through the SDK:
 
 ```elixir
-# Run code review
+# Run slash commands with turn limits
+{:ok, session} = ClaudeCode.start_link(max_turns: 5)
+
 result =
   session
-  |> ClaudeCode.stream("/code-review", max_turns: 3)
+  |> ClaudeCode.stream("/code-review")
   |> ClaudeCode.Stream.final_result()
 
-# Run specific tests
 result =
   session
-  |> ClaudeCode.stream("/test auth", max_turns: 5)
+  |> ClaudeCode.stream("/test auth")
   |> ClaudeCode.Stream.final_result()
 ```
 
@@ -351,15 +352,6 @@ To disable all slash commands (both built-in and custom), use the `disable_slash
 {:ok, session} = ClaudeCode.start_link(
   disable_slash_commands: true
 )
-```
-
-This can also be set at the query level:
-
-```elixir
-result =
-  session
-  |> ClaudeCode.stream("Hello", disable_slash_commands: true)
-  |> ClaudeCode.Stream.final_result()
 ```
 
 ## See also

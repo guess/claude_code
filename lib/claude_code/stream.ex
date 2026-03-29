@@ -48,7 +48,6 @@ defmodule ClaudeCode.Stream do
         %{
           session: session,
           prompt: prompt,
-          opts: opts,
           initialized: false,
           request_ref: nil,
           timeout: Keyword.get(opts, :timeout, :infinity),
@@ -117,8 +116,11 @@ defmodule ClaudeCode.Stream do
 
   ## Examples
 
+      # Start session with partial messages enabled
+      {:ok, session} = ClaudeCode.start_link(include_partial_messages: true)
+
       # Real-time character streaming for LiveView
-      ClaudeCode.stream(session, "Tell a story", include_partial_messages: true)
+      ClaudeCode.stream(session, "Tell a story")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(fn chunk ->
         Phoenix.PubSub.broadcast(MyApp.PubSub, "chat:123", {:text_chunk, chunk})
@@ -126,7 +128,7 @@ defmodule ClaudeCode.Stream do
 
       # Simple console output
       session
-      |> ClaudeCode.stream("Hello", include_partial_messages: true)
+      |> ClaudeCode.stream("Hello")
       |> ClaudeCode.Stream.text_deltas()
       |> Enum.each(&IO.write/1)
   """
@@ -175,7 +177,8 @@ defmodule ClaudeCode.Stream do
 
   ## Examples
 
-      ClaudeCode.stream(session, "Create a file", include_partial_messages: true)
+      # Requires session started with include_partial_messages: true
+      ClaudeCode.stream(session, "Create a file")
       |> ClaudeCode.Stream.content_deltas()
       |> Enum.each(fn delta ->
         case delta.type do
@@ -548,7 +551,7 @@ defmodule ClaudeCode.Stream do
 
   defp next_message(%{initialized: false} = state) do
     # Initialize the stream on first message request
-    case GenServer.call(state.session, {:query_stream, state.prompt, state.opts}) do
+    case GenServer.call(state.session, {:query_stream, state.prompt}) do
       {:ok, request_ref} ->
         new_state = %{state | initialized: true, request_ref: request_ref}
         next_message(new_state)

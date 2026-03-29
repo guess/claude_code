@@ -168,13 +168,6 @@ defmodule ClaudeCode.AgentTest do
              }
     end
 
-    test "agent structs are accepted by query options validation" do
-      agents = [Agent.new(name: "planner", prompt: "Plan things.")]
-
-      assert {:ok, validated} = ClaudeCode.Options.validate_query_options(agents: agents)
-      assert validated[:agents] == %{"planner" => %{"prompt" => "Plan things."}}
-    end
-
     test "raw map format still works" do
       agents = %{
         "reviewer" => %{"description" => "Reviews", "prompt" => "Review."}

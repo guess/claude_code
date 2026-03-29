@@ -173,8 +173,6 @@ Core capabilities:
 Quick reference for development:
 - `api_key` (optional) - Anthropic API key (defaults to ANTHROPIC_API_KEY env var)
 - Options grouped by: Claude config, tool control, advanced features, Elixir-specific
-- Query options can override session defaults (except `:api_key` and `:name`)
-
 Key options:
 - `:resume` - Session ID to resume a previous conversation (passed to `start_link/1`)
 - `:continue` - Continue the most recent conversation in the current directory (boolean)
@@ -335,10 +333,9 @@ ClaudeCode.Stream.content_deltas(stream)   # All delta types with index
 ### Options Validation & Precedence
 
 Options are validated using NimbleOptions and follow this precedence:
-1. Query-level options (highest priority)
-2. Session-level options
-3. Application configuration
-4. Default values (lowest priority)
+1. Session-level options (highest priority)
+2. Application configuration
+3. Default values (lowest priority)
 
 The `ClaudeCode.Options` module handles validation and conversion to CLI flags.
 

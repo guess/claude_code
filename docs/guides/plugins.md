@@ -57,20 +57,6 @@ Plugin paths can be:
 
 > **Note:** The path should point to the plugin's root directory (the directory containing `.claude-plugin/plugin.json`).
 
-### Query-level overrides
-
-Plugins can also be specified (or overridden) at query time:
-
-```elixir
-session
-|> ClaudeCode.stream("Hello",
-  plugins: [
-    %{type: :local, path: "./dev-plugins/experimental"}
-  ]
-)
-|> Stream.run()
-```
-
 ## Verifying plugin installation
 
 When plugins load successfully, they appear in the system initialization message (`ClaudeCode.Message.SystemMessage`). You can verify that your plugins are available by inspecting the `plugins` and `slash_commands` fields:

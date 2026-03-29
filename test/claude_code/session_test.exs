@@ -91,7 +91,7 @@ defmodule ClaudeCode.SessionTest do
 
       {:ok, session} = Session.start_link(adapter: @adapter)
 
-      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test"})
       assert is_reference(ref)
 
       ClaudeCode.stop(session)
@@ -104,7 +104,7 @@ defmodule ClaudeCode.SessionTest do
 
       {:ok, session} = Session.start_link(adapter: @adapter)
 
-      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test"})
 
       # query_stream is a synchronous call — request is already in state
       assert map_size(:sys.get_state(session).requests) > 0
@@ -225,7 +225,7 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
       {:ok, session} = Session.start_link(adapter: @adapter)
 
-      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test"})
 
       # Send raw map directly (simulating what Adapter.Port would do)
       send(session, {:adapter_message, request_id, raw_result_map()})
@@ -243,7 +243,7 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
       {:ok, session} = Session.start_link(adapter: @adapter)
 
-      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test"})
 
       # Send raw JSON binary (simulating a remote adapter)
       raw_json = Jason.encode!(raw_result_map("Hello from binary!"))
@@ -259,7 +259,7 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
       {:ok, session} = Session.start_link(adapter: @adapter)
 
-      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test"})
 
       # Send a raw assistant message (NOT a result)
       raw_assistant = %{
@@ -313,7 +313,7 @@ defmodule ClaudeCode.SessionTest do
       ClaudeCode.Test.stub(ClaudeCode, blocking_stub())
       {:ok, session} = Session.start_link(adapter: @adapter)
 
-      {:ok, request_id} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, request_id} = GenServer.call(session, {:query_stream, "test"})
 
       # Send invalid binary — Session should log and discard
       send(session, {:adapter_message, request_id, "not valid json"})
@@ -440,7 +440,7 @@ defmodule ClaudeCode.SessionTest do
     test "query_stream returns a request reference", %{mock_script: mock_script} do
       {:ok, session} = Session.start_link(api_key: "test-key", cli_path: mock_script)
 
-      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test"})
       assert is_reference(ref)
 
       GenServer.stop(session)
@@ -449,7 +449,7 @@ defmodule ClaudeCode.SessionTest do
     test "stream cleanup removes request", %{mock_script: mock_script} do
       {:ok, session} = Session.start_link(api_key: "test-key", cli_path: mock_script)
 
-      {:ok, ref} = GenServer.call(session, {:query_stream, "test", []})
+      {:ok, ref} = GenServer.call(session, {:query_stream, "test"})
 
       # Wait for provisioning + initialize handshake + query execution
       MockCLI.wait_until_ready(session)
