@@ -229,6 +229,21 @@ defmodule ClaudeCode.Session do
   end
 
   @doc """
+  Reloads plugins from disk and returns refreshed session components.
+
+  The result is a map with `"commands"`, `"agents"`, `"plugins"`,
+  `"mcp_servers"`, and `"error_count"` keys.
+
+  ## Examples
+
+      {:ok, result} = ClaudeCode.Session.reload_plugins(session)
+  """
+  @spec reload_plugins(session()) :: {:ok, map()} | {:error, term()}
+  def reload_plugins(session) do
+    GenServer.call(session, {:control, :reload_plugins, %{}})
+  end
+
+  @doc """
   Reconnects a disconnected or failed MCP server.
 
   ## Examples

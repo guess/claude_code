@@ -877,6 +877,10 @@ defmodule ClaudeCode.Adapter.Port do
     Control.reload_plugins_request(request_id)
   end
 
+  defp build_control_json(:seed_read_state, request_id, %{path: path, mtime: mtime}) do
+    Control.seed_read_state_request(request_id, path, mtime)
+  end
+
   defp build_control_json(subtype, _request_id, _params) do
     {:error, {:unknown_control_subtype, subtype}}
   end

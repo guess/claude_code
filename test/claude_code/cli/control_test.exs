@@ -249,6 +249,30 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
+  describe "seed_read_state_request/3" do
+    test "builds a seed_read_state control request" do
+      json = Control.seed_read_state_request("req-789", "/path/to/file.ex", 1_711_700_000)
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req-789"
+      assert decoded["request"]["subtype"] == "seed_read_state"
+      assert decoded["request"]["path"] == "/path/to/file.ex"
+      assert decoded["request"]["mtime"] == 1_711_700_000
+    end
+  end
+
+  describe "reload_plugins_request/1" do
+    test "builds a reload_plugins control request" do
+      json = Control.reload_plugins_request("req-456")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req-456"
+      assert decoded["request"]["subtype"] == "reload_plugins"
+    end
+  end
+
   describe "success_response/2" do
     test "builds success control response JSON" do
       json = Control.success_response("req_1_abc", %{status: "ok"})

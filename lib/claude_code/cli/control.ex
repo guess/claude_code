@@ -274,6 +274,23 @@ defmodule ClaudeCode.CLI.Control do
     encode_control_request(request_id, %{subtype: "reload_plugins"})
   end
 
+  @doc """
+  Builds a seed_read_state control request JSON string.
+
+  Seeds the CLI's readFileState cache with a path+mtime entry.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `path` - File path to seed
+    * `mtime` - File modification time (Unix timestamp)
+
+  """
+  @spec seed_read_state_request(String.t(), String.t(), integer()) :: String.t()
+  def seed_read_state_request(request_id, path, mtime) do
+    encode_control_request(request_id, %{subtype: "seed_read_state", path: path, mtime: mtime})
+  end
+
   # --- Response Builders (SDK -> CLI, answering CLI requests) -----------------
 
   @doc """
