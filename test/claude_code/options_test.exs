@@ -185,6 +185,11 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:no_session_persistence] == false
     end
 
+    test "validates :bare as a boolean" do
+      assert {:ok, opts} = Options.validate_session_options(bare: true)
+      assert opts[:bare] == true
+    end
+
     test "validates session_id option" do
       opts = [session_id: "550e8400-e29b-41d4-a716-446655440000"]
       assert {:ok, validated} = Options.validate_session_options(opts)

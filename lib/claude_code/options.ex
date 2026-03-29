@@ -550,6 +550,8 @@ defmodule ClaudeCode.Options do
     cwd: [type: :string, doc: "Current working directory"],
     system_prompt: [type: :string, doc: "Override system prompt"],
     append_system_prompt: [type: :string, doc: "Append to system prompt"],
+    system_prompt_file: [type: :string, doc: "Path to file containing system prompt override"],
+    append_system_prompt_file: [type: :string, doc: "Path to file to append to system prompt"],
     max_turns: [type: :integer, doc: "Limit agentic turns in non-interactive mode"],
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Maximum dollar amount to spend on API calls"],
     agent: [type: :string, doc: "Agent name for the session (overrides 'agent' setting)"],
@@ -650,6 +652,10 @@ defmodule ClaudeCode.Options do
       default: false,
       doc: "Disable session persistence - sessions will not be saved to disk and cannot be resumed"
     ],
+    bare: [
+      type: :boolean,
+      doc: "Skip hooks, LSP, plugin sync, and skill walks for fast scripted sessions"
+    ],
     session_id: [
       type: :string,
       doc: "Use a specific session ID for the conversation (must be a valid UUID)"
@@ -742,6 +748,8 @@ defmodule ClaudeCode.Options do
     fallback_model: [type: :string, doc: "Override fallback model for this query"],
     system_prompt: [type: :string, doc: "Override system prompt for this query"],
     append_system_prompt: [type: :string, doc: "Append to system prompt for this query"],
+    system_prompt_file: [type: :string, doc: "Path to file containing system prompt override for this query"],
+    append_system_prompt_file: [type: :string, doc: "Path to file to append to system prompt for this query"],
     max_turns: [type: :integer, doc: "Override max turns for this query"],
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Override max budget for this query"],
     agent: [type: :string, doc: "Override agent for this query"],

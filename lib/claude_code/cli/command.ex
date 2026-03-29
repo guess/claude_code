@@ -304,6 +304,9 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:no_session_persistence, false), do: nil
 
+  defp convert_option(:bare, true), do: ["--bare"]
+  defp convert_option(:bare, false), do: nil
+
   defp convert_option(:session_id, value) do
     {"--session-id", value}
   end

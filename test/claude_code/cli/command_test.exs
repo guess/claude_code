@@ -743,6 +743,16 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "--no-session-persistence" in args
     end
 
+    test "converts :bare to --bare flag" do
+      args = Command.to_cli_args(bare: true)
+      assert "--bare" in args
+    end
+
+    test "does not include --bare when false" do
+      args = Command.to_cli_args(bare: false)
+      refute "--bare" in args
+    end
+
     test "converts session_id to --session-id" do
       opts = [session_id: "550e8400-e29b-41d4-a716-446655440000"]
 
