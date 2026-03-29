@@ -8,6 +8,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   `ClaudeCode.Message.SystemMessage.*`.
   """
 
+  alias __MODULE__.ApiRetry
   alias __MODULE__.CompactBoundary
   alias __MODULE__.ElicitationComplete
   alias __MODULE__.FilesPersisted
@@ -16,6 +17,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   alias __MODULE__.HookStarted
   alias __MODULE__.Init
   alias __MODULE__.LocalCommandOutput
+  alias __MODULE__.SessionStateChanged
   alias __MODULE__.Status
   alias __MODULE__.TaskNotification
   alias __MODULE__.TaskProgress
@@ -34,6 +36,8 @@ defmodule ClaudeCode.Message.SystemMessage do
           | TaskStarted.t()
           | TaskProgress.t()
           | TaskNotification.t()
+          | ApiRetry.t()
+          | SessionStateChanged.t()
 
   @doc """
   Checks if a value is any type of system message.
@@ -51,5 +55,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   def type?(%TaskStarted{}), do: true
   def type?(%TaskProgress{}), do: true
   def type?(%TaskNotification{}), do: true
+  def type?(%ApiRetry{}), do: true
+  def type?(%SessionStateChanged{}), do: true
   def type?(_), do: false
 end
