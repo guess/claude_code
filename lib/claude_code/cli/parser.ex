@@ -31,6 +31,7 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage.ApiRetry
   alias ClaudeCode.Message.SystemMessage.CompactBoundary
   alias ClaudeCode.Message.SystemMessage.ElicitationComplete
   alias ClaudeCode.Message.SystemMessage.FilesPersisted
@@ -39,6 +40,7 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Message.SystemMessage.HookStarted
   alias ClaudeCode.Message.SystemMessage.Init
   alias ClaudeCode.Message.SystemMessage.LocalCommandOutput
+  alias ClaudeCode.Message.SystemMessage.SessionStateChanged
   alias ClaudeCode.Message.SystemMessage.Status
   alias ClaudeCode.Message.SystemMessage.TaskNotification
   alias ClaudeCode.Message.SystemMessage.TaskProgress
@@ -95,7 +97,8 @@ defmodule ClaudeCode.CLI.Parser do
                       "elicitation_complete" => &ElicitationComplete.new/1,
                       "task_started" => &TaskStarted.new/1,
                       "task_progress" => &TaskProgress.new/1,
-                      "task_notification" => &TaskNotification.new/1
+                      "task_notification" => &TaskNotification.new/1,
+                      "api_retry" => &ApiRetry.new/1
                     },
                     Application.compile_env(:claude_code, :system_parsers, %{})
                   )
