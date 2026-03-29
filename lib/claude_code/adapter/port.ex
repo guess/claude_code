@@ -461,8 +461,9 @@ defmodule ClaudeCode.Adapter.Port do
   defp prepare_env(state) do
     state.session_options
     |> build_env(state.api_key)
-    |> Enum.map(fn {key, value} ->
-      {String.to_charlist(key), String.to_charlist(to_string(value))}
+    |> Enum.map(fn
+      {key, false} -> {String.to_charlist(key), false}
+      {key, value} -> {String.to_charlist(key), String.to_charlist(to_string(value))}
     end)
   end
 

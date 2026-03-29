@@ -1694,4 +1694,17 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert result == %{"PATH" => "/usr/bin"}
     end
   end
+
+  # ============================================================================
+  # env with false values Tests
+  # ============================================================================
+
+  describe "env with false values" do
+    test "build_env passes through false values from user env" do
+      env = Port.build_env([env: %{"REMOVE_ME" => false, "KEEP_ME" => "yes"}], nil)
+
+      assert env["REMOVE_ME"] == false
+      assert env["KEEP_ME"] == "yes"
+    end
+  end
 end
