@@ -487,16 +487,11 @@ defmodule ClaudeCode.Adapter.Port do
   end
 
   def filter_system_env(sys_env, inherit_list, opts) when is_list(inherit_list) do
-    result =
-      sys_env
-      |> Enum.filter(fn {key, _value} ->
-        matches_inherit_list?(key, inherit_list)
-      end)
-      |> Map.new()
-
     if opts[:debug], do: log_unmatched_entries(inherit_list, sys_env)
 
-    result
+    Map.filter(sys_env, fn {key, _value} ->
+      matches_inherit_list?(key, inherit_list)
+    end)
   end
 
   defp matches_inherit_list?(key, inherit_list) do
@@ -527,7 +522,7 @@ defmodule ClaudeCode.Adapter.Port do
     debug = Keyword.get(session_options, :debug, false)
 
     System.get_env()
-    |> filter_system_env(inherit_env, debug: debug != false)
+    |> filter_system_env(inherit_env, debug: !!debug)
     |> Map.merge(sdk_env_vars())
     |> Map.merge(user_env)
     |> maybe_put_api_key(api_key)

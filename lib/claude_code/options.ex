@@ -917,16 +917,14 @@ defmodule ClaudeCode.Options do
   def validate_inherit_env(:all), do: {:ok, :all}
 
   def validate_inherit_env(list) when is_list(list) do
-    Enum.each(list, fn
-      item when is_binary(item) -> :ok
-      {:prefix, prefix} when is_binary(prefix) -> :ok
-      other -> throw({:invalid_inherit_env_item, other})
-    end)
-
-    {:ok, list}
-  catch
-    {:invalid_inherit_env_item, item} ->
-      {:error, "expected a string or {:prefix, string} tuple in :inherit_env list, got: #{inspect(item)}"}
+    case Enum.find(list, fn
+           item when is_binary(item) -> false
+           {:prefix, prefix} when is_binary(prefix) -> false
+           _ -> true
+         end) do
+      nil -> {:ok, list}
+      bad -> {:error, "expected a string or {:prefix, string} tuple in :inherit_env list, got: #{inspect(bad)}"}
+    end
   end
 
   def validate_inherit_env(other) do
@@ -935,16 +933,17 @@ defmodule ClaudeCode.Options do
 
   @doc false
   def validate_env(env) when is_map(env) do
-    Enum.each(env, fn
-      {key, value} when is_binary(key) and is_binary(value) -> :ok
-      {key, false} when is_binary(key) -> :ok
-      {key, value} -> throw({:invalid_env_entry, key, value})
-    end)
+    case Enum.find(env, fn
+           {key, value} when is_binary(key) and is_binary(value) -> false
+           {key, false} when is_binary(key) -> false
+           _ -> true
+         end) do
+      nil ->
+        {:ok, env}
 
-    {:ok, env}
-  catch
-    {:invalid_env_entry, key, value} ->
-      {:error, "expected string keys with string or false values in :env, got: #{inspect(key)} => #{inspect(value)}"}
+      {key, value} ->
+        {:error, "expected string keys with string or false values in :env, got: #{inspect(key)} => #{inspect(value)}"}
+    end
   end
 
   def validate_env(other) do
