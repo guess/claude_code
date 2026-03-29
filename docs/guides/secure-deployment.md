@@ -354,7 +354,7 @@ For production deployments, prefer the proxy pattern described above so that API
 
 ## Environment Variable Control
 
-By default, the SDK passes all system environment variables from the parent BEAM process to the CLI subprocess (minus `CLAUDECODE`). In production BEAM releases, this can leak dozens of internal variables (`RELEASE_COOKIE`, framework vars, etc.).
+By default, the SDK passes all system environment variables from the parent BEAM process to the CLI subprocess (minus CLAUDECODE). In production BEAM releases, this can leak dozens of internal variables (`RELEASE_COOKIE`, framework vars, etc.).
 
 Use `:inherit_env` to control which system vars are inherited:
 

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`:inherit_env` option** — Controls which system environment variables are inherited by the CLI subprocess. Defaults to `:all` (inherit everything except `CLAUDECODE`, matching Python SDK behavior). Set to a list of exact strings or `{:prefix, "..."}` tuples for selective inheritance, or `[]` to inherit nothing. See [Secure Deployment](docs/guides/secure-deployment.md#environment-variable-control).
+- **`:inherit_env` option** — Controls which system environment variables are inherited by the CLI subprocess. Defaults to `:all` (inherit everything except CLAUDECODE, matching Python SDK behavior). Set to a list of exact strings or `{:prefix, "..."}` tuples for selective inheritance, or `[]` to inherit nothing. See [Secure Deployment](docs/guides/secure-deployment.md#environment-variable-control).
 
 - **`:env` now accepts `false` values** — Setting a key to `false` in the `:env` option unsets that variable in the CLI subprocess, leveraging Erlang Port's native env unsetting. Useful for removing sensitive inherited vars: `env: %{"RELEASE_COOKIE" => false}`.
 
@@ -34,7 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   end
   ```
 
-- **Port spawning refactored to direct `spawn_executable`** — `ClaudeCode.Adapter.Port` now spawns the CLI binary directly via Erlang's native `:spawn_executable` with `:args`, `:env`, and `:cd` port options, replacing the previous `/bin/sh -c` approach that required hand-rolled shell escaping. This eliminates `ClaudeCode.Adapter.Port.shell_escape/1`, `build_shell_command/4`, and the `@shell_safe_pattern` module attribute entirely. Environment variables, arguments, and paths with special characters (e.g. `!`, `#`, `<`, `>`, `[`, `]`) are now handled natively by the Erlang runtime without shell interpretation.
+- **Port spawning refactored to direct `spawn_executable`** — `ClaudeCode.Adapter.Port` now spawns the CLI binary directly via Erlang's native `:spawn_executable` with `:args`, `:env`, and `:cd` port options, replacing the previous `/bin/sh -c` approach that required hand-rolled shell escaping. This eliminates `shell_escape/1`, `build_shell_command/4`, and the `@shell_safe_pattern` module attribute entirely. Environment variables, arguments, and paths with special characters (e.g. `!`, `#`, `<`, `>`, `[`, `]`) are now handled natively by the Erlang runtime without shell interpretation.
 
 ### Fixed
 
@@ -83,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **MCP tool macro rewrite** — `ClaudeCode.MCP.Server.tool/3` now generates standalone modules without Hermes dependency. Tools use `execute/2` with `(params, assigns)` instead of Hermes frames. ([4c69cbb])
+- **MCP tool macro rewrite** — The `tool/3` macro now generates standalone modules without Hermes dependency. Tools use `execute/2` with `(params, assigns)` instead of Hermes frames. ([4c69cbb])
 - **MCP Router decoupled from Hermes** — Router delegates all tool operations to the configured backend instead of importing Hermes modules directly. ([4c69cbb])
 - **Breaking**: Removed ClaudeCode.History.conversation/2, ClaudeCode.History.conversation_from_file/1, and ClaudeCode.Session.conversation/2 — replaced by `get_messages/2` which properly handles branched/compacted conversations via `parentUuid` chain building. ([bf93d7c])
 - **Breaking**: Removed `:callback_timeout` from `ClaudeCode.Adapter.Node` — proxy delegation for hooks and MCP now uses the unified `:control_timeout` option instead. If you were passing `:callback_timeout` in adapter config, change it to `:control_timeout` as a session option. ([6758caa])

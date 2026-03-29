@@ -531,12 +531,12 @@ defmodule ClaudeCode.Options do
       doc: """
       Controls which system environment variables are inherited by the CLI subprocess.
 
-      - `:all` (default) — inherit all system env vars, minus `CLAUDECODE`
+      - `:all` (default) — inherit all system env vars, minus CLAUDECODE
       - `[]` — inherit nothing from system env (only SDK vars, `:env`, and `:api_key`)
       - List of exact strings and/or `{:prefix, "..."}` tuples — only inherit matching vars
 
-      `CLAUDECODE` is always stripped from inherited env when using `:all`.
-      With an explicit list, `CLAUDECODE` is included if matched.
+      CLAUDECODE is always stripped from inherited env when using `:all`.
+      With an explicit list, it is included if matched.
 
       Examples:
           inherit_env: :all
