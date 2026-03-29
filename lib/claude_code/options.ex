@@ -493,7 +493,7 @@ defmodule ClaudeCode.Options do
       """
     ],
     env: [
-      type: {:custom, __MODULE__, :validate_env, []},
+      type: {:map, :string, {:or, [:string, {:in, [false]}]}},
       default: %{},
       doc: """
       Environment variables to merge with system environment when spawning CLI.
@@ -930,22 +930,6 @@ defmodule ClaudeCode.Options do
   defp valid_inherit_env_entry?(item) when is_binary(item), do: true
   defp valid_inherit_env_entry?({:prefix, prefix}) when is_binary(prefix), do: true
   defp valid_inherit_env_entry?(_), do: false
-
-  @doc false
-  def validate_env(env) when is_map(env) do
-    case Enum.reject(env, &valid_env_entry?/1) do
-      [] -> {:ok, env}
-      [{key, value} | _] -> {:error, "expected string keys with string or false values in :env, got: #{inspect(key)} => #{inspect(value)}"}
-    end
-  end
-
-  def validate_env(other) do
-    {:error, "expected a map for :env, got: #{inspect(other)}"}
-  end
-
-  defp valid_env_entry?({key, value}) when is_binary(key) and is_binary(value), do: true
-  defp valid_env_entry?({key, false}) when is_binary(key), do: true
-  defp valid_env_entry?(_), do: false
 
   @doc false
   def validate_thinking(:adaptive), do: {:ok, :adaptive}
