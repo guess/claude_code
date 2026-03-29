@@ -917,13 +917,9 @@ defmodule ClaudeCode.Options do
   def validate_inherit_env(:all), do: {:ok, :all}
 
   def validate_inherit_env(list) when is_list(list) do
-    case Enum.find(list, fn
-           item when is_binary(item) -> false
-           {:prefix, prefix} when is_binary(prefix) -> false
-           _ -> true
-         end) do
-      nil -> {:ok, list}
-      bad -> {:error, "expected a string or {:prefix, string} tuple in :inherit_env list, got: #{inspect(bad)}"}
+    case Enum.reject(list, &valid_inherit_env_entry?/1) do
+      [] -> {:ok, list}
+      [bad | _] -> {:error, "expected a string or {:prefix, string} tuple in :inherit_env list, got: #{inspect(bad)}"}
     end
   end
 
@@ -931,24 +927,25 @@ defmodule ClaudeCode.Options do
     {:error, "expected :all or a list of strings/{:prefix, string} tuples, got: #{inspect(other)}"}
   end
 
+  defp valid_inherit_env_entry?(item) when is_binary(item), do: true
+  defp valid_inherit_env_entry?({:prefix, prefix}) when is_binary(prefix), do: true
+  defp valid_inherit_env_entry?(_), do: false
+
   @doc false
   def validate_env(env) when is_map(env) do
-    case Enum.find(env, fn
-           {key, value} when is_binary(key) and is_binary(value) -> false
-           {key, false} when is_binary(key) -> false
-           _ -> true
-         end) do
-      nil ->
-        {:ok, env}
-
-      {key, value} ->
-        {:error, "expected string keys with string or false values in :env, got: #{inspect(key)} => #{inspect(value)}"}
+    case Enum.reject(env, &valid_env_entry?/1) do
+      [] -> {:ok, env}
+      [{key, value} | _] -> {:error, "expected string keys with string or false values in :env, got: #{inspect(key)} => #{inspect(value)}"}
     end
   end
 
   def validate_env(other) do
     {:error, "expected a map for :env, got: #{inspect(other)}"}
   end
+
+  defp valid_env_entry?({key, value}) when is_binary(key) and is_binary(value), do: true
+  defp valid_env_entry?({key, false}) when is_binary(key), do: true
+  defp valid_env_entry?(_), do: false
 
   @doc false
   def validate_thinking(:adaptive), do: {:ok, :adaptive}
