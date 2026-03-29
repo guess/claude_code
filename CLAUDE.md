@@ -46,7 +46,7 @@ The SDK is organized in three layers:
 3. **Adapters** — Adapter.Port (local CLI via Port), Adapter.Node (distributed via BEAM), Adapter.Test (in-memory stubs)
 
 Key modules:
-- **ClaudeCode.Session** - Public API for session operations (lifecycle, runtime config, MCP, introspection)
+- **ClaudeCode.Session** - Public API for session operations (lifecycle, runtime config, MCP, introspection, execute)
 - **ClaudeCode.Session.Server** - GenServer that manages the adapter subprocess lifecycle
 - **ClaudeCode.Adapter.Port** - Port-based adapter that spawns the CLI as a local subprocess
 - **ClaudeCode.Adapter.Node** - Distributed adapter that runs Adapter.Port on a remote BEAM node via Erlang distribution
@@ -99,7 +99,7 @@ Core capabilities:
 - The CLI auto-connects on first query and auto-disconnects on session stop
 - API keys are passed via environment variables, never in command arguments
 - Response content comes from the "result" message, not "assistant" messages
-- Uses `/bin/sh -c` with proper shell escaping for special characters
+- Spawns the CLI binary directly via `spawn_executable` (no shell wrapper)
 - Multi-turn conversations are supported via persistent connection (no subprocess restart between queries)
 - Atom safety: use `ClaudeCode.MapUtils.safe_atomize_keys` for map keys from JSON payloads to prevent atom table exhaustion. `String.to_atom` is fine for enum values with finite sets (type, subtype, stop_reason, etc.) since the CLI is a trusted source with a bounded protocol.
 
@@ -197,6 +197,19 @@ Key options:
 - `:cli_path` - CLI binary resolution mode: `:bundled` (default), `:global`, or explicit path string
 - `:sandbox` - Sandbox settings for bash command isolation (map, merged into --settings)
 - `:enable_file_checkpointing` - Enable file checkpointing (boolean, set via env var)
+- `:can_use_tool` - Permission prompt callback (maps to `--permission-prompt-tool stdio`)
+- `:mcp_servers` - Inline MCP server config (module shorthand or full config maps)
+- `:file` - List of file specs to attach to the session
+- `:from_pr` - Resume a session linked to a PR number or URL
+- `:worktree` - Git worktree support (boolean or branch name)
+- `:agent` - Agent selection for the session
+- `:tools` - Built-in tool selection (`:default`, list, or `[]` to disable all)
+- `:max_budget_usd` - Maximum budget cap in USD
+- `:session_id` - Explicit session ID
+- `:cwd` - Working directory override (handled internally, not a CLI flag)
+- `:betas` - Beta feature flags (list of strings)
+- `:debug` / `:debug_file` - Debug mode and log file path
+- `:tool_config` / `:prompt_suggestions` - Sent via control protocol initialize
 
 Application config options:
 - `:cli_version` - Version to install (default: SDK's tested version)
