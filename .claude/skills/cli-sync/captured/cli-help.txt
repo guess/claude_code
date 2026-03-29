@@ -13,6 +13,7 @@ Options:
   --allow-dangerously-skip-permissions              Enable bypassing all permission checks as an option, without it being enabled by default. Recommended only for sandboxes with no internet access.
   --allowedTools, --allowed-tools <tools...>        Comma or space-separated list of tool names to allow (e.g. "Bash(git:*) Edit")
   --append-system-prompt <prompt>                   Append a system prompt to the default system prompt
+  --bare                                            Minimal mode: skip hooks, LSP, plugin sync, attribution, auto-memory, background prefetches, keychain reads, and CLAUDE.md auto-discovery. Sets CLAUDE_CODE_SIMPLE=1. Anthropic auth is strictly ANTHROPIC_API_KEY or apiKeyHelper via --settings (OAuth and keychain are never read). 3P providers (Bedrock/Vertex/Foundry) use their own credentials. Skills still resolve via /skill-name. Explicitly provide context via: --system-prompt[-file], --append-system-prompt[-file], --add-dir (CLAUDE.md dirs), --mcp-config, --settings, --agents, --plugin-dir.
   --betas <betas...>                                Beta headers to include in API requests (API key users only)
   --brief                                           Enable SendUserMessage tool for agent-to-user communication
   --chrome                                          Enable Claude in Chrome integration
@@ -59,7 +60,8 @@ Options:
 Commands:
   agents [options]                                  List configured agents
   auth                                              Manage authentication
-  doctor                                            Check the health of your Claude Code auto-updater
+  auto-mode                                         Inspect auto mode classifier configuration
+  doctor                                            Check the health of your Claude Code auto-updater. Note: The workspace trust dialog is skipped and stdio servers from .mcp.json are spawned for health checks. Only use this command in directories you trust.
   install [options] [target]                        Install Claude Code native build. Use [target] to specify version (stable, latest, or specific version)
   mcp                                               Configure and manage MCP servers
   plugin|plugins                                    Manage Claude Code plugins

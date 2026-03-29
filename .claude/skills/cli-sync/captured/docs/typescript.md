@@ -65,7 +65,34 @@ function tool<Schema extends AnyZodRawShape>(
 | `description` | `string` | A description of what the tool does |
 | `inputSchema` | `Schema extends AnyZodRawShape` | Zod schema defining the tool's input parameters (supports both Zod 3 and Zod 4) |
 | `handler` | `(args, extra) => Promise<`[`CallToolResult`](#call-tool-result)`>` | Async function that executes the tool logic |
-| `extras` | `{ annotations?: ToolAnnotations }` | Optional extra configuration including MCP tool annotations (e.g., `readOnly`, `destructive`, `openWorld`) |
+| `extras` | `{ annotations?: `[`ToolAnnotations`](#tool-annotations)` }` | Optional MCP tool annotations providing behavioral hints to clients |
+
+#### `ToolAnnotations`
+
+Re-exported from `@modelcontextprotocol/sdk/types.js`. All fields are optional hints; clients should not rely on them for security decisions.
+
+| Field | Type | Default | Description |
+| :---- | :--- | :------ | :---------- |
+| `title` | `string` | `undefined` | Human-readable title for the tool |
+| `readOnlyHint` | `boolean` | `false` | If `true`, the tool does not modify its environment |
+| `destructiveHint` | `boolean` | `true` | If `true`, the tool may perform destructive updates (only meaningful when `readOnlyHint` is `false`) |
+| `idempotentHint` | `boolean` | `false` | If `true`, repeated calls with the same arguments have no additional effect (only meaningful when `readOnlyHint` is `false`) |
+| `openWorldHint` | `boolean` | `true` | If `true`, the tool interacts with external entities (for example, web search). If `false`, the tool's domain is closed (for example, a memory tool) |
+
+```typescript
+import { tool } from "@anthropic-ai/claude-agent-sdk";
+import { z } from "zod";
+
+const searchTool = tool(
+  "search",
+  "Search the web",
+  { query: z.string() },
+  async ({ query }) => {
+    return { content: [{ type: "text", text: `Results for: ${query}` }] };
+  },
+  { annotations: { readOnlyHint: true, openWorldHint: true } }
+);
+```
 
 ### `createSdkMcpServer()`
 
@@ -110,11 +137,13 @@ function listSessions(options?: ListSessionsOptions): Promise<SDKSessionInfo[]>;
 | `sessionId` | `string` | Unique session identifier (UUID) |
 | `summary` | `string` | Display title: custom title, auto-generated summary, or first prompt |
 | `lastModified` | `number` | Last modified time in milliseconds since epoch |
-| `fileSize` | `number` | Session file size in bytes |
+| `fileSize` | `number \| undefined` | Session file size in bytes. Only populated for local JSONL storage |
 | `customTitle` | `string \| undefined` | User-set session title (via `/rename`) |
 | `firstPrompt` | `string \| undefined` | First meaningful user prompt in the session |
 | `gitBranch` | `string \| undefined` | Git branch at the end of the session |
 | `cwd` | `string \| undefined` | Working directory for the session |
+| `tag` | `string \| undefined` | User-set session tag (see [`tagSession()`](#tag-session)) |
+| `createdAt` | `number \| undefined` | Creation time in milliseconds since epoch, from the first entry's timestamp |
 
 #### Example
 
@@ -178,6 +207,66 @@ if (latest) {
   }
 }
 ```
+
+### `getSessionInfo()`
+
+Reads metadata for a single session by ID without scanning the full project directory.
+
+```typescript
+function getSessionInfo(
+  sessionId: string,
+  options?: GetSessionInfoOptions
+): Promise<SDKSessionInfo | undefined>;
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+| :-------- | :--- | :------ | :---------- |
+| `sessionId` | `string` | required | UUID of the session to look up |
+| `options.dir` | `string` | `undefined` | Project directory path. When omitted, searches all project directories |
+
+Returns [`SDKSessionInfo`](#return-type-sdk-session-info), or `undefined` if the session is not found.
+
+### `renameSession()`
+
+Renames a session by appending a custom-title entry. Repeated calls are safe; the most recent title wins.
+
+```typescript
+function renameSession(
+  sessionId: string,
+  title: string,
+  options?: SessionMutationOptions
+): Promise<void>;
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+| :-------- | :--- | :------ | :---------- |
+| `sessionId` | `string` | required | UUID of the session to rename |
+| `title` | `string` | required | New title. Must be non-empty after trimming whitespace |
+| `options.dir` | `string` | `undefined` | Project directory path. When omitted, searches all project directories |
+
+### `tagSession()`
+
+Tags a session. Pass `null` to clear the tag. Repeated calls are safe; the most recent tag wins.
+
+```typescript
+function tagSession(
+  sessionId: string,
+  tag: string | null,
+  options?: SessionMutationOptions
+): Promise<void>;
+```
+
+#### Parameters
+
+| Parameter | Type | Default | Description |
+| :-------- | :--- | :------ | :---------- |
+| `sessionId` | `string` | required | UUID of the session to tag |
+| `tag` | `string \| null` | required | Tag string, or `null` to clear |
+| `options.dir` | `string` | `undefined` | Project directory path. When omitted, searches all project directories |
 
 ## Types
 
@@ -276,7 +365,7 @@ interface Query extends AsyncGenerator<SDKMessage, void> {
 | `initializationResult()` | Returns the full initialization result including supported commands, models, account info, and output style configuration |
 | `supportedCommands()` | Returns available slash commands |
 | `supportedModels()` | Returns available models with display info |
-| `supportedAgents()` | Returns available subagents |
+| `supportedAgents()` | Returns available subagents as [`AgentInfo`](#agent-info)`[]` |
 | `mcpServerStatus()` | Returns status of connected MCP servers |
 | `accountInfo()` | Returns account information |
 | `reconnectMcpServer(serverName)` | Reconnect an MCP server by name |
@@ -298,6 +387,7 @@ type SDKControlInitializeResponse = {
   available_output_styles: string[];
   models: ModelInfo[];
   account: AccountInfo;
+  fast_mode_state?: "off" | "cooldown" | "on";
 };
 ```
 
@@ -619,6 +709,7 @@ type SDKMessage =
   | SDKPartialAssistantMessage
   | SDKCompactBoundaryMessage
   | SDKStatusMessage
+  | SDKLocalCommandOutputMessage
   | SDKHookStartedMessage
   | SDKHookProgressMessage
   | SDKHookResponseMessage
@@ -650,7 +741,7 @@ type SDKAssistantMessage = {
 
 The `message` field is a [`BetaMessage`](/docs/en/api/messages) from the Anthropic SDK. It includes fields like `id`, `content`, `model`, `stop_reason`, and `usage`.
 
-`SDKAssistantMessageError` is one of: `'authentication_failed'`, `'billing_error'`, `'rate_limit'`, `'invalid_request'`, `'server_error'`, or `'unknown'`.
+`SDKAssistantMessageError` is one of: `'authentication_failed'`, `'billing_error'`, `'rate_limit'`, `'invalid_request'`, `'server_error'`, `'max_output_tokens'`, or `'unknown'`.
 
 ### `SDKUserMessage`
 
@@ -2484,6 +2575,20 @@ type SDKRateLimitEvent = {
     resetsAt?: number;
     utilization?: number;
   };
+  uuid: UUID;
+  session_id: string;
+};
+```
+
+### `SDKLocalCommandOutputMessage`
+
+Output from a local slash command (for example, `/voice` or `/cost`). Displayed as assistant-style text in the transcript.
+
+```typescript
+type SDKLocalCommandOutputMessage = {
+  type: "system";
+  subtype: "local_command_output";
+  content: string;
   uuid: UUID;
   session_id: string;
 };
