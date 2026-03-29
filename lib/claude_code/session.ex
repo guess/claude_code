@@ -214,6 +214,21 @@ defmodule ClaudeCode.Session do
   end
 
   @doc """
+  Returns a breakdown of current context window usage by category.
+
+  The result is a map with keys like `"categories"`, `"total_tokens"`,
+  `"max_tokens"`, `"percentage"`, `"model"`, etc.
+
+  ## Examples
+
+      {:ok, usage} = ClaudeCode.Session.get_context_usage(session)
+  """
+  @spec get_context_usage(session()) :: {:ok, map()} | {:error, term()}
+  def get_context_usage(session) do
+    GenServer.call(session, {:control, :get_context_usage, %{}})
+  end
+
+  @doc """
   Reconnects a disconnected or failed MCP server.
 
   ## Examples

@@ -853,6 +853,10 @@ defmodule ClaudeCode.Adapter.Port do
     Control.mcp_status_request(request_id)
   end
 
+  defp build_control_json(:get_context_usage, request_id, _params) do
+    Control.get_context_usage_request(request_id)
+  end
+
   defp build_control_json(:mcp_reconnect, request_id, %{server_name: name}) do
     Control.mcp_reconnect_request(request_id, name)
   end
@@ -867,6 +871,10 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp build_control_json(:stop_task, request_id, %{task_id: task_id}) do
     Control.stop_task_request(request_id, task_id)
+  end
+
+  defp build_control_json(:reload_plugins, request_id, _params) do
+    Control.reload_plugins_request(request_id)
   end
 
   defp build_control_json(subtype, _request_id, _params) do

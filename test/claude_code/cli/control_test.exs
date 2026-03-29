@@ -161,6 +161,17 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
+  describe "get_context_usage_request/1" do
+    test "builds a get_context_usage control request" do
+      json = Control.get_context_usage_request("req-123")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req-123"
+      assert decoded["request"]["subtype"] == "get_context_usage"
+    end
+  end
+
   describe "interrupt_request/1" do
     test "builds interrupt request JSON" do
       json = Control.interrupt_request("req_6_pqr")

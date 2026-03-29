@@ -169,6 +169,19 @@ defmodule ClaudeCode.CLI.Control do
   end
 
   @doc """
+  Builds a get_context_usage control request JSON string.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+
+  """
+  @spec get_context_usage_request(String.t()) :: String.t()
+  def get_context_usage_request(request_id) do
+    encode_control_request(request_id, %{subtype: "get_context_usage"})
+  end
+
+  @doc """
   Builds an interrupt control request JSON string.
 
   Interrupt is fire-and-forget — the CLI stops generating and emits a result message.
@@ -246,6 +259,19 @@ defmodule ClaudeCode.CLI.Control do
   @spec stop_task_request(String.t(), String.t()) :: String.t()
   def stop_task_request(request_id, task_id) do
     encode_control_request(request_id, %{subtype: "stop_task", task_id: task_id})
+  end
+
+  @doc """
+  Builds a reload_plugins control request JSON string.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+
+  """
+  @spec reload_plugins_request(String.t()) :: String.t()
+  def reload_plugins_request(request_id) do
+    encode_control_request(request_id, %{subtype: "reload_plugins"})
   end
 
   # --- Response Builders (SDK -> CLI, answering CLI requests) -----------------
