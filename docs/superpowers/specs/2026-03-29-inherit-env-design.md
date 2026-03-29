@@ -24,7 +24,7 @@ The Python SDK already filters out `CLAUDECODE` (a marker var set by Claude Code
 
 - `:all` (default) — inherit all system env vars from `System.get_env()`, minus `CLAUDECODE`. This matches current behavior (no breaking change) and aligns with the Python SDK.
 - Explicit list — only inherit vars from system env that match an exact string or a `{:prefix, "..."}` tuple. Vars not matched are not set.
-- `CLAUDECODE` is always stripped from inherited env, even with `:all`. If a user needs it, they can force it via `:env`.
+- `CLAUDECODE` is stripped from inherited env when using `:all`. With an explicit list, `CLAUDECODE` is included if matched (the user explicitly opted in). It can also be force-set via `:env`.
 
 **Examples:**
 
@@ -76,7 +76,7 @@ The environment is constructed in this order (later steps override earlier):
 
 ```
 System.get_env()
-  |> filter by :inherit_env (always strips CLAUDECODE)
+  |> filter by :inherit_env (strips CLAUDECODE in :all mode)
   |> Map.merge(sdk_env_vars())          # CLAUDE_CODE_ENTRYPOINT, CLAUDE_AGENT_SDK_VERSION
   |> Map.merge(user :env string values) # explicit key-value overrides
   |> maybe_put_api_key()                # ANTHROPIC_API_KEY from :api_key option
@@ -105,9 +105,9 @@ Prefix entries that match zero vars also trigger a debug warning.
 
 ### 2. `lib/claude_code/adapter/port.ex`
 
-- Add `filter_system_env/2` function that applies `:inherit_env` filtering
+- Add `filter_system_env/3` function (signature: `filter_system_env(sys_env, inherit_env, opts \\ [])`) that applies `:inherit_env` filtering
   - `:all` — returns all vars minus `CLAUDECODE`
-  - List — returns only vars matching exact keys or prefix tuples, always excluding `CLAUDECODE`
+  - List — returns only vars matching exact keys or prefix tuples (includes `CLAUDECODE` if explicitly listed)
 - Update `build_env/2` to call `filter_system_env/2` instead of raw `System.get_env()`
 - Update `prepare_env/1` to handle `false` values: produce `{charlist, false}` tuples instead of converting to charlist
 - Add debug logging for unmatched `:inherit_env` entries when `:debug` is set
