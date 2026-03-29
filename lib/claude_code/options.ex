@@ -1,28 +1,25 @@
 defmodule ClaudeCode.Options do
   @moduledoc """
-  Option validation, CLI flag conversion, and configuration guide.
+  Session option validation, CLI flag conversion, and configuration guide.
 
-  This module is the **single source of truth** for all ClaudeCode options.
-  It provides validation for session and query options using NimbleOptions,
-  converts Elixir options to CLI flags, and manages option precedence.
+  This module is the **single source of truth** for all options passed to
+  `ClaudeCode.start_link/1` or `ClaudeCode.query/2`.
+  It provides validation using NimbleOptions, converts Elixir options to
+  CLI flags, and manages option precedence.
 
   ## Option Precedence
 
   Options are resolved in this order (highest to lowest priority):
 
-  1. **Query-level options** — passed to `query/3` or `stream/3`
-  2. **Session-level options** — passed to `start_link/1`
-  3. **Application config** — set in `config/config.exs`
-  4. **Default values** — built-in defaults
+  1. **Session-level options** — passed to `start_link/1` or `query/2`
+  2. **Application config** — set in `config/config.exs`
+  3. **Default values** — built-in defaults
 
       # Application config (lowest priority)
       config :claude_code, timeout: 300_000
 
       # Session-level overrides app config
       {:ok, session} = ClaudeCode.start_link(timeout: 120_000)
-
-      # Query-level overrides session
-      ClaudeCode.stream(session, "Hello", timeout: 60_000)
 
   ## Session Options
 
@@ -87,14 +84,6 @@ defmodule ClaudeCode.Options do
   | `plugins`                  | list       | -           | Plugin configurations to load (paths or maps with type: :local) |
   | `env`                      | map        | `%{}`       | Extra env vars for CLI subprocess (`false` to unset)            |
   | `inherit_env`              | atom/list  | `:all`      | System env inheritance: `:all`, `[]`, or list of names/prefixes |
-
-  ## Stream Options
-
-  Options that can be passed per-call to `stream/3`:
-
-  | Option    | Type    | Default   | Description                                       |
-  | --------- | ------- | --------- | ------------------------------------------------- |
-  | `timeout` | timeout | :infinity | Override max wait for next message on this stream  |
 
   ## Application Configuration
 
@@ -186,11 +175,6 @@ defmodule ClaudeCode.Options do
       )
 
   ## Cost Control
-
-      # Limit spending per query
-      session
-      |> ClaudeCode.stream("Complex analysis task", max_budget_usd: 5.00)
-      |> Stream.run()
 
       # Set a session-wide budget limit
       {:ok, session} = ClaudeCode.start_link(
@@ -747,99 +731,12 @@ defmodule ClaudeCode.Options do
     ]
   ]
 
-  @query_opts_schema [
-    # Query-level overrides for CLI options
-    model: [type: :string, doc: "Override model for this query"],
-    fallback_model: [type: :string, doc: "Override fallback model for this query"],
-    system_prompt: [type: :string, doc: "Override system prompt for this query"],
-    append_system_prompt: [type: :string, doc: "Append to system prompt for this query"],
-    max_turns: [type: :integer, doc: "Override max turns for this query"],
-    max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Override max budget for this query"],
-    agent: [type: :string, doc: "Override agent for this query"],
-    betas: [type: {:list, :string}, doc: "Override beta headers for this query"],
-    max_thinking_tokens: [
-      type: :integer,
-      doc: "Override max thinking tokens for this query (deprecated: use :thinking instead)"
-    ],
-    thinking: [
-      type: {:custom, __MODULE__, :validate_thinking, []},
-      doc: "Override thinking config for this query (see session option for details)"
-    ],
-    effort: [
-      type: {:in, [:low, :medium, :high, :max]},
-      doc: "Override effort level for this query"
-    ],
-    tools: [
-      type: {:or, [{:in, [:default]}, {:list, :string}]},
-      doc: "Override available tools: :default for all, [] for none, or list"
-    ],
-    allowed_tools: [type: {:list, :string}, doc: "Override allowed tools for this query"],
-    disallowed_tools: [type: {:list, :string}, doc: "Override disallowed tools for this query"],
-    agents: [
-      type: {:map, :string, {:map, :string, :any}},
-      doc: "Override agent definitions for this query"
-    ],
-    mcp_servers: [
-      type: {:map, :string, {:or, [:atom, :map]}},
-      doc: "Override MCP server configurations for this query"
-    ],
-    strict_mcp_config: [
-      type: :boolean,
-      doc: "Only use MCP servers from mcp_config/mcp_servers, ignoring global MCP configurations"
-    ],
-    cwd: [type: :string, doc: "Override working directory for this query"],
-    timeout: [type: :timeout, doc: "Override stream timeout for this query"],
-    permission_mode: [
-      type: {:in, [:default, :accept_edits, :bypass_permissions, :delegate, :dont_ask, :plan]},
-      doc: "Override permission mode for this query"
-    ],
-    add_dir: [type: {:list, :string}, doc: "Override additional directories for this query"],
-    output_format: [
-      type: :map,
-      doc: "Override output format for this query"
-    ],
-    settings: [
-      type: {:or, [:string, {:map, :string, :any}]},
-      doc: "Override settings for this query (file path, JSON string, or map)"
-    ],
-    setting_sources: [
-      type: {:list, :string},
-      doc: "Override setting sources for this query (user, project, local)"
-    ],
-    plugins: [
-      type: {:list, {:or, [:string, :map]}},
-      doc: "Override plugin configurations for this query"
-    ],
-    include_partial_messages: [
-      type: :boolean,
-      doc: "Include partial message chunks as they arrive for character-level streaming"
-    ],
-    disable_slash_commands: [
-      type: :boolean,
-      doc: "Disable all skills/slash commands for this query"
-    ],
-    no_session_persistence: [
-      type: :boolean,
-      doc: "Disable session persistence for this query"
-    ],
-    extra_args: [
-      type: {:list, :string},
-      default: [],
-      doc: "Additional CLI arguments passed directly to the claude binary for this query."
-    ]
-  ]
-
   # App config uses same option names directly - no mapping needed
 
   @doc """
   Returns the session options schema.
   """
   def session_schema, do: @session_opts_schema
-
-  @doc """
-  Returns the query options schema.
-  """
-  def query_schema, do: @query_opts_schema
 
   @doc """
   Validates session options using NimbleOptions.
@@ -863,40 +760,6 @@ defmodule ClaudeCode.Options do
   rescue
     e in NimbleOptions.ValidationError ->
       {:error, e}
-  end
-
-  @doc """
-  Validates query options using NimbleOptions.
-
-  ## Examples
-
-      iex> ClaudeCode.Options.validate_query_options([timeout: 60_000])
-      {:ok, [timeout: 60_000]}
-
-      iex> ClaudeCode.Options.validate_query_options([invalid: "option"])
-      {:error, %NimbleOptions.ValidationError{}}
-  """
-  def validate_query_options(opts) do
-    validated = opts |> normalize_agents() |> NimbleOptions.validate!(@query_opts_schema)
-    warn_deprecated_max_thinking_tokens(validated)
-    {:ok, validated}
-  rescue
-    e in NimbleOptions.ValidationError ->
-      {:error, e}
-  end
-
-  @doc """
-  Merges session and query options with query taking precedence.
-
-  ## Examples
-
-      iex> session_opts = [timeout: 60_000, model: "sonnet"]
-      iex> query_opts = [timeout: 120_000]
-      iex> ClaudeCode.Options.merge_options(session_opts, query_opts)
-      [model: "sonnet", timeout: 120_000]
-  """
-  def merge_options(session_opts, query_opts) do
-    Keyword.merge(session_opts, query_opts)
   end
 
   @doc """
