@@ -98,7 +98,8 @@ defmodule ClaudeCode.CLI.Parser do
                       "task_started" => &TaskStarted.new/1,
                       "task_progress" => &TaskProgress.new/1,
                       "task_notification" => &TaskNotification.new/1,
-                      "api_retry" => &ApiRetry.new/1
+                      "api_retry" => &ApiRetry.new/1,
+                      "session_state_changed" => &SessionStateChanged.new/1
                     },
                     Application.compile_env(:claude_code, :system_parsers, %{})
                   )
