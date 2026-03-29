@@ -561,6 +561,18 @@ defmodule ClaudeCode.OptionsTest do
     end
   end
 
+  describe "system prompt file options" do
+    test "validates :system_prompt_file as a string" do
+      assert {:ok, opts} = Options.validate_session_options(system_prompt_file: "/path/to/prompt.md")
+      assert opts[:system_prompt_file] == "/path/to/prompt.md"
+    end
+
+    test "validates :append_system_prompt_file as a string" do
+      assert {:ok, opts} = Options.validate_session_options(append_system_prompt_file: "/path/to/extra.md")
+      assert opts[:append_system_prompt_file] == "/path/to/extra.md"
+    end
+  end
+
   describe "validate_query_options/1" do
     test "validates valid options" do
       opts = [

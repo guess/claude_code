@@ -110,6 +110,14 @@ defmodule ClaudeCode.CLI.Command do
     {"--append-system-prompt", to_string(value)}
   end
 
+  defp convert_option(:system_prompt_file, value) do
+    {"--system-prompt-file", to_string(value)}
+  end
+
+  defp convert_option(:append_system_prompt_file, value) do
+    {"--append-system-prompt-file", to_string(value)}
+  end
+
   defp convert_option(:max_turns, value) do
     {"--max-turns", to_string(value)}
   end

@@ -81,6 +81,18 @@ defmodule ClaudeCode.CLI.CommandTest do
       assert "You are helpful" in args
     end
 
+    test "converts :system_prompt_file to --system-prompt-file flag" do
+      args = Command.to_cli_args(system_prompt_file: "/path/to/prompt.md")
+      assert "--system-prompt-file" in args
+      assert "/path/to/prompt.md" in args
+    end
+
+    test "converts :append_system_prompt_file to --append-system-prompt-file flag" do
+      args = Command.to_cli_args(append_system_prompt_file: "/path/to/extra.md")
+      assert "--append-system-prompt-file" in args
+      assert "/path/to/extra.md" in args
+    end
+
     test "converts allowed_tools to --allowedTools" do
       opts = [allowed_tools: ["View", "GlobTool", "Bash(git:*)"]]
 
