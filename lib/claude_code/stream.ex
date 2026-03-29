@@ -48,7 +48,6 @@ defmodule ClaudeCode.Stream do
         %{
           session: session,
           prompt: prompt,
-          opts: opts,
           initialized: false,
           request_ref: nil,
           timeout: Keyword.get(opts, :timeout, :infinity),
@@ -552,7 +551,7 @@ defmodule ClaudeCode.Stream do
 
   defp next_message(%{initialized: false} = state) do
     # Initialize the stream on first message request
-    case GenServer.call(state.session, {:query_stream, state.prompt, state.opts}) do
+    case GenServer.call(state.session, {:query_stream, state.prompt}) do
       {:ok, request_ref} ->
         new_state = %{state | initialized: true, request_ref: request_ref}
         next_message(new_state)

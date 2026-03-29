@@ -103,7 +103,7 @@ defmodule ClaudeCode.Session.Server do
   end
 
   @impl true
-  def handle_call({:query_stream, prompt, opts}, _from, state) do
+  def handle_call({:query_stream, prompt}, _from, state) do
     request = %Request{
       id: make_ref(),
       subscribers: [],
@@ -112,7 +112,7 @@ defmodule ClaudeCode.Session.Server do
       created_at: System.monotonic_time()
     }
 
-    case enqueue_or_execute(request, prompt, opts, state) do
+    case enqueue_or_execute(request, prompt, state) do
       {:ok, new_state} ->
         {:reply, {:ok, request.id}, new_state}
 
@@ -321,26 +321,26 @@ defmodule ClaudeCode.Session.Server do
   # Private Functions - Request Management
   # ============================================================================
 
-  defp enqueue_or_execute(_request, _prompt, _opts, %{adapter_status: {:error, reason}} = state) do
+  defp enqueue_or_execute(_request, _prompt, %{adapter_status: {:error, reason}} = state) do
     {:error, {:provisioning_failed, reason}, state}
   end
 
-  defp enqueue_or_execute(request, prompt, opts, state) do
+  defp enqueue_or_execute(request, prompt, state) do
     cond do
       state.adapter_status != :ready ->
-        enqueue_request(request, prompt, opts, state)
+        enqueue_request(request, prompt, state)
 
       has_active_request?(state) ->
-        enqueue_request(request, prompt, opts, state)
+        enqueue_request(request, prompt, state)
 
       true ->
-        execute_request(request, prompt, opts, state)
+        execute_request(request, prompt, state)
     end
   end
 
-  defp enqueue_request(request, prompt, opts, state) do
+  defp enqueue_request(request, prompt, state) do
     queued_request = %{request | status: :queued}
-    queue = :queue.in({request, prompt, opts}, state.query_queue)
+    queue = :queue.in({request, prompt}, state.query_queue)
     new_requests = Map.put(state.requests, request.id, queued_request)
     {:ok, %{state | query_queue: queue, requests: new_requests}}
   end
@@ -349,23 +349,12 @@ defmodule ClaudeCode.Session.Server do
     Enum.any?(state.requests, fn {_ref, req} -> req.status == :active end)
   end
 
-  defp execute_request(request, prompt, opts, state) do
-    {:ok, validated_opts} = Options.validate_query_options(opts)
-    merged_opts = Options.merge_options(state.session_options, validated_opts)
-
-    # Merge session_id into opts for the adapter
-    query_opts =
-      if state.session_id do
-        Keyword.put(merged_opts, :session_id, state.session_id)
-      else
-        merged_opts
-      end
-
+  defp execute_request(request, prompt, state) do
     case state.adapter_module.send_query(
            state.adapter_pid,
            request.id,
            prompt,
-           query_opts
+           session_id: state.session_id
          ) do
       :ok ->
         {:ok, %{state | requests: Map.put(state.requests, request.id, request)}}
@@ -377,7 +366,7 @@ defmodule ClaudeCode.Session.Server do
 
   defp process_next_in_queue(state) do
     case :queue.out(state.query_queue) do
-      {{:value, {request, prompt, opts}}, new_queue} ->
+      {{:value, {request, prompt}}, new_queue} ->
         new_state = %{state | query_queue: new_queue}
 
         # Get the tracked request and update to active
@@ -387,7 +376,7 @@ defmodule ClaudeCode.Session.Server do
             existing -> %{existing | status: :active}
           end
 
-        case execute_request(tracked_request, prompt, opts, new_state) do
+        case execute_request(tracked_request, prompt, new_state) do
           {:ok, updated_state} ->
             updated_state
 
@@ -405,7 +394,7 @@ defmodule ClaudeCode.Session.Server do
     {items, empty_queue} = drain_queue(state.query_queue)
 
     new_requests =
-      Enum.reduce(items, state.requests, fn {request, _prompt, _opts}, requests ->
+      Enum.reduce(items, state.requests, fn {request, _prompt}, requests ->
         case Map.get(requests, request.id) do
           nil ->
             requests
