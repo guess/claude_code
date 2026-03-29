@@ -55,7 +55,9 @@ defmodule ClaudeCode.MCP.ServerTest do
       assert schema["type"] == "object"
     end
 
-    test "have description from @moduledoc" do
+    test "have description from description/0 callback" do
+      Code.ensure_loaded!(Add)
+      Code.ensure_loaded!(Greet)
       assert Component.get_description(Add) == "Add two numbers"
       assert Component.get_description(Greet) == "Greet a user"
     end
