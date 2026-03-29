@@ -1707,4 +1707,50 @@ defmodule ClaudeCode.Adapter.PortTest do
       assert env["KEEP_ME"] == "yes"
     end
   end
+
+  # ============================================================================
+  # filter_system_env/3 debug logging Tests
+  # ============================================================================
+
+  describe "filter_system_env/3 debug logging" do
+    import ExUnit.CaptureLog
+
+    test "logs warning for unmatched exact entries when debug enabled" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, ["PATH", "NONEXISTENT_VAR"], debug: true)
+        end)
+
+      assert log =~ "NONEXISTENT_VAR"
+      assert log =~ "no matching system env"
+    end
+
+    test "logs warning for unmatched prefix entries when debug enabled" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, [{:prefix, "ZZZZZ_"}], debug: true)
+        end)
+
+      assert log =~ "ZZZZZ_"
+      assert log =~ "no matching system env"
+    end
+
+    test "no logging when debug not enabled" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, ["NONEXISTENT_VAR"])
+        end)
+
+      assert log == ""
+    end
+
+    test "no logging for :all mode even with debug" do
+      log =
+        capture_log([level: :debug], fn ->
+          Port.filter_system_env(%{"PATH" => "/usr/bin"}, :all, debug: true)
+        end)
+
+      assert log == ""
+    end
+  end
 end
