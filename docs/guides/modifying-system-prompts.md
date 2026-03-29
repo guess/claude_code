@@ -212,27 +212,18 @@ Pass settings directly as a map or file path using the `:settings` option:
 )
 ```
 
-## Per-query overrides
+## Session-level only
 
-Both `:system_prompt` and `:append_system_prompt` can be overridden at the query level. Query-level options take precedence over session defaults for that single query only:
+System prompts are set when starting a session and apply to all queries in that session. To use different system prompts for different tasks, start separate sessions:
 
 ```elixir
-{:ok, session} = ClaudeCode.start_link(
-  append_system_prompt: "You are a general coding assistant."
+{:ok, reviewer} = ClaudeCode.start_link(
+  system_prompt: "You are a security auditor. Focus on OWASP vulnerabilities."
 )
 
-# This query uses a different system prompt override
-session
-|> ClaudeCode.stream("Review this module",
-     system_prompt: "You are a security auditor. Focus on OWASP vulnerabilities.")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-
-# Next query goes back to the session default
-session
-|> ClaudeCode.stream("Help me write tests")
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
+{:ok, assistant} = ClaudeCode.start_link(
+  append_system_prompt: "You are a general coding assistant."
+)
 ```
 
 ## Comparison of approaches

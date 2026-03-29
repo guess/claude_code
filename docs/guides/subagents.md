@@ -15,7 +15,7 @@ You can create subagents in three ways:
 
 | Method | Description |
 |--------|-------------|
-| **Programmatic** | Use `ClaudeCode.Agent` structs with the `agents` option in `start_link/1` or `stream/3` (recommended for SDK applications) |
+| **Programmatic** | Use `ClaudeCode.Agent` structs with the `agents` option in `start_link/1` (recommended for SDK applications) |
 | **Filesystem-based** | Define agents as markdown files in `.claude/agents/` directories (see [defining subagents as files](https://code.claude.com/docs/en/sub-agents)) |
 | **Built-in general-purpose** | Claude can invoke the built-in `general-purpose` subagent at any time via the Agent tool without you defining anything |
 
@@ -291,25 +291,6 @@ Subagent transcripts persist independently of the main conversation:
 - **Main conversation compaction**: When the main conversation compacts, subagent transcripts are unaffected. They're stored in separate files.
 - **Session persistence**: Subagent transcripts persist within their session. You can resume a subagent after restarting Claude Code by resuming the same session.
 - **Automatic cleanup**: Transcripts are cleaned up based on the `cleanupPeriodDays` setting (default: 30 days).
-
-## Per-query agent overrides
-
-Override agent definitions for specific queries:
-
-```elixir
-session
-|> ClaudeCode.stream("Review this module",
-     agents: [
-       Agent.new(
-         name: "code-reviewer",
-         description: "Security-focused code reviewer",
-         prompt: "Focus exclusively on security vulnerabilities and OWASP issues.",
-         tools: ["Read", "Grep"]
-       )
-     ])
-|> ClaudeCode.Stream.text_content()
-|> Enum.each(&IO.write/1)
-```
 
 ## Using the `agent` option
 
