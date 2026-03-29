@@ -26,64 +26,129 @@ defmodule ClaudeCode.Options do
   Options for `ClaudeCode.start_link/1` and `ClaudeCode.query/2`. These are set once
   when the CLI subprocess is launched and apply to the entire session.
 
-  ### Authentication
+  ### Authentication & Identity
 
-  | Option    | Type   | Default                 | Description                  |
-  | --------- | ------ | ----------------------- | ---------------------------- |
-  | `api_key` | string | `ANTHROPIC_API_KEY` env | Anthropic API key            |
-  | `name`    | atom   | -                       | Register session with a name |
+  | Option       | Type   | Default                 | Description                                                                |
+  | ------------ | ------ | ----------------------- | -------------------------------------------------------------------------- |
+  | `api_key`    | string | `ANTHROPIC_API_KEY` env | Anthropic API key (passed via env var to CLI, never in arguments)          |
+  | `name`       | atom   | -                       | Register the session process with a name for easy reference                |
+  | `session_id` | string | auto-generated          | Use a specific session ID instead of auto-generating one (must be a valid UUID) |
 
-  ### Model Configuration
+  ### Model & Prompting
 
-  | Option                 | Type       | Default  | Description                                                       |
-  | ---------------------- | ---------- | -------- | ----------------------------------------------------------------- |
-  | `model`                | string     | "sonnet" | Claude model to use                                               |
-  | `fallback_model`       | string     | -        | Fallback if primary model fails                                   |
-  | `system_prompt`        | string     | -        | Override system prompt                                            |
-  | `append_system_prompt` | string     | -        | Append to default system prompt                                   |
-  | `max_turns`            | integer    | -        | Limit conversation turns                                         |
-  | `max_budget_usd`       | number     | -        | Maximum dollar amount to spend on API calls                       |
-  | `agent`                | string     | -        | Agent name for the session                                        |
-  | `betas`                | list       | -        | Beta headers for API requests                                     |
-  | `max_thinking_tokens`  | integer    | -        | Deprecated: use `thinking` instead                                |
-  | `thinking`             | atom/tuple | -        | Thinking config: `:adaptive`, `:disabled`, `{:enabled, budget_tokens: N}` |
-  | `effort`               | atom       | -        | Effort level: `:low`, `:medium`, `:high`, `:max`                 |
+  | Option                 | Type       | Default  | Description                                                                      |
+  | ---------------------- | ---------- | -------- | -------------------------------------------------------------------------------- |
+  | `model`                | string     | "sonnet" | Model alias (`"sonnet"`, `"opus"`, `"haiku"`) or full model ID                  |
+  | `fallback_model`       | string     | -        | Automatic fallback model when the primary is overloaded                          |
+  | `system_prompt`        | string     | -        | Replace the entire default system prompt with custom text                        |
+  | `append_system_prompt` | string     | -        | Append custom text to the end of the default system prompt                       |
+  | `agent`                | string     | -        | Agent for the session (overrides the `agent` setting). Must be defined in `:agents` or settings |
+  | `agents`               | list/map   | -        | Define custom subagents (list of `ClaudeCode.Agent` structs or map of name to config) |
+  | `thinking`             | atom/tuple | -        | Extended thinking: `:adaptive`, `:disabled`, or `{:enabled, budget_tokens: N}`   |
+  | `effort`               | atom       | -        | Thinking effort level: `:low`, `:medium`, `:high`, `:max` (`:max` is Opus only) |
+  | `betas`                | list       | -        | Beta feature flags (e.g. `["context-1m-2025-08-07"]`, API key users only)       |
+  | `max_thinking_tokens`  | integer    | -        | **Deprecated:** use `:thinking` instead                                          |
 
-  ### Timeouts
+  ### Limits
 
-  | Option            | Type        | Default   | Description                                                              |
-  | ----------------- | ----------- | --------- | ------------------------------------------------------------------------ |
-  | `timeout`         | timeout     | :infinity | Max wait for next message on the stream (ms or :infinity)                |
-  | `control_timeout` | pos_integer | 60_000    | Max wait for CLI control responses (e.g. initialize, MCP server startup) |
+  | Option            | Type        | Default     | Description                                                              |
+  | ----------------- | ----------- | ----------- | ------------------------------------------------------------------------ |
+  | `timeout`         | timeout     | `:infinity` | Max wait for next message on the stream (ms or `:infinity`). Resets on each message |
+  | `control_timeout` | pos_integer | 60_000      | Max wait for CLI control responses (initialize handshake, MCP server startup) |
+  | `max_turns`       | integer     | unlimited   | Maximum agentic turns (tool-use round trips). Exits with error when reached |
+  | `max_budget_usd`  | number      | -           | Maximum dollar amount to spend on API calls before stopping              |
+  | `max_buffer_size` | pos_integer | 1_048_576   | Max buffer size in bytes for incoming JSON data. Protects against unbounded memory growth |
 
   ### Tool Control
 
-  | Option             | Type      | Default    | Description                                         |
-  | ------------------ | --------- | ---------- | --------------------------------------------------- |
-  | `tools`            | atom/list | -          | Available tools: `:default`, `[]`, or list of names |
-  | `allowed_tools`    | list      | -          | Tools Claude can use                                |
-  | `disallowed_tools` | list      | -          | Tools Claude cannot use                             |
-  | `add_dir`          | list      | -          | Additional accessible directories                   |
-  | `permission_mode`  | atom      | `:default` | Permission handling mode                            |
+  | Option             | Type      | Default    | Description                                                                    |
+  | ------------------ | --------- | ---------- | ------------------------------------------------------------------------------ |
+  | `tools`            | atom/list | -          | Restrict which built-in tools are available: `:default` (all), `[]` (none), or list of names |
+  | `allowed_tools`    | list      | -          | Tools to auto-approve without prompting. Unlisted tools fall through to `:permission_mode` |
+  | `disallowed_tools` | list      | -          | Tools to always deny. Checked first, overrides `:allowed_tools` and `:permission_mode` |
+  | `add_dir`          | list      | -          | Additional directories Claude can access (each path validated as existing directory) |
+  | `tool_config`      | map       | -          | Per-tool configuration map (e.g. `%{"askUserQuestion" => %{"previewFormat" => "html"}}`) |
 
-  ### Advanced
+  ### Permissions & Security
 
-  | Option                     | Type       | Default     | Description                                                     |
-  | -------------------------- | ---------- | ----------- | --------------------------------------------------------------- |
-  | `adapter`                  | tuple      | CLI adapter | Backend adapter as `{Module, config}` tuple                     |
-  | `resume`                   | string     | -           | Session ID to resume                                            |
-  | `fork_session`             | boolean    | false       | Create new session ID when resuming                             |
-  | `continue`                 | boolean    | false       | Continue most recent conversation in current directory          |
-  | `mcp_config`               | string     | -           | Path to MCP config file                                         |
-  | `strict_mcp_config`        | boolean    | false       | Only use MCP servers from explicit config                       |
-  | `agents`                   | list/map   | -           | Custom agent configurations (list of `Agent` structs or map)    |
-  | `settings`                 | map/string | -           | Team settings                                                   |
-  | `setting_sources`          | list       | -           | Setting source priority                                         |
-  | `include_partial_messages` | boolean    | false       | Enable character-level streaming                                |
-  | `output_format`            | map        | -           | Structured output format (see Structured Outputs section)       |
-  | `plugins`                  | list       | -           | Plugin configurations to load (paths or maps with type: :local) |
-  | `env`                      | map        | `%{}`       | Extra env vars for CLI subprocess (`false` to unset)            |
-  | `inherit_env`              | atom/list  | `:all`      | System env inheritance: `:all`, `[]`, or list of names/prefixes |
+  | Option                               | Type          | Default    | Description                                                                |
+  | ------------------------------------ | ------------- | ---------- | -------------------------------------------------------------------------- |
+  | `permission_mode`                    | atom          | `:default` | Permission mode: `:default`, `:accept_edits`, `:bypass_permissions`, `:delegate`, `:dont_ask`, `:plan` |
+  | `can_use_tool`                       | module/fn     | -          | Programmatic permission callback. Mutually exclusive with `:permission_prompt_tool` |
+  | `permission_prompt_tool`             | string        | -          | MCP tool name to handle permission prompts in non-interactive mode         |
+  | `sandbox`                            | struct/kw/map | -          | Sandbox settings for bash command isolation (see `ClaudeCode.Sandbox`)     |
+  | `allow_dangerously_skip_permissions` | boolean       | false      | Enable permission bypassing as an option. Required when using `:bypass_permissions` mode |
+  | `dangerously_skip_permissions`       | boolean       | false      | Directly bypass all permission checks. Only for sandboxes with no internet access |
+
+  ### MCP Servers
+
+  | Option              | Type    | Default | Description                                                                 |
+  | ------------------- | ------- | ------- | --------------------------------------------------------------------------- |
+  | `mcp_config`        | string  | -       | Path to MCP servers JSON config file (or JSON string)                       |
+  | `mcp_servers`       | map     | -       | Inline MCP server config. Values: Anubis module atom or config map per server |
+  | `strict_mcp_config` | boolean | false   | Only use MCP servers from `:mcp_config`/`:mcp_servers`, ignore all global MCP configurations |
+
+  ### Session Lifecycle
+
+  | Option                   | Type           | Default | Description                                                                |
+  | ------------------------ | -------------- | ------- | -------------------------------------------------------------------------- |
+  | `resume`                 | string         | -       | Resume a previous conversation by session ID                               |
+  | `resume_session_at`      | string         | -       | When resuming, only include messages up to this UUID (use with `:resume`)  |
+  | `fork_session`           | boolean        | false   | When resuming, create a new session ID instead of reusing the original     |
+  | `continue`               | boolean        | false   | Continue the most recent conversation in the current directory             |
+  | `from_pr`                | string/integer | -       | Resume a session linked to a GitHub PR by number or URL                    |
+  | `no_session_persistence` | boolean        | false   | Disable session persistence — sessions won't be saved to disk or resumable |
+  | `worktree`               | boolean/string | -       | Run in an isolated git worktree (`true` for auto-named, or branch name string) |
+
+  ### Output & Streaming
+
+  | Option                     | Type    | Default | Description                                                                    |
+  | -------------------------- | ------- | ------- | ------------------------------------------------------------------------------ |
+  | `output_format`            | map     | -       | Structured output: `%{type: :json_schema, schema: json_schema_map}` (see below) |
+  | `include_partial_messages` | boolean | false   | Include partial message chunks as they arrive for character-level streaming     |
+  | `replay_user_messages`     | boolean | false   | Re-emit user messages from stdin back on stdout for acknowledgment             |
+  | `prompt_suggestions`       | boolean | false   | Emit predicted next user prompts after each turn                               |
+
+  ### Settings & Plugins
+
+  | Option                   | Type       | Default | Description                                                                   |
+  | ------------------------ | ---------- | ------- | ----------------------------------------------------------------------------- |
+  | `settings`               | map/string | -       | Load additional settings from a file path, JSON string, or map (auto-encoded) |
+  | `setting_sources`        | list       | -       | Which filesystem settings to load: `["user", "project", "local"]`. Include `"project"` for CLAUDE.md files |
+  | `plugins`                | list       | -       | Load custom plugins from local paths (strings or maps with `type: :local`)    |
+  | `hooks`                  | map        | -       | Lifecycle hook configurations for intercepting events (see schema docs)        |
+  | `disable_slash_commands` | boolean    | false   | Disable all skills and slash commands for this session                         |
+
+  ### Environment & CLI
+
+  | Option                      | Type        | Default    | Description                                                                   |
+  | --------------------------- | ----------- | ---------- | ----------------------------------------------------------------------------- |
+  | `env`                       | map         | `%{}`      | Extra env vars merged into CLI subprocess. String values set, `false` unsets  |
+  | `inherit_env`               | atom/list   | `:all`     | System env inheritance: `:all`, `[]`, or list of names/`{:prefix, "..."}` tuples |
+  | `cwd`                       | string      | -          | Working directory for the CLI subprocess                                      |
+  | `cli_path`                  | atom/string | `:bundled` | CLI binary resolution: `:bundled` (auto-install), `:global` (system), or path |
+  | `file`                      | list        | -          | File resources to download at startup (`"file_id:relative_path"` format)      |
+  | `enable_file_checkpointing` | boolean     | false      | Track file changes for rewinding (set via env var, not CLI flag)              |
+  | `extra_args`                | list        | `[]`       | Additional CLI arguments passed directly to the binary                        |
+
+  ### Debugging
+
+  | Option       | Type           | Default | Description                                                          |
+  | ------------ | -------------- | ------- | -------------------------------------------------------------------- |
+  | `debug`      | boolean/string | -       | Enable debug mode with optional category filter (e.g. `"api,hooks"` or `"!1p,!file"`) |
+  | `debug_file` | string         | -       | Write debug logs to a specific file path (implicitly enables debug)  |
+
+  ### Elixir SDK Only
+
+  These options are specific to the Elixir SDK and have no CLI or upstream SDK equivalent.
+
+  | Option    | Type  | Default     | Description                                                            |
+  | --------- | ----- | ----------- | ---------------------------------------------------------------------- |
+  | `adapter` | tuple | CLI adapter | Backend adapter as `{Module, config}` (e.g. `{ClaudeCode.Adapter.Port, []}`) |
+
+  > **Note:** `:name`, `:timeout`, `:control_timeout`, `:max_buffer_size`, `:inherit_env`,
+  > and `:hooks` are also Elixir-only — they control SDK-side behavior and are not sent to the CLI.
+  > They appear in their respective sections above.
 
   ## Application Configuration
 
