@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`--control-timeout` no longer sent to CLI** — The `:control_timeout` option, which is internal to the Elixir SDK, was incorrectly passed to the CLI as a flag. ([5ac7a0a])
+- **Silenced stray Plug messages in `CallbackProxy`** — When MCP tools execute in-process API calls via Dispatch, Plug sends messages to the `CallbackProxy` process, which OTP logged as errors. These harmless messages are now silently discarded. ([27087c4])
+
+### Changed
+
+- **`:extra_args` changed from list to map** — The `:extra_args` option now accepts a map of `%{flag => value}` (or `%{flag => true}` for boolean flags) instead of a list, aligning with the Python SDK convention. ([5ac7a0a])
+
 ## [0.36.1] - 2026-03-29 | CC 2.1.76
 
 ### Removed
