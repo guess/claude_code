@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- **Query-level option overrides for `stream/3`** — Removed the ability to pass options to `stream/3` at call time. Since adopting the control protocol, the CLI subprocess ignores per-query option changes. All configuration should be set at session start via `start_link/1`. ([addd8b4])
+
 ## [0.36.0] - 2026-03-29 | CC 2.1.76
 
 ### Added
