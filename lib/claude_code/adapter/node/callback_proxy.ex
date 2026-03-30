@@ -52,4 +52,12 @@ defmodule ClaudeCode.Adapter.Node.CallbackProxy do
     Logger.warning("CallbackProxy received unhandled control request: #{subtype}")
     {:error, "Unhandled control request: #{subtype}"}
   end
+
+  # Silently discard messages not meant for this GenServer (e.g. Plug's
+  # {:plug_conn, :sent} notification or async HTTP response tuples that
+  # arrive when the proxy PID happens to be the conn owner process).
+  @impl GenServer
+  def handle_info(_msg, state) do
+    {:noreply, state}
+  end
 end
