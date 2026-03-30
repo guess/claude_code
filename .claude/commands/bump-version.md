@@ -12,7 +12,7 @@ Update version to the specified X.Y.Z value.
 
 2. Search for **both** version patterns (replace X.Y with actual current major.minor):
    ```bash
-   grep -rn "X\.Y" --include="*.md" --include="*.ex" --include="*.exs" . | grep -v deps/ | grep -v _build/ | grep -v CHANGELOG
+   grep -rn "X\.Y" --include="*.md" --include="*.ex" --include="*.exs" . | grep -v deps/ | grep -v _build/ | grep -v CHANGELOG | grep -v '.official/'
    ```
 
 3. For each file that needs updating: **Read the file first**, then Edit it (preserve existing format):
