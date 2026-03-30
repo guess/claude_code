@@ -462,16 +462,16 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:enable_file_checkpointing] == false
     end
 
-    test "validates extra_args option as list of strings" do
-      opts = [extra_args: ["--some-flag", "value"]]
+    test "validates extra_args option as map" do
+      opts = [extra_args: %{"--some-flag" => "value", "--bool-flag" => true}]
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:extra_args] == ["--some-flag", "value"]
+      assert validated[:extra_args] == %{"--some-flag" => "value", "--bool-flag" => true}
     end
 
-    test "defaults extra_args to empty list" do
+    test "defaults extra_args to empty map" do
       opts = []
       assert {:ok, validated} = Options.validate_session_options(opts)
-      assert validated[:extra_args] == []
+      assert validated[:extra_args] == %{}
     end
 
     test "validates max_buffer_size option" do

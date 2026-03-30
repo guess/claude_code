@@ -1089,28 +1089,35 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "--enable-file-checkpointing" in args
     end
 
-    test "extra_args are appended at end of CLI args" do
-      opts = [model: "opus", extra_args: ["--new-flag", "value"]]
+    test "extra_args map with value is appended at end of CLI args" do
+      opts = [model: "opus", extra_args: %{"--new-flag" => "value"}]
 
       args = Command.to_cli_args(opts)
       assert "--model" in args
       assert "opus" in args
-      assert List.last(args) == "value"
-      assert Enum.at(args, -2) == "--new-flag"
+      assert "--new-flag" in args
+      assert "value" in args
+    end
+
+    test "extra_args map with boolean flag" do
+      opts = [extra_args: %{"--bool-flag" => true}]
+
+      args = Command.to_cli_args(opts)
+      assert "--bool-flag" in args
+      refute "true" in args
     end
 
     test "empty extra_args produces no extra arguments beyond options" do
-      opts = [model: "opus", extra_args: []]
+      opts = [model: "opus", extra_args: %{}]
 
       args = Command.to_cli_args(opts)
       assert "--model" in args
       assert "opus" in args
-      # --setting-sources "" is always added by ensure_setting_sources
       refute "--extra-args" in args
     end
 
     test "extra_args appear after all converted options" do
-      opts = [model: "opus", max_turns: 10, extra_args: ["--custom"]]
+      opts = [model: "opus", max_turns: 10, extra_args: %{"--custom" => true}]
 
       args = Command.to_cli_args(opts)
       custom_pos = Enum.find_index(args, &(&1 == "--custom"))

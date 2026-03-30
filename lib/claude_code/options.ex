@@ -133,7 +133,7 @@ defmodule ClaudeCode.Options do
   | `cli_path`                  | atom/string | `:bundled` | CLI binary resolution: `:bundled` (auto-install), `:global` (system), or explicit path |
   | `file`                      | list        | -          | File resources to download at startup (`"file_id:relative_path"` format) |
   | `enable_file_checkpointing` | boolean     | false      | Track file changes for rewinding. See [File Checkpointing](file-checkpointing.md) |
-  | `extra_args`                | list        | `[]`       | Additional CLI arguments passed directly to the binary |
+  | `extra_args`                | map         | `%{}`      | Additional CLI arguments passed directly to the binary (flag → value or `true` for boolean flags) |
 
   ### Debugging
 
@@ -533,10 +533,10 @@ defmodule ClaudeCode.Options do
         ~s|Per-tool configuration for built-in tools. Map of tool name to config map (e.g. %{"askUserQuestion" => %{"previewFormat" => "html"}})|
     ],
     extra_args: [
-      type: {:list, :string},
-      default: [],
+      type: {:map, :string, {:or, [:string, {:in, [true]}]}},
+      default: %{},
       doc:
-        ~s{Additional CLI arguments passed directly to the claude binary. Each element is a separate argument (e.g. ["--flag", "value"]).}
+        ~s|Additional CLI arguments passed directly to the claude binary. Map of flag name to value string, or `true` for boolean flags (e.g. %{"--some-flag" => "value", "--bool-flag" => true}).|
     ],
     max_buffer_size: [
       type: :pos_integer,

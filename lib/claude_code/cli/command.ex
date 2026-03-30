@@ -11,6 +11,8 @@ defmodule ClaudeCode.CLI.Command do
 
   alias ClaudeCode.Session.PermissionMode
 
+  require Logger
+
   @required_flags ["--output-format", "stream-json", "--verbose", "--print"]
 
   @doc """
@@ -69,7 +71,7 @@ defmodule ClaudeCode.CLI.Command do
         nil -> acc
       end
     end)
-    |> Enum.reverse(Keyword.get(opts, :extra_args, []))
+    |> Enum.reverse(build_extra_args(Keyword.get(opts, :extra_args, %{})))
   end
 
   # -- Private: option conversion ---------------------------------------------
@@ -358,6 +360,7 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:sandbox, _value), do: nil
   defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil
+  defp convert_option(:control_timeout, _value), do: nil
   defp convert_option(:callers, _value), do: nil
   defp convert_option(:stub_name, _value), do: nil
   defp convert_option(:env, _value), do: nil
@@ -367,10 +370,22 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:prompt_suggestions, _value), do: nil
   defp convert_option(:tool_config, _value), do: nil
 
-  defp convert_option(key, value) do
-    # Convert unknown keys to kebab-case flags
-    flag_name = "--" <> (key |> to_string() |> String.replace("_", "-"))
-    {flag_name, to_string(value)}
+  # If this fires, a new option was added to Options but not handled here.
+  defp convert_option(key, _value) do
+    Logger.warning("ClaudeCode.CLI.Command: unknown option #{inspect(key)} — needs a convert_option clause")
+
+    nil
+  end
+
+  # -- Private: extra args conversion ------------------------------------------
+
+  defp build_extra_args(extra_args) when map_size(extra_args) == 0, do: []
+
+  defp build_extra_args(extra_args) do
+    Enum.flat_map(extra_args, fn
+      {flag, true} -> [flag]
+      {flag, value} -> [flag, value]
+    end)
   end
 
   # -- Private: setting sources preprocessing ----------------------------------
