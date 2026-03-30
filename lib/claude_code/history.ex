@@ -43,7 +43,7 @@ defmodule ClaudeCode.History do
 
   @type session_id :: String.t()
 
-  @claude_dir Path.expand("~/.claude")
+  defp default_claude_dir, do: Path.expand("~/.claude")
 
   # Maximum length for a single filesystem path component.
   @max_sanitized_length 200
@@ -249,7 +249,7 @@ defmodule ClaudeCode.History do
   """
   @spec find_session_path(session_id(), keyword()) :: {:ok, Path.t()} | {:error, term()}
   def find_session_path(session_id, opts \\ []) do
-    claude_dir = Keyword.get(opts, :claude_dir, @claude_dir)
+    claude_dir = Keyword.get(opts, :claude_dir, default_claude_dir())
     projects_dir = Path.join(claude_dir, "projects")
 
     case Keyword.get(opts, :project_path) do
@@ -280,7 +280,7 @@ defmodule ClaudeCode.History do
   """
   @spec list_projects(keyword()) :: {:ok, [Path.t()]} | {:error, term()}
   def list_projects(opts \\ []) do
-    claude_dir = Keyword.get(opts, :claude_dir, @claude_dir)
+    claude_dir = Keyword.get(opts, :claude_dir, default_claude_dir())
     projects_dir = Path.join(claude_dir, "projects")
 
     case File.ls(projects_dir) do
@@ -398,7 +398,7 @@ defmodule ClaudeCode.History do
   end
 
   defp list_all_sessions(limit, opts) do
-    claude_dir = Keyword.get(opts, :claude_dir, @claude_dir)
+    claude_dir = Keyword.get(opts, :claude_dir, default_claude_dir())
     projects_dir = Path.join(claude_dir, "projects")
 
     case File.ls(projects_dir) do
@@ -418,7 +418,7 @@ defmodule ClaudeCode.History do
   end
 
   defp scan_worktree_dirs(canonical_dir, worktree_paths, opts) do
-    claude_dir = Keyword.get(opts, :claude_dir, @claude_dir)
+    claude_dir = Keyword.get(opts, :claude_dir, default_claude_dir())
     projects_dir = Path.join(claude_dir, "projects")
 
     # Always include the user's actual directory
@@ -528,7 +528,7 @@ defmodule ClaudeCode.History do
   end
 
   defp find_project_dir(project_path, opts) do
-    claude_dir = Keyword.get(opts, :claude_dir, @claude_dir)
+    claude_dir = Keyword.get(opts, :claude_dir, default_claude_dir())
     projects_dir = Path.join(claude_dir, "projects")
 
     # Try sanitized path first (Python SDK style)
@@ -587,7 +587,7 @@ defmodule ClaudeCode.History do
   # ============================================================================
 
   defp read_session_file_content(session_id, directory, opts) do
-    claude_dir = Keyword.get(opts, :claude_dir, @claude_dir)
+    claude_dir = Keyword.get(opts, :claude_dir, default_claude_dir())
     file_name = "#{session_id}.jsonl"
 
     if directory do
