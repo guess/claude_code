@@ -324,6 +324,13 @@ defmodule ClaudeCode.Adapter.Port do
   @impl GenServer
   def terminate(_reason, state) do
     if state.port && Port.info(state.port) do
+      # Capture OS PID before closing — Port.info returns nil after Port.close.
+      os_pid =
+        case Port.info(state.port, :os_pid) do
+          {:os_pid, pid} -> pid
+          _ -> nil
+        end
+
       # Send interrupt to stop any in-flight generation before closing the port.
       # Without this, the CLI keeps consuming API tokens until it notices
       # the broken pipe on its next stdout write.
@@ -331,6 +338,14 @@ defmodule ClaudeCode.Adapter.Port do
       json = Control.interrupt_request(request_id)
       Port.command(state.port, json <> "\n")
       Port.close(state.port)
+
+      # Force-kill the OS subprocess. Port.close/1 only closes the pipe — the
+      # CLI subprocess stays alive until it detects the broken pipe, which can
+      # take hundreds of milliseconds. During that window, a new run trying to
+      # resume the same session_id hits "Session ID already in use".
+      if os_pid do
+        System.cmd("kill", ["-9", to_string(os_pid)], stderr_to_stdout: true)
+      end
     end
 
     :ok
