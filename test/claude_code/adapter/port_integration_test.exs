@@ -54,6 +54,49 @@ defmodule ClaudeCode.Adapter.PortIntegrationTest do
     end
   end
 
+  describe "non-map JSON in stream" do
+    setup do
+      # CLI emits a non-map JSON line (`true`) between a normal system message
+      # and the final result. Without the `when not is_map(json)` guard in
+      # `handle_sdk_message/2`, the Port GenServer would crash with a
+      # `FunctionClauseError` from `Access.get(true, "type", nil)` and abort the
+      # in-flight session.
+      MockCLI.setup_with_script("""
+      #!/bin/bash
+      while IFS= read -r line; do
+        if echo "$line" | grep -q '"type":"control_request"'; then
+          REQ_ID=$(echo "$line" | grep -o '"request_id":"[^"]*"' | cut -d'"' -f4)
+          echo "{\\\"type\\\":\\\"control_response\\\",\\\"response\\\":{\\\"subtype\\\":\\\"success\\\",\\\"request_id\\\":\\\"$REQ_ID\\\",\\\"response\\\":{}}}"
+        else
+          echo '{"type":"system","subtype":"init","cwd":"/test","session_id":"nonmap-test","tools":[],"mcp_servers":[],"model":"claude-3","permissionMode":"auto","apiKeySource":"ANTHROPIC_API_KEY"}'
+          echo 'true'
+          echo '[1,2,3]'
+          echo '42'
+          echo '{"type":"result","subtype":"success","is_error":false,"duration_ms":50,"duration_api_ms":40,"num_turns":1,"result":"survived","session_id":"nonmap-test","total_cost_usd":0.001,"usage":{}}'
+        fi
+      done
+      exit 0
+      """)
+    end
+
+    test "session survives and returns a result when CLI emits non-map JSON", %{
+      mock_script: mock_script
+    } do
+      {:ok, session} = ClaudeCode.start_link(api_key: "test-key", cli_path: mock_script)
+
+      messages =
+        session
+        |> ClaudeCode.stream("hello")
+        |> Enum.to_list()
+
+      result = Enum.find(messages, &match?(%ResultMessage{}, &1))
+      assert result != nil
+      assert result.result == "survived"
+
+      GenServer.stop(session)
+    end
+  end
+
   describe "stream completed normally" do
     setup do
       MockCLI.setup_with_script("""

@@ -580,6 +580,17 @@ defmodule ClaudeCode.Adapter.Port do
     end
   end
 
+  # The CLI may emit non-map JSON values (booleans, arrays, numbers, strings) on
+  # stdout when, for example, a hook callback fails and a Zod schema validation
+  # error is printed alongside the normal stream-JSON output. `Control.classify/1`
+  # falls through to `{:message, json}` for any non-map, so without this guard the
+  # subsequent clauses call `json["type"]` and crash the GenServer with a
+  # `FunctionClauseError` from `Access.get/3`, aborting the in-flight session.
+  defp handle_sdk_message(json, state) when not is_map(json) do
+    Logger.warning("Dropping non-map SDK message: #{inspect(json)}")
+    state
+  end
+
   defp handle_sdk_message(json, %{current_request: nil} = state) do
     maybe_capture_session_id(json, state)
   end
