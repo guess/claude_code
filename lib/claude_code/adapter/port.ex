@@ -557,9 +557,14 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp process_line("", state), do: state
 
+  # The CLI may emit non-map JSON values (booleans, arrays, numbers, strings) on
+  # stdout when, for example, a hook callback fails and a Zod schema validation
+  # error is printed alongside the normal stream-JSON output. Filter those out
+  # here so they never reach `Control.classify/1` (which is spec'd to take a map)
+  # or `handle_sdk_message/2` (whose clauses index with `json["type"]`).
   defp process_line(line, state) do
     case Jason.decode(line) do
-      {:ok, json} ->
+      {:ok, json} when is_map(json) ->
         case Control.classify(json) do
           {:control_response, msg} ->
             handle_control_response(msg, state)
@@ -574,21 +579,14 @@ defmodule ClaudeCode.Adapter.Port do
             handle_sdk_message(json_msg, state)
         end
 
+      {:ok, non_map} ->
+        Logger.warning("Dropping non-map CLI output: #{inspect(non_map)}")
+        state
+
       {:error, _} ->
         Logger.debug("Non-JSON CLI output: #{String.slice(line, 0, 500)}")
         state
     end
-  end
-
-  # The CLI may emit non-map JSON values (booleans, arrays, numbers, strings) on
-  # stdout when, for example, a hook callback fails and a Zod schema validation
-  # error is printed alongside the normal stream-JSON output. `Control.classify/1`
-  # falls through to `{:message, json}` for any non-map, so without this guard the
-  # subsequent clauses call `json["type"]` and crash the GenServer with a
-  # `FunctionClauseError` from `Access.get/3`, aborting the in-flight session.
-  defp handle_sdk_message(json, state) when not is_map(json) do
-    Logger.warning("Dropping non-map SDK message: #{inspect(json)}")
-    state
   end
 
   defp handle_sdk_message(json, %{current_request: nil} = state) do
