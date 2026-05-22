@@ -10,6 +10,7 @@ defmodule ClaudeCode.Content.ServerToolResultBlockTest do
     bash_code_execution_tool_result
     text_editor_code_execution_tool_result
     tool_search_tool_result
+    advisor_tool_result
   )
 
   describe "new/1" do

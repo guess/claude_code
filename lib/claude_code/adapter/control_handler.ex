@@ -56,6 +56,22 @@ defmodule ClaudeCode.Adapter.ControlHandler do
     |> Map.merge(input)
   end
 
+  @spec handle_elicitation(map(), function()) :: {:ok, map()} | {:error, String.t()}
+  def handle_elicitation(request, callback) when is_function(callback, 1) do
+    input =
+      request
+      |> Map.delete("subtype")
+      |> ClaudeCode.MapUtils.safe_atomize_keys()
+
+    case callback.(input) do
+      {:ok, response_map} when is_map(response_map) -> {:ok, response_map}
+      {:error, reason} -> {:error, "Elicitation handler error: #{reason}"}
+      other -> {:error, "Elicitation handler returned unexpected value: #{inspect(other)}"}
+    end
+  rescue
+    e -> {:error, "Elicitation handler raised: #{Exception.message(e)}"}
+  end
+
   @spec handle_hook_callback(map(), HookRegistry.t()) :: {:ok, map()} | {:error, String.t()}
   def handle_hook_callback(request, hook_registry) do
     input = ClaudeCode.MapUtils.safe_atomize_keys(request["input"] || %{})

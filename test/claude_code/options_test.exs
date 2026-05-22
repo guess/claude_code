@@ -647,4 +647,104 @@ defmodule ClaudeCode.OptionsTest do
       assert opts[:env] == %{"REMOVE" => false, "KEEP" => "value"}
     end
   end
+
+  describe "include_hook_events option" do
+    test "validates include_hook_events: true" do
+      assert {:ok, validated} = Options.validate_session_options(include_hook_events: true)
+      assert validated[:include_hook_events] == true
+    end
+
+    test "validates include_hook_events: false" do
+      assert {:ok, validated} = Options.validate_session_options(include_hook_events: false)
+      assert validated[:include_hook_events] == false
+    end
+
+    test "defaults include_hook_events to false" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      assert validated[:include_hook_events] == false
+    end
+
+    test "rejects non-boolean include_hook_events" do
+      assert {:error, _} = Options.validate_session_options(include_hook_events: "yes")
+    end
+  end
+
+  describe "exclude_dynamic_prompt_sections option" do
+    test "validates exclude_dynamic_prompt_sections: true" do
+      assert {:ok, validated} = Options.validate_session_options(exclude_dynamic_prompt_sections: true)
+      assert validated[:exclude_dynamic_prompt_sections] == true
+    end
+
+    test "validates exclude_dynamic_prompt_sections: false" do
+      assert {:ok, validated} = Options.validate_session_options(exclude_dynamic_prompt_sections: false)
+      assert validated[:exclude_dynamic_prompt_sections] == false
+    end
+
+    test "defaults exclude_dynamic_prompt_sections to false" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      assert validated[:exclude_dynamic_prompt_sections] == false
+    end
+
+    test "rejects non-boolean exclude_dynamic_prompt_sections" do
+      assert {:error, _} = Options.validate_session_options(exclude_dynamic_prompt_sections: "yes")
+    end
+  end
+
+  describe "title option" do
+    test "validates title as a string" do
+      assert {:ok, validated} = Options.validate_session_options(title: "My Custom Session")
+      assert validated[:title] == "My Custom Session"
+    end
+
+    test "title is optional (no default)" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      refute Keyword.has_key?(validated, :title)
+    end
+
+    test "rejects non-string title" do
+      assert {:error, _} = Options.validate_session_options(title: 123)
+    end
+  end
+
+  describe "forward_subagent_text option" do
+    test "validates forward_subagent_text: true" do
+      assert {:ok, validated} = Options.validate_session_options(forward_subagent_text: true)
+      assert validated[:forward_subagent_text] == true
+    end
+
+    test "validates forward_subagent_text: false" do
+      assert {:ok, validated} = Options.validate_session_options(forward_subagent_text: false)
+      assert validated[:forward_subagent_text] == false
+    end
+
+    test "defaults forward_subagent_text to false" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      assert validated[:forward_subagent_text] == false
+    end
+
+    test "rejects non-boolean forward_subagent_text" do
+      assert {:error, _} = Options.validate_session_options(forward_subagent_text: "yes")
+    end
+  end
+
+  describe "tool_aliases option" do
+    test "validates tool_aliases as a string-to-string map" do
+      aliases = %{"Bash" => "mcp__workspace__bash", "Edit" => "mcp__workspace__edit"}
+      assert {:ok, validated} = Options.validate_session_options(tool_aliases: aliases)
+      assert validated[:tool_aliases] == aliases
+    end
+
+    test "tool_aliases is optional (no default)" do
+      assert {:ok, validated} = Options.validate_session_options([])
+      refute Keyword.has_key?(validated, :tool_aliases)
+    end
+
+    test "rejects non-string map values for tool_aliases" do
+      assert {:error, _} = Options.validate_session_options(tool_aliases: %{"Bash" => 123})
+    end
+
+    test "rejects non-string map keys for tool_aliases" do
+      assert {:error, _} = Options.validate_session_options(tool_aliases: %{bash: "mcp__bash"})
+    end
+  end
 end

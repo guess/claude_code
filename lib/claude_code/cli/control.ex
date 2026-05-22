@@ -105,6 +105,10 @@ defmodule ClaudeCode.CLI.Control do
       |> maybe_put(:sdkMcpServers, sdk_mcp_servers)
       |> maybe_put(:promptSuggestions, Keyword.get(extra_opts, :prompt_suggestions))
       |> maybe_put(:toolConfig, Keyword.get(extra_opts, :tool_config))
+      |> maybe_put(:excludeDynamicSections, Keyword.get(extra_opts, :exclude_dynamic_prompt_sections))
+      |> maybe_put(:title, Keyword.get(extra_opts, :title))
+      |> maybe_put(:forwardSubagentText, Keyword.get(extra_opts, :forward_subagent_text))
+      |> maybe_put(:toolAliases, Keyword.get(extra_opts, :tool_aliases))
 
     encode_control_request(request_id, request)
   end
@@ -246,6 +250,55 @@ defmodule ClaudeCode.CLI.Control do
   @spec stop_task_request(String.t(), String.t()) :: String.t()
   def stop_task_request(request_id, task_id) do
     encode_control_request(request_id, %{subtype: "stop_task", task_id: task_id})
+  end
+
+  @doc """
+  Builds a background_tasks control request JSON string.
+
+  Queries whether Claude has any background tasks running.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+    * `opts` - Optional keyword list:
+      * `:tool_use_id` - Optional tool use ID to scope the query
+
+  """
+  @spec background_tasks_request(String.t(), keyword()) :: String.t()
+  def background_tasks_request(request_id, opts \\ []) do
+    request = %{subtype: "background_tasks"}
+    request = if opts[:tool_use_id], do: Map.put(request, :tool_use_id, opts[:tool_use_id]), else: request
+    encode_control_request(request_id, request)
+  end
+
+  @doc """
+  Builds a get_context_usage control request JSON string.
+
+  Queries current context window usage statistics.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+
+  """
+  @spec get_context_usage_request(String.t()) :: String.t()
+  def get_context_usage_request(request_id) do
+    encode_control_request(request_id, %{subtype: "get_context_usage"})
+  end
+
+  @doc """
+  Builds a get_session_cost control request JSON string.
+
+  Queries the formatted cost string for the current session.
+
+  ## Parameters
+
+    * `request_id` - Unique request identifier
+
+  """
+  @spec get_session_cost_request(String.t()) :: String.t()
+  def get_session_cost_request(request_id) do
+    encode_control_request(request_id, %{subtype: "get_session_cost"})
   end
 
   # --- Response Builders (SDK -> CLI, answering CLI requests) -----------------

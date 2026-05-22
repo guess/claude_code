@@ -115,7 +115,8 @@ defmodule ClaudeCode.Adapter.Port do
   def init({session, opts}) do
     hooks_map = Keyword.get(opts, :hooks)
     can_use_tool = Keyword.get(opts, :can_use_tool)
-    {built_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool)
+    on_elicitation = Keyword.get(opts, :on_elicitation)
+    {built_registry, hooks_wire} = HookRegistry.new(hooks_map, can_use_tool, on_elicitation)
 
     # Callers may provide a pre-built hook registry (e.g. a partitioned subset).
     hook_registry =
@@ -374,6 +375,10 @@ defmodule ClaudeCode.Adapter.Port do
       []
       |> maybe_add_opt(state.session_options, :prompt_suggestions)
       |> maybe_add_opt(state.session_options, :tool_config)
+      |> maybe_add_opt(state.session_options, :exclude_dynamic_prompt_sections)
+      |> maybe_add_opt(state.session_options, :title)
+      |> maybe_add_opt(state.session_options, :forward_subagent_text)
+      |> maybe_add_opt(state.session_options, :tool_aliases)
 
     {request_id, new_counter} = next_request_id(state.control_counter)
     json = Control.initialize_request(request_id, hooks_wire, agents, sdk_mcp_server_names, extra_opts)
@@ -674,9 +679,8 @@ defmodule ClaudeCode.Adapter.Port do
     route_can_use_tool(request, msg, state)
   end
 
-  defp dispatch_control_request("elicitation", request, _msg, _state) do
-    Logger.info("Received MCP elicitation request (not yet implemented): #{inspect(request)}")
-    {:error, "Not implemented: elicitation"}
+  defp dispatch_control_request("elicitation", request, msg, state) do
+    route_elicitation(request, msg, state)
   end
 
   defp dispatch_control_request(subtype, _request, _msg, _state) do
@@ -719,6 +723,20 @@ defmodule ClaudeCode.Adapter.Port do
   # No local callback and no proxy — ControlHandler will default to "allow"
   defp route_can_use_tool(request, _msg, state) do
     {:ok, ControlHandler.handle_can_use_tool(request, state.hook_registry, session_context(state))}
+  end
+
+  # Handle locally when callback exists in local registry, otherwise proxy
+  defp route_elicitation(request, _msg, %{hook_registry: %HookRegistry{on_elicitation: cb}}) when cb != nil do
+    ControlHandler.handle_elicitation(request, cb)
+  end
+
+  defp route_elicitation(_request, msg, %{callback_proxy: proxy, control_timeout: timeout}) when is_pid(proxy) do
+    proxy_call(proxy, msg, timeout)
+  end
+
+  defp route_elicitation(request, _msg, _state) do
+    Logger.info("Received MCP elicitation request (no handler configured): #{inspect(request)}")
+    {:error, "No elicitation handler configured"}
   end
 
   defp session_context(state) do
@@ -867,6 +885,18 @@ defmodule ClaudeCode.Adapter.Port do
 
   defp build_control_json(:stop_task, request_id, %{task_id: task_id}) do
     Control.stop_task_request(request_id, task_id)
+  end
+
+  defp build_control_json(:background_tasks, request_id, params) do
+    Control.background_tasks_request(request_id, Map.to_list(params))
+  end
+
+  defp build_control_json(:get_context_usage, request_id, _params) do
+    Control.get_context_usage_request(request_id)
+  end
+
+  defp build_control_json(:get_session_cost, request_id, _params) do
+    Control.get_session_cost_request(request_id)
   end
 
   defp build_control_json(subtype, _request_id, _params) do

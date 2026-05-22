@@ -101,6 +101,8 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:can_use_tool, nil), do: nil
   defp convert_option(:can_use_tool, _value), do: {"--permission-prompt-tool", "stdio"}
 
+  defp convert_option(:on_elicitation, _value), do: nil
+
   defp convert_option(_key, nil), do: nil
 
   # TypeScript SDK aligned options
@@ -269,6 +271,12 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:include_partial_messages, false), do: nil
 
+  defp convert_option(:include_hook_events, true) do
+    ["--include-hook-events"]
+  end
+
+  defp convert_option(:include_hook_events, false), do: nil
+
   defp convert_option(:replay_user_messages, true) do
     ["--replay-user-messages"]
   end
@@ -357,6 +365,7 @@ defmodule ClaudeCode.CLI.Command do
   # :enable_file_checkpointing is set via env var
   # :prompt_suggestions and :tool_config are sent via control protocol initialize
   # :can_use_tool is handled above (maps to --permission-prompt-tool stdio)
+  # :exclude_dynamic_prompt_sections, :title, :forward_subagent_text, :tool_aliases sent via control protocol
   defp convert_option(:sandbox, _value), do: nil
   defp convert_option(:thinking, _value), do: nil
   defp convert_option(:enable_file_checkpointing, _value), do: nil
@@ -369,6 +378,10 @@ defmodule ClaudeCode.CLI.Command do
   defp convert_option(:extra_args, _value), do: nil
   defp convert_option(:prompt_suggestions, _value), do: nil
   defp convert_option(:tool_config, _value), do: nil
+  defp convert_option(:exclude_dynamic_prompt_sections, _value), do: nil
+  defp convert_option(:title, _value), do: nil
+  defp convert_option(:forward_subagent_text, _value), do: nil
+  defp convert_option(:tool_aliases, _value), do: nil
 
   # If this fires, a new option was added to Options but not handled here.
   defp convert_option(key, _value) do

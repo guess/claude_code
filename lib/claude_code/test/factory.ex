@@ -33,8 +33,16 @@ defmodule ClaudeCode.Test.Factory do
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage.ApiRetry
   alias ClaudeCode.Message.SystemMessage.CompactBoundary
   alias ClaudeCode.Message.SystemMessage.Init
+  alias ClaudeCode.Message.SystemMessage.MemoryRecall
+  alias ClaudeCode.Message.SystemMessage.MirrorError
+  alias ClaudeCode.Message.SystemMessage.Notification
+  alias ClaudeCode.Message.SystemMessage.PermissionDenied
+  alias ClaudeCode.Message.SystemMessage.PluginInstall
+  alias ClaudeCode.Message.SystemMessage.SessionStateChanged
+  alias ClaudeCode.Message.SystemMessage.TaskUpdated
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
@@ -210,6 +218,175 @@ defmodule ClaudeCode.Test.Factory do
         uuid: uuid(),
         session_id: session_id(),
         compact_metadata: %{trigger: "manual", pre_tokens: 1000}
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates an ApiRetry system message with default values.
+
+      api_retry_message()
+      api_retry_message(attempt: 2, error_status: 429)
+  """
+  def api_retry_message(attrs \\ []) do
+    merge(
+      %ApiRetry{
+        type: :system,
+        subtype: :api_retry,
+        attempt: 1,
+        max_retries: 3,
+        retry_delay_ms: 1000,
+        error_status: nil,
+        error: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a TaskUpdated system message with default values.
+
+      task_updated_message()
+      task_updated_message(task_id: "task_abc", patch: %{"status" => "running"})
+  """
+  def task_updated_message(attrs \\ []) do
+    merge(
+      %TaskUpdated{
+        type: :system,
+        subtype: :task_updated,
+        task_id: "task_#{unique_id()}",
+        patch: %{},
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a SessionStateChanged system message with default values.
+
+      session_state_changed_message()
+      session_state_changed_message(state: :running)
+  """
+  def session_state_changed_message(attrs \\ []) do
+    merge(
+      %SessionStateChanged{
+        type: :system,
+        subtype: :session_state_changed,
+        state: :idle,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a Notification system message with default values.
+
+      notification_message()
+      notification_message(key: "rate_limit", text: "Approaching limit", priority: :high)
+  """
+  def notification_message(attrs \\ []) do
+    merge(
+      %Notification{
+        type: :system,
+        subtype: :notification,
+        key: "test_notification",
+        text: "Test notification message",
+        priority: :medium,
+        color: nil,
+        timeout_ms: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a MirrorError system message with default values.
+
+      mirror_error_message()
+      mirror_error_message(error: "Connection refused")
+  """
+  def mirror_error_message(attrs \\ []) do
+    merge(
+      %MirrorError{
+        type: :system,
+        subtype: :mirror_error,
+        error: "Mirror operation failed",
+        key: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a PermissionDenied system message with default values.
+
+      permission_denied_message()
+      permission_denied_message(tool_name: "Bash", reason: "User denied")
+  """
+  def permission_denied_message(attrs \\ []) do
+    merge(
+      %PermissionDenied{
+        type: :system,
+        subtype: :permission_denied,
+        tool_name: "Bash",
+        tool_use_id: "toolu_#{unique_id()}",
+        agent_id: nil,
+        decision_reason_type: nil,
+        reason: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a PluginInstall system message with default values.
+
+      plugin_install_message()
+      plugin_install_message(status: :failed, error: "Not found")
+  """
+  def plugin_install_message(attrs \\ []) do
+    merge(
+      %PluginInstall{
+        type: :system,
+        subtype: :plugin_install,
+        status: :installed,
+        name: "test-plugin",
+        error: nil,
+        uuid: uuid(),
+        session_id: session_id()
+      },
+      attrs
+    )
+  end
+
+  @doc """
+  Creates a MemoryRecall system message with default values.
+
+      memory_recall_message()
+      memory_recall_message(mode: :synthesize, memories: [])
+  """
+  def memory_recall_message(attrs \\ []) do
+    merge(
+      %MemoryRecall{
+        type: :system,
+        subtype: :memory_recall,
+        mode: :select,
+        memories: [],
+        uuid: uuid(),
+        session_id: session_id()
       },
       attrs
     )

@@ -19,6 +19,7 @@ defmodule ClaudeCode.Content.ServerToolResultBlock do
   - `:bash_code_execution_tool_result` - Bash code execution results or error
   - `:text_editor_code_execution_tool_result` - Text editor code execution results or error
   - `:tool_search_tool_result` - Tool search results or error
+  - `:advisor_tool_result` - Advisor tool results, errors, or redacted results
   """
 
   use ClaudeCode.JSONEncoder
@@ -33,6 +34,7 @@ defmodule ClaudeCode.Content.ServerToolResultBlock do
           | :bash_code_execution_tool_result
           | :text_editor_code_execution_tool_result
           | :tool_search_tool_result
+          | :advisor_tool_result
 
   @type t :: %__MODULE__{
           type: server_tool_result_type(),
@@ -47,7 +49,8 @@ defmodule ClaudeCode.Content.ServerToolResultBlock do
     "code_execution_tool_result" => :code_execution_tool_result,
     "bash_code_execution_tool_result" => :bash_code_execution_tool_result,
     "text_editor_code_execution_tool_result" => :text_editor_code_execution_tool_result,
-    "tool_search_tool_result" => :tool_search_tool_result
+    "tool_search_tool_result" => :tool_search_tool_result,
+    "advisor_tool_result" => :advisor_tool_result
   }
 
   @spec new(map()) :: {:ok, t()} | {:error, atom() | {:missing_fields, [atom()]}}

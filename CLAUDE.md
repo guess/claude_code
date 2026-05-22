@@ -71,8 +71,8 @@ Core capabilities:
 - Session management with GenServer
 - Synchronous and async query interface
 - Streaming support with native Elixir Streams
-- Message parsing (System, Assistant, User, Result, StreamEvent)
-- Content blocks (Text, ToolUse, ToolResult, Thinking)
+- Message parsing (System, Assistant, User, Result, StreamEvent) — all 30 SDKMessage types
+- Content blocks (Text, ToolUse, ToolResult, Thinking, ServerToolUse/Result, MCP, SearchResult, etc.)
 - Options API with NimbleOptions validation
 - Model selection with fallback model support
 - System prompts (override and append)
@@ -119,8 +119,8 @@ Core capabilities:
   - `message.ex` - Message type union + helpers + stop_reason parsing; `parse` delegates to CLI.Parser
   - `content.ex` - Content type union + helpers; `parse` delegates to CLI.Parser
   - `message/` - Message type modules (system, assistant, user, result, partial, tool_progress, etc.)
-  - `message/system_message/` - System message subtypes (init, status, hook_*, task_*, compact_boundary, etc.)
-  - `content/` - Content block modules (text, tool_use, tool_result, thinking, server_tool_use, mcp_tool_use, etc.)
+  - `message/system_message/` - System message subtypes (init, status, hook_*, task_*, compact_boundary, api_retry, session_state_changed, notification, permission_denied, plugin_install, memory_recall, mirror_error)
+  - `content/` - Content block modules (text, tool_use, tool_result, thinking, server_tool_use, server_tool_result, mcp_tool_use, mcp_tool_result, search_result, container_upload, compaction, etc.)
   - `plugin.ex` - Plugin management (list, install, uninstall, enable, disable, update, validate)
   - `plugin/`
     - `marketplace.ex` - Marketplace management (list, add, remove, update)
@@ -210,6 +210,12 @@ Key options:
 - `:betas` - Beta feature flags (list of strings)
 - `:debug` / `:debug_file` - Debug mode and log file path
 - `:tool_config` / `:prompt_suggestions` - Sent via control protocol initialize
+- `:include_hook_events` - Include hook lifecycle events in the output stream (boolean)
+- `:exclude_dynamic_prompt_sections` - Move dynamic sections from system prompt for cache optimization (boolean)
+- `:title` - Custom display title for the session (string)
+- `:forward_subagent_text` - Forward subagent text/thinking blocks as messages (boolean)
+- `:tool_aliases` - Map of tool name aliases for name resolution redirection
+- `:on_elicitation` - Callback for MCP server elicitation requests (1-arity function)
 
 Application config options:
 - `:cli_version` - Version to install (default: SDK's tested version)
