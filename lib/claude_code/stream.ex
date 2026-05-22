@@ -565,16 +565,21 @@ defmodule ClaudeCode.Stream do
     # Use receive_next to get messages from the session (pull-based)
     case GenServer.call(state.session, {:receive_next, state.request_ref}, state.timeout) do
       {:message, message} ->
-        if should_emit?(message, state.filter) do
-          case message do
-            %Message.ResultMessage{} ->
-              {[message], %{state | done: true}}
+        cond do
+          terminal_error?(message) ->
+            {[synthesize_error_result(message)], %{state | done: true}}
 
-            _ ->
-              {[message], state}
-          end
-        else
-          next_message(state)
+          should_emit?(message, state.filter) ->
+            case message do
+              %Message.ResultMessage{} ->
+                {[message], %{state | done: true}}
+
+              _ ->
+                {[message], state}
+            end
+
+          true ->
+            next_message(state)
         end
 
       :done ->
@@ -602,6 +607,25 @@ defmodule ClaudeCode.Stream do
   defp process_alive?({:global, _} = name), do: GenServer.whereis(name) != nil
   defp process_alive?({name, _node} = ref) when is_atom(name), do: GenServer.whereis(ref) != nil
   defp process_alive?(_), do: false
+
+  defp terminal_error?(%Message.AssistantMessage{error: error}) when not is_nil(error), do: true
+  defp terminal_error?(_), do: false
+
+  defp synthesize_error_result(%Message.AssistantMessage{} = msg) do
+    %Message.ResultMessage{
+      type: :result,
+      subtype: msg.error,
+      is_error: true,
+      duration_ms: 0.0,
+      duration_api_ms: 0.0,
+      num_turns: 0,
+      result: to_string(msg),
+      session_id: msg.session_id,
+      total_cost_usd: 0.0,
+      usage: %{},
+      uuid: msg.uuid
+    }
+  end
 
   defp should_emit?(_message, :all), do: true
 

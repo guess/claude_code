@@ -1,6 +1,7 @@
 defmodule ClaudeCode.SessionAdapterTest do
   use ExUnit.Case, async: true
 
+  alias ClaudeCode.Message.ResultMessage
   alias ClaudeCode.Session
   alias ClaudeCode.Test.Factory
 
@@ -378,6 +379,151 @@ defmodule ClaudeCode.SessionAdapterTest do
       {:ok, session} = Session.start_link(adapter: {HealthyAdapter, [health_status: :degraded]})
 
       assert :degraded = ClaudeCode.Session.health(session)
+
+      GenServer.stop(session)
+    end
+  end
+
+  # ============================================================================
+  # Stream halts on terminal AssistantMessage errors (issue #49)
+  # ============================================================================
+
+  describe "stream halts on terminal assistant errors" do
+    defmodule RateLimitLoopAdapter do
+      @moduledoc false
+      @behaviour ClaudeCode.Adapter
+
+      use GenServer
+
+      alias ClaudeCode.Adapter
+      alias ClaudeCode.Test.Factory
+
+      @impl ClaudeCode.Adapter
+      def start_link(session, opts), do: GenServer.start_link(__MODULE__, {session, opts})
+
+      @impl ClaudeCode.Adapter
+      def send_query(adapter, request_id, _prompt, _opts) do
+        GenServer.cast(adapter, {:query, request_id})
+        :ok
+      end
+
+      @impl ClaudeCode.Adapter
+      def health(_adapter), do: :healthy
+
+      @impl ClaudeCode.Adapter
+      def stop(adapter), do: GenServer.stop(adapter, :normal)
+
+      @impl GenServer
+      def init({session, _opts}) do
+        Process.link(session)
+        Adapter.notify_status(session, :ready)
+        {:ok, %{session: session}}
+      end
+
+      @impl GenServer
+      def handle_cast({:query, request_id}, state) do
+        user_msg =
+          Factory.user_message(
+            message: %{
+              content: [
+                Factory.text_block(
+                  text: "Stop hook feedback:\nYou MUST call the StructuredOutput tool to complete this request."
+                )
+              ]
+            }
+          )
+
+        error_msg =
+          Factory.assistant_message(
+            error: :rate_limit,
+            message: %{
+              model: "<synthetic>",
+              content: [Factory.text_block(text: "You're out of extra usage")],
+              stop_reason: :stop_sequence
+            }
+          )
+
+        for _ <- 1..10 do
+          Adapter.notify_message(state.session, request_id, user_msg)
+          Adapter.notify_message(state.session, request_id, error_msg)
+        end
+
+        {:noreply, state}
+      end
+    end
+
+    test "stream terminates when assistant message has a terminal error" do
+      {:ok, session} = Session.start_link(adapter: {RateLimitLoopAdapter, []})
+
+      messages =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+
+      error_msg = List.last(messages)
+      assert %ResultMessage{is_error: true, subtype: :rate_limit} = error_msg
+      assert error_msg.result == "You're out of extra usage"
+
+      GenServer.stop(session)
+    end
+
+    defmodule BillingErrorAdapter do
+      @moduledoc false
+      @behaviour ClaudeCode.Adapter
+
+      use GenServer
+
+      alias ClaudeCode.Adapter
+      alias ClaudeCode.Test.Factory
+
+      @impl ClaudeCode.Adapter
+      def start_link(session, opts), do: GenServer.start_link(__MODULE__, {session, opts})
+
+      @impl ClaudeCode.Adapter
+      def send_query(adapter, request_id, _prompt, _opts) do
+        GenServer.cast(adapter, {:query, request_id})
+        :ok
+      end
+
+      @impl ClaudeCode.Adapter
+      def health(_adapter), do: :healthy
+
+      @impl ClaudeCode.Adapter
+      def stop(adapter), do: GenServer.stop(adapter, :normal)
+
+      @impl GenServer
+      def init({session, _opts}) do
+        Process.link(session)
+        Adapter.notify_status(session, :ready)
+        {:ok, %{session: session}}
+      end
+
+      @impl GenServer
+      def handle_cast({:query, request_id}, state) do
+        Adapter.notify_message(
+          state.session,
+          request_id,
+          Factory.assistant_message(
+            error: :billing_error,
+            message: %{content: [Factory.text_block(text: "Billing issue")]}
+          )
+        )
+
+        {:noreply, state}
+      end
+    end
+
+    test "stream terminates on other error types" do
+      {:ok, session} = Session.start_link(adapter: {BillingErrorAdapter, []})
+
+      messages =
+        session
+        |> ClaudeCode.stream("test")
+        |> Enum.to_list()
+
+      assert length(messages) == 1
+      assert %ResultMessage{is_error: true, subtype: :billing_error} = hd(messages)
+      assert hd(messages).result == "Billing issue"
 
       GenServer.stop(session)
     end
