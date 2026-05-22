@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] | CC 2.1.148
+
+### Added
+
+- **8 new system message subtypes** — `ClaudeCode.Message.SystemMessage.ApiRetry`, `ClaudeCode.Message.SystemMessage.TaskUpdated`, `ClaudeCode.Message.SystemMessage.SessionStateChanged`, `ClaudeCode.Message.SystemMessage.Notification`, `ClaudeCode.Message.SystemMessage.MirrorError`, `ClaudeCode.Message.SystemMessage.PermissionDenied`, `ClaudeCode.Message.SystemMessage.PluginInstall`, `ClaudeCode.Message.SystemMessage.MemoryRecall`. All system message types from the CLI's `SDKMessage` union are now parsed into dedicated structs with typed fields.
+
+- **`advisor_tool_result` content block** — Added to `ClaudeCode.Content.ServerToolResultBlock` type mapping. Advisor tool results are now parsed alongside other server tool result types.
+
+- **`ClaudeCode.Content.SearchResultBlock`** — New content block for `search_result` type (input-only, appears in round-tripped user messages from web search results).
+
+- **`ClaudeCode.Session.background_tasks/2`** — Backgrounds foreground tasks or a specific task by tool_use_id. Maps to the TS SDK's `Query.backgroundTasks()`.
+
+- **`ClaudeCode.Session.context_usage/1`** — Returns context window usage breakdown (categories, token counts, percentages). Maps to the TS SDK's `Query.getContextUsage()`.
+
+- **`ClaudeCode.Session.session_cost/1`** — Returns the formatted session cost. Maps to the TS SDK's `Query.getSessionCost()`.
+
+- **`:on_elicitation` option** — Callback for handling MCP server elicitation requests. When an MCP server requests user input (form fields, URL auth), this callback is invoked. Previously, elicitation requests were logged and rejected.
+
+- **`:include_hook_events` option** — When `true`, hook lifecycle events (`hook_started`, `hook_progress`, `hook_response`) are included in the output stream for all hook event types. Maps to `--include-hook-events` CLI flag.
+
+- **`:exclude_dynamic_prompt_sections` option** — Moves per-machine dynamic sections from the system prompt into the first user message for better cross-user prompt cache reuse. Sent via control protocol initialize.
+
+- **`:title` option** — Custom display title for the session, skipping auto-title generation. Sent via control protocol initialize.
+
+- **`:forward_subagent_text` option** — When `true`, subagent text and thinking blocks are forwarded as messages with `parent_tool_use_id` set. By default only tool_use/tool_result blocks are emitted from subagents.
+
+- **`:tool_aliases` option** — Map of tool name aliases applied before name resolution (e.g., `%{"Bash" => "mcp__workspace__bash"}`). Sent via control protocol initialize.
+
+### Changed
+
+- **Bundled CLI version bumped to 2.1.148** — From 2.1.76 (72 patch versions).
+
 ## [0.36.3] - 2026-03-30 | CC 2.1.76
 
 ### Fixed

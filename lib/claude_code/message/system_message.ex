@@ -8,6 +8,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   `ClaudeCode.Message.SystemMessage.*`.
   """
 
+  alias __MODULE__.ApiRetry
   alias __MODULE__.CompactBoundary
   alias __MODULE__.ElicitationComplete
   alias __MODULE__.FilesPersisted
@@ -16,10 +17,17 @@ defmodule ClaudeCode.Message.SystemMessage do
   alias __MODULE__.HookStarted
   alias __MODULE__.Init
   alias __MODULE__.LocalCommandOutput
+  alias __MODULE__.MemoryRecall
+  alias __MODULE__.MirrorError
+  alias __MODULE__.Notification
+  alias __MODULE__.PermissionDenied
+  alias __MODULE__.PluginInstall
+  alias __MODULE__.SessionStateChanged
   alias __MODULE__.Status
   alias __MODULE__.TaskNotification
   alias __MODULE__.TaskProgress
   alias __MODULE__.TaskStarted
+  alias __MODULE__.TaskUpdated
 
   @type t ::
           Init.t()
@@ -34,6 +42,14 @@ defmodule ClaudeCode.Message.SystemMessage do
           | TaskStarted.t()
           | TaskProgress.t()
           | TaskNotification.t()
+          | ApiRetry.t()
+          | TaskUpdated.t()
+          | SessionStateChanged.t()
+          | Notification.t()
+          | MirrorError.t()
+          | PermissionDenied.t()
+          | PluginInstall.t()
+          | MemoryRecall.t()
 
   @doc """
   Checks if a value is any type of system message.
@@ -51,5 +67,13 @@ defmodule ClaudeCode.Message.SystemMessage do
   def type?(%TaskStarted{}), do: true
   def type?(%TaskProgress{}), do: true
   def type?(%TaskNotification{}), do: true
+  def type?(%ApiRetry{}), do: true
+  def type?(%TaskUpdated{}), do: true
+  def type?(%SessionStateChanged{}), do: true
+  def type?(%Notification{}), do: true
+  def type?(%MirrorError{}), do: true
+  def type?(%PermissionDenied{}), do: true
+  def type?(%PluginInstall{}), do: true
+  def type?(%MemoryRecall{}), do: true
   def type?(_), do: false
 end

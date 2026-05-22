@@ -42,6 +42,8 @@ defmodule ClaudeCode.Options do
   | `fallback_model`       | string     | -        | Automatic fallback model when the primary is overloaded |
   | `system_prompt`        | string     | -        | Replace the entire default system prompt. See [Modifying System Prompts](modifying-system-prompts.md) |
   | `append_system_prompt` | string     | -        | Append custom text to the end of the default system prompt. See [Modifying System Prompts](modifying-system-prompts.md#method-3-appending-to-the-system-prompt) |
+  | `exclude_dynamic_prompt_sections` | boolean | false | Move per-machine dynamic sections from the system prompt into the first user message for better cross-user prompt cache reuse |
+  | `title`                | string     | -        | Custom display title for the session (skips auto-title generation) |
   | `agent`                | string     | -        | Select a named agent for the session. Must be defined in `:agents` or settings. See [Subagents](subagents.md#using-the-agent-option) |
   | `agents`               | list/map   | -        | Define custom subagents. See [Subagents](subagents.md#creating-subagents) and `ClaudeCode.Agent` |
   | `thinking`             | atom/tuple | -        | Extended thinking: `:adaptive`, `:disabled`, or `{:enabled, budget_tokens: N}` |
@@ -66,6 +68,7 @@ defmodule ClaudeCode.Options do
   | `tools`            | atom/list | -       | Restrict which built-in tools are available: `:default` (all), `[]` (none), or list of names. See [Permissions](permissions.md) |
   | `allowed_tools`    | list      | -       | Tools to auto-approve without prompting (e.g. `["View", "Bash(git:*)"]`). Unlisted tools fall through to `:permission_mode`. See [Allow and deny rules](permissions.md#allow-and-deny-rules) |
   | `disallowed_tools` | list      | -       | Tools to always deny. Checked first, overrides `:allowed_tools` and `:permission_mode`. See [Allow and deny rules](permissions.md#allow-and-deny-rules) |
+  | `tool_aliases`     | map       | -       | Map of tool name aliases applied before name resolution (e.g. `%{"Bash" => "mcp__workspace__bash"}`) |
   | `add_dir`          | list      | -       | Additional directories Claude can access (each path validated as existing directory) |
   | `tool_config`      | map       | -       | Per-tool config (e.g. `%{"askUserQuestion" => %{"previewFormat" => "html"}}`) |
 
@@ -110,6 +113,8 @@ defmodule ClaudeCode.Options do
   | -------------------------- | ------- | ------- | ----------- |
   | `output_format`            | map     | -       | Structured output: `%{type: :json_schema, schema: schema_map}`. See [Structured Outputs](structured-outputs.md) |
   | `include_partial_messages` | boolean | false   | Include partial message chunks for character-level streaming. See [Streaming Output](streaming-output.md) |
+  | `include_hook_events`      | boolean | false   | Include hook lifecycle events (hook_started, hook_progress, hook_response) in the output stream |
+  | `forward_subagent_text`    | boolean | false   | Forward subagent text and thinking blocks as messages with `parent_tool_use_id` set |
   | `replay_user_messages`     | boolean | false   | Re-emit user messages from stdin back on stdout for acknowledgment |
   | `prompt_suggestions`       | boolean | false   | Emit predicted next user prompts after each turn |
 
@@ -153,6 +158,9 @@ defmodule ClaudeCode.Options do
   > **Note:** `:name`, `:timeout`, `:control_timeout`, `:max_buffer_size`, `:inherit_env`,
   > and `:hooks` are also Elixir-only — they control SDK-side behavior and are not sent to the CLI.
   > They appear in their respective sections above.
+  >
+  > `:exclude_dynamic_prompt_sections`, `:title`, `:forward_subagent_text`, and `:tool_aliases` are
+  > sent via the control protocol initialize handshake, not as CLI flags.
 
   ## Application Configuration
 
@@ -360,6 +368,16 @@ defmodule ClaudeCode.Options do
     cwd: [type: :string, doc: "Current working directory"],
     system_prompt: [type: :string, doc: "Override system prompt"],
     append_system_prompt: [type: :string, doc: "Append to system prompt"],
+    exclude_dynamic_prompt_sections: [
+      type: :boolean,
+      default: false,
+      doc:
+        "Move per-machine dynamic sections from the system prompt into the first user message for better prompt cache reuse"
+    ],
+    title: [
+      type: :string,
+      doc: "Custom display title for the session (skips auto-title generation)"
+    ],
     max_turns: [type: :integer, doc: "Limit agentic turns in non-interactive mode"],
     max_budget_usd: [type: {:or, [:float, :integer]}, doc: "Maximum dollar amount to spend on API calls"],
     agent: [type: :string, doc: "Agent name for the session (overrides 'agent' setting)"],
@@ -389,6 +407,10 @@ defmodule ClaudeCode.Options do
     ],
     allowed_tools: [type: {:list, :string}, doc: ~s{List of allowed tools (e.g. ["View", "Bash(git:*)"])}],
     disallowed_tools: [type: {:list, :string}, doc: "List of denied tools"],
+    tool_aliases: [
+      type: {:map, :string, :string},
+      doc: ~s|Map of tool name aliases (e.g. %{"Bash" => "mcp__workspace__bash"})|
+    ],
     agents: [
       type: {:map, :string, {:map, :string, :any}},
       doc:
@@ -432,6 +454,17 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
+    ],
+    include_hook_events: [
+      type: :boolean,
+      default: false,
+      doc:
+        "Include hook lifecycle events (hook_started, hook_progress, hook_response) in the output stream for all hook event types"
+    ],
+    forward_subagent_text: [
+      type: :boolean,
+      default: false,
+      doc: "Forward subagent text and thinking blocks as messages with parent_tool_use_id set"
     ],
     replay_user_messages: [
       type: :boolean,
@@ -508,6 +541,11 @@ defmodule ClaudeCode.Options do
       type_doc: "module implementing `ClaudeCode.Hook` | `(map(), String.t() | nil -> term())`",
       doc:
         "Permission prompt callback. Receives tool info map and tool_use_id, returns a permission decision. Mutually exclusive with :permission_prompt_tool."
+    ],
+    on_elicitation: [
+      type: {:fun, 1},
+      doc:
+        "MCP elicitation callback. Receives the elicitation request map, returns `{:ok, response_map}` or `{:error, reason}`."
     ],
     enable_file_checkpointing: [
       type: :boolean,

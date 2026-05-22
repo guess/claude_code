@@ -1,3 +1,4 @@
+import * as BatchesAPI from "./batches.js";
 import { APIPromise } from "../../../core/api-promise.js";
 import { APIResource } from "../../../core/resource.js";
 import { Stream } from "../../../core/streaming.js";
@@ -6,11 +7,10 @@ import { type ExtractParsedContentFromBetaParams, type ParsedBetaMessage } from 
 import { BetaMessageStream } from "../../../lib/BetaMessageStream.js";
 import { BetaToolRunner, BetaToolRunnerParams, BetaToolRunnerRequestOptions } from "../../../lib/tools/BetaToolRunner.js";
 import { ToolError } from "../../../lib/tools/ToolError.js";
+import * as BetaMessagesAPI from "./messages.js";
 import * as MessagesAPI from "../../messages/messages.js";
 import * as BetaAPI from "../beta.js";
-import * as BatchesAPI from "./batches.js";
 import { BatchCancelParams, BatchCreateParams, BatchDeleteParams, BatchListParams, BatchResultsParams, BatchRetrieveParams, Batches, BetaDeletedMessageBatch, BetaMessageBatch, BetaMessageBatchCanceledResult, BetaMessageBatchErroredResult, BetaMessageBatchExpiredResult, BetaMessageBatchIndividualResponse, BetaMessageBatchRequestCounts, BetaMessageBatchResult, BetaMessageBatchSucceededResult, BetaMessageBatchesPage } from "./batches.js";
-import * as MessagesMessagesAPI from "./messages.js";
 export declare class Messages extends APIResource {
     batches: BatchesAPI.Batches;
     /**
@@ -69,7 +69,7 @@ export declare class Messages extends APIResource {
      * ```ts
      * const betaMessageTokensCount =
      *   await client.beta.messages.countTokens({
-     *     messages: [{ content: 'string', role: 'user' }],
+     *     messages: [{ content: 'Hello, world', role: 'user' }],
      *     model: 'claude-opus-4-6',
      *   });
      * ```
@@ -82,6 +82,125 @@ export declare class Messages extends APIResource {
         stream: true;
     }, options?: BetaToolRunnerRequestOptions): BetaToolRunner<true>;
     toolRunner(body: BetaToolRunnerParams, options?: BetaToolRunnerRequestOptions): BetaToolRunner<boolean>;
+}
+/**
+ * Token usage for an advisor sub-inference iteration.
+ */
+export interface BetaAdvisorMessageIterationUsage {
+    /**
+     * Breakdown of cached tokens by TTL
+     */
+    cache_creation: BetaCacheCreation | null;
+    /**
+     * The number of input tokens used to create the cache entry.
+     */
+    cache_creation_input_tokens: number;
+    /**
+     * The number of input tokens read from the cache.
+     */
+    cache_read_input_tokens: number;
+    /**
+     * The number of input tokens which were used.
+     */
+    input_tokens: number;
+    /**
+     * The model that will complete your prompt.\n\nSee
+     * [models](https://docs.anthropic.com/en/docs/models-overview) for additional
+     * details and options.
+     */
+    model: MessagesAPI.Model;
+    /**
+     * The number of output tokens which were used.
+     */
+    output_tokens: number;
+    /**
+     * Usage for an advisor sub-inference iteration
+     */
+    type: 'advisor_message';
+}
+export interface BetaAdvisorRedactedResultBlock {
+    /**
+     * Opaque blob containing the advisor's output. Round-trip verbatim; do not inspect
+     * or modify.
+     */
+    encrypted_content: string;
+    type: 'advisor_redacted_result';
+}
+export interface BetaAdvisorRedactedResultBlockParam {
+    /**
+     * Opaque blob produced by a prior response; must be round-tripped verbatim.
+     */
+    encrypted_content: string;
+    type: 'advisor_redacted_result';
+}
+export interface BetaAdvisorResultBlock {
+    text: string;
+    type: 'advisor_result';
+}
+export interface BetaAdvisorResultBlockParam {
+    text: string;
+    type: 'advisor_result';
+}
+export interface BetaAdvisorTool20260301 {
+    /**
+     * The model that will complete your prompt.\n\nSee
+     * [models](https://docs.anthropic.com/en/docs/models-overview) for additional
+     * details and options.
+     */
+    model: MessagesAPI.Model;
+    /**
+     * Name of the tool.
+     *
+     * This is how the tool will be called by the model and in `tool_use` blocks.
+     */
+    name: 'advisor';
+    type: 'advisor_20260301';
+    allowed_callers?: Array<'direct' | 'code_execution_20250825' | 'code_execution_20260120'>;
+    /**
+     * Create a cache control breakpoint at this content block.
+     */
+    cache_control?: BetaCacheControlEphemeral | null;
+    /**
+     * Caching for the advisor's own prompt. When set, each advisor call writes a cache
+     * entry at the given TTL so subsequent calls in the same conversation read the
+     * stable prefix. When omitted, the advisor prompt is not cached.
+     */
+    caching?: BetaCacheControlEphemeral | null;
+    /**
+     * If true, tool will not be included in initial system prompt. Only loaded when
+     * returned via tool_reference from tool search.
+     */
+    defer_loading?: boolean;
+    /**
+     * Maximum number of times the tool can be used in the API request.
+     */
+    max_uses?: number | null;
+    /**
+     * When true, guarantees schema validation on tool names and inputs
+     */
+    strict?: boolean;
+}
+export interface BetaAdvisorToolResultBlock {
+    content: BetaAdvisorToolResultError | BetaAdvisorResultBlock | BetaAdvisorRedactedResultBlock;
+    tool_use_id: string;
+    type: 'advisor_tool_result';
+}
+export interface BetaAdvisorToolResultBlockParam {
+    content: BetaAdvisorToolResultErrorParam | BetaAdvisorResultBlockParam | BetaAdvisorRedactedResultBlockParam;
+    tool_use_id: string;
+    type: 'advisor_tool_result';
+    /**
+     * Create a cache control breakpoint at this content block.
+     */
+    cache_control?: BetaCacheControlEphemeral | null;
+}
+export interface BetaAdvisorToolResultError {
+    error_code: 'max_uses_exceeded' | 'prompt_too_long' | 'too_many_requests' | 'overloaded' | 'unavailable' | 'execution_time_exceeded';
+    type: 'advisor_tool_result_error';
+}
+export interface BetaAdvisorToolResultErrorParam {
+    error_code: 'max_uses_exceeded' | 'prompt_too_long' | 'too_many_requests' | 'overloaded' | 'unavailable' | 'execution_time_exceeded';
+    type: 'advisor_tool_result_error';
 }
 export interface BetaAllThinkingTurns {
     type: 'all';
@@ -165,6 +284,44 @@ export interface BetaCacheCreation {
      */
     ephemeral_5m_input_tokens: number;
 }
+export interface BetaCacheMissMessagesChanged {
+    /**
+     * Approximate number of input tokens that would have been read from cache had the
+     * prefix matched the previous request.
+     */
+    cache_missed_input_tokens: number;
+    type: 'messages_changed';
+}
+export interface BetaCacheMissModelChanged {
+    /**
+     * Approximate number of input tokens that would have been read from cache had the
+     * prefix matched the previous request.
+     */
+    cache_missed_input_tokens: number;
+    type: 'model_changed';
+}
+export interface BetaCacheMissPreviousMessageNotFound {
+    type: 'previous_message_not_found';
+}
+export interface BetaCacheMissSystemChanged {
+    /**
+     * Approximate number of input tokens that would have been read from cache had the
+     * prefix matched the previous request.
+     */
+    cache_missed_input_tokens: number;
+    type: 'system_changed';
+}
+export interface BetaCacheMissToolsChanged {
+    /**
+     * Approximate number of input tokens that would have been read from cache had the
+     * prefix matched the previous request.
+     */
+    cache_missed_input_tokens: number;
+    type: 'tools_changed';
+}
+export interface BetaCacheMissUnavailable {
+    type: 'unavailable';
+}
 export interface BetaCitationCharLocation {
     cited_text: string;
     document_index: number;
@@ -186,19 +343,55 @@ export interface BetaCitationConfig {
     enabled: boolean;
 }
 export interface BetaCitationContentBlockLocation {
+    /**
+     * The full text of the cited block range, concatenated.
+     *
+     * Always equals the contents of `content[start_block_index:end_block_index]`
+     * joined together. The text block is the minimal citable unit; this field is never
+     * a substring of a single block. Not counted toward output tokens, and not counted
+     * toward input tokens when sent back in subsequent turns.
+     */
     cited_text: string;
     document_index: number;
     document_title: string | null;
+    /**
+     * Exclusive 0-based end index of the cited block range in the source's `content`
+     * array.
+     *
+     * Always greater than `start_block_index`; a single-block citation has
+     * `end_block_index = start_block_index + 1`.
+     */
     end_block_index: number;
     file_id: string | null;
+    /**
+     * 0-based index of the first cited block in the source's `content` array.
+     */
     start_block_index: number;
     type: 'content_block_location';
 }
 export interface BetaCitationContentBlockLocationParam {
+    /**
+     * The full text of the cited block range, concatenated.
+     *
+     * Always equals the contents of `content[start_block_index:end_block_index]`
+     * joined together. The text block is the minimal citable unit; this field is never
+     * a substring of a single block. Not counted toward output tokens, and not counted
+     * toward input tokens when sent back in subsequent turns.
+     */
     cited_text: string;
     document_index: number;
     document_title: string | null;
+    /**
+     * Exclusive 0-based end index of the cited block range in the source's `content`
+     * array.
+     *
+     * Always greater than `start_block_index`; a single-block citation has
+     * `end_block_index = start_block_index + 1`.
+     */
     end_block_index: number;
+    /**
+     * 0-based index of the first cited block in the source's `content` array.
+     */
     start_block_index: number;
     type: 'content_block_location';
 }
@@ -220,19 +413,71 @@ export interface BetaCitationPageLocationParam {
     type: 'page_location';
 }
 export interface BetaCitationSearchResultLocation {
+    /**
+     * The full text of the cited block range, concatenated.
+     *
+     * Always equals the contents of `content[start_block_index:end_block_index]`
+     * joined together. The text block is the minimal citable unit; this field is never
+     * a substring of a single block. Not counted toward output tokens, and not counted
+     * toward input tokens when sent back in subsequent turns.
+     */
     cited_text: string;
+    /**
+     * Exclusive 0-based end index of the cited block range in the source's `content`
+     * array.
+     *
+     * Always greater than `start_block_index`; a single-block citation has
+     * `end_block_index = start_block_index + 1`.
+     */
     end_block_index: number;
+    /**
+     * 0-based index of the cited search result among all `search_result` content
+     * blocks in the request, in the order they appear across messages and tool
+     * results.
+     *
+     * Counted separately from `document_index`; server-side web search results are not
+     * included in this count.
+     */
     search_result_index: number;
     source: string;
+    /**
+     * 0-based index of the first cited block in the source's `content` array.
+     */
     start_block_index: number;
     title: string | null;
     type: 'search_result_location';
 }
 export interface BetaCitationSearchResultLocationParam {
+    /**
+     * The full text of the cited block range, concatenated.
+     *
+     * Always equals the contents of `content[start_block_index:end_block_index]`
+     * joined together. The text block is the minimal citable unit; this field is never
+     * a substring of a single block. Not counted toward output tokens, and not counted
+     * toward input tokens when sent back in subsequent turns.
+     */
     cited_text: string;
+    /**
+     * Exclusive 0-based end index of the cited block range in the source's `content`
+     * array.
+     *
+     * Always greater than `start_block_index`; a single-block citation has
+     * `end_block_index = start_block_index + 1`.
+     */
     end_block_index: number;
+    /**
+     * 0-based index of the cited search result among all `search_result` content
+     * blocks in the request, in the order they appear across messages and tool
+     * results.
+     *
+     * Counted separately from `document_index`; server-side web search results are not
+     * included in this count.
+     */
     search_result_index: number;
     source: string;
+    /**
+     * 0-based index of the first cited block in the source's `content` array.
+     */
     start_block_index: number;
     title: string | null;
     type: 'search_result_location';
@@ -481,6 +726,10 @@ export interface BetaCompactionBlock {
      * Summary of compacted content, or null if compaction failed
      */
     content: string | null;
+    /**
+     * Opaque metadata from prior compaction, to be round-tripped verbatim
+     */
+    encrypted_content: string | null;
     type: 'compaction';
 }
 /**
@@ -493,18 +742,26 @@ export interface BetaCompactionBlock {
  * treats these as no-ops. Empty string content is not allowed.
  */
 export interface BetaCompactionBlockParam {
-    /**
-     * Summary of previously compacted content, or null if compaction failed
-     */
-    content: string | null;
     type: 'compaction';
     /**
      * Create a cache control breakpoint at this content block.
      */
     cache_control?: BetaCacheControlEphemeral | null;
+    /**
+     * Summary of previously compacted content, or null if compaction failed
+     */
+    content?: string | null;
+    /**
+     * Opaque metadata from prior compaction, to be round-tripped verbatim
+     */
+    encrypted_content?: string | null;
 }
 export interface BetaCompactionContentBlockDelta {
     content: string | null;
+    /**
+     * Opaque metadata from prior compaction, to be round-tripped verbatim
+     */
+    encrypted_content: string | null;
     type: 'compaction_delta';
 }
 /**
@@ -589,11 +846,11 @@ export interface BetaContainerUploadBlockParam {
 /**
  * Response model for a file uploaded to the container.
  */
-export type BetaContentBlock = BetaTextBlock | BetaThinkingBlock | BetaRedactedThinkingBlock | BetaToolUseBlock | BetaServerToolUseBlock | BetaWebSearchToolResultBlock | BetaWebFetchToolResultBlock | BetaCodeExecutionToolResultBlock | BetaBashCodeExecutionToolResultBlock | BetaTextEditorCodeExecutionToolResultBlock | BetaToolSearchToolResultBlock | BetaMCPToolUseBlock | BetaMCPToolResultBlock | BetaContainerUploadBlock | BetaCompactionBlock;
+export type BetaContentBlock = BetaTextBlock | BetaThinkingBlock | BetaRedactedThinkingBlock | BetaToolUseBlock | BetaServerToolUseBlock | BetaWebSearchToolResultBlock | BetaWebFetchToolResultBlock | BetaAdvisorToolResultBlock | BetaCodeExecutionToolResultBlock | BetaBashCodeExecutionToolResultBlock | BetaTextEditorCodeExecutionToolResultBlock | BetaToolSearchToolResultBlock | BetaMCPToolUseBlock | BetaMCPToolResultBlock | BetaContainerUploadBlock | BetaCompactionBlock;
 /**
  * Regular text content.
  */
-export type BetaContentBlockParam = BetaTextBlockParam | BetaImageBlockParam | BetaRequestDocumentBlock | BetaSearchResultBlockParam | BetaThinkingBlockParam | BetaRedactedThinkingBlockParam | BetaToolUseBlockParam | BetaToolResultBlockParam | BetaServerToolUseBlockParam | BetaWebSearchToolResultBlockParam | BetaWebFetchToolResultBlockParam | BetaCodeExecutionToolResultBlockParam | BetaBashCodeExecutionToolResultBlockParam | BetaTextEditorCodeExecutionToolResultBlockParam | BetaToolSearchToolResultBlockParam | BetaMCPToolUseBlockParam | BetaRequestMCPToolResultBlockParam | BetaContainerUploadBlockParam | BetaCompactionBlockParam;
+export type BetaContentBlockParam = BetaTextBlockParam | BetaImageBlockParam | BetaRequestDocumentBlock | BetaSearchResultBlockParam | BetaThinkingBlockParam | BetaRedactedThinkingBlockParam | BetaToolUseBlockParam | BetaToolResultBlockParam | BetaServerToolUseBlockParam | BetaWebSearchToolResultBlockParam | BetaWebFetchToolResultBlockParam | BetaAdvisorToolResultBlockParam | BetaCodeExecutionToolResultBlockParam | BetaBashCodeExecutionToolResultBlockParam | BetaTextEditorCodeExecutionToolResultBlockParam | BetaToolSearchToolResultBlockParam | BetaMCPToolUseBlockParam | BetaRequestMCPToolResultBlockParam | BetaContainerUploadBlockParam | BetaCompactionBlockParam;
 export interface BetaContentBlockSource {
     content: string | Array<BetaContentBlockSourceContent>;
     type: 'content';
@@ -616,6 +873,33 @@ export interface BetaCountTokensContextManagementResponse {
      * The original token count before context management was applied
      */
     original_input_tokens: number;
+}
+/**
+ * Response envelope for request-level diagnostics. Present (possibly null)
+ * whenever the caller supplied `diagnostics` on the request.
+ */
+export interface BetaDiagnostics {
+    /**
+     * Explains why the prompt cache could not fully reuse the prefix from the request
+     * identified by `diagnostics.previous_message_id`. `null` means diagnosis is still
+     * pending — the response was serialized before the background comparison
+     * completed.
+     */
+    cache_miss_reason: BetaCacheMissModelChanged | BetaCacheMissSystemChanged | BetaCacheMissToolsChanged | BetaCacheMissMessagesChanged | BetaCacheMissPreviousMessageNotFound | BetaCacheMissUnavailable | null;
+}
+/**
+ * Request-level diagnostics. Currently carries the previous response id for
+ * prompt-cache divergence reporting.
+ */
+export interface BetaDiagnosticsParam {
+    /**
+     * The `id` (`msg_...`) from this client's previous /v1/messages response. The
+     * server compares that request's prompt fingerprint against this one and returns
+     * `diagnostics.cache_miss_reason` when the prompt-cache prefix could not be
+     * reused. Pass `null` on the first turn to opt in without a prior message to
+     * compare.
+     */
+    previous_message_id?: string | null;
 }
 /**
  * Tool invocation directly from the model.
@@ -693,7 +977,7 @@ export interface BetaInputTokensTrigger {
  * - Calculate the true context window size from the last iteration
  * - Understand token accumulation across server-side tool use loops
  */
-export type BetaIterationsUsage = Array<BetaMessageIterationUsage | BetaCompactionIterationUsage>;
+export type BetaIterationsUsage = Array<BetaMessageIterationUsage | BetaCompactionIterationUsage | BetaAdvisorMessageIterationUsage>;
 export interface BetaJSONOutputFormat {
     /**
      * The JSON schema of the format
@@ -946,6 +1230,11 @@ export interface BetaMessage {
      */
     context_management: BetaContextManagementResponse | null;
     /**
+     * Response envelope for request-level diagnostics. Present (possibly null)
+     * whenever the caller supplied `diagnostics` on the request.
+     */
+    diagnostics: BetaDiagnostics | null;
+    /**
      * The model that will complete your prompt.\n\nSee
      * [models](https://docs.anthropic.com/en/docs/models-overview) for additional
      * details and options.
@@ -957,6 +1246,10 @@ export interface BetaMessage {
      * This will always be `"assistant"`.
      */
     role: 'assistant';
+    /**
+     * Structured information about a refusal.
+     */
+    stop_details: BetaRefusalStopDetails | null;
     /**
      * The reason that we stopped.
      *
@@ -1098,12 +1391,16 @@ export interface BetaOutputConfig {
     /**
      * All possible effort levels.
      */
-    effort?: 'low' | 'medium' | 'high' | 'max' | null;
+    effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | null;
     /**
      * A schema to specify Claude's output format in responses. See
      * [structured outputs](https://platform.claude.com/docs/en/build-with-claude/structured-outputs)
      */
     format?: BetaJSONOutputFormat | null;
+    /**
+     * User-configurable total token budget across contexts.
+     */
+    task_budget?: BetaTokenTaskBudget | null;
 }
 export interface BetaPlainTextSource {
     data: string;
@@ -1120,7 +1417,7 @@ export interface BetaRawContentBlockStartEvent {
     /**
      * Response model for a file uploaded to the container.
      */
-    content_block: BetaTextBlock | BetaThinkingBlock | BetaRedactedThinkingBlock | BetaToolUseBlock | BetaServerToolUseBlock | BetaWebSearchToolResultBlock | BetaWebFetchToolResultBlock | BetaCodeExecutionToolResultBlock | BetaBashCodeExecutionToolResultBlock | BetaTextEditorCodeExecutionToolResultBlock | BetaToolSearchToolResultBlock | BetaMCPToolUseBlock | BetaMCPToolResultBlock | BetaContainerUploadBlock | BetaCompactionBlock;
+    content_block: BetaTextBlock | BetaThinkingBlock | BetaRedactedThinkingBlock | BetaToolUseBlock | BetaServerToolUseBlock | BetaWebSearchToolResultBlock | BetaWebFetchToolResultBlock | BetaAdvisorToolResultBlock | BetaCodeExecutionToolResultBlock | BetaBashCodeExecutionToolResultBlock | BetaTextEditorCodeExecutionToolResultBlock | BetaToolSearchToolResultBlock | BetaMCPToolUseBlock | BetaMCPToolResultBlock | BetaContainerUploadBlock | BetaCompactionBlock;
     index: number;
     type: 'content_block_start';
 }
@@ -1160,8 +1457,12 @@ export declare namespace BetaRawMessageDeltaEvent {
          * Information about the container used in the request (for the code execution
          * tool)
          */
-        container: MessagesMessagesAPI.BetaContainer | null;
-        stop_reason: MessagesMessagesAPI.BetaStopReason | null;
+        container: BetaMessagesAPI.BetaContainer | null;
+        /**
+         * Structured information about a refusal.
+         */
+        stop_details: BetaMessagesAPI.BetaRefusalStopDetails | null;
+        stop_reason: BetaMessagesAPI.BetaStopReason | null;
         stop_sequence: string | null;
     }
 }
@@ -1180,6 +1481,25 @@ export interface BetaRedactedThinkingBlock {
 export interface BetaRedactedThinkingBlockParam {
     data: string;
     type: 'redacted_thinking';
+}
+/**
+ * Structured information about a refusal.
+ */
+export interface BetaRefusalStopDetails {
+    /**
+     * The policy category that triggered the refusal.
+     *
+     * `null` when the refusal doesn't map to a named category.
+     */
+    category: 'cyber' | 'bio' | null;
+    /**
+     * Human-readable explanation of the refusal.
+     *
+     * This text is not guaranteed to be stable. `null` when no explanation is
+     * available for the category.
+     */
+    explanation: string | null;
+    type: 'refusal';
 }
 export interface BetaRequestDocumentBlock {
     source: BetaBase64PDFSource | BetaPlainTextSource | BetaContentBlockSource | BetaURLPDFSource | BetaFileDocumentSource;
@@ -1250,7 +1570,7 @@ export interface BetaServerToolUseBlock {
     input: {
         [key: string]: unknown;
     };
-    name: 'web_search' | 'web_fetch' | 'code_execution' | 'bash_code_execution' | 'text_editor_code_execution' | 'tool_search_tool_regex' | 'tool_search_tool_bm25';
+    name: 'advisor' | 'web_search' | 'web_fetch' | 'code_execution' | 'bash_code_execution' | 'text_editor_code_execution' | 'tool_search_tool_regex' | 'tool_search_tool_bm25';
     type: 'server_tool_use';
     /**
      * Tool invocation directly from the model.
@@ -1260,7 +1580,7 @@ export interface BetaServerToolUseBlock {
 export interface BetaServerToolUseBlockParam {
     id: string;
     input: unknown;
-    name: 'web_search' | 'web_fetch' | 'code_execution' | 'bash_code_execution' | 'text_editor_code_execution' | 'tool_search_tool_regex' | 'tool_search_tool_bm25';
+    name: 'advisor' | 'web_search' | 'web_fetch' | 'code_execution' | 'bash_code_execution' | 'text_editor_code_execution' | 'tool_search_tool_regex' | 'tool_search_tool_bm25';
     type: 'server_tool_use';
     /**
      * Create a cache control breakpoint at this content block.
@@ -1413,6 +1733,13 @@ export interface BetaThinkingBlockParam {
 }
 export interface BetaThinkingConfigAdaptive {
     type: 'adaptive';
+    /**
+     * Controls how thinking content appears in the response. When set to `summarized`,
+     * thinking is returned normally. When set to `omitted`, thinking content is
+     * redacted but a signature is returned for multi-turn continuity. Defaults to
+     * `summarized`.
+     */
+    display?: 'summarized' | 'omitted' | null;
 }
 export interface BetaThinkingConfigDisabled {
     type: 'disabled';
@@ -1431,6 +1758,13 @@ export interface BetaThinkingConfigEnabled {
      */
     budget_tokens: number;
     type: 'enabled';
+    /**
+     * Controls how thinking content appears in the response. When set to `summarized`,
+     * thinking is returned normally. When set to `omitted`, thinking content is
+     * redacted but a signature is returned for multi-turn continuity. Defaults to
+     * `summarized`.
+     */
+    display?: 'summarized' | 'omitted' | null;
 }
 /**
  * Configuration for enabling Claude's extended thinking.
@@ -1445,12 +1779,41 @@ export interface BetaThinkingConfigEnabled {
  */
 export type BetaThinkingConfigParam = BetaThinkingConfigEnabled | BetaThinkingConfigDisabled | BetaThinkingConfigAdaptive;
 export interface BetaThinkingDelta {
+    /**
+     * Per-frame increment of a coarse, running estimate of the tokens this thinking
+     * block has produced so far. Present whenever the
+     * `thinking-token-count-2026-05-13` beta is set; `null` unless `thinking.display`
+     * resolves to `"omitted"` and a count is due this frame. Sum the increments across
+     * `thinking_delta` frames on this block for a progress indicator. Each increment
+     * is a non-negative multiple of a fixed quantum and the cadence is rate-limited,
+     * so this is a deliberately lossy display hint, not a billable count;
+     * `usage.output_tokens` remains authoritative.
+     */
+    estimated_tokens: number | null;
     thinking: string;
     type: 'thinking_delta';
 }
 export interface BetaThinkingTurns {
     type: 'thinking_turns';
     value: number;
+}
+/**
+ * User-configurable total token budget across contexts.
+ */
+export interface BetaTokenTaskBudget {
+    /**
+     * Total token budget across all contexts in the session.
+     */
+    total: number;
+    /**
+     * The budget type. Currently only 'tokens' is supported.
+     */
+    type: 'tokens';
+    /**
+     * Remaining tokens in the budget. Use this to track usage across contexts when
+     * implementing compaction client-side. Defaults to total if not provided.
+     */
+    remaining?: number | null;
 }
 export interface BetaTool {
     /**
@@ -1956,7 +2319,7 @@ export interface BetaToolTextEditor20250728 {
  * Code execution tool with REPL state persistence (daemon mode + gVisor
  * checkpoint).
  */
-export type BetaToolUnion = BetaTool | BetaToolBash20241022 | BetaToolBash20250124 | BetaCodeExecutionTool20250522 | BetaCodeExecutionTool20250825 | BetaCodeExecutionTool20260120 | BetaToolComputerUse20241022 | BetaMemoryTool20250818 | BetaToolComputerUse20250124 | BetaToolTextEditor20241022 | BetaToolComputerUse20251124 | BetaToolTextEditor20250124 | BetaToolTextEditor20250429 | BetaToolTextEditor20250728 | BetaWebSearchTool20250305 | BetaWebFetchTool20250910 | BetaWebSearchTool20260209 | BetaWebFetchTool20260209 | BetaToolSearchToolBm25_20251119 | BetaToolSearchToolRegex20251119 | BetaMCPToolset;
+export type BetaToolUnion = BetaTool | BetaToolBash20241022 | BetaToolBash20250124 | BetaCodeExecutionTool20250522 | BetaCodeExecutionTool20250825 | BetaCodeExecutionTool20260120 | BetaToolComputerUse20241022 | BetaMemoryTool20250818 | BetaToolComputerUse20250124 | BetaToolTextEditor20241022 | BetaToolComputerUse20251124 | BetaToolTextEditor20250124 | BetaToolTextEditor20250429 | BetaToolTextEditor20250728 | BetaWebSearchTool20250305 | BetaWebFetchTool20250910 | BetaWebSearchTool20260209 | BetaWebFetchTool20260209 | BetaWebFetchTool20260309 | BetaAdvisorTool20260301 | BetaToolSearchToolBm25_20251119 | BetaToolSearchToolRegex20251119 | BetaMCPToolset;
 export interface BetaToolUseBlock {
     id: string;
     input: unknown;
@@ -2181,6 +2544,60 @@ export interface BetaWebFetchTool20260209 {
      */
     strict?: boolean;
 }
+/**
+ * Web fetch tool with use_cache parameter for bypassing cached content.
+ */
+export interface BetaWebFetchTool20260309 {
+    /**
+     * Name of the tool.
+     *
+     * This is how the tool will be called by the model and in `tool_use` blocks.
+     */
+    name: 'web_fetch';
+    type: 'web_fetch_20260309';
+    allowed_callers?: Array<'direct' | 'code_execution_20250825' | 'code_execution_20260120'>;
+    /**
+     * List of domains to allow fetching from
+     */
+    allowed_domains?: Array<string> | null;
+    /**
+     * List of domains to block fetching from
+     */
+    blocked_domains?: Array<string> | null;
+    /**
+     * Create a cache control breakpoint at this content block.
+     */
+    cache_control?: BetaCacheControlEphemeral | null;
+    /**
+     * Citations configuration for fetched documents. Citations are disabled by
+     * default.
+     */
+    citations?: BetaCitationsConfigParam | null;
+    /**
+     * If true, tool will not be included in initial system prompt. Only loaded when
+     * returned via tool_reference from tool search.
+     */
+    defer_loading?: boolean;
+    /**
+     * Maximum number of tokens used by including web page text content in the context.
+     * The limit is approximate and does not apply to binary content such as PDFs.
+     */
+    max_content_tokens?: number | null;
+    /**
+     * Maximum number of times the tool can be used in the API request.
+     */
+    max_uses?: number | null;
+    /**
+     * When true, guarantees schema validation on tool names and inputs
+     */
+    strict?: boolean;
+    /**
+     * Whether to use cached content. Set to false to bypass the cache and fetch fresh
+     * content. Only set to false when the user explicitly requests fresh content or
+     * when fetching rapidly-changing sources.
+     */
+    use_cache?: boolean;
+}
 export interface BetaWebFetchToolResultBlock {
     content: BetaWebFetchToolResultErrorBlock | BetaWebFetchBlock;
     tool_use_id: string;
@@ -2355,6 +2772,10 @@ export interface MessageCreateParamsBase {
      * Note that our models may stop _before_ reaching this maximum. This parameter
      * only specifies the absolute maximum number of tokens to generate.
      *
+     * Set to `0` to populate the
+     * [prompt cache](https://docs.claude.com/en/docs/build-with-claude/prompt-caching#pre-warming-the-cache)
+     * without generating a response.
+     *
      * Different models have different maximum values for this parameter. See
      * [models](https://docs.claude.com/en/docs/models-overview) for details.
      */
@@ -2450,6 +2871,11 @@ export interface MessageCreateParamsBase {
      */
     context_management?: BetaContextManagementConfig | null;
     /**
+     * Body param: Request-level diagnostics. Currently carries the previous response
+     * id for prompt-cache divergence reporting.
+     */
+    diagnostics?: BetaDiagnosticsParam | null;
+    /**
      * Body param: Specifies the geographic region for inference processing. If not
      * specified, the workspace's `default_inference_geo` is used.
      */
@@ -2516,14 +2942,9 @@ export interface MessageCreateParamsBase {
      */
     system?: string | Array<BetaTextBlockParam>;
     /**
-     * Body param: Amount of randomness injected into the response.
-     *
-     * Defaults to `1.0`. Ranges from `0.0` to `1.0`. Use `temperature` closer to `0.0`
-     * for analytical / multiple choice, and closer to `1.0` for creative and
-     * generative tasks.
-     *
-     * Note that even with `temperature` of `0.0`, the results will not be fully
-     * deterministic.
+     * @deprecated Deprecated. Models released after Claude Opus 4.6 do not support
+     * setting temperature. A value of 1.0 of will be accepted for backwards
+     * compatibility, all other values will be rejected with a 400 error.
      */
     temperature?: number;
     /**
@@ -2622,35 +3043,29 @@ export interface MessageCreateParamsBase {
      */
     tools?: Array<BetaToolUnion>;
     /**
-     * Body param: Only sample from the top K options for each subsequent token.
-     *
-     * Used to remove "long tail" low probability responses.
-     * [Learn more technical details here](https://towardsdatascience.com/how-to-sample-from-language-models-682bceb97277).
-     *
-     * Recommended for advanced use cases only. You usually only need to use
-     * `temperature`.
+     * @deprecated Deprecated. Models released after Claude Opus 4.6 do not accept
+     * top_k; any value will be rejected with a 400 error.
      */
     top_k?: number;
     /**
-     * Body param: Use nucleus sampling.
-     *
-     * In nucleus sampling, we compute the cumulative distribution over all the options
-     * for each subsequent token in decreasing probability order and cut it off once it
-     * reaches a particular probability specified by `top_p`. You should either alter
-     * `temperature` or `top_p`, but not both.
-     *
-     * Recommended for advanced use cases only. You usually only need to use
-     * `temperature`.
+     * @deprecated Deprecated. Models released after Claude Opus 4.6 do not support
+     * setting top_p. A value >= 0.99 will be accepted for backwards compatibility, all
+     * other values will be rejected with a 400 error.
      */
     top_p?: number;
+    /**
+     * Body param: The user profile ID to attribute this request to. Use when acting on
+     * behalf of a party other than your organization.
+     */
+    user_profile_id?: string | null;
     /**
      * Header param: Optional header to specify the beta version(s) you want to use.
      */
     betas?: Array<BetaAPI.AnthropicBeta>;
 }
 export declare namespace MessageCreateParams {
-    type MessageCreateParamsNonStreaming = MessagesMessagesAPI.MessageCreateParamsNonStreaming;
-    type MessageCreateParamsStreaming = MessagesMessagesAPI.MessageCreateParamsStreaming;
+    type MessageCreateParamsNonStreaming = BetaMessagesAPI.MessageCreateParamsNonStreaming;
+    type MessageCreateParamsStreaming = BetaMessagesAPI.MessageCreateParamsStreaming;
 }
 export interface MessageCreateParamsNonStreaming extends MessageCreateParamsBase {
     /**
@@ -2881,7 +3296,7 @@ export interface MessageCountTokensParams {
      *
      * See our [guide](https://docs.claude.com/en/docs/tool-use) for more details.
      */
-    tools?: Array<BetaTool | BetaToolBash20241022 | BetaToolBash20250124 | BetaCodeExecutionTool20250522 | BetaCodeExecutionTool20250825 | BetaCodeExecutionTool20260120 | BetaToolComputerUse20241022 | BetaMemoryTool20250818 | BetaToolComputerUse20250124 | BetaToolTextEditor20241022 | BetaToolComputerUse20251124 | BetaToolTextEditor20250124 | BetaToolTextEditor20250429 | BetaToolTextEditor20250728 | BetaWebSearchTool20250305 | BetaWebFetchTool20250910 | BetaWebSearchTool20260209 | BetaWebFetchTool20260209 | BetaToolSearchToolBm25_20251119 | BetaToolSearchToolRegex20251119 | BetaMCPToolset>;
+    tools?: Array<BetaTool | BetaToolBash20241022 | BetaToolBash20250124 | BetaCodeExecutionTool20250522 | BetaCodeExecutionTool20250825 | BetaCodeExecutionTool20260120 | BetaToolComputerUse20241022 | BetaMemoryTool20250818 | BetaToolComputerUse20250124 | BetaToolTextEditor20241022 | BetaToolComputerUse20251124 | BetaToolTextEditor20250124 | BetaToolTextEditor20250429 | BetaToolTextEditor20250728 | BetaWebSearchTool20250305 | BetaWebFetchTool20250910 | BetaWebSearchTool20260209 | BetaWebFetchTool20260209 | BetaWebFetchTool20260309 | BetaAdvisorTool20260301 | BetaToolSearchToolBm25_20251119 | BetaToolSearchToolRegex20251119 | BetaMCPToolset>;
     /**
      * Header param: Optional header to specify the beta version(s) you want to use.
      */
@@ -2890,7 +3305,7 @@ export interface MessageCountTokensParams {
 export { BetaToolRunner, type BetaToolRunnerParams } from "../../../lib/tools/BetaToolRunner.js";
 export { ToolError } from "../../../lib/tools/ToolError.js";
 export declare namespace Messages {
-    export { type BetaAllThinkingTurns as BetaAllThinkingTurns, type BetaBase64ImageSource as BetaBase64ImageSource, type BetaBase64PDFSource as BetaBase64PDFSource, type BetaBashCodeExecutionOutputBlock as BetaBashCodeExecutionOutputBlock, type BetaBashCodeExecutionOutputBlockParam as BetaBashCodeExecutionOutputBlockParam, type BetaBashCodeExecutionResultBlock as BetaBashCodeExecutionResultBlock, type BetaBashCodeExecutionResultBlockParam as BetaBashCodeExecutionResultBlockParam, type BetaBashCodeExecutionToolResultBlock as BetaBashCodeExecutionToolResultBlock, type BetaBashCodeExecutionToolResultBlockParam as BetaBashCodeExecutionToolResultBlockParam, type BetaBashCodeExecutionToolResultError as BetaBashCodeExecutionToolResultError, type BetaBashCodeExecutionToolResultErrorParam as BetaBashCodeExecutionToolResultErrorParam, type BetaCacheControlEphemeral as BetaCacheControlEphemeral, type BetaCacheCreation as BetaCacheCreation, type BetaCitationCharLocation as BetaCitationCharLocation, type BetaCitationCharLocationParam as BetaCitationCharLocationParam, type BetaCitationConfig as BetaCitationConfig, type BetaCitationContentBlockLocation as BetaCitationContentBlockLocation, type BetaCitationContentBlockLocationParam as BetaCitationContentBlockLocationParam, type BetaCitationPageLocation as BetaCitationPageLocation, type BetaCitationPageLocationParam as BetaCitationPageLocationParam, type BetaCitationSearchResultLocation as BetaCitationSearchResultLocation, type BetaCitationSearchResultLocationParam as BetaCitationSearchResultLocationParam, type BetaCitationWebSearchResultLocationParam as BetaCitationWebSearchResultLocationParam, type BetaCitationsConfigParam as BetaCitationsConfigParam, type BetaCitationsDelta as BetaCitationsDelta, type BetaCitationsWebSearchResultLocation as BetaCitationsWebSearchResultLocation, type BetaClearThinking20251015Edit as BetaClearThinking20251015Edit, type BetaClearThinking20251015EditResponse as BetaClearThinking20251015EditResponse, type BetaClearToolUses20250919Edit as BetaClearToolUses20250919Edit, type BetaClearToolUses20250919EditResponse as BetaClearToolUses20250919EditResponse, type BetaCodeExecutionOutputBlock as BetaCodeExecutionOutputBlock, type BetaCodeExecutionOutputBlockParam as BetaCodeExecutionOutputBlockParam, type BetaCodeExecutionResultBlock as BetaCodeExecutionResultBlock, type BetaCodeExecutionResultBlockParam as BetaCodeExecutionResultBlockParam, type BetaCodeExecutionTool20250522 as BetaCodeExecutionTool20250522, type BetaCodeExecutionTool20250825 as BetaCodeExecutionTool20250825, type BetaCodeExecutionTool20260120 as BetaCodeExecutionTool20260120, type BetaCodeExecutionToolResultBlock as BetaCodeExecutionToolResultBlock, type BetaCodeExecutionToolResultBlockContent as BetaCodeExecutionToolResultBlockContent, type BetaCodeExecutionToolResultBlockParam as BetaCodeExecutionToolResultBlockParam, type BetaCodeExecutionToolResultBlockParamContent as BetaCodeExecutionToolResultBlockParamContent, type BetaCodeExecutionToolResultError as BetaCodeExecutionToolResultError, type BetaCodeExecutionToolResultErrorCode as BetaCodeExecutionToolResultErrorCode, type BetaCodeExecutionToolResultErrorParam as BetaCodeExecutionToolResultErrorParam, type BetaCompact20260112Edit as BetaCompact20260112Edit, type BetaCompactionBlock as BetaCompactionBlock, type BetaCompactionBlockParam as BetaCompactionBlockParam, type BetaCompactionContentBlockDelta as BetaCompactionContentBlockDelta, type BetaCompactionIterationUsage as BetaCompactionIterationUsage, type BetaContainer as BetaContainer, type BetaContainerParams as BetaContainerParams, type BetaContainerUploadBlock as BetaContainerUploadBlock, type BetaContainerUploadBlockParam as BetaContainerUploadBlockParam, type BetaContentBlock as BetaContentBlock, type BetaContentBlockParam as BetaContentBlockParam, type BetaContentBlockSource as BetaContentBlockSource, type BetaContentBlockSourceContent as BetaContentBlockSourceContent, type BetaContextManagementConfig as BetaContextManagementConfig, type BetaContextManagementResponse as BetaContextManagementResponse, type BetaCountTokensContextManagementResponse as BetaCountTokensContextManagementResponse, type BetaDirectCaller as BetaDirectCaller, type BetaDocumentBlock as BetaDocumentBlock, type BetaEncryptedCodeExecutionResultBlock as BetaEncryptedCodeExecutionResultBlock, type BetaEncryptedCodeExecutionResultBlockParam as BetaEncryptedCodeExecutionResultBlockParam, type BetaFileDocumentSource as BetaFileDocumentSource, type BetaFileImageSource as BetaFileImageSource, type BetaImageBlockParam as BetaImageBlockParam, type BetaInputJSONDelta as BetaInputJSONDelta, type BetaInputTokensClearAtLeast as BetaInputTokensClearAtLeast, type BetaInputTokensTrigger as BetaInputTokensTrigger, type BetaIterationsUsage as BetaIterationsUsage, type BetaJSONOutputFormat as BetaJSONOutputFormat, type BetaMCPToolConfig as BetaMCPToolConfig, type BetaMCPToolDefaultConfig as BetaMCPToolDefaultConfig, type BetaMCPToolResultBlock as BetaMCPToolResultBlock, type BetaMCPToolUseBlock as BetaMCPToolUseBlock, type BetaMCPToolUseBlockParam as BetaMCPToolUseBlockParam, type BetaMCPToolset as BetaMCPToolset, type BetaMemoryTool20250818 as BetaMemoryTool20250818, type BetaMemoryTool20250818Command as BetaMemoryTool20250818Command, type BetaMemoryTool20250818CreateCommand as BetaMemoryTool20250818CreateCommand, type BetaMemoryTool20250818DeleteCommand as BetaMemoryTool20250818DeleteCommand, type BetaMemoryTool20250818InsertCommand as BetaMemoryTool20250818InsertCommand, type BetaMemoryTool20250818RenameCommand as BetaMemoryTool20250818RenameCommand, type BetaMemoryTool20250818StrReplaceCommand as BetaMemoryTool20250818StrReplaceCommand, type BetaMemoryTool20250818ViewCommand as BetaMemoryTool20250818ViewCommand, type BetaMessage as BetaMessage, type BetaMessageDeltaUsage as BetaMessageDeltaUsage, type BetaMessageIterationUsage as BetaMessageIterationUsage, type BetaMessageParam as BetaMessageParam, type BetaMessageTokensCount as BetaMessageTokensCount, type BetaMetadata as BetaMetadata, type BetaOutputConfig as BetaOutputConfig, type BetaPlainTextSource as BetaPlainTextSource, type BetaRawContentBlockDelta as BetaRawContentBlockDelta, type BetaRawContentBlockDeltaEvent as BetaRawContentBlockDeltaEvent, type BetaRawContentBlockStartEvent as BetaRawContentBlockStartEvent, type BetaRawContentBlockStopEvent as BetaRawContentBlockStopEvent, type BetaRawMessageDeltaEvent as BetaRawMessageDeltaEvent, type BetaRawMessageStartEvent as BetaRawMessageStartEvent, type BetaRawMessageStopEvent as BetaRawMessageStopEvent, type BetaRawMessageStreamEvent as BetaRawMessageStreamEvent, type BetaRedactedThinkingBlock as BetaRedactedThinkingBlock, type BetaRedactedThinkingBlockParam as BetaRedactedThinkingBlockParam, type BetaRequestDocumentBlock as BetaRequestDocumentBlock, type BetaRequestMCPServerToolConfiguration as BetaRequestMCPServerToolConfiguration, type BetaRequestMCPServerURLDefinition as BetaRequestMCPServerURLDefinition, type BetaRequestMCPToolResultBlockParam as BetaRequestMCPToolResultBlockParam, type BetaSearchResultBlockParam as BetaSearchResultBlockParam, type BetaServerToolCaller as BetaServerToolCaller, type BetaServerToolCaller20260120 as BetaServerToolCaller20260120, type BetaServerToolUsage as BetaServerToolUsage, type BetaServerToolUseBlock as BetaServerToolUseBlock, type BetaServerToolUseBlockParam as BetaServerToolUseBlockParam, type BetaSignatureDelta as BetaSignatureDelta, type BetaSkill as BetaSkill, type BetaSkillParams as BetaSkillParams, type BetaStopReason as BetaStopReason, type BetaTextBlock as BetaTextBlock, type BetaTextBlockParam as BetaTextBlockParam, type BetaTextCitation as BetaTextCitation, type BetaTextCitationParam as BetaTextCitationParam, type BetaTextDelta as BetaTextDelta, type BetaTextEditorCodeExecutionCreateResultBlock as BetaTextEditorCodeExecutionCreateResultBlock, type BetaTextEditorCodeExecutionCreateResultBlockParam as BetaTextEditorCodeExecutionCreateResultBlockParam, type BetaTextEditorCodeExecutionStrReplaceResultBlock as BetaTextEditorCodeExecutionStrReplaceResultBlock, type BetaTextEditorCodeExecutionStrReplaceResultBlockParam as BetaTextEditorCodeExecutionStrReplaceResultBlockParam, type BetaTextEditorCodeExecutionToolResultBlock as BetaTextEditorCodeExecutionToolResultBlock, type BetaTextEditorCodeExecutionToolResultBlockParam as BetaTextEditorCodeExecutionToolResultBlockParam, type BetaTextEditorCodeExecutionToolResultError as BetaTextEditorCodeExecutionToolResultError, type BetaTextEditorCodeExecutionToolResultErrorParam as BetaTextEditorCodeExecutionToolResultErrorParam, type BetaTextEditorCodeExecutionViewResultBlock as BetaTextEditorCodeExecutionViewResultBlock, type BetaTextEditorCodeExecutionViewResultBlockParam as BetaTextEditorCodeExecutionViewResultBlockParam, type BetaThinkingBlock as BetaThinkingBlock, type BetaThinkingBlockParam as BetaThinkingBlockParam, type BetaThinkingConfigAdaptive as BetaThinkingConfigAdaptive, type BetaThinkingConfigDisabled as BetaThinkingConfigDisabled, type BetaThinkingConfigEnabled as BetaThinkingConfigEnabled, type BetaThinkingConfigParam as BetaThinkingConfigParam, type BetaThinkingDelta as BetaThinkingDelta, type BetaThinkingTurns as BetaThinkingTurns, type BetaTool as BetaTool, type BetaToolBash20241022 as BetaToolBash20241022, type BetaToolBash20250124 as BetaToolBash20250124, type BetaToolChoice as BetaToolChoice, type BetaToolChoiceAny as BetaToolChoiceAny, type BetaToolChoiceAuto as BetaToolChoiceAuto, type BetaToolChoiceNone as BetaToolChoiceNone, type BetaToolChoiceTool as BetaToolChoiceTool, type BetaToolComputerUse20241022 as BetaToolComputerUse20241022, type BetaToolComputerUse20250124 as BetaToolComputerUse20250124, type BetaToolComputerUse20251124 as BetaToolComputerUse20251124, type BetaToolReferenceBlock as BetaToolReferenceBlock, type BetaToolReferenceBlockParam as BetaToolReferenceBlockParam, type BetaToolResultBlockParam as BetaToolResultBlockParam, type BetaToolResultContentBlockParam as BetaToolResultContentBlockParam, type BetaToolSearchToolBm25_20251119 as BetaToolSearchToolBm25_20251119, type BetaToolSearchToolRegex20251119 as BetaToolSearchToolRegex20251119, type BetaToolSearchToolResultBlock as BetaToolSearchToolResultBlock, type BetaToolSearchToolResultBlockParam as BetaToolSearchToolResultBlockParam, type BetaToolSearchToolResultError as BetaToolSearchToolResultError, type BetaToolSearchToolResultErrorParam as BetaToolSearchToolResultErrorParam, type BetaToolSearchToolSearchResultBlock as BetaToolSearchToolSearchResultBlock, type BetaToolSearchToolSearchResultBlockParam as BetaToolSearchToolSearchResultBlockParam, type BetaToolTextEditor20241022 as BetaToolTextEditor20241022, type BetaToolTextEditor20250124 as BetaToolTextEditor20250124, type BetaToolTextEditor20250429 as BetaToolTextEditor20250429, type BetaToolTextEditor20250728 as BetaToolTextEditor20250728, type BetaToolUnion as BetaToolUnion, type BetaToolUseBlock as BetaToolUseBlock, type BetaToolUseBlockParam as BetaToolUseBlockParam, type BetaToolUsesKeep as BetaToolUsesKeep, type BetaToolUsesTrigger as BetaToolUsesTrigger, type BetaURLImageSource as BetaURLImageSource, type BetaURLPDFSource as BetaURLPDFSource, type BetaUsage as BetaUsage, type BetaUserLocation as BetaUserLocation, type BetaWebFetchBlock as BetaWebFetchBlock, type BetaWebFetchBlockParam as BetaWebFetchBlockParam, type BetaWebFetchTool20250910 as BetaWebFetchTool20250910, type BetaWebFetchTool20260209 as BetaWebFetchTool20260209, type BetaWebFetchToolResultBlock as BetaWebFetchToolResultBlock, type BetaWebFetchToolResultBlockParam as BetaWebFetchToolResultBlockParam, type BetaWebFetchToolResultErrorBlock as BetaWebFetchToolResultErrorBlock, type BetaWebFetchToolResultErrorBlockParam as BetaWebFetchToolResultErrorBlockParam, type BetaWebFetchToolResultErrorCode as BetaWebFetchToolResultErrorCode, type BetaWebSearchResultBlock as BetaWebSearchResultBlock, type BetaWebSearchResultBlockParam as BetaWebSearchResultBlockParam, type BetaWebSearchTool20250305 as BetaWebSearchTool20250305, type BetaWebSearchTool20260209 as BetaWebSearchTool20260209, type BetaWebSearchToolRequestError as BetaWebSearchToolRequestError, type BetaWebSearchToolResultBlock as BetaWebSearchToolResultBlock, type BetaWebSearchToolResultBlockContent as BetaWebSearchToolResultBlockContent, type BetaWebSearchToolResultBlockParam as BetaWebSearchToolResultBlockParam, type BetaWebSearchToolResultBlockParamContent as BetaWebSearchToolResultBlockParamContent, type BetaWebSearchToolResultError as BetaWebSearchToolResultError, type BetaWebSearchToolResultErrorCode as BetaWebSearchToolResultErrorCode, type BetaBase64PDFBlock as BetaBase64PDFBlock, type MessageCreateParams as MessageCreateParams, type MessageCreateParamsNonStreaming as MessageCreateParamsNonStreaming, type MessageCreateParamsStreaming as MessageCreateParamsStreaming, type MessageCountTokensParams as MessageCountTokensParams, };
+    export { type BetaAdvisorMessageIterationUsage as BetaAdvisorMessageIterationUsage, type BetaAdvisorRedactedResultBlock as BetaAdvisorRedactedResultBlock, type BetaAdvisorRedactedResultBlockParam as BetaAdvisorRedactedResultBlockParam, type BetaAdvisorResultBlock as BetaAdvisorResultBlock, type BetaAdvisorResultBlockParam as BetaAdvisorResultBlockParam, type BetaAdvisorTool20260301 as BetaAdvisorTool20260301, type BetaAdvisorToolResultBlock as BetaAdvisorToolResultBlock, type BetaAdvisorToolResultBlockParam as BetaAdvisorToolResultBlockParam, type BetaAdvisorToolResultError as BetaAdvisorToolResultError, type BetaAdvisorToolResultErrorParam as BetaAdvisorToolResultErrorParam, type BetaAllThinkingTurns as BetaAllThinkingTurns, type BetaBase64ImageSource as BetaBase64ImageSource, type BetaBase64PDFSource as BetaBase64PDFSource, type BetaBashCodeExecutionOutputBlock as BetaBashCodeExecutionOutputBlock, type BetaBashCodeExecutionOutputBlockParam as BetaBashCodeExecutionOutputBlockParam, type BetaBashCodeExecutionResultBlock as BetaBashCodeExecutionResultBlock, type BetaBashCodeExecutionResultBlockParam as BetaBashCodeExecutionResultBlockParam, type BetaBashCodeExecutionToolResultBlock as BetaBashCodeExecutionToolResultBlock, type BetaBashCodeExecutionToolResultBlockParam as BetaBashCodeExecutionToolResultBlockParam, type BetaBashCodeExecutionToolResultError as BetaBashCodeExecutionToolResultError, type BetaBashCodeExecutionToolResultErrorParam as BetaBashCodeExecutionToolResultErrorParam, type BetaCacheControlEphemeral as BetaCacheControlEphemeral, type BetaCacheCreation as BetaCacheCreation, type BetaCacheMissMessagesChanged as BetaCacheMissMessagesChanged, type BetaCacheMissModelChanged as BetaCacheMissModelChanged, type BetaCacheMissPreviousMessageNotFound as BetaCacheMissPreviousMessageNotFound, type BetaCacheMissSystemChanged as BetaCacheMissSystemChanged, type BetaCacheMissToolsChanged as BetaCacheMissToolsChanged, type BetaCacheMissUnavailable as BetaCacheMissUnavailable, type BetaCitationCharLocation as BetaCitationCharLocation, type BetaCitationCharLocationParam as BetaCitationCharLocationParam, type BetaCitationConfig as BetaCitationConfig, type BetaCitationContentBlockLocation as BetaCitationContentBlockLocation, type BetaCitationContentBlockLocationParam as BetaCitationContentBlockLocationParam, type BetaCitationPageLocation as BetaCitationPageLocation, type BetaCitationPageLocationParam as BetaCitationPageLocationParam, type BetaCitationSearchResultLocation as BetaCitationSearchResultLocation, type BetaCitationSearchResultLocationParam as BetaCitationSearchResultLocationParam, type BetaCitationWebSearchResultLocationParam as BetaCitationWebSearchResultLocationParam, type BetaCitationsConfigParam as BetaCitationsConfigParam, type BetaCitationsDelta as BetaCitationsDelta, type BetaCitationsWebSearchResultLocation as BetaCitationsWebSearchResultLocation, type BetaClearThinking20251015Edit as BetaClearThinking20251015Edit, type BetaClearThinking20251015EditResponse as BetaClearThinking20251015EditResponse, type BetaClearToolUses20250919Edit as BetaClearToolUses20250919Edit, type BetaClearToolUses20250919EditResponse as BetaClearToolUses20250919EditResponse, type BetaCodeExecutionOutputBlock as BetaCodeExecutionOutputBlock, type BetaCodeExecutionOutputBlockParam as BetaCodeExecutionOutputBlockParam, type BetaCodeExecutionResultBlock as BetaCodeExecutionResultBlock, type BetaCodeExecutionResultBlockParam as BetaCodeExecutionResultBlockParam, type BetaCodeExecutionTool20250522 as BetaCodeExecutionTool20250522, type BetaCodeExecutionTool20250825 as BetaCodeExecutionTool20250825, type BetaCodeExecutionTool20260120 as BetaCodeExecutionTool20260120, type BetaCodeExecutionToolResultBlock as BetaCodeExecutionToolResultBlock, type BetaCodeExecutionToolResultBlockContent as BetaCodeExecutionToolResultBlockContent, type BetaCodeExecutionToolResultBlockParam as BetaCodeExecutionToolResultBlockParam, type BetaCodeExecutionToolResultBlockParamContent as BetaCodeExecutionToolResultBlockParamContent, type BetaCodeExecutionToolResultError as BetaCodeExecutionToolResultError, type BetaCodeExecutionToolResultErrorCode as BetaCodeExecutionToolResultErrorCode, type BetaCodeExecutionToolResultErrorParam as BetaCodeExecutionToolResultErrorParam, type BetaCompact20260112Edit as BetaCompact20260112Edit, type BetaCompactionBlock as BetaCompactionBlock, type BetaCompactionBlockParam as BetaCompactionBlockParam, type BetaCompactionContentBlockDelta as BetaCompactionContentBlockDelta, type BetaCompactionIterationUsage as BetaCompactionIterationUsage, type BetaContainer as BetaContainer, type BetaContainerParams as BetaContainerParams, type BetaContainerUploadBlock as BetaContainerUploadBlock, type BetaContainerUploadBlockParam as BetaContainerUploadBlockParam, type BetaContentBlock as BetaContentBlock, type BetaContentBlockParam as BetaContentBlockParam, type BetaContentBlockSource as BetaContentBlockSource, type BetaContentBlockSourceContent as BetaContentBlockSourceContent, type BetaContextManagementConfig as BetaContextManagementConfig, type BetaContextManagementResponse as BetaContextManagementResponse, type BetaCountTokensContextManagementResponse as BetaCountTokensContextManagementResponse, type BetaDiagnostics as BetaDiagnostics, type BetaDiagnosticsParam as BetaDiagnosticsParam, type BetaDirectCaller as BetaDirectCaller, type BetaDocumentBlock as BetaDocumentBlock, type BetaEncryptedCodeExecutionResultBlock as BetaEncryptedCodeExecutionResultBlock, type BetaEncryptedCodeExecutionResultBlockParam as BetaEncryptedCodeExecutionResultBlockParam, type BetaFileDocumentSource as BetaFileDocumentSource, type BetaFileImageSource as BetaFileImageSource, type BetaImageBlockParam as BetaImageBlockParam, type BetaInputJSONDelta as BetaInputJSONDelta, type BetaInputTokensClearAtLeast as BetaInputTokensClearAtLeast, type BetaInputTokensTrigger as BetaInputTokensTrigger, type BetaIterationsUsage as BetaIterationsUsage, type BetaJSONOutputFormat as BetaJSONOutputFormat, type BetaMCPToolConfig as BetaMCPToolConfig, type BetaMCPToolDefaultConfig as BetaMCPToolDefaultConfig, type BetaMCPToolResultBlock as BetaMCPToolResultBlock, type BetaMCPToolUseBlock as BetaMCPToolUseBlock, type BetaMCPToolUseBlockParam as BetaMCPToolUseBlockParam, type BetaMCPToolset as BetaMCPToolset, type BetaMemoryTool20250818 as BetaMemoryTool20250818, type BetaMemoryTool20250818Command as BetaMemoryTool20250818Command, type BetaMemoryTool20250818CreateCommand as BetaMemoryTool20250818CreateCommand, type BetaMemoryTool20250818DeleteCommand as BetaMemoryTool20250818DeleteCommand, type BetaMemoryTool20250818InsertCommand as BetaMemoryTool20250818InsertCommand, type BetaMemoryTool20250818RenameCommand as BetaMemoryTool20250818RenameCommand, type BetaMemoryTool20250818StrReplaceCommand as BetaMemoryTool20250818StrReplaceCommand, type BetaMemoryTool20250818ViewCommand as BetaMemoryTool20250818ViewCommand, type BetaMessage as BetaMessage, type BetaMessageDeltaUsage as BetaMessageDeltaUsage, type BetaMessageIterationUsage as BetaMessageIterationUsage, type BetaMessageParam as BetaMessageParam, type BetaMessageTokensCount as BetaMessageTokensCount, type BetaMetadata as BetaMetadata, type BetaOutputConfig as BetaOutputConfig, type BetaPlainTextSource as BetaPlainTextSource, type BetaRawContentBlockDelta as BetaRawContentBlockDelta, type BetaRawContentBlockDeltaEvent as BetaRawContentBlockDeltaEvent, type BetaRawContentBlockStartEvent as BetaRawContentBlockStartEvent, type BetaRawContentBlockStopEvent as BetaRawContentBlockStopEvent, type BetaRawMessageDeltaEvent as BetaRawMessageDeltaEvent, type BetaRawMessageStartEvent as BetaRawMessageStartEvent, type BetaRawMessageStopEvent as BetaRawMessageStopEvent, type BetaRawMessageStreamEvent as BetaRawMessageStreamEvent, type BetaRedactedThinkingBlock as BetaRedactedThinkingBlock, type BetaRedactedThinkingBlockParam as BetaRedactedThinkingBlockParam, type BetaRefusalStopDetails as BetaRefusalStopDetails, type BetaRequestDocumentBlock as BetaRequestDocumentBlock, type BetaRequestMCPServerToolConfiguration as BetaRequestMCPServerToolConfiguration, type BetaRequestMCPServerURLDefinition as BetaRequestMCPServerURLDefinition, type BetaRequestMCPToolResultBlockParam as BetaRequestMCPToolResultBlockParam, type BetaSearchResultBlockParam as BetaSearchResultBlockParam, type BetaServerToolCaller as BetaServerToolCaller, type BetaServerToolCaller20260120 as BetaServerToolCaller20260120, type BetaServerToolUsage as BetaServerToolUsage, type BetaServerToolUseBlock as BetaServerToolUseBlock, type BetaServerToolUseBlockParam as BetaServerToolUseBlockParam, type BetaSignatureDelta as BetaSignatureDelta, type BetaSkill as BetaSkill, type BetaSkillParams as BetaSkillParams, type BetaStopReason as BetaStopReason, type BetaTextBlock as BetaTextBlock, type BetaTextBlockParam as BetaTextBlockParam, type BetaTextCitation as BetaTextCitation, type BetaTextCitationParam as BetaTextCitationParam, type BetaTextDelta as BetaTextDelta, type BetaTextEditorCodeExecutionCreateResultBlock as BetaTextEditorCodeExecutionCreateResultBlock, type BetaTextEditorCodeExecutionCreateResultBlockParam as BetaTextEditorCodeExecutionCreateResultBlockParam, type BetaTextEditorCodeExecutionStrReplaceResultBlock as BetaTextEditorCodeExecutionStrReplaceResultBlock, type BetaTextEditorCodeExecutionStrReplaceResultBlockParam as BetaTextEditorCodeExecutionStrReplaceResultBlockParam, type BetaTextEditorCodeExecutionToolResultBlock as BetaTextEditorCodeExecutionToolResultBlock, type BetaTextEditorCodeExecutionToolResultBlockParam as BetaTextEditorCodeExecutionToolResultBlockParam, type BetaTextEditorCodeExecutionToolResultError as BetaTextEditorCodeExecutionToolResultError, type BetaTextEditorCodeExecutionToolResultErrorParam as BetaTextEditorCodeExecutionToolResultErrorParam, type BetaTextEditorCodeExecutionViewResultBlock as BetaTextEditorCodeExecutionViewResultBlock, type BetaTextEditorCodeExecutionViewResultBlockParam as BetaTextEditorCodeExecutionViewResultBlockParam, type BetaThinkingBlock as BetaThinkingBlock, type BetaThinkingBlockParam as BetaThinkingBlockParam, type BetaThinkingConfigAdaptive as BetaThinkingConfigAdaptive, type BetaThinkingConfigDisabled as BetaThinkingConfigDisabled, type BetaThinkingConfigEnabled as BetaThinkingConfigEnabled, type BetaThinkingConfigParam as BetaThinkingConfigParam, type BetaThinkingDelta as BetaThinkingDelta, type BetaThinkingTurns as BetaThinkingTurns, type BetaTokenTaskBudget as BetaTokenTaskBudget, type BetaTool as BetaTool, type BetaToolBash20241022 as BetaToolBash20241022, type BetaToolBash20250124 as BetaToolBash20250124, type BetaToolChoice as BetaToolChoice, type BetaToolChoiceAny as BetaToolChoiceAny, type BetaToolChoiceAuto as BetaToolChoiceAuto, type BetaToolChoiceNone as BetaToolChoiceNone, type BetaToolChoiceTool as BetaToolChoiceTool, type BetaToolComputerUse20241022 as BetaToolComputerUse20241022, type BetaToolComputerUse20250124 as BetaToolComputerUse20250124, type BetaToolComputerUse20251124 as BetaToolComputerUse20251124, type BetaToolReferenceBlock as BetaToolReferenceBlock, type BetaToolReferenceBlockParam as BetaToolReferenceBlockParam, type BetaToolResultBlockParam as BetaToolResultBlockParam, type BetaToolResultContentBlockParam as BetaToolResultContentBlockParam, type BetaToolSearchToolBm25_20251119 as BetaToolSearchToolBm25_20251119, type BetaToolSearchToolRegex20251119 as BetaToolSearchToolRegex20251119, type BetaToolSearchToolResultBlock as BetaToolSearchToolResultBlock, type BetaToolSearchToolResultBlockParam as BetaToolSearchToolResultBlockParam, type BetaToolSearchToolResultError as BetaToolSearchToolResultError, type BetaToolSearchToolResultErrorParam as BetaToolSearchToolResultErrorParam, type BetaToolSearchToolSearchResultBlock as BetaToolSearchToolSearchResultBlock, type BetaToolSearchToolSearchResultBlockParam as BetaToolSearchToolSearchResultBlockParam, type BetaToolTextEditor20241022 as BetaToolTextEditor20241022, type BetaToolTextEditor20250124 as BetaToolTextEditor20250124, type BetaToolTextEditor20250429 as BetaToolTextEditor20250429, type BetaToolTextEditor20250728 as BetaToolTextEditor20250728, type BetaToolUnion as BetaToolUnion, type BetaToolUseBlock as BetaToolUseBlock, type BetaToolUseBlockParam as BetaToolUseBlockParam, type BetaToolUsesKeep as BetaToolUsesKeep, type BetaToolUsesTrigger as BetaToolUsesTrigger, type BetaURLImageSource as BetaURLImageSource, type BetaURLPDFSource as BetaURLPDFSource, type BetaUsage as BetaUsage, type BetaUserLocation as BetaUserLocation, type BetaWebFetchBlock as BetaWebFetchBlock, type BetaWebFetchBlockParam as BetaWebFetchBlockParam, type BetaWebFetchTool20250910 as BetaWebFetchTool20250910, type BetaWebFetchTool20260209 as BetaWebFetchTool20260209, type BetaWebFetchTool20260309 as BetaWebFetchTool20260309, type BetaWebFetchToolResultBlock as BetaWebFetchToolResultBlock, type BetaWebFetchToolResultBlockParam as BetaWebFetchToolResultBlockParam, type BetaWebFetchToolResultErrorBlock as BetaWebFetchToolResultErrorBlock, type BetaWebFetchToolResultErrorBlockParam as BetaWebFetchToolResultErrorBlockParam, type BetaWebFetchToolResultErrorCode as BetaWebFetchToolResultErrorCode, type BetaWebSearchResultBlock as BetaWebSearchResultBlock, type BetaWebSearchResultBlockParam as BetaWebSearchResultBlockParam, type BetaWebSearchTool20250305 as BetaWebSearchTool20250305, type BetaWebSearchTool20260209 as BetaWebSearchTool20260209, type BetaWebSearchToolRequestError as BetaWebSearchToolRequestError, type BetaWebSearchToolResultBlock as BetaWebSearchToolResultBlock, type BetaWebSearchToolResultBlockContent as BetaWebSearchToolResultBlockContent, type BetaWebSearchToolResultBlockParam as BetaWebSearchToolResultBlockParam, type BetaWebSearchToolResultBlockParamContent as BetaWebSearchToolResultBlockParamContent, type BetaWebSearchToolResultError as BetaWebSearchToolResultError, type BetaWebSearchToolResultErrorCode as BetaWebSearchToolResultErrorCode, type BetaBase64PDFBlock as BetaBase64PDFBlock, type MessageCreateParams as MessageCreateParams, type MessageCreateParamsNonStreaming as MessageCreateParamsNonStreaming, type MessageCreateParamsStreaming as MessageCreateParamsStreaming, type MessageCountTokensParams as MessageCountTokensParams, };
     export { type BetaToolRunnerParams, BetaToolRunner };
     export { ToolError };
     export { Batches as Batches, type BetaDeletedMessageBatch as BetaDeletedMessageBatch, type BetaMessageBatch as BetaMessageBatch, type BetaMessageBatchCanceledResult as BetaMessageBatchCanceledResult, type BetaMessageBatchErroredResult as BetaMessageBatchErroredResult, type BetaMessageBatchExpiredResult as BetaMessageBatchExpiredResult, type BetaMessageBatchIndividualResponse as BetaMessageBatchIndividualResponse, type BetaMessageBatchRequestCounts as BetaMessageBatchRequestCounts, type BetaMessageBatchResult as BetaMessageBatchResult, type BetaMessageBatchSucceededResult as BetaMessageBatchSucceededResult, type BetaMessageBatchesPage as BetaMessageBatchesPage, type BatchCreateParams as BatchCreateParams, type BatchRetrieveParams as BatchRetrieveParams, type BatchListParams as BatchListParams, type BatchDeleteParams as BatchDeleteParams, type BatchCancelParams as BatchCancelParams, type BatchResultsParams as BatchResultsParams, };

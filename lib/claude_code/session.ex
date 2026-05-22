@@ -428,6 +428,57 @@ defmodule ClaudeCode.Session do
   end
 
   # ============================================================================
+  # Context & Cost
+  # ============================================================================
+
+  @doc """
+  Queries whether the session has any background tasks running.
+
+  ## Options
+
+    * `:tool_use_id` - Optional tool use ID to scope the query
+
+  ## Examples
+
+      {:ok, true} = ClaudeCode.Session.background_tasks(session)
+      {:ok, false} = ClaudeCode.Session.background_tasks(session, tool_use_id: "toolu_xxx")
+  """
+  @spec background_tasks(session(), keyword()) :: {:ok, boolean()} | {:error, term()}
+  def background_tasks(session, opts \\ []) do
+    params = if opts[:tool_use_id], do: %{tool_use_id: opts[:tool_use_id]}, else: %{}
+    session |> GenServer.call({:control, :background_tasks, params}) |> to_result()
+  end
+
+  @doc """
+  Queries current context window usage statistics.
+
+  Returns a raw map with fields such as `categories`, `totalTokens`, `maxTokens`,
+  `percentage`, and others from the CLI response.
+
+  ## Examples
+
+      {:ok, usage} = ClaudeCode.Session.context_usage(session)
+      IO.puts(usage["percentage"])
+  """
+  @spec context_usage(session()) :: {:ok, map()} | {:error, term()}
+  def context_usage(session) do
+    session |> GenServer.call({:control, :get_context_usage, %{}}) |> to_result()
+  end
+
+  @doc """
+  Queries the formatted cost string for the current session.
+
+  ## Examples
+
+      {:ok, cost} = ClaudeCode.Session.session_cost(session)
+      IO.puts(cost)
+  """
+  @spec session_cost(session()) :: {:ok, term()} | {:error, term()}
+  def session_cost(session) do
+    session |> GenServer.call({:control, :get_session_cost, %{}}) |> to_result()
+  end
+
+  # ============================================================================
   # File Checkpointing
   # ============================================================================
 
@@ -466,6 +517,9 @@ defmodule ClaudeCode.Session do
 
   defp to_ok({:ok, _}), do: :ok
   defp to_ok({:error, _} = error), do: error
+
+  defp to_result({:ok, _} = ok), do: ok
+  defp to_result({:error, _} = error), do: error
 
   defp maybe_put_opt(map, key, opts) do
     case Keyword.get(opts, key) do

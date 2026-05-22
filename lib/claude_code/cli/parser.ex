@@ -19,6 +19,7 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Content.MCPToolResultBlock
   alias ClaudeCode.Content.MCPToolUseBlock
   alias ClaudeCode.Content.RedactedThinkingBlock
+  alias ClaudeCode.Content.SearchResultBlock
   alias ClaudeCode.Content.ServerToolResultBlock
   alias ClaudeCode.Content.ServerToolUseBlock
   alias ClaudeCode.Content.TextBlock
@@ -31,6 +32,7 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Message.PromptSuggestionMessage
   alias ClaudeCode.Message.RateLimitEvent
   alias ClaudeCode.Message.ResultMessage
+  alias ClaudeCode.Message.SystemMessage.ApiRetry
   alias ClaudeCode.Message.SystemMessage.CompactBoundary
   alias ClaudeCode.Message.SystemMessage.ElicitationComplete
   alias ClaudeCode.Message.SystemMessage.FilesPersisted
@@ -39,10 +41,17 @@ defmodule ClaudeCode.CLI.Parser do
   alias ClaudeCode.Message.SystemMessage.HookStarted
   alias ClaudeCode.Message.SystemMessage.Init
   alias ClaudeCode.Message.SystemMessage.LocalCommandOutput
+  alias ClaudeCode.Message.SystemMessage.MemoryRecall
+  alias ClaudeCode.Message.SystemMessage.MirrorError
+  alias ClaudeCode.Message.SystemMessage.Notification
+  alias ClaudeCode.Message.SystemMessage.PermissionDenied
+  alias ClaudeCode.Message.SystemMessage.PluginInstall
+  alias ClaudeCode.Message.SystemMessage.SessionStateChanged
   alias ClaudeCode.Message.SystemMessage.Status
   alias ClaudeCode.Message.SystemMessage.TaskNotification
   alias ClaudeCode.Message.SystemMessage.TaskProgress
   alias ClaudeCode.Message.SystemMessage.TaskStarted
+  alias ClaudeCode.Message.SystemMessage.TaskUpdated
   alias ClaudeCode.Message.ToolProgressMessage
   alias ClaudeCode.Message.ToolUseSummaryMessage
   alias ClaudeCode.Message.UserMessage
@@ -95,7 +104,15 @@ defmodule ClaudeCode.CLI.Parser do
                       "elicitation_complete" => &ElicitationComplete.new/1,
                       "task_started" => &TaskStarted.new/1,
                       "task_progress" => &TaskProgress.new/1,
-                      "task_notification" => &TaskNotification.new/1
+                      "task_notification" => &TaskNotification.new/1,
+                      "api_retry" => &ApiRetry.new/1,
+                      "task_updated" => &TaskUpdated.new/1,
+                      "session_state_changed" => &SessionStateChanged.new/1,
+                      "notification" => &Notification.new/1,
+                      "mirror_error" => &MirrorError.new/1,
+                      "permission_denied" => &PermissionDenied.new/1,
+                      "plugin_install" => &PluginInstall.new/1,
+                      "memory_recall" => &MemoryRecall.new/1
                     },
                     Application.compile_env(:claude_code, :system_parsers, %{})
                   )
@@ -220,10 +237,12 @@ defmodule ClaudeCode.CLI.Parser do
                        "bash_code_execution_tool_result" => &ServerToolResultBlock.new/1,
                        "text_editor_code_execution_tool_result" => &ServerToolResultBlock.new/1,
                        "tool_search_tool_result" => &ServerToolResultBlock.new/1,
+                       "advisor_tool_result" => &ServerToolResultBlock.new/1,
                        "mcp_tool_use" => &MCPToolUseBlock.new/1,
                        "mcp_tool_result" => &MCPToolResultBlock.new/1,
                        "image" => &ImageBlock.new/1,
                        "document" => &DocumentBlock.new/1,
+                       "search_result" => &SearchResultBlock.new/1,
                        "container_upload" => &ContainerUploadBlock.new/1,
                        "compaction" => &CompactionBlock.new/1
                      },

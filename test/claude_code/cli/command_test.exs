@@ -1222,5 +1222,49 @@ defmodule ClaudeCode.CLI.CommandTest do
       args = Command.to_cli_args(opts)
       refute "--can-use-tool" in args
     end
+
+    test "converts include_hook_events: true to --include-hook-events flag" do
+      opts = [include_hook_events: true]
+
+      args = Command.to_cli_args(opts)
+      assert "--include-hook-events" in args
+    end
+
+    test "omits --include-hook-events when include_hook_events: false" do
+      opts = [include_hook_events: false]
+
+      args = Command.to_cli_args(opts)
+      refute "--include-hook-events" in args
+    end
+
+    test "exclude_dynamic_prompt_sections is not passed as a CLI flag" do
+      opts = [exclude_dynamic_prompt_sections: true]
+
+      args = Command.to_cli_args(opts)
+      refute "--exclude-dynamic-prompt-sections" in args
+      refute "--exclude-dynamic-system-prompt-sections" in args
+    end
+
+    test "title is not passed as a CLI flag" do
+      opts = [title: "My Session"]
+
+      args = Command.to_cli_args(opts)
+      refute "--title" in args
+      refute "My Session" in args
+    end
+
+    test "forward_subagent_text is not passed as a CLI flag" do
+      opts = [forward_subagent_text: true]
+
+      args = Command.to_cli_args(opts)
+      refute "--forward-subagent-text" in args
+    end
+
+    test "tool_aliases is not passed as a CLI flag" do
+      opts = [tool_aliases: %{"Bash" => "mcp__workspace__bash"}]
+
+      args = Command.to_cli_args(opts)
+      refute "--tool-aliases" in args
+    end
   end
 end

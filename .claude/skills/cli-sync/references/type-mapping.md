@@ -28,6 +28,14 @@ Use this table when running `/cli-sync` to locate upstream type definitions for 
 | `Message.SystemMessage.TaskStarted` | `SDKTaskStartedMessage` | `TaskStartedMessage` | |
 | `Message.SystemMessage.TaskProgress` | `SDKTaskProgressMessage` | `TaskProgressMessage` | |
 | `Message.SystemMessage.TaskNotification` | `SDKTaskNotificationMessage` | `TaskNotificationMessage` | |
+| `Message.SystemMessage.ApiRetry` | `SDKAPIRetryMessage` | -- | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.TaskUpdated` | `SDKTaskUpdatedMessage` | -- | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.SessionStateChanged` | `SDKSessionStateChangedMessage` | -- | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.Notification` | `SDKNotificationMessage` | -- | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.MirrorError` | `SDKMirrorErrorMessage` | `MirrorErrorMessage` | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.PermissionDenied` | `SDKPermissionDeniedMessage` | -- | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.PluginInstall` | `SDKPluginInstallMessage` | -- | Added in CLI sync 2.1.148 |
+| `Message.SystemMessage.MemoryRecall` | `SDKMemoryRecallMessage` | -- | Added in CLI sync 2.1.148 |
 
 ## Content Block Types
 
@@ -50,6 +58,8 @@ in `captured/anthropic-api-messages.d.ts`.
 | `Content.DocumentBlock` | `BetaDocumentBlock` / `BetaRequestDocumentBlock` | -- | PDF/text documents |
 | `Content.ContainerUploadBlock` | `BetaContainerUploadBlock` | -- | Code execution container files |
 | `Content.CompactionBlock` | `BetaCompactionBlock` | -- | Context compaction summaries |
+| `Content.SearchResultBlock` | `BetaSearchResultBlockParam` | -- | Input-only; round-tripped user messages |
+| `Content.ServerToolResultBlock` | `BetaAdvisorToolResultBlock` | -- | Mapped to shared ServerToolResultBlock (added in CLI sync 2.1.148) |
 
 ## Other Structs
 
@@ -119,7 +129,10 @@ The control protocol uses bidirectional JSON messages over stdin/stdout. The CLI
 | `SDKControlMcpMessageRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal SDK MCP transport |
 | `SDKControlApplyFlagSettingsRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal settings plumbing |
 | `SDKControlGetSettingsRequest` | *(internal)* | -- | -- | **Skipped** — no public TS method; internal settings plumbing |
-| `SDKControlElicitationRequest` | *(inbound only)* | -- | -- | **Not implemented** — CLI asks SDK for user input |
+| `SDKControlBackgroundTasksRequest` | `Query.backgroundTasks()` | `Control.background_tasks_request/2` | `ClaudeCode.Session.background_tasks/2` | Implemented |
+| `SDKControlGetContextUsageRequest` | `Query.getContextUsage()` | `Control.get_context_usage_request/1` | `ClaudeCode.Session.context_usage/1` | Implemented |
+| `SDKControlGetSessionCostRequest` | `Query.getSessionCost()` | `Control.get_session_cost_request/1` | `ClaudeCode.Session.session_cost/1` | Implemented |
+| `SDKControlElicitationRequest` | *(inbound only)* | -- | -- | **Implemented** — routes to `:on_elicitation` callback |
 | `SDKControlMcpAuthenticateRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
 | `SDKControlMcpClearAuthRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
 | `SDKControlMcpOAuthCallbackUrlRequest` | *(no type def)* | -- | -- | **Deferred** — no type definition in TS SDK |
@@ -132,7 +145,7 @@ The control protocol uses bidirectional JSON messages over stdin/stdout. The CLI
 |---|---|---|
 | `SDKControlPermissionRequest` (`can_use_tool`) | Handled in `Adapter.Port` | Implemented |
 | `SDKHookCallbackRequest` | Handled in `Adapter.Port` | Implemented |
-| `SDKControlElicitationRequest` | Logged in `Adapter.Port` | **Partial** — logged, returns error; full callback not yet implemented |
+| `SDKControlElicitationRequest` | Routed in `Adapter.Port` via `ControlHandler.handle_elicitation/2` | **Implemented** — routes to `:on_elicitation` callback or proxy |
 | `SDKControlCancelRequest` | Handled in `Adapter.Port` | Implemented — cancels pending requests |
 
 ### Response Parsing
@@ -192,6 +205,9 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SandboxNetworkConfig` | `ClaudeCode.Sandbox.Network` |
 | `SandboxSettings` | `ClaudeCode.Sandbox` |
 | `SessionStartHookSpecificOutput` | `ClaudeCode.Hook.Output.SessionStart` |
+| `BetaAdvisorToolResultBlock` | `Content.ServerToolResultBlock` (mapped) |
+| `BetaSearchResultBlockParam` | `Content.SearchResultBlock` |
+| `SDKAPIRetryMessage` | `Message.SystemMessage.ApiRetry` |
 | `SDKAssistantMessage` | `Message.AssistantMessage` |
 | `SDKAuthStatusMessage` | `Message.AuthStatusMessage` |
 | `SDKCompactBoundaryMessage` | `Message.SystemMessage.CompactBoundary` |
@@ -202,16 +218,23 @@ Reverse index for quickly finding the Elixir module from an upstream type name.
 | `SDKHookResponseMessage` | `Message.SystemMessage.HookResponse` |
 | `SDKHookStartedMessage` | `Message.SystemMessage.HookStarted` |
 | `SDKLocalCommandOutputMessage` | `Message.SystemMessage.LocalCommandOutput` |
+| `SDKMemoryRecallMessage` | `Message.SystemMessage.MemoryRecall` |
+| `SDKMirrorErrorMessage` | `Message.SystemMessage.MirrorError` |
+| `SDKNotificationMessage` | `Message.SystemMessage.Notification` |
 | `SDKPartialAssistantMessage` | `Message.PartialAssistantMessage` |
 | `SDKPermissionDenial` | `ClaudeCode.Session.PermissionDenial` |
+| `SDKPermissionDeniedMessage` | `Message.SystemMessage.PermissionDenied` |
+| `SDKPluginInstallMessage` | `Message.SystemMessage.PluginInstall` |
 | `SDKPromptSuggestionMessage` | `Message.PromptSuggestionMessage` |
 | `SDKRateLimitEvent` | `Message.RateLimitEvent` |
 | `SDKResultMessage` | `Message.ResultMessage` |
+| `SDKSessionStateChangedMessage` | `Message.SystemMessage.SessionStateChanged` |
 | `SDKStatusMessage` | `Message.SystemMessage.Status` |
 | `SDKSystemMessage` | `Message.SystemMessage.Init` |
 | `SDKTaskNotificationMessage` | `Message.SystemMessage.TaskNotification` |
 | `SDKTaskProgressMessage` | `Message.SystemMessage.TaskProgress` |
 | `SDKTaskStartedMessage` | `Message.SystemMessage.TaskStarted` |
+| `SDKTaskUpdatedMessage` | `Message.SystemMessage.TaskUpdated` |
 | `SDKToolProgressMessage` | `Message.ToolProgressMessage` |
 | `SDKToolUseSummaryMessage` | `Message.ToolUseSummaryMessage` |
 | `SDKUserMessage` | `Message.UserMessage` |

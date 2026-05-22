@@ -238,6 +238,63 @@ defmodule ClaudeCode.CLI.ControlTest do
     end
   end
 
+  describe "background_tasks_request/2" do
+    test "builds background_tasks request JSON without tool_use_id" do
+      json = Control.background_tasks_request("req_11_abc")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_11_abc"
+      assert decoded["request"]["subtype"] == "background_tasks"
+      refute Map.has_key?(decoded["request"], "tool_use_id")
+    end
+
+    test "builds background_tasks request JSON with tool_use_id" do
+      json = Control.background_tasks_request("req_11_abc", tool_use_id: "toolu_xxx")
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["subtype"] == "background_tasks"
+      assert decoded["request"]["tool_use_id"] == "toolu_xxx"
+    end
+
+    test "produces single-line JSON" do
+      json = Control.background_tasks_request("req_11_abc")
+      refute String.contains?(json, "\n")
+    end
+  end
+
+  describe "get_context_usage_request/1" do
+    test "builds get_context_usage request JSON" do
+      json = Control.get_context_usage_request("req_12_def")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_12_def"
+      assert decoded["request"]["subtype"] == "get_context_usage"
+    end
+
+    test "produces single-line JSON" do
+      json = Control.get_context_usage_request("req_12_def")
+      refute String.contains?(json, "\n")
+    end
+  end
+
+  describe "get_session_cost_request/1" do
+    test "builds get_session_cost request JSON" do
+      json = Control.get_session_cost_request("req_13_ghi")
+      decoded = Jason.decode!(json)
+
+      assert decoded["type"] == "control_request"
+      assert decoded["request_id"] == "req_13_ghi"
+      assert decoded["request"]["subtype"] == "get_session_cost"
+    end
+
+    test "produces single-line JSON" do
+      json = Control.get_session_cost_request("req_13_ghi")
+      refute String.contains?(json, "\n")
+    end
+  end
+
   describe "success_response/2" do
     test "builds success control response JSON" do
       json = Control.success_response("req_1_abc", %{status: "ok"})
@@ -322,6 +379,82 @@ defmodule ClaudeCode.CLI.ControlTest do
 
       assert {:error, "req_3_ghi", "Unknown control response subtype: unknown"} =
                Control.parse_control_response(msg)
+    end
+  end
+
+  describe "initialize_request/5 extra_opts" do
+    test "includes excludeDynamicSections when exclude_dynamic_prompt_sections is true" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, exclude_dynamic_prompt_sections: true)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["excludeDynamicSections"] == true
+    end
+
+    test "omits excludeDynamicSections when exclude_dynamic_prompt_sections is nil" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, [])
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded["request"], "excludeDynamicSections")
+    end
+
+    test "includes title when provided" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, title: "My Custom Session")
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["title"] == "My Custom Session"
+    end
+
+    test "omits title when not provided" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, [])
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded["request"], "title")
+    end
+
+    test "includes forwardSubagentText when forward_subagent_text is true" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, forward_subagent_text: true)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["forwardSubagentText"] == true
+    end
+
+    test "omits forwardSubagentText when forward_subagent_text is nil" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, [])
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded["request"], "forwardSubagentText")
+    end
+
+    test "includes toolAliases when provided" do
+      aliases = %{"Bash" => "mcp__workspace__bash"}
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, tool_aliases: aliases)
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["toolAliases"] == aliases
+    end
+
+    test "omits toolAliases when not provided" do
+      json = Control.initialize_request("req_1_abc", nil, nil, nil, [])
+      decoded = Jason.decode!(json)
+
+      refute Map.has_key?(decoded["request"], "toolAliases")
+    end
+
+    test "includes multiple extra_opts together" do
+      json =
+        Control.initialize_request("req_1_abc", nil, nil, nil,
+          exclude_dynamic_prompt_sections: true,
+          title: "Test Session",
+          forward_subagent_text: true,
+          tool_aliases: %{"Edit" => "mcp__workspace__edit"}
+        )
+
+      decoded = Jason.decode!(json)
+
+      assert decoded["request"]["excludeDynamicSections"] == true
+      assert decoded["request"]["title"] == "Test Session"
+      assert decoded["request"]["forwardSubagentText"] == true
+      assert decoded["request"]["toolAliases"] == %{"Edit" => "mcp__workspace__edit"}
     end
   end
 end

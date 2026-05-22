@@ -3,7 +3,7 @@ defmodule ClaudeCode.Hook.Registry do
 
   @type t :: %__MODULE__{}
 
-  defstruct callbacks: %{}, targets: %{}, can_use_tool: nil
+  defstruct callbacks: %{}, targets: %{}, can_use_tool: nil, on_elicitation: nil
 
   @doc """
   Builds a registry from the `:hooks` map.
@@ -11,12 +11,16 @@ defmodule ClaudeCode.Hook.Registry do
   Returns `{registry, wire_format_hooks}` where `wire_format_hooks` is
   the map to include in the initialize handshake (or nil if no hooks).
   """
-  @spec new(map() | nil, term()) :: {%__MODULE__{}, map() | nil}
-  def new(hooks_map, can_use_tool \\ nil)
-  def new(nil, can_use_tool), do: {%__MODULE__{can_use_tool: can_use_tool}, nil}
-  def new(hooks_map, can_use_tool) when hooks_map == %{}, do: {%__MODULE__{can_use_tool: can_use_tool}, nil}
+  @spec new(map() | nil, term(), term()) :: {%__MODULE__{}, map() | nil}
+  def new(hooks_map, can_use_tool \\ nil, on_elicitation \\ nil)
 
-  def new(hooks_map, can_use_tool) when is_map(hooks_map) do
+  def new(nil, can_use_tool, on_elicitation),
+    do: {%__MODULE__{can_use_tool: can_use_tool, on_elicitation: on_elicitation}, nil}
+
+  def new(hooks_map, can_use_tool, on_elicitation) when hooks_map == %{},
+    do: {%__MODULE__{can_use_tool: can_use_tool, on_elicitation: on_elicitation}, nil}
+
+  def new(hooks_map, can_use_tool, on_elicitation) when is_map(hooks_map) do
     state = %{callbacks: %{}, targets: %{}, counter: 0}
 
     {wire_format, state} =
@@ -31,7 +35,8 @@ defmodule ClaudeCode.Hook.Registry do
     {%__MODULE__{
        callbacks: state.callbacks,
        targets: state.targets,
-       can_use_tool: can_use_tool
+       can_use_tool: can_use_tool,
+       on_elicitation: on_elicitation
      }, wire}
   end
 
@@ -65,7 +70,12 @@ defmodule ClaudeCode.Hook.Registry do
       Enum.split_with(registry.targets, fn {_id, where} -> where == :local end)
 
     {
-      %__MODULE__{callbacks: Map.new(local_cbs), targets: Map.new(local_tgts), can_use_tool: registry.can_use_tool},
+      %__MODULE__{
+        callbacks: Map.new(local_cbs),
+        targets: Map.new(local_tgts),
+        can_use_tool: registry.can_use_tool,
+        on_elicitation: registry.on_elicitation
+      },
       %__MODULE__{callbacks: Map.new(remote_cbs), targets: Map.new(remote_tgts)}
     }
   end

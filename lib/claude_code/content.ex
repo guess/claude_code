@@ -14,6 +14,7 @@ defmodule ClaudeCode.Content do
   alias ClaudeCode.Content.MCPToolResultBlock
   alias ClaudeCode.Content.MCPToolUseBlock
   alias ClaudeCode.Content.RedactedThinkingBlock
+  alias ClaudeCode.Content.SearchResultBlock
   alias ClaudeCode.Content.ServerToolResultBlock
   alias ClaudeCode.Content.ServerToolUseBlock
   alias ClaudeCode.Content.TextBlock
@@ -33,6 +34,7 @@ defmodule ClaudeCode.Content do
           | MCPToolResultBlock.t()
           | ImageBlock.t()
           | DocumentBlock.t()
+          | SearchResultBlock.t()
           | ContainerUploadBlock.t()
           | CompactionBlock.t()
 
@@ -51,6 +53,7 @@ defmodule ClaudeCode.Content do
   def content?(%MCPToolResultBlock{}), do: true
   def content?(%ImageBlock{}), do: true
   def content?(%DocumentBlock{}), do: true
+  def content?(%SearchResultBlock{}), do: true
   def content?(%ContainerUploadBlock{}), do: true
   def content?(%CompactionBlock{}), do: true
   def content?(_), do: false
@@ -112,6 +115,7 @@ defmodule ClaudeCode.Content do
           | :mcp_tool_result
           | :image
           | :document
+          | :search_result
           | :container_upload
           | :compaction
   def content_type(%TextBlock{type: type}), do: type
@@ -125,6 +129,7 @@ defmodule ClaudeCode.Content do
   def content_type(%MCPToolResultBlock{type: type}), do: type
   def content_type(%ImageBlock{type: type}), do: type
   def content_type(%DocumentBlock{type: type}), do: type
+  def content_type(%SearchResultBlock{type: type}), do: type
   def content_type(%ContainerUploadBlock{type: type}), do: type
   def content_type(%CompactionBlock{type: type}), do: type
 end
