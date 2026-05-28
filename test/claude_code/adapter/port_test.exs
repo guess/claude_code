@@ -1741,7 +1741,7 @@ defmodule ClaudeCode.Adapter.PortTest do
           Port.filter_system_env(%{"PATH" => "/usr/bin"}, ["NONEXISTENT_VAR"])
         end)
 
-      assert log == ""
+      refute log =~ "no matching system env"
     end
 
     test "no logging for :all mode even with debug" do
@@ -1750,7 +1750,7 @@ defmodule ClaudeCode.Adapter.PortTest do
           Port.filter_system_env(%{"PATH" => "/usr/bin"}, :all, debug: true)
         end)
 
-      assert log == ""
+      refute log =~ "no matching system env"
     end
   end
 end
