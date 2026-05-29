@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`ClaudeCode.Message.SystemMessage.Generic`** — a fallback struct for system-message subtypes the SDK does not model with a dedicated struct yet. `ClaudeCode.CLI.Parser` now returns a `Generic` (carrying the raw `subtype` and full `data` payload) for unknown system subtypes instead of failing with `{:error, {:unknown_system_subtype, _}}`. This keeps the SDK forward-compatible with new CLI system messages (e.g. `thinking_tokens`) — consumers receive the event with its data instead of it being dropped and logged by `ClaudeCode.Session.Server` as a parse failure on every message.
+
 ## [0.36.5] - 2026-05-28 | CC 2.1.76
 
 ### Fixed

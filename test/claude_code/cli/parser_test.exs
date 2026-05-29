@@ -22,6 +22,7 @@ defmodule ClaudeCode.CLI.ParserTest do
   alias ClaudeCode.Message.SystemMessage.CompactBoundary
   alias ClaudeCode.Message.SystemMessage.ElicitationComplete
   alias ClaudeCode.Message.SystemMessage.FilesPersisted
+  alias ClaudeCode.Message.SystemMessage.Generic
   alias ClaudeCode.Message.SystemMessage.HookProgress
   alias ClaudeCode.Message.SystemMessage.HookResponse
   alias ClaudeCode.Message.SystemMessage.HookStarted
@@ -383,7 +384,7 @@ defmodule ClaudeCode.CLI.ParserTest do
               }} = Parser.parse_message(data)
     end
 
-    test "returns error for unknown system subtypes" do
+    test "parses unknown system subtypes into a Generic message, preserving payload" do
       data = %{
         "type" => "system",
         "subtype" => "some_future_subtype",
@@ -392,7 +393,26 @@ defmodule ClaudeCode.CLI.ParserTest do
         "custom_field" => "custom_value"
       }
 
-      assert {:error, {:unknown_system_subtype, "some_future_subtype"}} = Parser.parse_message(data)
+      assert {:ok,
+              %Generic{
+                type: :system,
+                subtype: "some_future_subtype",
+                session_id: "session-1",
+                uuid: "event-uuid",
+                data: %{"custom_field" => "custom_value"}
+              }} = Parser.parse_message(data)
+    end
+
+    test "parses a thinking_tokens system message into a Generic message" do
+      data = %{
+        "type" => "system",
+        "subtype" => "thinking_tokens",
+        "session_id" => "session-1",
+        "max_thinking_tokens" => 10_000
+      }
+
+      assert {:ok, %Generic{subtype: "thinking_tokens", data: %{"max_thinking_tokens" => 10_000}}} =
+               Parser.parse_message(data)
     end
 
     test "parses rate_limit_event messages" do
