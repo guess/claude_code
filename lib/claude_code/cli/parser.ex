@@ -171,7 +171,6 @@ defmodule ClaudeCode.CLI.Parser do
   def parse_messages(messages) when is_list(messages) do
     reduce_parsed(messages, &parse_message/1, [
       :unknown_message_type,
-      :unknown_system_subtype,
       :unknown_event_type
     ])
   end

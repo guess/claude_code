@@ -11,6 +11,7 @@ defmodule ClaudeCode.Message.SystemMessage do
   alias __MODULE__.CompactBoundary
   alias __MODULE__.ElicitationComplete
   alias __MODULE__.FilesPersisted
+  alias __MODULE__.Generic
   alias __MODULE__.HookProgress
   alias __MODULE__.HookResponse
   alias __MODULE__.HookStarted
@@ -34,6 +35,7 @@ defmodule ClaudeCode.Message.SystemMessage do
           | TaskStarted.t()
           | TaskProgress.t()
           | TaskNotification.t()
+          | Generic.t()
 
   @doc """
   Checks if a value is any type of system message.
@@ -51,5 +53,6 @@ defmodule ClaudeCode.Message.SystemMessage do
   def type?(%TaskStarted{}), do: true
   def type?(%TaskProgress{}), do: true
   def type?(%TaskNotification{}), do: true
+  def type?(%Generic{type: :system}), do: true
   def type?(_), do: false
 end

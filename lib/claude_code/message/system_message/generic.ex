@@ -62,7 +62,14 @@ defmodule ClaudeCode.Message.SystemMessage.Generic do
       ...>   "session_id" => "session-1",
       ...>   "max_thinking_tokens" => 10_000
       ...> })
-      {:ok, %Generic{subtype: "thinking_tokens", data: %{"max_thinking_tokens" => 10_000}}}
+      {:ok,
+       %Generic{
+         type: :system,
+         subtype: "thinking_tokens",
+         session_id: "session-1",
+         uuid: nil,
+         data: %{"max_thinking_tokens" => 10_000}
+       }}
   """
   @spec new(map()) :: {:ok, t()} | {:error, atom()}
   def new(%{"type" => "system", "subtype" => subtype} = json) when is_binary(subtype) do
