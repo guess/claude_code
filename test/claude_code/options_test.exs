@@ -67,6 +67,22 @@ defmodule ClaudeCode.OptionsTest do
       assert validated[:include_partial_messages] == false
     end
 
+    test "validates exclude_dynamic_system_prompt_sections option" do
+      opts = [exclude_dynamic_system_prompt_sections: true]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:exclude_dynamic_system_prompt_sections] == true
+
+      opts = [exclude_dynamic_system_prompt_sections: false]
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:exclude_dynamic_system_prompt_sections] == false
+    end
+
+    test "defaults exclude_dynamic_system_prompt_sections to false" do
+      opts = []
+      assert {:ok, validated} = Options.validate_session_options(opts)
+      assert validated[:exclude_dynamic_system_prompt_sections] == false
+    end
+
     test "validates control_timeout option" do
       assert {:ok, validated} = Options.validate_session_options(control_timeout: 60_000)
       assert validated[:control_timeout] == 60_000

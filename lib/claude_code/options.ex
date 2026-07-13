@@ -106,12 +106,13 @@ defmodule ClaudeCode.Options do
 
   ### Output & Streaming
 
-  | Option                     | Type    | Default | Description |
-  | -------------------------- | ------- | ------- | ----------- |
-  | `output_format`            | map     | -       | Structured output: `%{type: :json_schema, schema: schema_map}`. See [Structured Outputs](structured-outputs.md) |
-  | `include_partial_messages` | boolean | false   | Include partial message chunks for character-level streaming. See [Streaming Output](streaming-output.md) |
-  | `replay_user_messages`     | boolean | false   | Re-emit user messages from stdin back on stdout for acknowledgment |
-  | `prompt_suggestions`       | boolean | false   | Emit predicted next user prompts after each turn |
+  | Option                                    | Type    | Default | Description |
+  | ----------------------------------------- | ------- | ------- | ----------- |
+  | `output_format`                           | map     | -       | Structured output: `%{type: :json_schema, schema: schema_map}`. See [Structured Outputs](structured-outputs.md) |
+  | `include_partial_messages`                | boolean | false   | Include partial message chunks for character-level streaming. See [Streaming Output](streaming-output.md) |
+  | `replay_user_messages`                    | boolean | false   | Re-emit user messages from stdin back on stdout for acknowledgment |
+  | `prompt_suggestions`                      | boolean | false   | Emit predicted next user prompts after each turn |
+  | `exclude_dynamic_system_prompt_sections`  | boolean | false   | Move per-machine sections (cwd, env info, memory paths, git status) out of the system prompt and into the first user message. Improves cross-session prompt-cache reuse. Only applies with the default system prompt (ignored with `:system_prompt`). |
 
   ### Settings & Plugins
 
@@ -432,6 +433,15 @@ defmodule ClaudeCode.Options do
       type: :boolean,
       default: false,
       doc: "Include partial message chunks as they arrive for character-level streaming"
+    ],
+    exclude_dynamic_system_prompt_sections: [
+      type: :boolean,
+      default: false,
+      doc:
+        "Move per-machine sections (cwd, env info, memory paths, git status) out of the " <>
+          "system prompt and into the first user message. Improves prompt-cache reuse across " <>
+          "sessions that share a project. Only applies with the default system prompt " <>
+          "(ignored when :system_prompt is set)."
     ],
     replay_user_messages: [
       type: :boolean,

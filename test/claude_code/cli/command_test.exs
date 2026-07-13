@@ -637,6 +637,22 @@ defmodule ClaudeCode.CLI.CommandTest do
       refute "--include-partial-messages" in args
     end
 
+    test "converts exclude_dynamic_system_prompt_sections true to --exclude-dynamic-system-prompt-sections" do
+      opts = [exclude_dynamic_system_prompt_sections: true]
+
+      args = Command.to_cli_args(opts)
+      assert "--exclude-dynamic-system-prompt-sections" in args
+      # Boolean flag should not have a value
+      refute "true" in args
+    end
+
+    test "does not add flag when exclude_dynamic_system_prompt_sections is false" do
+      opts = [exclude_dynamic_system_prompt_sections: false]
+
+      args = Command.to_cli_args(opts)
+      refute "--exclude-dynamic-system-prompt-sections" in args
+    end
+
     test "combines include_partial_messages with other options" do
       opts = [
         include_partial_messages: true,

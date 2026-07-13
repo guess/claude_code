@@ -269,6 +269,12 @@ defmodule ClaudeCode.CLI.Command do
 
   defp convert_option(:include_partial_messages, false), do: nil
 
+  defp convert_option(:exclude_dynamic_system_prompt_sections, true) do
+    ["--exclude-dynamic-system-prompt-sections"]
+  end
+
+  defp convert_option(:exclude_dynamic_system_prompt_sections, false), do: nil
+
   defp convert_option(:replay_user_messages, true) do
     ["--replay-user-messages"]
   end
